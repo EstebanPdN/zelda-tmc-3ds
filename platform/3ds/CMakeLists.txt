@@ -81,6 +81,7 @@ add_executable(tmc-3ds
     source/port_audio_3ds.c
     source/port_config_3ds.c
     source/port_rando_3ds.c
+    source/port_russian_3ds.c
     source/port_asset_stubs_3ds.c
     source/port_optional_stubs_3ds.c
 )
@@ -135,6 +136,17 @@ file(MAKE_DIRECTORY "${TMC_ROMFS}")
 configure_file(
     "${CMAKE_CURRENT_LIST_DIR}/romfs/splash.rgb565"
     "${TMC_ROMFS}/splash.rgb565"
+    COPYONLY
+)
+file(MAKE_DIRECTORY "${TMC_ROMFS}/ru")
+configure_file(
+    "${CMAKE_CURRENT_LIST_DIR}/romfs/ru/russian.bin"
+    "${TMC_ROMFS}/ru/russian.bin"
+    COPYONLY
+)
+configure_file(
+    "${CMAKE_CURRENT_LIST_DIR}/romfs/ru/russian_font.bin"
+    "${TMC_ROMFS}/ru/russian_font.bin"
     COPYONLY
 )
 

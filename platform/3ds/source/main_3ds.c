@@ -4,6 +4,7 @@
 #include "port_ppu.h"
 #include "port_rom.h"
 #include "port_runtime_config.h"
+#include "port_russian_3ds.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -118,6 +119,9 @@ int main(int argc, char** argv) {
     printf("Loading ROM and tables...\n");
     Port_Config_Load("tmc3ds.ini");
     Port_LoadRom(romPath);
+    if (!Port3DS_LoadRussianLocale() && gRomRegion == ROM_REGION_USA) {
+        printf("Warning: Russian localization is unavailable; using ROM English text.\n");
+    }
     Port_PPU_Init(NULL);
     if (!Port_Audio_Init()) {
         printf("Warning: audio is unavailable.\n");

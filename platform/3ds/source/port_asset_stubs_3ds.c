@@ -1,5 +1,6 @@
 #include "port_asset_loader.h"
 #include "port_rom.h"
+#include "port_russian_3ds.h"
 
 #include <stdint.h>
 
@@ -25,8 +26,12 @@ void Port_LogTextLookup(u32 langIndex, u32 textIndex) { (void)langIndex; (void)t
 bool32 Port_RefreshAreaDataFromAssets(u32 area) { (void)area; return 0; }
 bool32 Port_IsAreaTablePtrFromAssets(u32 area, const void* ptr) { (void)area; (void)ptr; return 0; }
 bool32 Port_IsRoomHeaderPtrReadable(const void* ptr) { return ptr != 0; }
-bool32 Port_IsLoadedAssetBytes(const void* ptr, u32 size) { return IsRomBufferRange(ptr, size); }
+bool32 Port_IsLoadedAssetBytes(const void* ptr, u32 size) {
+    return IsRomBufferRange(ptr, size) || Port3DS_IsRussianAssetBytes(ptr, size);
+}
 const u8* Port_LoadedAssetBytesEnd(const void* ptr) {
+    const u8* russianEnd = Port3DS_RussianAssetEnd(ptr);
+    if (russianEnd) return russianEnd;
     return IsRomBufferRange(ptr, 0) ? gRomData + gRomSize : 0;
 }
 const u8* Port_GetMapAssetDataByIndex(u32 assetIndex, u32* size) { (void)assetIndex; if (size) *size = 0; return 0; }

@@ -2,10 +2,14 @@
 
 #include "global.h"
 #include "port_rom.h"
+#ifdef TMC_3DS
+#include "port_russian_3ds.h"
+#endif
 
 // 0x08002724: Unpack 4bpp font data (64 bytes) into per-pixel bytes (128 bytes)
 void UnpackTextNibbles(void* src_ptr, u8* dest) {
     const u8* src = (const u8*)src_ptr;
+    u8* const destStart = dest;
 #ifdef PC_PORT
     if (src_ptr == NULL) {
         fprintf(stderr, "[TEXT] UnpackTextNibbles: src_ptr is NULL!\n");
@@ -15,7 +19,11 @@ void UnpackTextNibbles(void* src_ptr, u8* dest) {
         uintptr_t srcAddr = (uintptr_t)src;
         uintptr_t romStart = (uintptr_t)gRomData;
         uintptr_t romEnd = romStart + (uintptr_t)gRomSize;
-        if (!(srcAddr >= romStart && srcAddr < romEnd)) {
+        if (!(srcAddr >= romStart && srcAddr < romEnd)
+#ifdef TMC_3DS
+            && !Port3DS_IsRussianFontGlyph(src_ptr)
+#endif
+        ) {
             fprintf(stderr, "[TEXT] UnpackTextNibbles: src=%p outside ROM [%p..%p)\n", (void*)src, (void*)gRomData,
                     (void*)(gRomData + gRomSize));
         }
@@ -37,6 +45,14 @@ void UnpackTextNibbles(void* src_ptr, u8* dest) {
         src += 4;
         dest += 8;
     }
+#ifdef TMC_3DS
+    /* Russian glyph byte 0 stores an invisible width marker in its first
+     * 8 nibbles. sub_0805F7A0 reads that marker before this function; blank
+     * the decoded first row so the marker itself is never drawn. */
+    if (Port3DS_IsRussianFontGlyph(src_ptr)) {
+        for (int i = 0; i < 8; ++i) destStart[i] = 0x0F;
+    }
+#endif
 }
 
 // 0x080026C4: Render one glyph column into a 4bpp tile buffer

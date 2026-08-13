@@ -422,7 +422,7 @@ void Port_Config_SetTurboMultiplier(unsigned multiplier) {
 
 int Port_Config_Get3DSAspectRatio(void) { return (int)sAspectRatio; }
 const char* Port_Config_Get3DSAspectRatioName(void) {
-    static const char* const names[PORT_3DS_ASPECT_COUNT] = { "WIDE", "ORIGINAL", "STRETCH" };
+    static const char* const names[PORT_3DS_ASPECT_COUNT] = { "ШИРОКИЙ", "ОРИГИНАЛ", "РАСТЯНУТЫЙ" };
     return names[sAspectRatio];
 }
 void Port_Config_Cycle3DSAspectRatio(void) {
@@ -431,7 +431,7 @@ void Port_Config_Cycle3DSAspectRatio(void) {
 }
 int Port_Config_Get3DSDisplayStyle(void) { return (int)sDisplayStyle; }
 const char* Port_Config_Get3DSDisplayStyleName(void) {
-    static const char* const names[PORT_3DS_DISPLAY_COUNT] = { "PIXEL PERFECT", "SCALED", "BLUR" };
+    static const char* const names[PORT_3DS_DISPLAY_COUNT] = { "ПИКСЕЛЬНЫЙ", "МАСШТАБ", "РАЗМЫТИЕ" };
     return names[sDisplayStyle];
 }
 void Port_Config_Cycle3DSDisplayStyle(void) {

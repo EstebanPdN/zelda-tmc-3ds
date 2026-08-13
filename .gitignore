@@ -180,3 +180,9 @@ tmc3ds.log
 *.jks
 *.keystore
 keystore.properties
+
+# 3DS Russian localization build helper
+!platform/3ds/tools/pack_russian.py
+
+# Repository-local 3DS packaging tools
+/.3ds-tools/

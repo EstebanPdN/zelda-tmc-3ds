@@ -1848,10 +1848,86 @@ static void GlyphMetrics(const u8* glyph, int32_t* outStart, int32_t* outWidth) 
 /* The USA/EU script is plain ASCII in bank 0 (charmap.txt); anything the
  * panel never uses falls back to '?' so a stray string cannot index out
  * of the 256-glyph bank. */
-static const u8* GlyphData(char c) {
-    u8 code = (u8)c;
-    if (code < 0x20) {
-        code = '?';
+static int DecodeUtf8One(const char* s, unsigned* outCp) {
+    const unsigned char c0 = (unsigned char)s[0];
+    if (c0 < 0x80u) {
+        *outCp = c0;
+        return 1;
+    }
+    if ((c0 & 0xE0u) == 0xC0u) {
+        const unsigned char c1 = (unsigned char)s[1];
+        if ((c1 & 0xC0u) == 0x80u) {
+            *outCp = ((unsigned)(c0 & 0x1Fu) << 6) | (unsigned)(c1 & 0x3Fu);
+            return 2;
+        }
+    }
+    if ((c0 & 0xF0u) == 0xE0u) {
+        const unsigned char c1 = (unsigned char)s[1];
+        const unsigned char c2 = (unsigned char)s[2];
+        if (((c1 & 0xC0u) == 0x80u) && ((c2 & 0xC0u) == 0x80u)) {
+            *outCp = ((unsigned)(c0 & 0x0Fu) << 12) | ((unsigned)(c1 & 0x3Fu) << 6) |
+                     (unsigned)(c2 & 0x3Fu);
+            return 3;
+        }
+    }
+    *outCp = c0;
+    return 1;
+}
+
+static u8 MapPanelCodepointToGlyph(unsigned cp) {
+    if (cp < 0x20u) {
+        return (u8)'?';
+    }
+    if (cp <= 0x7Eu) {
+        return (u8)cp;
+    }
+
+    /* Matches platform/3ds/tools/pack_russian.py:
+     * UPPER + LOWER + EXTRA => bytes 0x80..0xC3, drawn from glyph bank 2. */
+    if (cp >= 0x0410u && cp <= 0x0415u) return (u8)(0x80u + (cp - 0x0410u)); /* А..Е */
+    if (cp == 0x0401u) return 0x86u;                                            /* Ё */
+    if (cp >= 0x0416u && cp <= 0x042Fu) return (u8)(0x87u + (cp - 0x0416u)); /* Ж..Я */
+    if (cp >= 0x0430u && cp <= 0x0435u) return (u8)(0xA0u + (cp - 0x0430u)); /* а..е */
+    if (cp == 0x0451u) return 0xA6u;                                            /* ё */
+    if (cp >= 0x0436u && cp <= 0x044Fu) return (u8)(0xA7u + (cp - 0x0436u)); /* ж..я */
+    if (cp == 0x00ABu) return 0xC0u;                                            /* « */
+    if (cp == 0x00BBu) return 0xC1u;                                            /* » */
+    if (cp == 0x2014u) return 0xC2u;                                            /* — */
+    if (cp == 0x2116u) return 0xC3u;                                            /* № */
+
+    return (u8)'?';
+}
+
+static int LabelNeedsAsciiFallback(const char* str) {
+    if (str == NULL) return 0;
+    for (; *str; ++str) {
+        if ((unsigned char)*str >= 0x80u) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static const u8* GlyphDataUtf8(const char** pstr) {
+    unsigned cp = 0;
+    int used = 1;
+    u8 code;
+    const u8* bank;
+    if (pstr == NULL || *pstr == NULL || **pstr == '\0') {
+        return sFontGlyphs + (size_t)'?' * 64u;
+    }
+    used = DecodeUtf8One(*pstr, &cp);
+    code = MapPanelCodepointToGlyph(cp);
+    *pstr += used;
+
+    if (code >= 0x80u) {
+        /* The Russian localization installs its 128-glyph bank in slot 2.
+         * Codes 0x80..0xFF index that bank exactly like src/text.c. */
+        bank = (const u8*)gUnk_08109248[2];
+        if (bank != NULL) {
+            return bank + (size_t)(code - 0x80u) * 64u;
+        }
+        code = (u8)'?';
     }
     return sFontGlyphs + (size_t)code * 64u;
 }
@@ -1861,8 +1937,9 @@ int32_t Port_SecondScreenTheme_TextWidth(const char* str, int32_t scale) {
     if (!sBuilt || !sFontOk || str == NULL) {
         return 0;
     }
-    for (; *str; str++) {
-        GlyphMetrics(GlyphData(*str), &gs, &gw);
+    for (; *str;) {
+        const u8* glyph = GlyphDataUtf8(&str);
+        GlyphMetrics(glyph, &gs, &gw);
         w += gw;
     }
     return w * (scale < 1 ? 1 : scale);
@@ -1885,8 +1962,8 @@ int32_t Port_SecondScreenTheme_DrawText(uint32_t* pixels, int32_t bufW, int32_t 
     lutE = &sTextLut[style][0];
     lutO = &sTextLut[style][16];
 
-    for (; *str; str++) {
-        const u8* glyph = GlyphData(*str);
+    for (; *str;) {
+        const u8* glyph = GlyphDataUtf8(&str);
         int32_t gs, gw, col, row2, ex, ey;
         GlyphMetrics(glyph, &gs, &gw);
         /* Rows 1..15 are ink (row 0 is the metrics row); columns clip to
@@ -2111,6 +2188,9 @@ int Port_SecondScreenTheme_DrawMenuButton(uint32_t* pixels, int32_t bufW, int32_
     int32_t ls, textW = 0, tx, ty;
 
     if (!sBuilt || !sBtnOk || pixels == NULL || w <= 0 || h <= 0) {
+        return 0;
+    }
+    if (LabelNeedsAsciiFallback(label)) {
         return 0;
     }
 

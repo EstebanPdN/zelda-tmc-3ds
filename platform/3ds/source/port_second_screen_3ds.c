@@ -86,7 +86,7 @@ static void ResetIdleOnlyState(void) {
 static void DrawIdleBack(const SSurf* surface, float u, int32_t ts) {
     float x0, y0, x1, y1;
     IdleBackRect(surface->w, surface->h, &x0, &y0, &x1, &y1);
-    DrawMenuButton(surface, x0, y0, x1, y1, "BACK", 0, 0, u, ts);
+    DrawMenuButton(surface, x0, y0, x1, y1, "НАЗАД", 0, 0, u, ts);
 }
 
 void Port_SecondScreen_3DS_PaintInto(uint32_t* pixels, int width, int height, int strideInPixels,

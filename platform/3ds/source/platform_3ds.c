@@ -457,7 +457,7 @@ void Platform3DS_WaitForVBlank(void) {
 void Platform3DS_ShowFatal(const char* title, const char* message) {
     consoleInit(GFX_BOTTOM, NULL);
     consoleClear();
-    printf("%s\n\n%s\n\nPress START to exit.\n", title ? title : "Error", message ? message : "");
+    printf("%s\n\n%s\n\nНажмите START для выхода.\n", title ? title : "Ошибка", message ? message : "");
     while (aptMainLoop()) {
         hidScanInput();
         if (hidKeysDown() & KEY_START) break;

@@ -63,6 +63,7 @@
 #include <string.h>
 
 #ifdef TMC_3DS
+#include "port_ui_font_ru.inc"
 #include "platform_3ds.h"
 
 extern void Port_PPU_3DS_WriteQuickDump(void);
@@ -599,16 +600,12 @@ static int32_t TextWidthPx(const char* str, int32_t scale) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Menu text (the game's stylized banner font)                        */
+/*  Menu text                                                          */
 /* ------------------------------------------------------------------ */
 
-/* Every panel label renders in the fat banner lettering (theme bank 8 —
- * the "South Hyrule Field" face: white body, silver shade, navy outline,
- * recolored per SS_TEXT_* on light surfaces). Metrics are in that font's
- * units: a glyph box is 16 rows tall at scale ms; ink fills nearly the
- * whole box, so vertical centering uses the box middle at 8*ms. The 5x7
- * stand-in only appears pre-ROM; it maps ms onto a similar visual size.
- * The face covers A-Z a-z 0-9 - . , : ' ! ? — keep strings inside that. */
+/* The 3DS panel uses a dedicated antialiased UI raster with Cyrillic,
+ * while the other ports keep the game's stylized banner font. Both paths
+ * use the same 16-row layout box so panel geometry stays unchanged. */
 #define MENU_TEXT_BOX 16
 
 static int32_t FallbackScale5x7(int32_t ms) {
@@ -616,32 +613,140 @@ static int32_t FallbackScale5x7(int32_t ms) {
     return f < 1 ? 1 : f;
 }
 
-static int32_t MenuTextWidth(const char* str, int32_t ms) {
-    int32_t w = Port_SecondScreenTheme_BigTextWidth(str, ms);
-    if (w == 0 && str != NULL && *str != '\0') {
-        w = TextWidthPx(str, FallbackScale5x7(ms));
+#ifdef TMC_3DS
+static int UiUtf8Decode(const char* s, uint32_t* outCp) {
+    const uint8_t c0 = (uint8_t)s[0];
+    if (c0 < 0x80u) { *outCp = c0; return 1; }
+    if ((c0 & 0xE0u) == 0xC0u) {
+        const uint8_t c1 = (uint8_t)s[1];
+        if ((c1 & 0xC0u) == 0x80u) {
+            *outCp = ((uint32_t)(c0 & 0x1Fu) << 6) | (uint32_t)(c1 & 0x3Fu);
+            return 2;
+        }
+    }
+    if ((c0 & 0xF0u) == 0xE0u) {
+        const uint8_t c1 = (uint8_t)s[1], c2 = (uint8_t)s[2];
+        if ((c1 & 0xC0u) == 0x80u && (c2 & 0xC0u) == 0x80u) {
+            *outCp = ((uint32_t)(c0 & 0x0Fu) << 12) | ((uint32_t)(c1 & 0x3Fu) << 6) |
+                     (uint32_t)(c2 & 0x3Fu);
+            return 3;
+        }
+    }
+    *outCp = '?';
+    return 1;
+}
+
+static const PortUiGlyph* UiGlyphFind(uint32_t cp) {
+    int lo = 0, hi = (int)(sizeof(kPortUiGlyphs) / sizeof(kPortUiGlyphs[0])) - 1;
+    while (lo <= hi) {
+        const int mid = lo + (hi - lo) / 2;
+        if (kPortUiGlyphs[mid].cp == cp) return &kPortUiGlyphs[mid];
+        if (kPortUiGlyphs[mid].cp < cp) lo = mid + 1;
+        else hi = mid - 1;
+    }
+    if (cp != '?') return UiGlyphFind('?');
+    return NULL;
+}
+
+static uint32_t UiAlphaBlend(uint32_t dst, uint32_t src, uint32_t alpha) {
+    uint32_t out = 0xFF000000u;
+    int shift;
+    if (alpha >= 255u) return src;
+    for (shift = 0; shift <= 16; shift += 8) {
+        const uint32_t d = (dst >> shift) & 0xFFu;
+        const uint32_t c = (src >> shift) & 0xFFu;
+        out |= ((d * (255u - alpha) + c * alpha + 127u) / 255u) << shift;
+    }
+    return out;
+}
+
+static int32_t UiFontTextWidth(const char* str, int32_t scale) {
+    int32_t w = 0;
+    if (str == NULL) return 0;
+    if (scale < 1) scale = 1;
+    while (*str) {
+        uint32_t cp;
+        const int used = UiUtf8Decode(str, &cp);
+        const PortUiGlyph* g = UiGlyphFind(cp);
+        if (g != NULL) w += g->advance * scale;
+        str += used;
     }
     return w;
+}
+
+static int32_t UiFontDraw(const SSurf* s, const char* str, int32_t x, int32_t yTop, int32_t scale,
+                          uint32_t color) {
+    const int32_t startX = x;
+    if (str == NULL) return 0;
+    if (scale < 1) scale = 1;
+    while (*str) {
+        uint32_t cp;
+        const int used = UiUtf8Decode(str, &cp);
+        const PortUiGlyph* g = UiGlyphFind(cp);
+        if (g != NULL) {
+            const uint8_t* src = kPortUiGlyphAlpha + g->off;
+            int py, px;
+            for (py = 0; py < g->h; ++py) {
+                for (px = 0; px < g->w; ++px) {
+                    const int pi = py * g->w + px;
+                    const uint8_t packed = src[pi >> 1];
+                    const uint32_t a4 = (pi & 1) ? (packed >> 4) : (packed & 0x0Fu);
+                    const uint32_t alpha = a4 * 17u;
+                    int sy, sx;
+                    if (alpha == 0) continue;
+                    for (sy = 0; sy < scale; ++sy) {
+                        const int32_t dy = yTop + (g->yoff + py) * scale + sy;
+                        if (dy < 0 || dy >= s->h) continue;
+                        for (sx = 0; sx < scale; ++sx) {
+                            const int32_t dx = x + (g->xoff + px) * scale + sx;
+                            uint32_t* dst;
+                            if (dx < 0 || dx >= s->w) continue;
+                            dst = &s->px[(size_t)dy * (size_t)s->stride + (size_t)dx];
+                            *dst = UiAlphaBlend(*dst, color, alpha);
+                        }
+                    }
+                }
+            }
+            x += g->advance * scale;
+        }
+        str += used;
+    }
+    return x - startX;
+}
+#endif
+
+static int32_t MenuTextWidth(const char* str, int32_t ms) {
+#ifdef TMC_3DS
+    return UiFontTextWidth(str, ms);
+#else
+    int32_t w = Port_SecondScreenTheme_BigTextWidth(str, ms);
+    if (w == 0 && str != NULL && *str != '\0') w = TextWidthPx(str, FallbackScale5x7(ms));
+    return w;
+#endif
 }
 
 /* yTop is the glyph-box top. Returns the advance. */
 static int32_t MenuTextDraw(const SSurf* s, const char* str, int32_t x, int32_t yTop, int32_t ms,
                             int style) {
-    int32_t adv =
-        Port_SecondScreenTheme_DrawBigText(s->px, s->w, s->h, s->stride, x, yTop, ms, style, str);
+#ifdef TMC_3DS
+    static const int kColorId[SS_TEXT_STYLE_COUNT] = { SSC_MENU_INK, SSC_MENU_WHITE, SSC_MENU_RED,
+                                                       SSC_RUPEE_GREEN, SSC_BANNER_NAVY };
+    const int idx = style >= 0 && style < SS_TEXT_STYLE_COUNT ? style : SS_TEXT_INK;
+    return UiFontDraw(s, str, x, yTop, ms, Port_SecondScreenTheme_Color(kColorId[idx]));
+#else
+    int32_t adv = Port_SecondScreenTheme_DrawBigText(s->px, s->w, s->h, s->stride, x, yTop, ms, style, str);
     if (adv == 0 && str != NULL && *str != '\0') {
-        /* Pre-ROM stand-in in the matching palette role. */
         static const int kColorId[SS_TEXT_STYLE_COUNT] = { SSC_MENU_INK, SSC_MENU_WHITE, SSC_MENU_RED,
                                                            SSC_RUPEE_GREEN, SSC_BANNER_NAVY };
         uint32_t color = Port_SecondScreenTheme_Color(kColorId[style >= 0 && style < SS_TEXT_STYLE_COUNT
-                                                                  ? style
-                                                                  : SS_TEXT_INK]);
+                                                                  ? style : SS_TEXT_INK]);
         uint32_t outline = (style == SS_TEXT_INK || style == SS_TEXT_NAVY)
                                ? Port_SecondScreenTheme_Color(SSC_MENU_CREAM)
                                : Port_SecondScreenTheme_Color(SSC_MENU_BLACK);
         adv = DrawTextStr(s, str, x, yTop + 3 * ms, FallbackScale5x7(ms), color, outline);
     }
     return adv;
+#endif
 }
 
 /* Centered helper: centers the string's caps on (cx, cy). */
@@ -747,6 +852,17 @@ static void DrawMenuButton(const SSurf* s, float x0, float y0, float x1, float y
     if (bts < 1) bts = 1;
     if (bts > ts) bts = ts;
 
+#ifdef TMC_3DS
+    if (!Port_SecondScreenTheme_DrawMenuButton(s->px, s->w, s->h, s->stride, (int32_t)x0, (int32_t)y0,
+                                               (int32_t)(x1 - x0), (int32_t)(y1 - y0), "", pressed)) {
+        DrawButtonPlateFallback(s, x0, y0, x1, y1, pressed, bts);
+    }
+    if (label != NULL && label[0] != '\0') {
+        int32_t ms = (int32_t)(1.8f * u);
+        if (ms < 1) ms = 1;
+        MenuTextCentered(s, label, (x0 + x1) / 2.0f, (y0 + y1) / 2.0f, ms, SS_TEXT_NAVY);
+    }
+#else
     if (!Port_SecondScreenTheme_DrawMenuButton(s->px, s->w, s->h, s->stride, (int32_t)x0, (int32_t)y0,
                                                (int32_t)(x1 - x0), (int32_t)(y1 - y0), label, pressed)) {
         DrawButtonPlateFallback(s, x0, y0, x1, y1, pressed, bts);
@@ -756,6 +872,7 @@ static void DrawMenuButton(const SSurf* s, float x0, float y0, float x1, float y
             MenuTextCentered(s, label, (x0 + x1) / 2.0f, (y0 + y1) / 2.0f, ms, SS_TEXT_NAVY);
         }
     }
+#endif
     if (accent) {
         StrokeRoundRect(s, x0 + 2 * bts, y0 + 2 * bts, x1 - 2 * bts, y1 - 2 * bts, 4.0f * bts,
                         (float)bts, Port_SecondScreenTheme_Color(SSC_GOLD));
@@ -1190,7 +1307,7 @@ static void PaintOverworld(const SSurf* s, const SecondScreenSnapshot* snap, Tar
         /* With no fix, or the follow cam switched off, the whole map is the
          * only view there is and the chip would have nothing to step to. */
         float chip[4];
-        DrawMapChip(s, "ZOOM", (rx0 + rx1) / 2.0f, ry1 - 12 * u, u, chip);
+        DrawMapChip(s, "МАСШТАБ", (rx0 + rx1) / 2.0f, ry1 - 12 * u, u, chip);
         AddTarget(tl, chip[0], chip[1], chip[2], chip[3], SS_ACT_MAPZOOM, 0);
     }
     AddTarget(tl, rx0, ry0, rx1, ry1, SS_ACT_MAP, 0);
@@ -1291,7 +1408,7 @@ static int PaintRegion(const SSurf* s, const SecondScreenSnapshot* snap, TargetL
     }
 
     float chip[4];
-    DrawMapChip(s, "BACK", (rx0 + rx1) / 2.0f, ry1 - 12 * u, u, chip);
+    DrawMapChip(s, "НАЗАД", (rx0 + rx1) / 2.0f, ry1 - 12 * u, u, chip);
     AddTarget(tl, chip[0], chip[1], chip[2], chip[3], SS_ACT_MAPVIEW, 0);
     /* Anywhere else on the region map goes back too — the same "tap again"
      * gesture that opened it. */
@@ -1433,7 +1550,7 @@ static void PaintItemsPanel(const SSurf* s, const SecondScreenSnapshot* snap, Ta
      * like the pause screens hang theirs. */
     int32_t hms = (int32_t)(2.4f * u);
     if (hms < 1) hms = 1;
-    DrawPanelHeaderChip(s, (rx0 + rx1) / 2.0f, iy0, "ITEMS", hms, u);
+    DrawPanelHeaderChip(s, (rx0 + rx1) / 2.0f, iy0, "ПРЕДМЕТЫ", hms, u);
     iy0 += MENU_TEXT_BOX * hms + 32 * u;
 
     const int cols = 4, rows = 4;
@@ -1581,7 +1698,7 @@ static void PaintQuestPanel(const SSurf* s, const SecondScreenSnapshot* snap, Ta
                                                                 pw, ph, snap);
         if (drawn) {
             float chip[4];
-            DrawMapChip(s, "BACK", (rx0 + rx1) / 2.0f, ry1 - 12 * u, u, chip);
+            DrawMapChip(s, "НАЗАД", (rx0 + rx1) / 2.0f, ry1 - 12 * u, u, chip);
             AddTarget(tl, chip[0], chip[1], chip[2], chip[3], SS_ACT_QUESTVIEW, SS_QUEST_MAIN);
             AddTarget(tl, rx0, ry0, rx1, ry1, SS_ACT_QUESTVIEW, SS_QUEST_MAIN);
             return;
@@ -1743,12 +1860,12 @@ static void PaintQuestPanel(const SSurf* s, const SecondScreenSnapshot* snap, Ta
 /* ------------------------------------------------------------------ */
 
 static const char* const kSettingLabels[SS_SET_COUNT] = {
-    "TOP HUD",          "WIDESCREEN",        "FOLLOW CAM",       "WINDCREST PINS",
-    "FLOOR AUTO RETURN", "TURBO SPEED",       "MASTER VOLUME",    "AUTOSAVE",
-    "COLOR CORRECTION", "SHOW FPS",           "HOLD TO ADVANCE TEXT",
-    "RANDOMIZER",       "PANEL BACKDROP",     "SWAP SCREENS",
+    "ИНТЕРФЕЙС СВЕРХУ",      "ШИРОКИЙ ЭКРАН",     "КАМЕРА ЗА ГЕРОЕМ",     "МЕТКИ ВЕТРОВ",
+    "АВТОВОЗВРАТ ЭТАЖА",    "ТУРБОСКОРОСТЬ",     "ГРОМКОСТЬ",        "АВТОСОХРАНЕНИЕ",
+    "ЦВЕТОКОРРЕКЦИЯ",   "ПОКАЗЫВАТЬ FPS",         "ТЕКСТ ПО УДЕРЖАНИЮ",
+    "РАНДОМАЙЗЕР",      "ФОН ПАНЕЛИ",        "ОБМЕН ЭКРАНОВ",
 #ifdef TMC_3DS
-    "ASPECT RATIO",     "DISPLAY STYLE",
+    "ФОРМАТ ЭКРАНА",    "РЕЖИМ ВЫВОДА",
 #endif
 };
 
@@ -1760,7 +1877,7 @@ static const char* const kSettingLabels[SS_SET_COUNT] = {
  * a brightness ramp (DARK sits mid-list). Every word here is inside
  * SS_SET_WIDEST_VALUE, so none of them widen the value chip. */
 static const char* const kBackdropWords[SS_BACKDROP_COUNT] = {
-    "PATTERN", "CREAM", "DARK", "DIM", "STONE", "SLATE", "NAVY"
+    "УЗОР", "КРЕМОВЫЙ", "ТЁМНЫЙ", "ТУСКЛЫЙ", "КАМЕНЬ", "СЛАНЕЦ", "СИНИЙ"
 };
 
 /* Reserve only the width a row can actually use. A single global value
@@ -1768,16 +1885,16 @@ static const char* const kBackdropWords[SS_BACKDROP_COUNT] = {
  * though their chips only ever say ON/OFF. */
 static const char* SettingValueMinWord(int setting) {
     switch (setting) {
-        case SS_SET_TOP_HUD: return "SHOW";
+        case SS_SET_TOP_HUD: return "ПОКАЗЫВАТЬ";
         case SS_SET_TURBO: return "X5";
         case SS_SET_VOLUME: return "100";
-        case SS_SET_BACKDROP: return "PATTERN";
-        case SS_SET_SWAP_SCREENS: return "RESTART";
+        case SS_SET_BACKDROP: return "СЛАНЕЦ";
+        case SS_SET_SWAP_SCREENS: return "ПЕРЕЗАПУСК";
 #ifdef TMC_3DS
-        case SS_SET_ASPECT_RATIO: return "ORIGINAL";
-        case SS_SET_DISPLAY_STYLE: return "PIXEL PERFECT";
+        case SS_SET_ASPECT_RATIO: return "ОРИГИНАЛ";
+        case SS_SET_DISPLAY_STYLE: return "ПИКСЕЛЬНЫЙ";
 #endif
-        default: return "OFF";
+        default: return "ВЫКЛЮЧЕНО";
     }
 }
 
@@ -1830,12 +1947,12 @@ static int SettingsPageRows(int page, uint8_t* out) {
 
 static const char* SettingsPageTitle(int page) {
     switch (page) {
-        case SS_SETTINGS_SCREEN: return "SCREEN";
-        case SS_SETTINGS_GAMEPLAY: return "GAMEPLAY";
-        case SS_SETTINGS_DEVELOPER: return "DEVELOPER";
-        case SS_SETTINGS_OVERLAY: return "OVERLAY";
-        case SS_SETTINGS_RANDOMIZER: return "RANDOMIZER";
-        default: return "SETTINGS";
+        case SS_SETTINGS_SCREEN: return "ЭКРАН";
+        case SS_SETTINGS_GAMEPLAY: return "ИГРА";
+        case SS_SETTINGS_DEVELOPER: return "ОТЛАДКА";
+        case SS_SETTINGS_OVERLAY: return "СТАТУС";
+        case SS_SETTINGS_RANDOMIZER: return "РАНДОМАЙЗЕР";
+        default: return "НАСТРОЙКИ";
     }
 }
 
@@ -1871,7 +1988,7 @@ static void DrawSettingsBack(const SSurf* s, TargetList* tl, float x0, float y0,
                              float u, int32_t ts) {
     float w = 154 * u;
     if (w < 54) w = 54;
-    DrawMenuButton(s, x0, y0, x0 + w, y0 + h, "BACK", 0, 0, u, ts);
+    DrawMenuButton(s, x0, y0, x0 + w, y0 + h, "НАЗАД", 0, 0, u, ts);
     AddTarget(tl, x0, y0, x0 + w, y0 + h, SS_ACT_SETTINGS_BACK, (uint8_t)backPage);
 }
 
@@ -1879,7 +1996,7 @@ static int GetSettingState(int row, char* out, int outCap);
 
 static void DrawSettingsValueRow(const SSurf* s, TargetList* tl, float x0, float y0, float x1, float y1,
                                  int setting, float u, int32_t ts) {
-    char val[16];
+    char val[48];
     int on = GetSettingState(setting, val, sizeof(val));
     DrawMenuButton(s, x0, y0, x1, y1, "", 0, 0, u, ts);
 
@@ -1925,7 +2042,7 @@ static void DrawDiagnosticRow(const SSurf* s, float x0, float y0, float x1, floa
 
 static void PaintDeveloperOverlay(const SSurf* s, const SecondScreenSnapshot* snap, float x0, float y0,
                                   float x1, float y1, float u, int32_t ts) {
-    const char* labels[8] = { "VERSION", "MODEL", "FPS NOW", "FPS AVG", "CORE1", "SCREEN", "AREA", "ROOM" };
+    const char* labels[8] = { "ВЕРСИЯ", "МОДЕЛЬ", "FPS ТЕКУЩИЙ", "FPS СРЕДНИЙ", "ЯДРО 1", "ЭКРАН", "ЗОНА", "КОМНАТА" };
     char values[8][16];
 #ifndef __ANDROID__
 #ifdef TMC_3DS
@@ -1965,13 +2082,13 @@ static int GetVolumeStop(void) {
  * nonzero when the row should wear the red "active" chip. */
 static int GetSettingState(int row, char* out, int outCap) {
     int on = 0;
-    const char* txt = "OFF";
+    const char* txt = "ВЫКЛЮЧЕНО";
     switch (row) {
         case SS_SET_TOP_HUD:
             /* The row states what the top screen DOES: SHOW is the (red)
              * default, HIDE hands vitals duty to this panel. */
             on = !Port_Config_GetHideTopHud();
-            txt = on ? "SHOW" : "HIDE";
+            txt = on ? "ПОКАЗЫВАТЬ" : "СКРЫВАТЬ";
             break;
         case SS_SET_WIDESCREEN: on = Port_Config_WidescreenEnabled(); break;
         case SS_SET_FOLLOW: on = Port_Config_GetSecondScreenFollowCam(); break;
@@ -1982,7 +2099,7 @@ static int GetSettingState(int row, char* out, int outCap) {
             snprintf(out, (size_t)outCap, "X%u", Port_Config_GetTurboMultiplier());
             return 1;
 #else
-            snprintf(out, (size_t)outCap, "N A");
+            snprintf(out, (size_t)outCap, "НЕТ");
             return 0;
 #endif
         case SS_SET_VOLUME: {
@@ -2013,7 +2130,7 @@ static int GetSettingState(int row, char* out, int outCap) {
              * fell back to a normal launch). */
             int want = Port_Config_GetSecondScreenSwap() ? 1 : 0;
             int active = Port_SecondScreen_GameOnSecondaryDisplay();
-            snprintf(out, (size_t)outCap, "%s", want != active ? "RESTART" : (want ? "ON" : "OFF"));
+            snprintf(out, (size_t)outCap, "%s", want != active ? "ПЕРЕЗАПУСК" : (want ? "ВКЛЮЧЕНО" : "ВЫКЛЮЧЕНО"));
             return want;
         }
 #ifdef TMC_3DS
@@ -2026,7 +2143,7 @@ static int GetSettingState(int row, char* out, int outCap) {
 #endif
     }
     if (row != SS_SET_TOP_HUD) {
-        txt = on ? "ON" : "OFF";
+        txt = on ? "ВКЛЮЧЕНО" : "ВЫКЛЮЧЕНО";
     }
     snprintf(out, (size_t)outCap, "%s", txt);
     return on;
@@ -2055,13 +2172,13 @@ static void PaintSettingsPanel(const SSurf* s, const SecondScreenSnapshot* snap,
     float y0 = iy0 + headerH + 12 * u;
     if (page == SS_SETTINGS_ROOT) {
 #ifdef TMC_3DS
-        static const char* const labels[4] = { "SCREEN", "GAMEPLAY", "DEVELOPER", "RANDOMIZER" };
+        static const char* const labels[4] = { "ЭКРАН", "ИГРА", "ОТЛАДКА", "РАНДОМАЙЗЕР" };
         static const uint8_t pages[4] = {
             SS_SETTINGS_SCREEN, SS_SETTINGS_GAMEPLAY, SS_SETTINGS_DEVELOPER, SS_SETTINGS_RANDOMIZER
         };
         const int rootRows = 4;
 #else
-        static const char* const labels[3] = { "SCREEN", "GAMEPLAY", "DEVELOPER" };
+        static const char* const labels[3] = { "ЭКРАН", "ИГРА", "ОТЛАДКА" };
         static const uint8_t pages[3] = { SS_SETTINGS_SCREEN, SS_SETTINGS_GAMEPLAY, SS_SETTINGS_DEVELOPER };
         const int rootRows = 3;
 #endif
@@ -2079,20 +2196,20 @@ static void PaintSettingsPanel(const SSurf* s, const SecondScreenSnapshot* snap,
         float gap = 10 * u;
         float rowH = (iy1 - y0 - 2 * gap) / 3;
         if (rowH > 92 * u) rowH = 92 * u;
-        char dumpValue[16];
+        char dumpValue[32];
         snprintf(dumpValue, sizeof(dumpValue), "%s",
-                 (int32_t)(dumpFlashUntil - tick) > 0 ? "DONE" : "WRITE");
+                 (int32_t)(dumpFlashUntil - tick) > 0 ? "ГОТОВО" : "ЗАПИСАТЬ");
         DrawMenuButton(s, x0, y0, x1, y0 + rowH, "", 0, 0, u, ts);
         int32_t ms = (int32_t)(2.0f * u);
         if (ms < 1) ms = 1;
-        MenuTextDraw(s, "MEM DUMP", (int32_t)(x0 + 24 * u), (int32_t)(y0 + rowH / 2 - 8 * ms), ms,
+        MenuTextDraw(s, "СНИМОК ПАМЯТИ", (int32_t)(x0 + 24 * u), (int32_t)(y0 + rowH / 2 - 8 * ms), ms,
                      SS_TEXT_NAVY);
         MenuTextDraw(s, dumpValue, (int32_t)(x1 - 24 * u - MenuTextWidth(dumpValue, ms)),
                      (int32_t)(y0 + rowH / 2 - 8 * ms), ms, SS_TEXT_RED);
         AddTarget(tl, x0, y0, x1, y0 + rowH, SS_ACT_DEVELOPER_DUMP, 0);
         DrawSettingsValueRow(s, tl, x0, y0 + rowH + gap, x1, y0 + 2 * rowH + gap,
                              SS_SET_SHOW_FPS, u, ts);
-        DrawSettingsNavRow(s, tl, x0, y0 + 2 * (rowH + gap), x1, y0 + 3 * rowH + 2 * gap, "OVERLAY",
+        DrawSettingsNavRow(s, tl, x0, y0 + 2 * (rowH + gap), x1, y0 + 3 * rowH + 2 * gap, "СТАТУС",
                            SS_SETTINGS_OVERLAY, u, ts);
         return;
     }
@@ -2125,15 +2242,15 @@ static void PaintRandomizerConfirmation(const SSurf* s, TargetList* tl, float u,
 
     int32_t titleScale = (int32_t)(2.2f * u);
     if (titleScale < 1) titleScale = 1;
-    MenuTextCentered(s, enable ? "ENABLE RANDOMIZER" : "DISABLE RANDOMIZER", (x0 + x1) / 2,
+    MenuTextCentered(s, enable ? "ВКЛЮЧИТЬ РАНДОМАЙЗЕР" : "ВЫКЛЮЧИТЬ РАНДОМАЙЗЕР", (x0 + x1) / 2,
                      y0 + 10, titleScale, SS_TEXT_NAVY);
 
     static const char* const lines[] = {
-        "RANDOMIZER REQUIRES A NEW GAME.",
-        "THE ACTIVE PROFILE SAVE, AUTOSAVES,",
-        "SAVESTATES AND RANDOMIZER DATA",
-        "WILL BE DELETED. THE ROM IS KEPT.",
-        "THE GAME WILL RESTART.",
+        "РАНДОМАЙЗЕР ТРЕБУЕТ НОВОЙ ИГРЫ.",
+        "СОХРАНЕНИЕ АКТИВНОГО ПРОФИЛЯ,",
+        "АВТОСЕЙВЫ, СЕЙВСТЕЙТЫ",
+        "И ДАННЫЕ РАНДОМАЙЗЕРА УДАЛЯТСЯ.",
+        "ROM-ФАЙЛ ОСТАНЕТСЯ. ИГРА ПЕРЕЗАПУСТИТСЯ.",
     };
     int32_t textScale = (int32_t)(1.55f * u);
     if (textScale < 1) textScale = 1;
@@ -2147,8 +2264,8 @@ static void PaintRandomizerConfirmation(const SSurf* s, TargetList* tl, float u,
     const float buttonY1 = y1 - 8;
     const float buttonY0 = buttonY1 - 34;
     const float middle = (x0 + x1) / 2;
-    DrawMenuButton(s, x0 + 14 * u, buttonY0, middle - gap / 2, buttonY1, "CANCEL", 0, 0, u, ts);
-    DrawMenuButton(s, middle + gap / 2, buttonY0, x1 - 14 * u, buttonY1, "CONTINUE", 0, 0, u, ts);
+    DrawMenuButton(s, x0 + 14 * u, buttonY0, middle - gap / 2, buttonY1, "ОТМЕНА", 0, 0, u, ts);
+    DrawMenuButton(s, middle + gap / 2, buttonY0, x1 - 14 * u, buttonY1, "ПРОДОЛЖИТЬ", 0, 0, u, ts);
     AddTarget(tl, x0 + 14 * u, buttonY0, middle - gap / 2, buttonY1, SS_ACT_RANDO_CANCEL, 0);
     AddTarget(tl, middle + gap / 2, buttonY0, x1 - 14 * u, buttonY1, SS_ACT_RANDO_CONFIRM,
               (uint8_t)(enable != 0));
@@ -2461,10 +2578,10 @@ static void PaintTabBar(const SSurf* s, TargetList* tl, float u, int32_t ts, int
     float x0 = 8 * u, xr = sx0 - 8 * u, gap = 8 * u;
     float bw = (xr - x0 - 2 * gap) / 3.0f;
 
-    DrawTabButton(s, tl, x0, y, x0 + bw, y + bh, "QUEST", activeTab == SS_TAB_QUEST, SS_TAB_QUEST, u, ts);
-    DrawTabButton(s, tl, x0 + bw + gap, y, x0 + 2 * bw + gap, y + bh, "MAP", activeTab == SS_TAB_MAP,
+    DrawTabButton(s, tl, x0, y, x0 + bw, y + bh, "СТАТУС", activeTab == SS_TAB_QUEST, SS_TAB_QUEST, u, ts);
+    DrawTabButton(s, tl, x0 + bw + gap, y, x0 + 2 * bw + gap, y + bh, "КАРТА", activeTab == SS_TAB_MAP,
                   SS_TAB_MAP, u, ts);
-    DrawTabButton(s, tl, x0 + 2 * (bw + gap), y, x0 + 3 * bw + 2 * gap, y + bh, "ITEMS",
+    DrawTabButton(s, tl, x0 + 2 * (bw + gap), y, x0 + 3 * bw + 2 * gap, y + bh, "ПРЕДМЕТЫ",
                   activeTab == SS_TAB_ITEMS, SS_TAB_ITEMS, u, ts);
     /* Settings keeps its cog glyph instead of a word, on the same plate —
      * an empty label, not a null one, so the art path never has to guess. */
