@@ -232,6 +232,9 @@ bool Port_Config_FullView1xEnabled(void);
 int Port_Config_Get3DSDisplayStyle(void);
 const char* Port_Config_Get3DSDisplayStyleName(void);
 void Port_Config_Cycle3DSDisplayStyle(void);
+/* Aspect/style changes apply immediately and are persisted when the Settings
+ * interaction ends, keeping SD-card metadata work off the visible switch. */
+void Port_Config_Flush3DSDisplaySettings(void);
 
 /* New 3DS C-stick turbo multiplier. The device supports 2x through 5x and
  * applies changes immediately to the frame-boundary scheduler. */

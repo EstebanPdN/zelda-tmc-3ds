@@ -48,6 +48,7 @@ static int sRandoHeartColor;
 static int sRandoTricks;
 static int sRandoAccessibility;
 static bool sConfigLoaded;
+static bool sDisplayConfigDirty;
 static char sConfigPath[256] = "tmc3ds.ini";
 
 static bool ParseBool(const char* value) {
@@ -152,6 +153,7 @@ static void SaveConfig(void) {
         return;
     }
     remove(backup);
+    sDisplayConfigDirty = false;
 }
 
 void Port_Config_Load(const char* path) {
@@ -437,7 +439,9 @@ const char* Port_Config_Get3DSAspectRatioName(void) {
 void Port_Config_Cycle3DSAspectRatio(void) {
     const int count = Platform3DS_IsNew3DS() ? PORT_3DS_ASPECT_COUNT : PORT_3DS_ASPECT_FULL_VIEW_1X;
     sAspectRatio = (Port3DSAspectRatio)((sAspectRatio + 1) % count);
-    SaveConfig();
+    /* Applying the new geometry must not wait for FAT metadata updates on the
+     * SD card. Persist when the user leaves Settings (and at shutdown). */
+    sDisplayConfigDirty = true;
 }
 bool Port_Config_FullView1xEnabled(void) {
     return Platform3DS_IsNew3DS() && sAspectRatio == PORT_3DS_ASPECT_FULL_VIEW_1X;
@@ -451,5 +455,10 @@ const char* Port_Config_Get3DSDisplayStyleName(void) {
 void Port_Config_Cycle3DSDisplayStyle(void) {
     if (sAspectRatio == PORT_3DS_ASPECT_FULL_VIEW_1X) return;
     sDisplayStyle = (Port3DSDisplayStyle)((sDisplayStyle + 1) % PORT_3DS_DISPLAY_COUNT);
+    sDisplayConfigDirty = true;
+}
+void Port_Config_Flush3DSDisplaySettings(void) {
+    if (!sDisplayConfigDirty) return;
+    sDisplayConfigDirty = false;
     SaveConfig();
 }

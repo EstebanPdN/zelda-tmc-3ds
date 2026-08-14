@@ -242,15 +242,24 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width, unsigned height
     const C2D_Image image = { .tex = &sTopTexture, .subtex = &sTopSubtexture };
     const int style = Port_Config_Get3DSDisplayStyle();
     const int aspect = Port_Config_Get3DSAspectRatio();
-    const bool nativeFullView = aspect == TOP_ASPECT_FULL_VIEW_1X;
-    C3D_TexSetFilter(&sTopTexture, !nativeFullView && style == TOP_DISPLAY_BLUR ? GPU_LINEAR : GPU_NEAREST,
-                     !nativeFullView && style == TOP_DISPLAY_BLUR ? GPU_LINEAR : GPU_NEAREST);
+    const bool fullViewMode = aspect == TOP_ASPECT_FULL_VIEW_1X;
+    const bool nativeFullViewFrame = fullViewMode && (width > 240u || height > 160u);
+    /* Full View only has a 1:1 source during live gameplay. Native overlays
+     * (pause/save/title/file select) keep the port's established 360x240
+     * Original presentation instead of shrinking to a literal 240x160 box. */
+    const bool fixedFullViewOverlay = fullViewMode && !nativeFullViewFrame;
+    const bool linearFilter = !nativeFullViewFrame && !fixedFullViewOverlay && style == TOP_DISPLAY_BLUR;
+    C3D_TexSetFilter(&sTopTexture, linearFilter ? GPU_LINEAR : GPU_NEAREST,
+                     linearFilter ? GPU_LINEAR : GPU_NEAREST);
 
     float drawW;
     float drawH;
-    if (nativeFullView || style == TOP_DISPLAY_PIXEL_PERFECT) {
+    if (nativeFullViewFrame || (!fixedFullViewOverlay && style == TOP_DISPLAY_PIXEL_PERFECT)) {
         drawW = (float)width;
         drawH = (float)height;
+    } else if (fixedFullViewOverlay) {
+        drawW = 360.0f;
+        drawH = 240.0f;
     } else {
         drawH = 240.0f;
         switch (aspect) {

@@ -130,6 +130,7 @@ int main(int argc, char** argv) {
     Platform3DS_EnterGameplayDisplay();
     AgbMain();
 
+    Port_Config_Flush3DSDisplaySettings();
     Port_PPU_Shutdown();
     Platform3DS_Shutdown();
     return 0;

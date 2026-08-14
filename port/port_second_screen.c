@@ -2673,6 +2673,9 @@ void Port_SecondScreen_OnTap(int x, int y, int longPress) {
 
     switch (hit.action) {
         case SS_ACT_TAB:
+#ifdef TMC_3DS
+            Port_Config_Flush3DSDisplaySettings();
+#endif
             UI_LOCK();
             /* Re-tapping the active panel tab returns to the map — the
              * reference's "toggle back" behavior. */
@@ -2688,6 +2691,9 @@ void Port_SecondScreen_OnTap(int x, int y, int longPress) {
             UI_UNLOCK();
             break;
         case SS_ACT_SETTINGS_BACK:
+#ifdef TMC_3DS
+            Port_Config_Flush3DSDisplaySettings();
+#endif
             UI_LOCK();
             sUi.settingsPage = hit.arg;
             UI_UNLOCK();
