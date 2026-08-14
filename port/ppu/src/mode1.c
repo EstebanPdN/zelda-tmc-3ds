@@ -34,6 +34,7 @@ typedef struct Mode1TilemapEntry {
  * and the composite force-blacks past it. */
 uint16_t* virtuappu_mode1_ws_shadow[MODE1_GBA_BG_COUNT] = { NULL, NULL, NULL, NULL };
 int virtuappu_mode1_ws_shadow_base_tile[MODE1_GBA_BG_COUNT] = { 0, 0, 0, 0 };
+int virtuappu_mode1_ws_full_view = 0;
 int virtuappu_mode1_ws_hud_right_anchor = 0;
 /* Widescreen message-box centering (see mode1.h). All zero = inactive. */
 int virtuappu_mode1_ws_msg_shift = 0;
@@ -654,7 +655,7 @@ static uint64_t mode1_bg_color_pair(unsigned palette_bank, uint8_t packed_pair) 
 }
 
 static inline bool mode1_shadow_covers_full_view(void) {
-    return mode1_frame_height > MODE1_GBA_NATIVE_HEIGHT;
+    return virtuappu_mode1_ws_full_view != 0;
 }
 
 static inline int mode1_shadow_index_for_x(int sample_x, int scroll_x, int tile_col, int shadow_base) {

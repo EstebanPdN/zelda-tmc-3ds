@@ -81,6 +81,7 @@ enum {
 #define MODE1_WS_SHADOW_COLS ((MODE1_GBA_WIDTH / 8) + 4)
 extern uint16_t* virtuappu_mode1_ws_shadow[MODE1_GBA_BG_COUNT];
 extern int virtuappu_mode1_ws_shadow_base_tile[MODE1_GBA_BG_COUNT];
+extern int virtuappu_mode1_ws_full_view;
 
 /* A 240-line viewport makes raw OAM Y values 160..239 ambiguous: they can be
  * real lower-screen positions or wrapped negative coordinates. The port-side

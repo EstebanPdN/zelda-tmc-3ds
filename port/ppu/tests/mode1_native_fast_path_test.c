@@ -61,6 +61,7 @@ static void BuildState(unsigned scene) {
     virtuappu_mode1_ws_msg_x1 = 0;
     virtuappu_mode1_ws_msg_y0 = 0;
     virtuappu_mode1_ws_msg_y1 = 0;
+    virtuappu_mode1_ws_full_view = MODE1_GBA_HEIGHT > MODE1_GBA_NATIVE_HEIGHT;
 
     uint16_t dispcnt = MODE1_DISP_OBJ_1D;
     for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
@@ -156,6 +157,7 @@ static void BuildState(unsigned scene) {
 
 static int CheckFullViewUsesShadowEverywhere(PPUMemory* ppu) {
 #if MODE1_GBA_HEIGHT > MODE1_GBA_NATIVE_HEIGHT
+    virtuappu_mode1_ws_full_view = 1;
     memset(sIo, 0, sizeof(sIo));
     memset(sVram, 0, sizeof(sVram));
     memset(sBgPalette, 0, sizeof(sBgPalette));
@@ -199,19 +201,41 @@ static int CheckFullViewUsesShadowEverywhere(PPUMemory* ppu) {
         return 1;
     }
 
-    for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) virtuappu_mode1_ws_shadow[bg] = NULL;
+#else
+    (void)ppu;
+#endif
+    return 0;
+}
+
+static int CheckShortFullViewRepeatsOverlay(PPUMemory* ppu) {
+#if MODE1_GBA_WIDTH > 266
+    memset(sIo, 0, sizeof(sIo));
+    memset(sVram, 0, sizeof(sVram));
+    memset(sBgPalette, 0, sizeof(sBgPalette));
+    memset(sObjPalette, 0, sizeof(sObjPalette));
+    memset(sOam, 0, sizeof(sOam));
+    for (int i = 0; i < MODE1_GBA_OAM_COUNT; ++i) sOam[i * 4] = 0x0200u;
+    memset(&sVram[32], 0x11, 32);
+    sBgPalette[1] = 0x001Fu;
     for (size_t i = 0; i < 32u * 32u; ++i) {
         sVram[0x8000u + i * 2u] = 1u;
         sVram[0x8000u + i * 2u + 1u] = 0u;
     }
+    for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) virtuappu_mode1_ws_shadow[bg] = NULL;
+    virtuappu_mode1_ws_full_view = 1;
     WriteIo16(MODE1_IO_DISPCNT, MODE1_DISP_BG3_ON);
     WriteIo16(MODE1_IO_BG3CNT, (uint16_t)(16u << 8u));
+
+    const uint16_t saved_height = ppu->frame_height;
+    ppu->frame_height = MODE1_GBA_NATIVE_HEIGHT;
     virtuappu_mode1_render_frame(ppu);
-    const uint32_t overlay_native = virtuappu_frame_buffer[200u * MODE1_GBA_WIDTH + 44u];
-    const uint32_t overlay_repeated = virtuappu_frame_buffer[200u * MODE1_GBA_WIDTH + 300u];
+    ppu->frame_height = saved_height;
+
+    const uint32_t overlay_native = virtuappu_frame_buffer[100u * MODE1_GBA_WIDTH + 44u];
+    const uint32_t overlay_repeated = virtuappu_frame_buffer[100u * MODE1_GBA_WIDTH + 300u];
     if (overlay_native == 0xFF000000u || overlay_native != overlay_repeated) {
         fprintf(stderr,
-                "mode1_native_fast_path_test: full-view overlay repeat failed: "
+                "mode1_native_fast_path_test: short full-view overlay repeat failed: "
                 "native=%08x repeated=%08x\n",
                 overlay_native, overlay_repeated);
         return 1;
@@ -271,6 +295,7 @@ int main(void) {
     }
 
     if (CheckFullViewUsesShadowEverywhere(&ppu) != 0) return 1;
+    if (CheckShortFullViewRepeatsOverlay(&ppu) != 0) return 1;
 
     printf("mode1_native_fast_path_test: PASS (%u deterministic scenes)\n", SCENES);
     return 0;

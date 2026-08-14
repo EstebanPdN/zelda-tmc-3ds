@@ -1282,10 +1282,22 @@ static void Port_WidescreenShadow_Populate(int bg_index, u16* mapSpecial, u16* s
     s16 xdiff = (s16)(gRoomControls.scroll_x - gRoomControls.origin_x);
     s16 ydiff = (s16)(gRoomControls.scroll_y - gRoomControls.origin_y);
     const int full_view = Port_Widescreen_FullView1xActive();
+    s16 bg_x_offset = 0;
+    s16 bg_y_offset = 0;
+    switch (bg_index) {
+        case 0: bg_x_offset = (s16)gScreen.bg0.xOffset; bg_y_offset = (s16)gScreen.bg0.yOffset; break;
+        case 1: bg_x_offset = (s16)gScreen.bg1.xOffset; bg_y_offset = (s16)gScreen.bg1.yOffset; break;
+        case 2: bg_x_offset = (s16)gScreen.bg2.xOffset; bg_y_offset = (s16)gScreen.bg2.yOffset; break;
+        case 3: bg_x_offset = (s16)gScreen.bg3.xOffset; bg_y_offset = (s16)gScreen.bg3.yOffset; break;
+    }
     const s32 first_display_tile = full_view ? 0 : (MODE1_GBA_BG_CLIP_X / 8);
     /* First shadow world tile col, continuing from either display x=0 in
      * full-view mode or the native x=240 edge in regular widescreen. */
     s32 ws_base_world_col = (xdiff >> 3) + first_display_tile;
+    if (full_view) {
+        const s32 shake_x = (s32)bg_x_offset - (xdiff & 0xf);
+        ws_base_world_col = ((xdiff + shake_x) >> 3) + first_display_tile;
+    }
     virtuappu_mode1_ws_shadow_base_tile[bg_index] =
         first_display_tile + (((xdiff & 0xf) >= 8) ? 1 : 0);
 
@@ -1308,9 +1320,10 @@ static void Port_WidescreenShadow_Populate(int bg_index, u16* mapSpecial, u16* s
             /* The 240-line view can cross the 32-row screenblock wrap. Lay
              * the visible world rows into their wrapped BG tilemap slots so
              * the final scanlines do not read the rows above the camera. */
-            const int first_screen_row = (((ydiff & 0xf) + 8) >> 3) & 31;
+            const s32 shake_y = (s32)bg_y_offset - ((ydiff & 0xf) + 8);
+            const int first_screen_row = ((bg_y_offset & 0xff) >> 3) & 31;
             shadow_row = (first_screen_row + sr) & 31;
-            world_row = (ydiff >> 3) + sr;
+            world_row = ((ydiff + shake_y) >> 3) + sr;
         }
         u16* row_dst = shadow + (size_t)shadow_row * MODE1_WS_SHADOW_COLS;
         if (world_row < 0 || world_row >= room_tiles_h) {
@@ -1352,6 +1365,7 @@ void Port_Widescreen_UpdateShadows(void) {
         virtuappu_mode1_ws_shadow[i] = NULL;
     virtuappu_mode1_ws_hud_right_anchor = 0;
     virtuappu_mode1_ws_msg_shift = 0;
+    virtuappu_mode1_ws_full_view = 0;
 
     /* Refresh the per-room content-width signal BEFORE the IsActive gate
      * (FallbackNative consumes it). Keyed on area|room|origin; ratcheted so
@@ -1377,6 +1391,7 @@ void Port_Widescreen_UpdateShadows(void) {
     if (!Port_Widescreen_IsActive()) {
         return;
     }
+    virtuappu_mode1_ws_full_view = Port_Widescreen_FullView1xActive();
     virtuappu_mode1_ws_hud_right_anchor = Port_Widescreen_HudRightAnchor();
 
     /* Publish the live textbox rect so the PPU can center it (BG0 composes
