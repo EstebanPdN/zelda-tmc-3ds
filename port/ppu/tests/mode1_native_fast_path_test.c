@@ -198,6 +198,24 @@ static int CheckFullViewUsesShadowEverywhere(PPUMemory* ppu) {
                 left_lower, right_lower, before_wrap, far_edge);
         return 1;
     }
+
+    for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) virtuappu_mode1_ws_shadow[bg] = NULL;
+    for (size_t i = 0; i < 32u * 32u; ++i) {
+        sVram[0x8000u + i * 2u] = 1u;
+        sVram[0x8000u + i * 2u + 1u] = 0u;
+    }
+    WriteIo16(MODE1_IO_DISPCNT, MODE1_DISP_BG3_ON);
+    WriteIo16(MODE1_IO_BG3CNT, (uint16_t)(16u << 8u));
+    virtuappu_mode1_render_frame(ppu);
+    const uint32_t overlay_native = virtuappu_frame_buffer[200u * MODE1_GBA_WIDTH + 44u];
+    const uint32_t overlay_repeated = virtuappu_frame_buffer[200u * MODE1_GBA_WIDTH + 300u];
+    if (overlay_native == 0xFF000000u || overlay_native != overlay_repeated) {
+        fprintf(stderr,
+                "mode1_native_fast_path_test: full-view overlay repeat failed: "
+                "native=%08x repeated=%08x\n",
+                overlay_native, overlay_repeated);
+        return 1;
+    }
 #else
     (void)ppu;
 #endif

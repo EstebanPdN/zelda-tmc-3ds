@@ -1281,7 +1281,6 @@ static void Port_WidescreenShadow_Populate(int bg_index, u16* mapSpecial, u16* s
      * still drops genuinely-unstreamed-palette pixels to clean black.) */
     s16 xdiff = (s16)(gRoomControls.scroll_x - gRoomControls.origin_x);
     s16 ydiff = (s16)(gRoomControls.scroll_y - gRoomControls.origin_y);
-    s32 row16 = ydiff >> 4;
     const int full_view = Port_Widescreen_FullView1xActive();
     const s32 first_display_tile = full_view ? 0 : (MODE1_GBA_BG_CLIP_X / 8);
     /* First shadow world tile col, continuing from either display x=0 in
@@ -1303,8 +1302,17 @@ static void Port_WidescreenShadow_Populate(int bg_index, u16* mapSpecial, u16* s
     if (room_tiles_h > kMapRows)
         room_tiles_h = kMapRows;
     for (int sr = 0; sr < MODE1_WS_SHADOW_ROWS; sr++) {
-        u16* row_dst = shadow + (size_t)sr * MODE1_WS_SHADOW_COLS;
-        s32 world_row = 2 * row16 - 1 + sr;
+        int shadow_row = sr;
+        s32 world_row = 2 * (ydiff >> 4) - 1 + sr;
+        if (full_view) {
+            /* The 240-line view can cross the 32-row screenblock wrap. Lay
+             * the visible world rows into their wrapped BG tilemap slots so
+             * the final scanlines do not read the rows above the camera. */
+            const int first_screen_row = (((ydiff & 0xf) + 8) >> 3) & 31;
+            shadow_row = (first_screen_row + sr) & 31;
+            world_row = (ydiff >> 3) + sr;
+        }
+        u16* row_dst = shadow + (size_t)shadow_row * MODE1_WS_SHADOW_COLS;
         if (world_row < 0 || world_row >= room_tiles_h) {
             for (int C = 0; C < MODE1_WS_SHADOW_COLS; C++)
                 row_dst[C] = 0;

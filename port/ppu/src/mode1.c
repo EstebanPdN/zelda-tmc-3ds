@@ -897,12 +897,15 @@ static void mode1_render_text_bg_compact_tokens(int bg_index, int line, uint16_t
     const int map_width_tiles = (size_flag & 1u) != 0u ? 64 : 32;
     const int map_height_tiles = (size_flag & 2u) != 0u ? 64 : 32;
     const bool shadow_active = map_width_tiles < 64 && virtuappu_mode1_ws_shadow[bg_index] != NULL;
+    const bool repeat_full_view_overlay = bg_index == 3 && mode1_shadow_covers_full_view();
     const bool hud_right_anchor = bg_index == 0 && virtuappu_mode1_ws_hud_right_anchor != 0 &&
                                   frame_width > MODE1_GBA_BG_CLIP_X;
     const bool message_line = bg_index == 0 && virtuappu_mode1_ws_msg_shift != 0 &&
                               frame_width > MODE1_GBA_BG_CLIP_X && line >= virtuappu_mode1_ws_msg_y0 &&
                               line < virtuappu_mode1_ws_msg_y1;
-    int render_width = map_width_tiles >= 64 || shadow_active ? frame_width : MODE1_GBA_BG_CLIP_X;
+    int render_width = map_width_tiles >= 64 || shadow_active || repeat_full_view_overlay
+                           ? frame_width
+                           : MODE1_GBA_BG_CLIP_X;
     if (hud_right_anchor || message_line) render_width = frame_width;
     if (render_width > frame_width) render_width = frame_width;
 
@@ -1011,7 +1014,8 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
     /* Widescreen Option A: 32-tile BGs have valid VRAM tile data only
      * within the native 240 px. Cull the line to the current visible frame
      * width, but keep the fixed framebuffer pitch separate for presentation. */
-    int render_max_x = (map_width_tiles >= 64)
+    const bool repeat_full_view_overlay = bg_index == 3 && mode1_shadow_covers_full_view();
+    int render_max_x = (map_width_tiles >= 64 || repeat_full_view_overlay)
                            ? frame_width
                            : ((virtuappu_mode1_ws_shadow[bg_index] != NULL) ? frame_width : MODE1_GBA_BG_CLIP_X);
     if (render_max_x > frame_width)
