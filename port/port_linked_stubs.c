@@ -1365,6 +1365,7 @@ void Port_Widescreen_UpdateShadows(void) {
         virtuappu_mode1_ws_shadow[i] = NULL;
     virtuappu_mode1_ws_hud_right_anchor = 0;
     virtuappu_mode1_ws_msg_shift = 0;
+    virtuappu_mode1_ws_msg_shift_y = 0;
     virtuappu_mode1_ws_full_view = 0;
 
     /* Refresh the per-room content-width signal BEFORE the IsActive gate
@@ -1421,6 +1422,8 @@ void Port_Widescreen_UpdateShadows(void) {
             virtuappu_mode1_ws_msg_y0 = y0;
             virtuappu_mode1_ws_msg_y1 = y1;
             virtuappu_mode1_ws_msg_shift = (Port_Widescreen_EffectiveViewWidth() - 240) / 2;
+            virtuappu_mode1_ws_msg_shift_y =
+                (Port_Widescreen_EffectiveViewHeight() - MODE1_GBA_NATIVE_HEIGHT) / 2;
         }
     }
 

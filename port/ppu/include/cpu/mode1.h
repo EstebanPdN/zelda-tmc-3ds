@@ -99,15 +99,16 @@ extern int virtuappu_mode1_obj_clip_enable;
 #define MODE1_WS_HUD_RIGHT_NATIVE_X 176
 extern int virtuappu_mode1_ws_hud_right_anchor;
 
-/* Runtime WIP widescreen message-box centering. The engine composes the
+/* Runtime WIP widescreen message-box positioning. The engine composes the
  * textbox on BG0 for a 240-px canvas (default box: tiles 1..27). On a wide
  * frame that leaves the box hugging the left edge, and snapping the whole
  * viewport back to 240 for every dialogue is worse (see
  * docs/widescreen-phase2-design.md). Instead the port publishes the live
- * box rect (native BG0 pixel coords) + a shift; render_text_bg_line then
- * draws those BG0 pixels shifted right by `shift` px ((W-240)/2 = centered)
- * and suppresses them at their native columns. Zero shift = off. */
-extern int virtuappu_mode1_ws_msg_shift; /* px to move the box right   */
+ * box rect (native BG0 pixel coords) plus X/Y shifts. The renderer moves the
+ * box into the centered 240x160 gameplay band and suppresses its native copy.
+ * Zero shifts retain the original placement. */
+extern int virtuappu_mode1_ws_msg_shift;   /* px to move the box right */
+extern int virtuappu_mode1_ws_msg_shift_y; /* px to move the box down  */
 extern int virtuappu_mode1_ws_msg_x0;    /* native box rect, inclusive */
 extern int virtuappu_mode1_ws_msg_x1;    /* native box rect, exclusive */
 extern int virtuappu_mode1_ws_msg_y0;    /* first box line             */

@@ -57,6 +57,7 @@ static void BuildState(unsigned scene) {
     }
     virtuappu_mode1_ws_hud_right_anchor = 0;
     virtuappu_mode1_ws_msg_shift = 0;
+    virtuappu_mode1_ws_msg_shift_y = 0;
     virtuappu_mode1_ws_msg_x0 = 0;
     virtuappu_mode1_ws_msg_x1 = 0;
     virtuappu_mode1_ws_msg_y0 = 0;
@@ -148,6 +149,8 @@ static void BuildState(unsigned scene) {
     }
     if ((scene % 37u) == 11u) {
         virtuappu_mode1_ws_msg_shift = 13;
+        virtuappu_mode1_ws_msg_shift_y =
+            MODE1_GBA_HEIGHT > MODE1_GBA_NATIVE_HEIGHT ? 24 : 0;
         virtuappu_mode1_ws_msg_x0 = 16;
         virtuappu_mode1_ws_msg_x1 = 224;
         virtuappu_mode1_ws_msg_y0 = 20;
@@ -158,6 +161,8 @@ static void BuildState(unsigned scene) {
 static int CheckFullViewUsesShadowEverywhere(PPUMemory* ppu) {
 #if MODE1_GBA_HEIGHT > MODE1_GBA_NATIVE_HEIGHT
     virtuappu_mode1_ws_full_view = 1;
+    virtuappu_mode1_ws_msg_shift = 0;
+    virtuappu_mode1_ws_msg_shift_y = 0;
     memset(sIo, 0, sizeof(sIo));
     memset(sVram, 0, sizeof(sVram));
     memset(sBgPalette, 0, sizeof(sBgPalette));
@@ -223,6 +228,8 @@ static int CheckShortFullViewRepeatsOverlay(PPUMemory* ppu) {
     }
     for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) virtuappu_mode1_ws_shadow[bg] = NULL;
     virtuappu_mode1_ws_full_view = 1;
+    virtuappu_mode1_ws_msg_shift = 0;
+    virtuappu_mode1_ws_msg_shift_y = 0;
     WriteIo16(MODE1_IO_DISPCNT, MODE1_DISP_BG3_ON);
     WriteIo16(MODE1_IO_BG3CNT, (uint16_t)(16u << 8u));
 
@@ -238,6 +245,59 @@ static int CheckShortFullViewRepeatsOverlay(PPUMemory* ppu) {
                 "mode1_native_fast_path_test: short full-view overlay repeat failed: "
                 "native=%08x repeated=%08x\n",
                 overlay_native, overlay_repeated);
+        return 1;
+    }
+#else
+    (void)ppu;
+#endif
+    return 0;
+}
+
+static int CheckFullViewCentersMessageVertically(PPUMemory* ppu) {
+#if MODE1_GBA_HEIGHT > MODE1_GBA_NATIVE_HEIGHT
+    memset(sIo, 0, sizeof(sIo));
+    memset(sVram, 0, sizeof(sVram));
+    memset(sBgPalette, 0, sizeof(sBgPalette));
+    memset(sObjPalette, 0, sizeof(sObjPalette));
+    memset(sOam, 0, sizeof(sOam));
+    for (int i = 0; i < MODE1_GBA_OAM_COUNT; ++i) sOam[i * 4] = 0x0200u;
+    for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) virtuappu_mode1_ws_shadow[bg] = NULL;
+
+    /* A red message tile at native (8,16), plus an unrelated green BG0 tile
+     * beside its destination. Moving the box to (88,56) must leave that
+     * destination-row content untouched outside the box. */
+    memset(&sVram[32], 0x11, 32);
+    memset(&sVram[64], 0x22, 32);
+    sBgPalette[1] = 0x001Fu;
+    sBgPalette[2] = 0x03E0u;
+    sVram[0x8000u + (2u * 32u + 1u) * 2u] = 1u;
+    sVram[0x8000u + (7u * 32u) * 2u] = 2u;
+
+    virtuappu_mode1_ws_full_view = 1;
+    virtuappu_mode1_ws_hud_right_anchor = 0;
+    virtuappu_mode1_ws_msg_shift = 80;
+    virtuappu_mode1_ws_msg_shift_y = 40;
+    virtuappu_mode1_ws_msg_x0 = 8;
+    virtuappu_mode1_ws_msg_x1 = 16;
+    virtuappu_mode1_ws_msg_y0 = 16;
+    virtuappu_mode1_ws_msg_y1 = 24;
+    WriteIo16(MODE1_IO_DISPCNT, MODE1_DISP_BG0_ON);
+    WriteIo16(MODE1_IO_BG0CNT, (uint16_t)(16u << 8u));
+
+    virtuappu_mode1_set_color_correction(false);
+    virtuappu_mode1_set_old3ds_profile(false);
+    virtuappu_mode1_set_native_fast_paths_enabled(true);
+    virtuappu_mode1_render_frame(ppu);
+
+    const uint32_t native_copy = virtuappu_frame_buffer[16u * MODE1_GBA_WIDTH + 8u];
+    const uint32_t moved_copy = virtuappu_frame_buffer[56u * MODE1_GBA_WIDTH + 88u];
+    const uint32_t destination_neighbor = virtuappu_frame_buffer[56u * MODE1_GBA_WIDTH];
+    if (native_copy != 0xFF000000u || moved_copy == 0xFF000000u ||
+        destination_neighbor == 0xFF000000u || moved_copy == destination_neighbor) {
+        fprintf(stderr,
+                "mode1_native_fast_path_test: full-view message placement failed: "
+                "native=%08x moved=%08x neighbor=%08x\n",
+                native_copy, moved_copy, destination_neighbor);
         return 1;
     }
 #else
@@ -296,6 +356,7 @@ int main(void) {
 
     if (CheckFullViewUsesShadowEverywhere(&ppu) != 0) return 1;
     if (CheckShortFullViewRepeatsOverlay(&ppu) != 0) return 1;
+    if (CheckFullViewCentersMessageVertically(&ppu) != 0) return 1;
 
     printf("mode1_native_fast_path_test: PASS (%u deterministic scenes)\n", SCENES);
     return 0;
