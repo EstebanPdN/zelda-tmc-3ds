@@ -154,12 +154,63 @@ static void BuildState(unsigned scene) {
     }
 }
 
+static int CheckFullViewUsesShadowEverywhere(PPUMemory* ppu) {
+#if MODE1_GBA_HEIGHT > MODE1_GBA_NATIVE_HEIGHT
+    memset(sIo, 0, sizeof(sIo));
+    memset(sVram, 0, sizeof(sVram));
+    memset(sBgPalette, 0, sizeof(sBgPalette));
+    memset(sObjPalette, 0, sizeof(sObjPalette));
+    memset(sOam, 0, sizeof(sOam));
+    memset(sShadow, 0, sizeof(sShadow));
+
+    for (int i = 0; i < MODE1_GBA_OAM_COUNT; ++i) sOam[i * 4] = 0x0200u;
+    memset(&sVram[32], 0x11, 32);
+    memset(&sVram[64], 0x22, 32);
+    sBgPalette[1] = 0x001Fu;
+    sBgPalette[2] = 0x03E0u;
+    for (int row = 0; row < MODE1_WS_SHADOW_ROWS; ++row) {
+        for (int col = 0; col < MODE1_WS_SHADOW_COLS; ++col) {
+            sShadow[1][(size_t)row * MODE1_WS_SHADOW_COLS + (size_t)col] = 1u;
+        }
+        sShadow[1][(size_t)row * MODE1_WS_SHADOW_COLS + 49u] = 2u;
+    }
+    for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
+        virtuappu_mode1_ws_shadow[bg] = NULL;
+        virtuappu_mode1_ws_shadow_base_tile[bg] = 0;
+    }
+    virtuappu_mode1_ws_shadow[1] = sShadow[1];
+    WriteIo16(MODE1_IO_DISPCNT, MODE1_DISP_BG1_ON);
+    WriteIo16(MODE1_IO_BG1CNT, (uint16_t)(16u << 8u));
+
+    virtuappu_mode1_set_old3ds_profile(false);
+    virtuappu_mode1_set_native_fast_paths_enabled(true);
+    virtuappu_mode1_render_frame(ppu);
+
+    const uint32_t left_lower = virtuappu_frame_buffer[200u * MODE1_GBA_WIDTH];
+    const uint32_t right_lower = virtuappu_frame_buffer[200u * MODE1_GBA_WIDTH + 300u];
+    const uint32_t before_wrap = virtuappu_frame_buffer[200u * MODE1_GBA_WIDTH + 136u];
+    const uint32_t far_edge = virtuappu_frame_buffer[200u * MODE1_GBA_WIDTH + 399u];
+    if (left_lower == 0xFF000000u || left_lower != right_lower ||
+        far_edge == 0xFF000000u || far_edge == before_wrap) {
+        fprintf(stderr,
+                "mode1_native_fast_path_test: full-view shadow coverage failed: "
+                "left=%08x right=%08x before-wrap=%08x far-edge=%08x\n",
+                left_lower, right_lower, before_wrap, far_edge);
+        return 1;
+    }
+#else
+    (void)ppu;
+#endif
+    return 0;
+}
+
 int main(void) {
     const VirtuaPPUMode1GbaMemory memory = { sIo, sVram, sBgPalette, sObjPalette, sOam };
     PPUMemory ppu;
     memset(&ppu, 0, sizeof(ppu));
     ppu.mode = 1;
     ppu.frame_width = MODE1_GBA_WIDTH;
+    ppu.frame_height = MODE1_GBA_HEIGHT;
     ppu.frame_pitch = MODE1_GBA_WIDTH;
     virtuappu_mode1_bind_gba_memory(&memory);
     virtuappu_mode1_pre_line_callback = NULL;
@@ -200,6 +251,8 @@ int main(void) {
             return 1;
         }
     }
+
+    if (CheckFullViewUsesShadowEverywhere(&ppu) != 0) return 1;
 
     printf("mode1_native_fast_path_test: PASS (%u deterministic scenes)\n", SCENES);
     return 0;

@@ -15,12 +15,25 @@
 
 #include "ppu_memory.h"
 
+#ifndef MODE1_GBA_WIDTH
+#define MODE1_GBA_WIDTH 240
+#endif
+#ifndef MODE1_GBA_HEIGHT
+#define MODE1_GBA_HEIGHT 160
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 enum {
-#if defined(TMC_N64) || defined(TMC_3DS)
+#if defined(TMC_3DS)
+    /* The top-screen upload texture is 512x256. Runtime geometry normally
+     * remains 240/266x160; FULL VIEW 1:1 consumes the 400x240 capacity. */
+    VIRTUAPPU_MAX_FRAME_WIDTH = MODE1_GBA_WIDTH,
+    VIRTUAPPU_MAX_FRAME_HEIGHT = MODE1_GBA_HEIGHT,
+    VIRTUAPPU_VRAM_SIZE = 0x18000,
+#elif defined(TMC_N64)
     /* Console ports only need the native 240x160 frame. Mode 1 binds the
      * engine's GBA VRAM, so the oversized desktop scratch buffers are unused. */
     VIRTUAPPU_MAX_FRAME_WIDTH = 240,

@@ -92,6 +92,7 @@ static VirtuaPPUMode1GbaMemory mode1_memory = { mode1_default_io_mem, mode1_defa
                                                 mode1_default_obj_palette, mode1_default_oam_mem };
 
 static int mode1_frame_width = MODE1_GBA_WIDTH;
+static int mode1_frame_height = MODE1_GBA_NATIVE_HEIGHT;
 static int mode1_frame_pitch = MODE1_GBA_WIDTH;
 static uint32_t* mode1_output_buffer;
 static int mode1_output_pitch;
@@ -138,6 +139,7 @@ void virtuappu_mode1_set_old3ds_profile(bool enabled) {
 
 void virtuappu_mode1_set_frame_geometry(const PPUMemory* ppu) {
     int width = MODE1_GBA_WIDTH;
+    int height = MODE1_GBA_NATIVE_HEIGHT;
     int pitch = MODE1_GBA_WIDTH;
 
     if (ppu != NULL && ppu->frame_width != 0u) {
@@ -147,6 +149,15 @@ void virtuappu_mode1_set_frame_geometry(const PPUMemory* ppu) {
         width = 1;
     } else if (width > MODE1_GBA_WIDTH) {
         width = MODE1_GBA_WIDTH;
+    }
+
+    if (ppu != NULL && ppu->frame_height != 0u) {
+        height = (int)ppu->frame_height;
+    }
+    if (height < 1) {
+        height = 1;
+    } else if (height > MODE1_GBA_HEIGHT) {
+        height = MODE1_GBA_HEIGHT;
     }
 
     if (ppu != NULL && ppu->frame_pitch != 0u) {
@@ -159,6 +170,7 @@ void virtuappu_mode1_set_frame_geometry(const PPUMemory* ppu) {
     }
 
     mode1_frame_width = width;
+    mode1_frame_height = height;
     mode1_frame_pitch = pitch;
 }
 
@@ -181,6 +193,10 @@ static uint32_t* mode1_output_row(int line) {
 
 int virtuappu_mode1_frame_width(void) {
     return mode1_frame_width;
+}
+
+int virtuappu_mode1_frame_height(void) {
+    return mode1_frame_height;
 }
 
 int virtuappu_mode1_frame_pitch(void) {
@@ -435,6 +451,7 @@ VPPU_TLS uint8_t virtuappu_mode1_obj_window[MODE1_GBA_WIDTH];
  * untouched. SHARED (not VPPU_TLS): set once per frame by the port before the
  * render and read-only during the OpenMP-parallel scanline render. */
 uint8_t virtuappu_mode1_obj_clip_mark[MODE1_GBA_OAM_COUNT];
+uint8_t virtuappu_mode1_obj_y_negative[MODE1_GBA_OAM_COUNT];
 int virtuappu_mode1_obj_clip_y;
 int virtuappu_mode1_obj_clip_enable;
 
@@ -577,10 +594,10 @@ static void virtuappu_mode1_publish_obj_line_lists(void) {
         int height = mode1_obj_heights[shape][size];
         if (mode1_oam_affine(attr) && mode1_oam_double_size(attr)) height *= 2;
         int first = mode1_oam_y(attr);
-        if (first >= MODE1_GBA_HEIGHT) first -= 256;
+        if (virtuappu_mode1_obj_y_negative[i] || first >= mode1_frame_height) first -= 256;
         int last = first + height;
         if (first < 0) first = 0;
-        if (last > MODE1_GBA_HEIGHT) last = MODE1_GBA_HEIGHT;
+        if (last > mode1_frame_height) last = mode1_frame_height;
         for (int line = first; line < last; ++line) {
             const uint8_t count = mode1_obj_line_counts[line];
             mode1_obj_line_indices[line][count] = (uint8_t)i;
@@ -636,6 +653,17 @@ static uint64_t mode1_bg_color_pair(unsigned palette_bank, uint8_t packed_pair) 
     return (uint64_t)lo_color | ((uint64_t)hi_color << 32u);
 }
 
+static inline bool mode1_shadow_covers_full_view(void) {
+    return mode1_frame_height > MODE1_GBA_NATIVE_HEIGHT;
+}
+
+static inline int mode1_shadow_index_for_x(int sample_x, int scroll_x, int tile_col, int shadow_base) {
+    if (!mode1_shadow_covers_full_view()) {
+        return (tile_col - shadow_base + 32) & 31;
+    }
+    return (sample_x + (scroll_x & 7)) >> 3;
+}
+
 static void mode1_render_text_bg_native_4bpp(int bg_index, uint32_t char_base, uint32_t screen_base,
                                              int map_width_tiles, int tile_row, int pixel_y,
                                              int scroll_x, int render_width, uint8_t priority,
@@ -662,10 +690,13 @@ static void mode1_render_text_bg_native_4bpp(int bg_index, uint32_t char_base, u
         const int screen_block_index = screen_block_x + screen_block_y * blocks_per_row;
         const int local_col = tile_col & 31;
         Mode1TilemapEntry entry;
-        if (x >= MODE1_GBA_BG_CLIP_X && map_width_tiles < 64 &&
-            virtuappu_mode1_ws_shadow[bg_index] != NULL) {
-            const int shadow_index = (tile_col - virtuappu_mode1_ws_shadow_base_tile[bg_index] + 32) & 31;
-            entry.raw = shadow_index < MODE1_WS_SHADOW_COLS
+        const bool use_shadow = (mode1_shadow_covers_full_view() || x >= MODE1_GBA_BG_CLIP_X) &&
+                                map_width_tiles < 64 &&
+                                virtuappu_mode1_ws_shadow[bg_index] != NULL;
+        if (use_shadow) {
+            const int shadow_index = mode1_shadow_index_for_x(
+                x, scroll_x, tile_col, virtuappu_mode1_ws_shadow_base_tile[bg_index]);
+            entry.raw = shadow_index >= 0 && shadow_index < MODE1_WS_SHADOW_COLS
                             ? virtuappu_mode1_ws_shadow[bg_index][(size_t)local_row * MODE1_WS_SHADOW_COLS +
                                                                  (size_t)shadow_index]
                             : 0u;
@@ -687,7 +718,7 @@ static void mode1_render_text_bg_native_4bpp(int bg_index, uint32_t char_base, u
             }
             const size_t palette_base = (size_t)mode1_tile_palette(entry) * 16u;
             const bool hflip = mode1_tile_hflip(entry);
-            if (run == 8 && x + run <= MODE1_GBA_BG_CLIP_X) {
+            if (!use_shadow && run == 8 && x + run <= MODE1_GBA_BG_CLIP_X) {
                 const unsigned palette_bank = (unsigned)(palette_base >> 4u);
                 const uint16_t packed_priority = (uint16_t)priority | ((uint16_t)priority << 8u);
                 for (int pair_index = 0; pair_index < 4; ++pair_index) {
@@ -720,7 +751,7 @@ static void mode1_render_text_bg_native_4bpp(int bg_index, uint32_t char_base, u
                 const int tile_pixel_x = hflip ? 7 - source_pixel : source_pixel;
                 const uint8_t color_index = (uint8_t)((packed_row >> (tile_pixel_x * 4)) & 0x0Fu);
                 if (color_index == 0u) continue;
-                if (x + i >= MODE1_GBA_BG_CLIP_X &&
+                if (use_shadow &&
                     (mode1_memory.bg_palette[palette_base + color_index] & 0x7FFFu) == 0x7C1Fu) {
                     continue;
                 }
@@ -801,10 +832,13 @@ static void mode1_render_text_bg_native_tokens(int bg_index, int line, uint16_t 
         const uint32_t map_addr = screen_base + (uint32_t)screen_block_index * 0x800u +
                                   (uint32_t)(local_row * 32 + local_col) * 2u;
         Mode1TilemapEntry entry;
-        if (x >= MODE1_GBA_BG_CLIP_X && map_width_tiles < 64 &&
-            virtuappu_mode1_ws_shadow[bg_index] != NULL) {
-            const int shadow_index = (tile_col - virtuappu_mode1_ws_shadow_base_tile[bg_index] + 32) & 31;
-            entry.raw = shadow_index < MODE1_WS_SHADOW_COLS
+        const bool use_shadow = (mode1_shadow_covers_full_view() || x >= MODE1_GBA_BG_CLIP_X) &&
+                                map_width_tiles < 64 &&
+                                virtuappu_mode1_ws_shadow[bg_index] != NULL;
+        if (use_shadow) {
+            const int shadow_index = mode1_shadow_index_for_x(
+                x, scroll_x, tile_col, virtuappu_mode1_ws_shadow_base_tile[bg_index]);
+            entry.raw = shadow_index >= 0 && shadow_index < MODE1_WS_SHADOW_COLS
                             ? virtuappu_mode1_ws_shadow[bg_index][(size_t)local_row * MODE1_WS_SHADOW_COLS +
                                                                  (size_t)shadow_index]
                             : 0u;
@@ -825,7 +859,7 @@ static void mode1_render_text_bg_native_tokens(int bg_index, int line, uint16_t 
 
             const unsigned palette_bank = mode1_tile_palette(entry);
             const bool hflip = mode1_tile_hflip(entry);
-            if (run == 8 && x + run <= MODE1_GBA_BG_CLIP_X) {
+            if (!use_shadow && run == 8 && x + run <= MODE1_GBA_BG_CLIP_X) {
                 for (int pair_index = 0; pair_index < 4; ++pair_index) {
                     const int byte_index = hflip ? 3 - pair_index : pair_index;
                     uint8_t packed_pair = (uint8_t)(packed_row >> (byte_index * 8));
@@ -845,7 +879,7 @@ static void mode1_render_text_bg_native_tokens(int bg_index, int line, uint16_t 
                 const int tile_pixel_x = hflip ? 7 - source_pixel : source_pixel;
                 const uint8_t color_index = (uint8_t)((packed_row >> (tile_pixel_x * 4)) & 0x0Fu);
                 if (color_index != 0u) {
-                    if (x + i >= MODE1_GBA_BG_CLIP_X &&
+                    if (use_shadow &&
                         (mode1_memory.bg_palette[palette_base + color_index] & 0x7FFFu) == 0x7C1Fu) {
                         continue;
                     }
@@ -912,9 +946,12 @@ static void mode1_render_text_bg_compact_tokens(int bg_index, int line, uint16_t
         const int tile_col = src_x >> 3;
         const int pixel_x = src_x & 7;
         Mode1TilemapEntry entry;
-        if (shadow_active && x >= MODE1_GBA_BG_CLIP_X) {
-            const int shadow_index = (tile_col - virtuappu_mode1_ws_shadow_base_tile[bg_index] + 32) & 31;
-            entry.raw = shadow_index < MODE1_WS_SHADOW_COLS
+        const bool use_shadow = shadow_active &&
+                                (mode1_shadow_covers_full_view() || x >= MODE1_GBA_BG_CLIP_X);
+        if (use_shadow) {
+            const int shadow_index = mode1_shadow_index_for_x(
+                sample_x, scroll_x, tile_col, virtuappu_mode1_ws_shadow_base_tile[bg_index]);
+            entry.raw = shadow_index >= 0 && shadow_index < MODE1_WS_SHADOW_COLS
                             ? virtuappu_mode1_ws_shadow[bg_index][(size_t)local_row * MODE1_WS_SHADOW_COLS +
                                                                  (size_t)shadow_index]
                             : 0u;
@@ -937,7 +974,7 @@ static void mode1_render_text_bg_compact_tokens(int bg_index, int line, uint16_t
         const uint8_t color_index = (tile_pixel_x & 1) != 0 ? packed >> 4u : packed & 0x0Fu;
         if (color_index == 0u) continue;
         const unsigned palette_index = (unsigned)mode1_tile_palette(entry) * 16u + color_index;
-        if (x >= MODE1_GBA_BG_CLIP_X &&
+        if (use_shadow &&
             (mode1_memory.bg_palette[palette_index] & 0x7FFFu) == 0x7C1Fu) {
             continue;
         }
@@ -980,6 +1017,7 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
     if (render_max_x > frame_width)
         render_max_x = frame_width;
     const bool ws_shadow_active = (map_width_tiles < 64) && (virtuappu_mode1_ws_shadow[bg_index] != NULL);
+    const bool ws_shadow_full_view = ws_shadow_active && mode1_shadow_covers_full_view();
     const int ws_shadow_base = virtuappu_mode1_ws_shadow_base_tile[bg_index];
     uint16_t* const ws_shadow = virtuappu_mode1_ws_shadow[bg_index];
     const bool ws_hud_right_anchor =
@@ -1038,13 +1076,13 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
         int src_x = (eff_x + scroll_x) & (map_width_tiles * 8 - 1);                                                    \
         int tile_col = src_x / 8;                                                                                      \
         int pixel_x = src_x % 8;                                                                                       \
-        int cache_use_shadow = (ws_shadow_active && x >= MODE1_GBA_BG_CLIP_X) ? 1 : 0;                                 \
+        int cache_use_shadow = (ws_shadow_active && (ws_shadow_full_view || x >= MODE1_GBA_BG_CLIP_X)) ? 1 : 0;        \
         int cache_key = (tile_col << 1) | cache_use_shadow;                                                            \
         if (cache_key != bg_cache_key) {                                                                               \
             bg_cache_key = cache_key;                                                                                  \
             if (cache_use_shadow) {                                                                                    \
-                int shadow_idx = (tile_col - ws_shadow_base + 32) % 32;                                                \
-                bg_tile_entry.raw = (shadow_idx < MODE1_WS_SHADOW_COLS)                                                \
+                int shadow_idx = mode1_shadow_index_for_x(eff_x, scroll_x, tile_col, ws_shadow_base);                  \
+                bg_tile_entry.raw = (shadow_idx >= 0 && shadow_idx < MODE1_WS_SHADOW_COLS)                             \
                                         ? ws_shadow[(size_t)local_row * MODE1_WS_SHADOW_COLS + shadow_idx]             \
                                         : (uint16_t)0u;                                                                \
             } else {                                                                                                   \
@@ -1077,7 +1115,7 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
         }                                                                                                              \
         if (color_index != 0u) {                                                                                       \
             size_t pal_idx = bpp8 ? (size_t)color_index : (bg_pal_bank + color_index);                                 \
-            if (!(x >= MODE1_GBA_BG_CLIP_X && (mode1_memory.bg_palette[pal_idx] & 0x7FFFu) == 0x7C1Fu)) {              \
+            if (!(cache_use_shadow && (mode1_memory.bg_palette[pal_idx] & 0x7FFFu) == 0x7C1Fu)) {                      \
                 line_buffer[x] = mode1_bg_abgr_lut[pal_idx];                                                           \
                 if (priority_buffer != NULL) {                                                                         \
                     priority_buffer[x] = priority;                                                                     \
@@ -1205,7 +1243,7 @@ void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffe
         }
 
         obj_y = mode1_oam_y(attr);
-        if (obj_y >= MODE1_GBA_HEIGHT) {
+        if (virtuappu_mode1_obj_y_negative[i] || obj_y >= mode1_frame_height) {
             obj_y -= 256;
         }
         if (line < obj_y || line >= obj_y + bounds_height) {
@@ -1482,14 +1520,14 @@ void virtuappu_mode1_composite_line(int line, uint32_t bg_layers[MODE1_GBA_BG_CO
     if (win0_right > frame_width) {
         win0_right = frame_width;
     }
-    if (win0_bottom > MODE1_GBA_HEIGHT) {
-        win0_bottom = MODE1_GBA_HEIGHT;
+    if (win0_bottom > mode1_frame_height) {
+        win0_bottom = mode1_frame_height;
     }
     if (win1_right > frame_width) {
         win1_right = frame_width;
     }
-    if (win1_bottom > MODE1_GBA_HEIGHT) {
-        win1_bottom = MODE1_GBA_HEIGHT;
+    if (win1_bottom > mode1_frame_height) {
+        win1_bottom = mode1_frame_height;
     }
 
     win0_h_wrap = win0_left > win0_right;
@@ -2144,7 +2182,7 @@ void virtuappu_mode1_render_affine_obj_overlay(uint32_t* dst, int dst_w, int dst
     if (dst == NULL || scale <= 1) {
         return;
     }
-    if ((dst_w % scale) != 0 || dst_h != MODE1_GBA_HEIGHT * scale) {
+    if ((dst_w % scale) != 0 || dst_h != MODE1_GBA_NATIVE_HEIGHT * scale) {
         return;
     }
     const int viewport_width = dst_w / scale;
@@ -2194,7 +2232,7 @@ void virtuappu_mode1_render_affine_obj_overlay(uint32_t* dst, int dst_w, int dst
         }
 
         int obj_y = mode1_oam_y(attr);
-        if (obj_y >= MODE1_GBA_HEIGHT)
+        if (obj_y >= MODE1_GBA_NATIVE_HEIGHT)
             obj_y -= 256;
         int obj_x = mode1_oam_x(attr);
         if (obj_x >= viewport_width)
@@ -2419,6 +2457,7 @@ int virtuappu_mode1_prepare_frame(const PPUMemory* ppu, uint8_t* io_per_line, ui
     int line;
 
     virtuappu_mode1_set_frame_geometry(ppu);
+    const int frame_height = mode1_frame_height;
 
     dispcnt = virtuappu_mode1_io_read16(MODE1_IO_DISPCNT);
     if (out_frame_dispcnt != NULL) {
@@ -2438,9 +2477,11 @@ int virtuappu_mode1_prepare_frame(const PPUMemory* ppu, uint8_t* io_per_line, ui
     }
 
     const bool per_line_io = (virtuappu_mode1_pre_line_callback != NULL);
-    for (line = 0; line < MODE1_GBA_HEIGHT; ++line) {
+    for (line = 0; line < frame_height; ++line) {
         if (per_line_io) {
-            virtuappu_mode1_pre_line_callback(line);
+            /* The emulated GBA only produces 160 HBlank events. Extra
+             * full-view scanlines reuse the last published register state. */
+            if (line < MODE1_GBA_NATIVE_HEIGHT) virtuappu_mode1_pre_line_callback(line);
         }
         /* Snapshot IO for the GPU. When there is no per-line HDMA callback,
          * io_mem is identical on every scanline, so snapshot ONLY row 0 — the
@@ -2461,7 +2502,7 @@ int virtuappu_mode1_prepare_frame(const PPUMemory* ppu, uint8_t* io_per_line, ui
         }
     }
     if (do_affine_bg2 && aff_ref_x != NULL && aff_ref_y != NULL) {
-        virtuappu_mode1_affine_precompute(MODE1_GBA_HEIGHT, aff_init_x, aff_init_y, aff_line_ref_x, aff_line_ref_y,
+        virtuappu_mode1_affine_precompute(frame_height, aff_init_x, aff_init_y, aff_line_ref_x, aff_line_ref_y,
                                           aff_pb, aff_pd, virtuappu_mode1_bg2x_hdma_strobe,
                                           virtuappu_mode1_bg2y_hdma_strobe, aff_ref_x, aff_ref_y);
     }
@@ -2473,6 +2514,7 @@ typedef struct Mode1RenderLinesContext {
     bool per_line_io;
     uint16_t dispcnt;
     int frame_width;
+    int frame_height;
     const uint16_t* per_line_dispcnt;
     const uint8_t (*io_snapshots)[MODE1_IO_MEM_SIZE];
     const int32_t* aff_ref_x;
@@ -2583,10 +2625,10 @@ static uint32_t mode1_render_dynamic(const Mode1RenderLinesContext* context,
     if (old_path_lines != NULL) memset(old_path_lines, 0, MODE1_OLD_PATH_COUNT * sizeof(uint32_t));
     for (;;) {
         const int first = __atomic_fetch_add(&sMode1NextLine, MODE1_3DS_LINE_CHUNK, __ATOMIC_RELAXED);
-        if (first >= MODE1_GBA_HEIGHT) return renderedLines;
-        const int last = first + MODE1_3DS_LINE_CHUNK < MODE1_GBA_HEIGHT
+        if (first >= context->frame_height) return renderedLines;
+        const int last = first + MODE1_3DS_LINE_CHUNK < context->frame_height
                              ? first + MODE1_3DS_LINE_CHUNK
-                             : MODE1_GBA_HEIGHT;
+                             : context->frame_height;
         mode1_render_lines(context, first, last, old_path_lines);
         renderedLines += (uint32_t)(last - first);
     }
@@ -2720,10 +2762,11 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
 
     virtuappu_mode1_set_frame_geometry(ppu);
     const int frame_width = mode1_frame_width;
+    const int frame_height = mode1_frame_height;
 
     dispcnt = virtuappu_mode1_io_read16(MODE1_IO_DISPCNT);
     if ((dispcnt & MODE1_DISP_FORCED_BLANK) != 0u) {
-        for (line = 0; line < MODE1_GBA_HEIGHT; ++line) {
+        for (line = 0; line < frame_height; ++line) {
             memset(mode1_output_row(line), 0xFF, (size_t)mode1_frame_width * sizeof(uint32_t));
         }
         return;
@@ -2763,9 +2806,9 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
      * critical path and point every thread's override straight at io_mem in the
      * parallel loop below. Byte-exact: each snapshot equalled io_mem anyway. */
     const bool per_line_io = (virtuappu_mode1_pre_line_callback != NULL);
-    for (line = 0; line < MODE1_GBA_HEIGHT; ++line) {
+    for (line = 0; line < frame_height; ++line) {
         if (per_line_io) {
-            virtuappu_mode1_pre_line_callback(line);
+            if (line < MODE1_GBA_NATIVE_HEIGHT) virtuappu_mode1_pre_line_callback(line);
             /* Display rendering only reads registers through BLDY (0x54). */
             memcpy(io_snapshots[line], mode1_memory.io_mem, MODE1_IO_BLDY + 2u);
             per_line_dispcnt[line] =
@@ -2788,7 +2831,7 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
         }
     }
     if (do_affine_bg2) {
-        virtuappu_mode1_affine_precompute(MODE1_GBA_HEIGHT, aff_init_x, aff_init_y, aff_line_ref_x, aff_line_ref_y,
+        virtuappu_mode1_affine_precompute(frame_height, aff_init_x, aff_init_y, aff_line_ref_x, aff_line_ref_y,
                                           aff_pb, aff_pd, virtuappu_mode1_bg2x_hdma_strobe,
                                           virtuappu_mode1_bg2y_hdma_strobe, aff_ref_x, aff_ref_y);
     }
@@ -2803,13 +2846,14 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
 #endif
 
     const Mode1RenderLinesContext render_context = {
-        affine, per_line_io, dispcnt, frame_width, per_line_dispcnt, io_snapshots, aff_ref_x, aff_ref_y,
+        affine, per_line_io, dispcnt, frame_width, frame_height,
+        per_line_dispcnt, io_snapshots, aff_ref_x, aff_ref_y,
     };
 #ifdef TMC_3DS
     mode1_render_lines_3ds(&render_context);
 #else
 #pragma omp parallel for schedule(static)
-    for (line = 0; line < MODE1_GBA_HEIGHT; ++line) {
+    for (line = 0; line < frame_height; ++line) {
         mode1_render_lines(&render_context, line, line + 1, NULL);
     }
 #endif

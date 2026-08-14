@@ -28,6 +28,10 @@ extern virtuappu_mode1_pre_line_fn virtuappu_mode1_pre_line_callback;
 #ifndef MODE1_GBA_WIDTH
 #define MODE1_GBA_WIDTH 240
 #endif
+#ifndef MODE1_GBA_HEIGHT
+#define MODE1_GBA_HEIGHT 160
+#endif
+#define MODE1_GBA_NATIVE_HEIGHT 160
 /* OAM and BG clip extents (widescreen Phase 2 — Option A).
  *
  * MODE1_GBA_BG_CLIP_X (240) is the split point: BG columns < 240 read
@@ -56,7 +60,6 @@ extern virtuappu_mode1_pre_line_fn virtuappu_mode1_pre_line_callback;
  * al.), not a renderer change. Keep width/pitch first-class here; do the world
  * extension in the engine. */
 enum {
-    MODE1_GBA_HEIGHT = 160,
     MODE1_GBA_BG_COUNT = 4,
     MODE1_GBA_OAM_COUNT = 128,
     MODE1_IO_MEM_SIZE = 0x400,
@@ -65,17 +68,27 @@ enum {
     MODE1_OAM_HALFWORDS = 512
 };
 
-/* Widescreen Option A — port-side shadow tilemap for the reveal region
- * (display cols >= MODE1_GBA_BG_CLIP_X on 32-tile BGs). Populated by
+/* Widescreen Option A — port-side shadow tilemap for the reveal region, or
+ * for the complete viewport when rendering taller than the native 160 lines.
+ * Populated by
  * port/port_linked_stubs.c::Port_Widescreen_UpdateShadows; a NULL entry
  * means "no shadow" => render_text_bg_line clips at 240 and the composite
- * force-blacks past it (native-240 / non-gameplay behaviour). COLS scales
- * with the configured width (reveal tiles = (W-240)/8, plus scroll/wrap
- * headroom); ROWS=32 mirrors the engine's mod-32 vertical row rolling. */
+ * force-blacks past it (native-240 / non-gameplay behaviour). COLS covers a
+ * complete viewport plus scroll/wrap headroom so full-view mode does not have
+ * to fall back to the GBA's 240x160 rolling screenblock. ROWS=32 mirrors the
+ * engine's mod-32 vertical row rolling. */
 #define MODE1_WS_SHADOW_ROWS 32
-#define MODE1_WS_SHADOW_COLS (((MODE1_GBA_WIDTH - 240) / 8) + 4)
+#define MODE1_WS_SHADOW_COLS ((MODE1_GBA_WIDTH / 8) + 4)
 extern uint16_t* virtuappu_mode1_ws_shadow[MODE1_GBA_BG_COUNT];
 extern int virtuappu_mode1_ws_shadow_base_tile[MODE1_GBA_BG_COUNT];
+
+/* A 240-line viewport makes raw OAM Y values 160..239 ambiguous: they can be
+ * real lower-screen positions or wrapped negative coordinates. The port-side
+ * sprite emitter records the signed case before packing the 8-bit OAM field. */
+extern uint8_t virtuappu_mode1_obj_y_negative[MODE1_GBA_OAM_COUNT];
+extern uint8_t virtuappu_mode1_obj_clip_mark[MODE1_GBA_OAM_COUNT];
+extern int virtuappu_mode1_obj_clip_y;
+extern int virtuappu_mode1_obj_clip_enable;
 
 /* Runtime WIP widescreen HUD anchor. BG0 stays 32 tiles wide, but gameplay
  * HUD uses both left-anchored widgets (hearts/charge) and right-anchored
@@ -177,6 +190,7 @@ void virtuappu_mode1_set_old3ds_profile(bool enabled);
 void virtuappu_mode1_set_frame_geometry(const PPUMemory* ppu);
 void virtuappu_mode1_set_output_buffer(uint32_t* pixels, int pitch);
 int virtuappu_mode1_frame_width(void);
+int virtuappu_mode1_frame_height(void);
 int virtuappu_mode1_frame_pitch(void);
 uint16_t virtuappu_mode1_io_read16(uint16_t offset);
 uint32_t virtuappu_mode1_io_read32(uint16_t offset);

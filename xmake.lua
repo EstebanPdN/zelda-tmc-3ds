@@ -1411,6 +1411,17 @@ target("mode1_native_fast_path_test")
     add_syslinks("m")
 target_end()
 
+target("mode1_full_view_fast_path_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs("port/ppu/include")
+    add_defines("VIRTUAPPU_TESTING", "MODE1_GBA_WIDTH=400", "MODE1_GBA_HEIGHT=240")
+    add_files("port/ppu/tests/mode1_native_fast_path_test.c")
+    add_files("port/ppu/src/mode1.c")
+    add_syslinks("m")
+target_end()
+
 
 -- ====================
 -- ROM Build Task
