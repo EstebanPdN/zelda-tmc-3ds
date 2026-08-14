@@ -11,6 +11,9 @@
 #include <stdio.h>
 #include "../port/port_tts.h"
 #endif
+#ifdef TMC_3DS
+#include "port_russian_3ds.h"
+#endif
 
 #define MESSAGE_ADVANCE_KEYS (A_BUTTON | B_BUTTON | DPAD_ANY | R_BUTTON)
 #ifdef PC_PORT
@@ -57,6 +60,9 @@ extern void sub_0805EEB4(Token* tok, u32 textIdx);
 extern void sub_0805F8E4(u32 idx, WStruct* data);
 u32 sub_0805F7DC(u32, WStruct*);
 u32 GetFontStrWith(Token*, u32);
+#ifdef TMC_3DS
+u32* sub_0805F25C(u32);
+#endif
 
 #ifdef PC_PORT
 extern u8* gUnk_08107BE0[];
@@ -572,6 +578,91 @@ static void TextDispUpdate(TextRender* this) {
     }
 }
 
+#ifdef TMC_3DS
+/* The original GBA text system does not perform word wrapping: a newline is
+ * only produced by an explicit 0x0A in the translation. Once a line reaches
+ * 208 pixels, later glyphs on that line are silently consumed without being
+ * drawn. Russian prose is generally wider than the original English, so add
+ * word wrapping only while the bundled Russian locale is active.
+ *
+ * We measure with the very same glyph banks used by the renderer. This keeps
+ * the decision pixel-accurate for both the custom Cyrillic bank and the USA
+ * ROM's punctuation / Latin glyphs, and it also handles inline key/symbol
+ * glyphs without maintaining a second width table. */
+static u32 MessageGlyphCellWidth(const u32* glyph) {
+    u32 row0 = *glyph;
+    u32 mask = 0xFu;
+    u32 start = 0;
+    u32 end;
+
+    while (start < 8 && (row0 & mask) == mask) {
+        start++;
+        mask <<= 4;
+    }
+    end = start;
+    while (end < 8 && (row0 & mask) != mask) {
+        end++;
+        mask <<= 4;
+    }
+    return end - start;
+}
+
+static u32 MessagePrintableWidth(u32 chr) {
+    u32* glyph = sub_0805F25C(chr);
+    u32 width = MessageGlyphCellWidth(glyph);
+
+    /* Banks 5..8 are two 8x16 cells per displayed character. */
+    if ((chr >> 8) > 4) {
+        width += MessageGlyphCellWidth(glyph + 0x10);
+    }
+    return width;
+}
+
+static u32 MessageNextWordWidth(const Token* token) {
+    Token look = *token;
+    u32 width = 0;
+
+    for (;;) {
+        u32 chr = GetCharacter(&look);
+        switch (chr) {
+            case 0: /* end of text */
+            case 1: /* explicit newline */
+                return width;
+            case 0xc: /* choice marker occupies one 8px slot */
+                width += 8;
+                break;
+            default:
+                if (chr == (0x100u | (u32)' ')) {
+                    return width;
+                }
+                if ((chr >> 8) != 0) {
+                    u32 advance = MessagePrintableWidth(chr);
+                    if (look.unk05 == 1 && advance > 1) {
+                        advance--;
+                    }
+                    width += advance;
+                }
+                break;
+        }
+    }
+}
+
+static bool32 MessageShouldWrapAtSpace(const TextRender* text) {
+    const u32 lineStart = text->_98.bytes.lineNo == 0 ? 0u : 0xd0u;
+    const u32 cursor = text->_50.unk6;
+    const u32 limit = text->_50.unk4;
+    const u32 nextWord = MessageNextWordWidth(&text->curToken);
+    u32 spaceWidth;
+
+    if (!Port3DS_RussianLocaleActive() || cursor <= lineStart || nextWord == 0) {
+        return FALSE;
+    }
+
+    spaceWidth = MessagePrintableWidth(0x100u | (u32)' ');
+    return cursor + spaceWidth + nextWord > limit;
+}
+#endif
+
 u16 RunTextCommand(TextRender* this) {
     u32 chr = this->curToken.extended;
     s32 temp;
@@ -686,6 +777,20 @@ u16 RunTextCommand(TextRender* this) {
         StatusUpdate(MSG_OPEN);
         return 0;
     }
+#ifdef TMC_3DS
+    if (chr == (0x100u | (u32)' ') && MessageShouldWrapAtSpace(this)) {
+        /* Consume the separating space, but turn it into the exact same
+         * line/page transition an explicit newline would have produced. */
+        this->curToken.extended = 0;
+        this->newlineDelay = 2;
+        if (this->_98.bytes.lineNo == 0) {
+            MsgChangeLine(1);
+        } else {
+            this->renderStatus = RENDER_WAIT;
+        }
+        return 0;
+    }
+#endif
     if (gMessage.unk == 0) {
         gMessage.unk = 0x80;
     }

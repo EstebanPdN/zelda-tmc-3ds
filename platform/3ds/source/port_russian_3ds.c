@@ -9,6 +9,11 @@
 #define RUSSIAN_TEXT_PATH "romfs:/ru/russian.bin"
 #define RUSSIAN_FONT_PATH "romfs:/ru/russian_font.bin"
 #define RUSSIAN_FONT_SIZE (128u * 64u)
+#define RUSSIAN_BANNER_FONT_PATH "romfs:/ru/russian_banner_font.bin"
+#define RUSSIAN_BANNER_FIRST 0x80u
+#define RUSSIAN_BANNER_GLYPH_COUNT 70u
+#define RUSSIAN_BANNER_GLYPH_SIZE 128u
+#define RUSSIAN_BANNER_FONT_SIZE (RUSSIAN_BANNER_GLYPH_COUNT * RUSSIAN_BANNER_GLYPH_SIZE)
 #define RUSSIAN_CATEGORY_COUNT 80u
 
 extern u32* gTranslations[];
@@ -17,6 +22,7 @@ extern void* gUnk_08109248[];
 static u8* sRussianText;
 static u32 sRussianTextSize;
 static u8* sRussianFont;
+static u8* sRussianBannerFont;
 
 static void* LoadWholeFile(const char* path, u32* outSize) {
     FILE* file = fopen(path, "rb");
@@ -60,22 +66,44 @@ static bool32 IsRange(const void* ptr, u32 size, const u8* begin, u32 length) {
     return begin != NULL && at >= first && at <= last && (uintptr_t)size <= last - at;
 }
 
+bool32 Port3DS_RussianLocaleActive(void) {
+    return sRussianText != NULL && sRussianFont != NULL;
+}
+
 bool32 Port3DS_IsRussianFontGlyph(const void* ptr) {
     return IsRange(ptr, 1, sRussianFont, RUSSIAN_FONT_SIZE);
 }
 
+u32* Port3DS_RussianBannerGlyph(u32 code) {
+    if (sRussianBannerFont == NULL || code < RUSSIAN_BANNER_FIRST ||
+        code >= RUSSIAN_BANNER_FIRST + RUSSIAN_BANNER_GLYPH_COUNT) {
+        return NULL;
+    }
+    return (u32*)(sRussianBannerFont +
+                  (code - RUSSIAN_BANNER_FIRST) * RUSSIAN_BANNER_GLYPH_SIZE);
+}
+
+bool32 Port3DS_IsRussianBannerFontGlyph(const void* ptr) {
+    return IsRange(ptr, 1, sRussianBannerFont, RUSSIAN_BANNER_FONT_SIZE);
+}
+
 bool32 Port3DS_IsRussianAssetBytes(const void* ptr, u32 size) {
-    return IsRange(ptr, size, sRussianText, sRussianTextSize) || IsRange(ptr, size, sRussianFont, RUSSIAN_FONT_SIZE);
+    return IsRange(ptr, size, sRussianText, sRussianTextSize) ||
+           IsRange(ptr, size, sRussianFont, RUSSIAN_FONT_SIZE) ||
+           IsRange(ptr, size, sRussianBannerFont, RUSSIAN_BANNER_FONT_SIZE);
 }
 
 const u8* Port3DS_RussianAssetEnd(const void* ptr) {
     if (IsRange(ptr, 0, sRussianText, sRussianTextSize)) return sRussianText + sRussianTextSize;
     if (IsRange(ptr, 0, sRussianFont, RUSSIAN_FONT_SIZE)) return sRussianFont + RUSSIAN_FONT_SIZE;
+    if (IsRange(ptr, 0, sRussianBannerFont, RUSSIAN_BANNER_FONT_SIZE))
+        return sRussianBannerFont + RUSSIAN_BANNER_FONT_SIZE;
     return NULL;
 }
 
 bool32 Port3DS_LoadRussianLocale(void) {
     u32 fontSize = 0;
+    u32 bannerFontSize = 0;
 
     if (gRomRegion != ROM_REGION_USA) {
         printf("Russian locale: skipped (USA/BZME ROM required).\n");
@@ -117,13 +145,23 @@ bool32 Port3DS_LoadRussianLocale(void) {
         return FALSE;
     }
 
+    sRussianBannerFont = (u8*)LoadWholeFile(RUSSIAN_BANNER_FONT_PATH, &bannerFontSize);
+    if (!sRussianBannerFont || bannerFontSize != RUSSIAN_BANNER_FONT_SIZE) {
+        printf("Russian locale: warning: invalid banner font (%lu bytes, expected %u); "
+               "area titles will use the original bank.\n",
+               (unsigned long)bannerFontSize, (unsigned)RUSSIAN_BANNER_FONT_SIZE);
+        free(sRussianBannerFont);
+        sRussianBannerFont = NULL;
+    }
+
     /* Keep the engine/save/UI language as English. Raw text bytes 0x80..0xFF
      * are already routed by src/text.c to glyph bank 2 for every non-JP
      * language, so only these two pointers need replacing. */
     gTranslations[LANGUAGE_EN] = (u32*)sRussianText;
     gUnk_08109248[2] = sRussianFont;
 
-    printf("Russian locale: loaded %lu-byte text table and %u-byte font bank.\n",
-           (unsigned long)sRussianTextSize, (unsigned)RUSSIAN_FONT_SIZE);
+    printf("Russian locale: loaded %lu-byte text table, %u-byte message font%s.\n",
+           (unsigned long)sRussianTextSize, (unsigned)RUSSIAN_FONT_SIZE,
+           sRussianBannerFont ? " and Russian stylized area-title glyphs" : "");
     return TRUE;
 }

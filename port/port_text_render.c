@@ -22,6 +22,7 @@ void UnpackTextNibbles(void* src_ptr, u8* dest) {
         if (!(srcAddr >= romStart && srcAddr < romEnd)
 #ifdef TMC_3DS
             && !Port3DS_IsRussianFontGlyph(src_ptr)
+            && !Port3DS_IsRussianBannerFontGlyph(src_ptr)
 #endif
         ) {
             fprintf(stderr, "[TEXT] UnpackTextNibbles: src=%p outside ROM [%p..%p)\n", (void*)src, (void*)gRomData,
@@ -49,7 +50,11 @@ void UnpackTextNibbles(void* src_ptr, u8* dest) {
     /* Russian glyph byte 0 stores an invisible width marker in its first
      * 8 nibbles. sub_0805F7A0 reads that marker before this function; blank
      * the decoded first row so the marker itself is never drawn. */
-    if (Port3DS_IsRussianFontGlyph(src_ptr)) {
+    if (Port3DS_IsRussianBannerFontGlyph(src_ptr)) {
+        /* Bank 8 uses transparent-merge rendering where palette value 0 is
+         * transparent; its row 0 exists only to carry glyph metrics. */
+        for (int i = 0; i < 8; ++i) destStart[i] = 0x00;
+    } else if (Port3DS_IsRussianFontGlyph(src_ptr)) {
         for (int i = 0; i < 8; ++i) destStart[i] = 0x0F;
     }
 #endif

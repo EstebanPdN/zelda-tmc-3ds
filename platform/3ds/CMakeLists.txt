@@ -149,6 +149,11 @@ configure_file(
     "${TMC_ROMFS}/ru/russian_font.bin"
     COPYONLY
 )
+configure_file(
+    "${CMAKE_CURRENT_LIST_DIR}/romfs/ru/russian_banner_font.bin"
+    "${TMC_ROMFS}/ru/russian_banner_font.bin"
+    COPYONLY
+)
 
 set(TMC_SMDH "${CMAKE_CURRENT_BINARY_DIR}/tmc-3ds.smdh")
 ctr_generate_smdh(

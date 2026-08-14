@@ -7,6 +7,9 @@
 #include "main.h"
 #include "message.h"
 #include "structures.h"
+#if defined(TMC_3DS)
+#include "port_russian_3ds.h"
+#endif
 
 extern void UnpackTextNibbles(void*, u8*);
 
@@ -438,6 +441,14 @@ u32* sub_0805F25C(u32 param_1) {
         case 6:
         case 7:
         case 8:
+#if defined(TMC_3DS)
+            if (uVar1 == 8) {
+                u32* russianBannerGlyph = Port3DS_RussianBannerGlyph(param_1);
+                if (russianBannerGlyph != NULL) {
+                    return russianBannerGlyph;
+                }
+            }
+#endif
             param_1 = param_1 << 1;
             break;
     }
