@@ -24,7 +24,7 @@ https://discord.gg/SMW49UMkw
 
 * Native Nintendo 3DS port with full dual-screen support.
 * Supports both USA and European ROMs with automatic region detection.
-* True widescreen gameplay on the 400x240 top screen, plus Original and Stretch display modes.
+* True widescreen gameplay, Original and Stretch display modes, plus an experimental New 3DS `FULL VIEW 1:1` mode that exposes up to a native 400x240 world viewport.
 * Bottom-screen interface with live map, dungeon information, quest status, touch item controls, and settings.
 * New 3DS enhancements including 804 MHz mode, L2 cache, multi-core rendering, and optional 2x–5x turbo using the C-Stick.
 * Multiple display styles including Pixel Perfect, Scaled, and Blur.

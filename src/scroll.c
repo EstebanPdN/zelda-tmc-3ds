@@ -21,6 +21,7 @@
 
 #ifdef PC_PORT
 #include "port/port_generic_entity.h"
+#include "port_widescreen.h"
 #else
 #define GE_FIELD(ent, fname) (&((GenericEntity*)(ent))->fname)
 #endif
@@ -112,9 +113,8 @@ void Scroll1(RoomControls* controls) {
      * checks for exact scroll_x equality: computing it locally here is how
      * cutscene deadlocks happen. Reduces exactly to the GBA constants
      * (0x78 / width - 0xf0) at an effective width of 240. */
-    extern int Port_Widescreen_EffectiveViewWidth(void);
-    extern int Port_Widescreen_CameraRestX(int target_x);
     s32 wsViewW = Port_Widescreen_EffectiveViewWidth();
+    s32 wsViewH = Port_Widescreen_EffectiveViewHeight();
 #endif
 
     if (controls->camera_target != NULL) {
@@ -172,7 +172,7 @@ void Scroll1(RoomControls* controls) {
 
         // Scroll in y direction.
         unused = controls->scroll_y;
-        targetValue = controls->camera_target->y.HALF.HI - 0x50;
+        targetValue = Port_Widescreen_CameraRestY(controls->camera_target->y.HALF.HI);
         diff = controls->scroll_y - (targetValue);
         if (diff != 0) {
             uVar5 = controls->scroll_y & 7;
@@ -191,7 +191,7 @@ void Scroll1(RoomControls* controls) {
                     }
                 }
             } else {
-                uVar2 = controls->origin_y + controls->height - DISPLAY_HEIGHT;
+                uVar2 = controls->origin_y + controls->height - wsViewH;
                 if (controls->scroll_y < uVar2) {
                     if (-controls->scrollSpeed >= diff) {
                         diff = -controls->scrollSpeed;
@@ -846,7 +846,6 @@ void sub_08080974(u32 arg0, u32 arg1) {
     {
         /* THE shared camera-rest formula (port_widescreen.h) — must match
          * Scroll1 and WaitForCameraTouchRoomBorder exactly. */
-        extern int Port_Widescreen_CameraRestX(int target_x);
         roomControls->scroll_x = (s16)Port_Widescreen_CameraRestX((s32)arg0);
     }
 #else
@@ -863,6 +862,11 @@ void sub_08080974(u32 arg0, u32 arg1) {
 #endif
 
     var0 = roomControls->origin_y;
+#if MODE1_GBA_WIDTH > 240
+    {
+        roomControls->scroll_y = (s16)Port_Widescreen_CameraRestY((s32)arg1);
+    }
+#else
     if (arg1 <= var0 + 80) {
         roomControls->scroll_y = var0;
     } else {
@@ -873,6 +877,7 @@ void sub_08080974(u32 arg0, u32 arg1) {
         }
         roomControls->scroll_y = var1 - 80;
     }
+#endif
 
     sub_080809D4();
     gUpdateVisibleTiles = 1;
@@ -890,7 +895,6 @@ void sub_080809D4(void) {
     /* THE shared camera-rest formula (port_widescreen.h) — must match
      * Scroll1 and WaitForCameraTouchRoomBorder exactly. */
     {
-        extern int Port_Widescreen_CameraRestX(int target_x);
         roomControls->scroll_x = (s16)Port_Widescreen_CameraRestX(x);
     }
 #else
@@ -908,6 +912,11 @@ void sub_080809D4(void) {
 
     y = roomControls->camera_target->y.HALF.HI;
     var0 = roomControls->origin_y;
+#if MODE1_GBA_WIDTH > 240
+    {
+        roomControls->scroll_y = (s16)Port_Widescreen_CameraRestY(y);
+    }
+#else
     if (y <= var0 + 80) {
         roomControls->scroll_y = var0;
     } else {
@@ -918,6 +927,7 @@ void sub_080809D4(void) {
         }
         roomControls->scroll_y = var1 - 80;
     }
+#endif
 
     UpdateScreenShake();
     gUpdateVisibleTiles = 1;

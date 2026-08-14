@@ -39,12 +39,14 @@
 #define MODE1_GBA_WIDTH 240
 #endif
 
-/* Rendered viewport, in screen pixels. Height is intentionally NOT
- * widened: the engine's main loop assumes 160-line frames for timing and
- * BG preload (see docs/widescreen-phase2-design.md, Step C-3), so only
- * the horizontal extent generalises. */
+/* Compile-time render capacity. Runtime gameplay normally remains 160 lines;
+ * the experimental 3DS FULL VIEW 1:1 mode opts into the 240-line capacity. */
 #define PORT_VIEW_WIDTH (MODE1_GBA_WIDTH)
+#ifdef MODE1_GBA_HEIGHT
+#define PORT_VIEW_HEIGHT (MODE1_GBA_HEIGHT)
+#else
 #define PORT_VIEW_HEIGHT 160
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -64,6 +66,8 @@ extern "C" {
 int Port_Widescreen_FallbackNative(void);
 int Port_Widescreen_IsActive(void);
 int Port_Widescreen_EffectiveViewWidth(void);
+int Port_Widescreen_EffectiveViewHeight(void);
+int Port_Widescreen_FullView1xActive(void);
 int Port_Widescreen_HudRightAnchor(void);
 /* True while the map BGs are what the PPU renders (>=1 shadow registered);
  * overlay screens (storybook, pause) drop this to 0 -> present native 240. */
@@ -95,6 +99,7 @@ int Port_Widescreen_TargetViewWidth(void);
  * Reduces to the GBA `x - 120` clamped to [origin, origin+width-240] at an
  * effective view width of 240. */
 int Port_Widescreen_CameraRestX(int target_x);
+int Port_Widescreen_CameraRestY(int target_y);
 
 #ifdef __cplusplus
 }

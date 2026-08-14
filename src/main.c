@@ -16,6 +16,7 @@
 #ifdef PC_PORT
 #include "port_hdma.h"
 #include "port_second_screen_state.h"
+#include "port_widescreen.h"
 #include <setjmp.h>
 #endif
 #ifdef TMC_3DS
@@ -346,10 +347,17 @@ void SetSleepMode(void) {
 // Convert AABB to screen coordinates and check if it's within the viewport
 u32 CheckRegionOnScreen(u32 x0, u32 y0, u32 x1, u32 y1) {
     u32 result;
-    u32 x = ((gRoomControls.scroll_x - gRoomControls.origin_x) - x0 + DISPLAY_WIDTH);
-    u32 y = ((gRoomControls.scroll_y - gRoomControls.origin_y) - y0 + DISPLAY_HEIGHT);
-    u32 a = x1 + DISPLAY_WIDTH;
-    u32 b = y1 + DISPLAY_HEIGHT;
+#if MODE1_GBA_WIDTH > 240
+    u32 viewW = (u32)Port_Widescreen_EffectiveViewWidth();
+    u32 viewH = (u32)Port_Widescreen_EffectiveViewHeight();
+#else
+    u32 viewW = DISPLAY_WIDTH;
+    u32 viewH = DISPLAY_HEIGHT;
+#endif
+    u32 x = ((gRoomControls.scroll_x - gRoomControls.origin_x) - x0 + viewW);
+    u32 y = ((gRoomControls.scroll_y - gRoomControls.origin_y) - y0 + viewH);
+    u32 a = x1 + viewW;
+    u32 b = y1 + viewH;
     if ((x < a) && (y < b))
         result = TRUE;
     else

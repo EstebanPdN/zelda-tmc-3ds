@@ -1774,7 +1774,7 @@ static const char* SettingValueMinWord(int setting) {
         case SS_SET_BACKDROP: return "PATTERN";
         case SS_SET_SWAP_SCREENS: return "RESTART";
 #ifdef TMC_3DS
-        case SS_SET_ASPECT_RATIO: return "ORIGINAL";
+        case SS_SET_ASPECT_RATIO: return "FULL VIEW 1:1";
         case SS_SET_DISPLAY_STYLE: return "PIXEL PERFECT";
 #endif
         default: return "OFF";

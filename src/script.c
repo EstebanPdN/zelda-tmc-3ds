@@ -22,6 +22,7 @@
 #ifdef PC_PORT
 #include "port_entity_ctx.h"
 #include "port_rom.h"
+#include "port_widescreen.h"
 #include "port/port_generic_entity.h"
 #include "rando/rando_keymap.h"
 extern bool Rando_OverrideLocationKey(u32 location_key, u8* type, u8* subtype);
@@ -2167,7 +2168,6 @@ void WaitForCameraTouchRoomBorder(Entity* entity, ScriptExecutionContext* contex
          * here never matches in wide view — the intro festival pan and the
          * Zelda/Business-Scrub talk froze forever on this wait. Use THE
          * shared rest formula (port_widescreen.h). */
-        extern int Port_Widescreen_CameraRestX(int target_x);
         left = Port_Widescreen_CameraRestX(gRoomControls.camera_target->x.HALF.HI);
 #else
         left = gRoomControls.camera_target->x.HALF.HI - DISPLAY_WIDTH / 2;
@@ -2177,12 +2177,18 @@ void WaitForCameraTouchRoomBorder(Entity* entity, ScriptExecutionContext* contex
         if (left > gRoomControls.origin_x + gRoomControls.width - DISPLAY_WIDTH)
             left = gRoomControls.origin_x + gRoomControls.width - DISPLAY_WIDTH;
 #endif
+#if MODE1_GBA_WIDTH > 240
+        {
+            bottom = Port_Widescreen_CameraRestY(gRoomControls.camera_target->y.HALF.HI);
+        }
+#else
         bottom = gRoomControls.camera_target->y.HALF.HI - DISPLAY_HEIGHT / 2;
 
         if (bottom < gRoomControls.origin_y)
             bottom = gRoomControls.origin_y;
         if (bottom > gRoomControls.origin_y + gRoomControls.height - DISPLAY_HEIGHT)
             bottom = gRoomControls.origin_y + gRoomControls.height - DISPLAY_HEIGHT;
+#endif
 
         if (left == gRoomControls.scroll_x && bottom == gRoomControls.scroll_y)
             gActiveScriptInfo.flags |= 1;

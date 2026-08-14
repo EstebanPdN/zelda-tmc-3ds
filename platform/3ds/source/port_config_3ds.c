@@ -56,7 +56,9 @@ static bool ParseBool(const char* value) {
 }
 
 static const char* AspectRatioConfigName(Port3DSAspectRatio mode) {
-    static const char* const names[PORT_3DS_ASPECT_COUNT] = { "wide", "original", "stretch" };
+    static const char* const names[PORT_3DS_ASPECT_COUNT] = {
+        "wide", "original", "stretch", "full-view-1x"
+    };
     return mode >= 0 && mode < PORT_3DS_ASPECT_COUNT ? names[mode] : names[PORT_3DS_ASPECT_STRETCH];
 }
 
@@ -103,7 +105,8 @@ static void SaveConfig(void) {
     fprintf(file, "hold_to_advance_text=%u\n", sHoldText ? 1u : 0u);
     fprintf(file, "color_correction=%u\n", sColorCorrection ? 1u : 0u);
     fprintf(file, "autosave=%u\n", sAutosave ? 1u : 0u);
-    fprintf(file, "widescreen=%u\n", sAspectRatio == PORT_3DS_ASPECT_WIDE ? 1u : 0u);
+    fprintf(file, "widescreen=%u\n",
+            (sAspectRatio == PORT_3DS_ASPECT_WIDE || sAspectRatio == PORT_3DS_ASPECT_FULL_VIEW_1X) ? 1u : 0u);
     fprintf(file, "screen_aspect=%s\n", AspectRatioConfigName(sAspectRatio));
     fprintf(file, "display_style=%s\n", DisplayStyleConfigName(sDisplayStyle));
     fprintf(file, "master_volume=%.2f\n", (double)sVolume);
@@ -212,6 +215,8 @@ void Port_Config_Load(const char* path) {
     sRandoTricks &= RANDO_TRICK_ALL;
     if (sRandoAccessibility < 0 || sRandoAccessibility >= RANDO_ACCESS_COUNT)
         sRandoAccessibility = RANDO_ACCESS_GOAL;
+    if (!Platform3DS_IsNew3DS() && sAspectRatio == PORT_3DS_ASPECT_FULL_VIEW_1X)
+        sAspectRatio = PORT_3DS_ASPECT_WIDE;
     Platform3DS_SetTurboMultiplier(sTurboMultiplier);
     sConfigLoaded = true;
 }
@@ -242,7 +247,9 @@ float Port_Config_TouchScale(void) { return 1.0f; }
 void Port_Config_SetTouchScale(float scale) { (void)scale; }
 float Port_Config_TouchOpacity(void) { return 1.0f; }
 void Port_Config_SetTouchOpacity(float opacity) { (void)opacity; }
-bool Port_Config_WidescreenEnabled(void) { return sAspectRatio == PORT_3DS_ASPECT_WIDE; }
+bool Port_Config_WidescreenEnabled(void) {
+    return sAspectRatio == PORT_3DS_ASPECT_WIDE || sAspectRatio == PORT_3DS_ASPECT_FULL_VIEW_1X;
+}
 void Port_Config_SetWidescreenEnabled(bool enabled) {
     sAspectRatio = enabled ? PORT_3DS_ASPECT_WIDE : PORT_3DS_ASPECT_ORIGINAL;
     SaveConfig();
@@ -422,19 +429,27 @@ void Port_Config_SetTurboMultiplier(unsigned multiplier) {
 
 int Port_Config_Get3DSAspectRatio(void) { return (int)sAspectRatio; }
 const char* Port_Config_Get3DSAspectRatioName(void) {
-    static const char* const names[PORT_3DS_ASPECT_COUNT] = { "WIDE", "ORIGINAL", "STRETCH" };
+    static const char* const names[PORT_3DS_ASPECT_COUNT] = {
+        "WIDE", "ORIGINAL", "STRETCH", "FULL VIEW 1:1"
+    };
     return names[sAspectRatio];
 }
 void Port_Config_Cycle3DSAspectRatio(void) {
-    sAspectRatio = (Port3DSAspectRatio)((sAspectRatio + 1) % PORT_3DS_ASPECT_COUNT);
+    const int count = Platform3DS_IsNew3DS() ? PORT_3DS_ASPECT_COUNT : PORT_3DS_ASPECT_FULL_VIEW_1X;
+    sAspectRatio = (Port3DSAspectRatio)((sAspectRatio + 1) % count);
     SaveConfig();
+}
+bool Port_Config_FullView1xEnabled(void) {
+    return Platform3DS_IsNew3DS() && sAspectRatio == PORT_3DS_ASPECT_FULL_VIEW_1X;
 }
 int Port_Config_Get3DSDisplayStyle(void) { return (int)sDisplayStyle; }
 const char* Port_Config_Get3DSDisplayStyleName(void) {
     static const char* const names[PORT_3DS_DISPLAY_COUNT] = { "PIXEL PERFECT", "SCALED", "BLUR" };
+    if (sAspectRatio == PORT_3DS_ASPECT_FULL_VIEW_1X) return "FIXED 1:1";
     return names[sDisplayStyle];
 }
 void Port_Config_Cycle3DSDisplayStyle(void) {
+    if (sAspectRatio == PORT_3DS_ASPECT_FULL_VIEW_1X) return;
     sDisplayStyle = (Port3DSDisplayStyle)((sDisplayStyle + 1) % PORT_3DS_DISPLAY_COUNT);
     SaveConfig();
 }

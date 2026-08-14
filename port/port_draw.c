@@ -26,6 +26,7 @@
 
 #include "port_widescreen.h"
 #include "port_rom.h"
+#include "cpu/mode1.h"
 
 #include <setjmp.h>
 #include <stdio.h>
@@ -415,12 +416,10 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
      * drops those entries' pixels at scanline >= waterline, so the line rises
      * feet->head smoothly as the sink timer climbs. Reset once per frame (the
      * first emitted sprite has updated==0, since FlushSprites zeroes it). */
-    extern u8 virtuappu_mode1_obj_clip_mark[128];
-    extern int virtuappu_mode1_obj_clip_y;
-    extern int virtuappu_mode1_obj_clip_enable;
     extern PlayerEntity gPlayerEntity;
     if (updated == 0) {
         memset(virtuappu_mode1_obj_clip_mark, 0, 128);
+        memset(virtuappu_mode1_obj_y_negative, 0, 128);
         virtuappu_mode1_obj_clip_enable = 0;
     }
     int sSwampClipActive = (sRenderingPlayer && gPlayerState.floor_type == SURFACE_SWAMP &&
@@ -473,7 +472,7 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
 
         /* Clipping */
         y -= (s32)se[1]; /* subtract y anchor */
-        if (y >= 160) {
+        if (y >= Port_Widescreen_EffectiveViewHeight()) {
             continue;
         }
         if (y + (s32)se[3] <= 0) {
@@ -496,6 +495,7 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
          *   bits 25-29: attr1.matrixNum/flip (from 'flags')
          *   bits 30-31: attr1.size
          */
+        virtuappu_mode1_obj_y_negative[updated] = y < 0;
         u32 oamWord = (u32)(y & 0xFF);            /* y position */
         oamWord |= (u32)((x & 0x1FF)) << 16;      /* x position */
         oamWord |= flags;                         /* base flags */
@@ -645,7 +645,7 @@ u32 CheckOnScreen(Entity* entity) {
     s32 y = (s32)entity->y.HALF.HI - (s32)gRoomControls.scroll_y;
     y += (s32)entity->z.HALF.HI;
     y += 0x3F;
-    if ((u32)y >= 0x11E)
+    if ((u32)y >= (u32)Port_Widescreen_EffectiveViewHeight() + 0x7E)
         return 0;
 
     return 1;

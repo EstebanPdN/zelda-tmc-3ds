@@ -80,6 +80,7 @@ static uint64_t sPerfFramesOver33ms;
 static volatile uint32_t sCurrentFpsX100;
 static volatile uint32_t sAverageFpsX100;
 static int sTopPresentWidth = GBA_NATIVE_W;
+static int sTopPresentHeight = GBA_H;
 
 static int TopFrameWidth(void) {
     Port_Widescreen_SetWindowPixels(400, 240);
@@ -89,6 +90,13 @@ static int TopFrameWidth(void) {
         if (width > GBA_NATIVE_W) return width;
     }
     return GBA_NATIVE_W;
+}
+
+static int TopFrameHeight(void) {
+    if (Port_Widescreen_FullView1xActive() && Port_Widescreen_ShadowsLive()) {
+        return Port_Widescreen_EffectiveViewHeight();
+    }
+    return GBA_H;
 }
 
 #ifdef TMC_3DS_DIAGNOSTICS
@@ -551,7 +559,10 @@ void Port_PPU_Init(SDL_Window* window) {
     sColorCorrection = Port_Config_GetColorCorrection();
     virtuappu_mode1_set_color_correction(sColorCorrection);
     Port_Widescreen_SetWindowPixels(400, 240);
+    sTopPresentWidth = GBA_NATIVE_W;
+    sTopPresentHeight = GBA_H;
     virtuappu_registers.frame_width = GBA_NATIVE_W;
+    virtuappu_registers.frame_height = GBA_H;
     virtuappu_registers.frame_pitch = TOP_PITCH;
     virtuappu_registers.mode = 1;
     Port_SecondScreen_Init();
@@ -612,7 +623,9 @@ void Port_PPU_PresentFrame(void) {
     const uint8_t mode = (uint8_t)(dispcnt & 7);
     virtuappu_registers.mode = (mode == 1 || mode == 2) ? 2 : 1;
     sTopPresentWidth = TopFrameWidth();
+    sTopPresentHeight = TopFrameHeight();
     virtuappu_registers.frame_width = sTopPresentWidth;
+    virtuappu_registers.frame_height = sTopPresentHeight;
     virtuappu_registers.frame_pitch = TOP_PITCH;
     virtuappu_mode1_pre_line_callback = port_hdma_has_active_channels() ? port_hdma_step_line : NULL;
     virtuappu_mode1_bg2x_hdma_strobe = port_hdma_dest_overlaps(gIoMem + 0x28, gIoMem + 0x2c) != 0;
@@ -638,7 +651,7 @@ void Port_PPU_PresentFrame(void) {
     if (diagnosticFrame == 60) DumpPpuSnapshot("tmc3ds-frame60.ppu1");
 #endif
 
-    PlatformGpu3DS_BeginTop(sTopUpload, (unsigned)sTopPresentWidth);
+    PlatformGpu3DS_BeginTop(sTopUpload, (unsigned)sTopPresentWidth, (unsigned)sTopPresentHeight);
     const uint64_t topEndTick = Platform3DS_SystemTick();
 #ifdef TMC_3DS_DIAGNOSTICS
     const uint64_t topEnd = Platform3DS_Milliseconds();

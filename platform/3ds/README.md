@@ -35,9 +35,14 @@ Audio requires a working 3DS DSP firmware setup. On Luma3DS, use Rosalina's
 
 ## Display
 
-- Top screen: selectable Wide, Original, and Stretch aspect ratios.
+- Top screen: selectable Wide, Original, Stretch, and New-3DS-only
+  `FULL VIEW 1:1` aspect modes.
 - Display styles: centered one-pixel-per-source-pixel Pixel Perfect, nearest-
   neighbor Scaled and linearly filtered Blur.
+- `FULL VIEW 1:1` renders live gameplay at up to 400x240 with one source pixel
+  per physical top-screen pixel. It keeps fixed 240x160 screens centered,
+  centers undersized rooms against black, ignores display-style filtering,
+  and is available only on New 3DS hardware.
 - Bottom screen: 320x240 map, dungeon/status information and touch item UI.
 - Rendering: PICA200/Citro2D presenter fed by the software GBA PPU.
 - Performance profile: selected automatically from the detected console model.

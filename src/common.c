@@ -782,11 +782,31 @@ void DispReset(bool32 refresh) {
     gScreen.bg0.updated = refresh;
 }
 
-void ClearOAM(void) {
+#ifdef TMC_3DS
+/* Keep the native OAM mirror pass separate from the emulated 0x07000000
+ * write pass. If both pointers live in the same optimized loop, GCC folds
+ * them into `&gOAMControls + (0x20 - OAM)`. That produces an R_ARM_ABS32
+ * addend with a non-zero top nibble, which 3DSX reserves for relocation
+ * metadata and hb:ldr consequently rejects as a corrupt executable. */
+static void __attribute__((noinline)) ClearNativeOAMMirror(void) {
     u8* d = (u8*)gOAMControls.oam;
-    u8* mem = (u8*)0x07000000;
-    u32 i;
-    for (i = 128; i != 0; --i) {
+    for (u32 i = 128; i != 0; --i) {
+        *(u16*)d = 0x2A0;
+        d += 8;
+    }
+}
+#endif
+
+void ClearOAM(void) {
+#ifdef TMC_3DS
+    ClearNativeOAMMirror();
+    for (u32 i = 0; i < 128; ++i) {
+        gba_write16(OAM + i * 8, 0x2A0);
+    }
+#else
+    u8* d = (u8*)gOAMControls.oam;
+    u8* mem = (u8*)OAM;
+    for (u32 i = 128; i != 0; --i) {
         *(u16*)d = 0x2A0;
         d += 8;
 #ifdef PC_PORT
@@ -796,6 +816,7 @@ void ClearOAM(void) {
 #endif
         mem += 8;
     }
+#endif
 }
 
 void ResetScreenRegs(void) {

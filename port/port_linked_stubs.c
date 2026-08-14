@@ -1085,6 +1085,11 @@ int Port_Widescreen_TargetViewWidth(void) {
     if (env_w > 0) {
         return env_w;
     }
+#ifdef TMC_3DS
+    if (Port_Config_FullView1xEnabled()) {
+        return MODE1_GBA_WIDTH < 400 ? MODE1_GBA_WIDTH : 400;
+    }
+#endif
     if (sWsWindowW <= 0 || sWsWindowH <= 0) {
         return 240;
     }
@@ -1110,6 +1115,15 @@ static s32 Port_WidescreenEffectiveTarget(void) {
     if (roomW < target) {
         target = roomW;
     }
+#ifdef TMC_3DS
+    /* Full-view keeps its 1:1 scale near undersized maps. The content scan is
+     * already ratcheted per room; cap the source canvas to painted columns so
+     * the presenter centers it against black instead of exposing stale tiles. */
+    if (Port_Config_FullView1xEnabled() && sWsContentKey == Port_WidescreenRoomKey() &&
+        sWsContentPx > 0 && sWsContentPx < target) {
+        target = sWsContentPx;
+    }
+#endif
     return target;
 }
 
@@ -1144,7 +1158,16 @@ int Port_Widescreen_IsActive(void) {
      * overlay screens that replace the map BGs (prologue storybook, pause
      * menu, ...) are caught by Port_Widescreen_ShadowsLive() instead: no
      * matching BG -> no shadow -> present native 240. */
-    return (gMain.task == TASK_GAME && Port_Config_WidescreenEnabled() && !Port_Widescreen_FallbackNative()) ? 1 : 0;
+    return (gMain.task == TASK_GAME && Port_Config_WidescreenEnabled() &&
+            (Port_Widescreen_FullView1xActive() || !Port_Widescreen_FallbackNative())) ? 1 : 0;
+}
+
+int Port_Widescreen_FullView1xActive(void) {
+#ifdef TMC_3DS
+    return gMain.task == TASK_GAME && Port_Config_FullView1xEnabled();
+#else
+    return 0;
+#endif
 }
 
 int Port_Widescreen_EffectiveViewWidth(void) {
@@ -1156,12 +1179,30 @@ int Port_Widescreen_EffectiveViewWidth(void) {
     return eff > 240 ? (int)eff : 240;
 }
 
+int Port_Widescreen_EffectiveViewHeight(void) {
+    s32 roomH;
+    if (!Port_Widescreen_FullView1xActive()) {
+        return 160;
+    }
+    roomH = (s32)gRoomControls.height;
+    if (roomH < 160) roomH = 160;
+    if (roomH > 240) roomH = 240;
+    return (int)roomH;
+}
+
 /* Single source of truth for the camera's rest x (see port_widescreen.h).
  * Clamp order (lo wins over hi) matches the GBA branches it replaces. */
 int Port_Widescreen_CameraRestX(int target_x) {
     int viewW = Port_Widescreen_EffectiveViewWidth();
     int lo = (int)gRoomControls.origin_x;
-    int hi = lo + (int)gRoomControls.width - viewW;
+    int boundsW = (int)gRoomControls.width;
+#ifdef TMC_3DS
+    if (Port_Config_FullView1xEnabled() && sWsContentKey == Port_WidescreenRoomKey() &&
+        sWsContentPx > 0 && sWsContentPx < boundsW) {
+        boundsW = (int)sWsContentPx;
+    }
+#endif
+    int hi = lo + boundsW - viewW;
     int want = target_x - viewW / 2;
     if (want > hi) {
         want = hi;
@@ -1169,6 +1210,16 @@ int Port_Widescreen_CameraRestX(int target_x) {
     if (want < lo) {
         want = lo;
     }
+    return want;
+}
+
+int Port_Widescreen_CameraRestY(int target_y) {
+    int viewH = Port_Widescreen_EffectiveViewHeight();
+    int lo = (int)gRoomControls.origin_y;
+    int hi = lo + (int)gRoomControls.height - viewH;
+    int want = target_y - viewH / 2;
+    if (want > hi) want = hi;
+    if (want < lo) want = lo;
     return want;
 }
 
@@ -1195,12 +1246,15 @@ int Port_Widescreen_HudRightAnchor(void) {
     if (gHUD.hideFlags != HUD_HIDE_NONE) {
         return 0;
     }
+    if (Port_Widescreen_FullView1xActive()) {
+        return 0;
+    }
     return 1;
 }
 
 static void Port_WidescreenShadow_Populate(int bg_index, u16* mapSpecial, u16* shadow) {
     /* Populate the port-side shadow tilemap the PPU reads for the reveal
-     * columns (display x >= MODE1_GBA_BG_CLIP_X). The engine's 32-tile VRAM
+     * columns, or for the whole viewport in full-view mode. The engine's 32-tile VRAM
      * screenblock only spans ~256 px of world and wraps past that, so the
      * reveal columns can't come from VRAM; we mirror, from gMapData*Special,
      * exactly what the engine fill (ram_sub_080B197C_c) would have placed.
@@ -1228,10 +1282,13 @@ static void Port_WidescreenShadow_Populate(int bg_index, u16* mapSpecial, u16* s
     s16 xdiff = (s16)(gRoomControls.scroll_x - gRoomControls.origin_x);
     s16 ydiff = (s16)(gRoomControls.scroll_y - gRoomControls.origin_y);
     s32 row16 = ydiff >> 4;
-    /* First reveal world tile col, continuing the native edge:
-     * 2*col16 + CLIP/8 + (BGHOFS>=8) == (xdiff>>3) + CLIP/8. */
-    s32 ws_base_world_col = (xdiff >> 3) + (MODE1_GBA_BG_CLIP_X / 8);
-    virtuappu_mode1_ws_shadow_base_tile[bg_index] = (MODE1_GBA_BG_CLIP_X / 8) + (((xdiff & 0xf) >= 8) ? 1 : 0);
+    const int full_view = Port_Widescreen_FullView1xActive();
+    const s32 first_display_tile = full_view ? 0 : (MODE1_GBA_BG_CLIP_X / 8);
+    /* First shadow world tile col, continuing from either display x=0 in
+     * full-view mode or the native x=240 edge in regular widescreen. */
+    s32 ws_base_world_col = (xdiff >> 3) + first_display_tile;
+    virtuappu_mode1_ws_shadow_base_tile[bg_index] =
+        first_display_tile + (((xdiff & 0xf) >= 8) ? 1 : 0);
 
     enum { kMapStride = 128, kMapRows = 128 };
     /* Clamp to the ROOM rect, not just the 128-tile buffer: the buffers are
@@ -1367,6 +1424,12 @@ int Port_Widescreen_IsActive(void) {
 int Port_Widescreen_EffectiveViewWidth(void) {
     return 240;
 }
+int Port_Widescreen_EffectiveViewHeight(void) {
+    return 160;
+}
+int Port_Widescreen_FullView1xActive(void) {
+    return 0;
+}
 int Port_Widescreen_HudRightAnchor(void) {
     return 0;
 }
@@ -1391,6 +1454,14 @@ int Port_Widescreen_CameraRestX(int target_x) {
     if (want < lo) {
         want = lo;
     }
+    return want;
+}
+int Port_Widescreen_CameraRestY(int target_y) {
+    int lo = (int)gRoomControls.origin_y;
+    int hi = lo + (int)gRoomControls.height - 160;
+    int want = target_y - 80;
+    if (want > hi) want = hi;
+    if (want < lo) want = lo;
     return want;
 }
 #endif
@@ -2342,7 +2413,7 @@ u32 CheckRectOnScreen(s32 x, s32 y, u32 halfW, u32 halfH) {
         return 0;
     s32 sy = gRoomControls.scroll_y - gRoomControls.origin_y;
     u32 dy = (u32)(y - sy + halfH);
-    if (dy >= halfH * 2 + 0xA0)
+    if (dy >= halfH * 2 + (u32)Port_Widescreen_EffectiveViewHeight())
         return 0;
     return 1;
 }
