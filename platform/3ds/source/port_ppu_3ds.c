@@ -628,6 +628,8 @@ void Port_PPU_PresentFrame(void) {
     virtuappu_registers.frame_height = sTopPresentHeight;
     virtuappu_registers.frame_pitch = TOP_PITCH;
     virtuappu_mode1_pre_line_callback = port_hdma_has_active_channels() ? port_hdma_step_line : NULL;
+    virtuappu_mode1_bg3_hdma_native_bounds =
+        port_hdma_dest_overlaps(gIoMem + 0x1c, gIoMem + 0x20) != 0;
     virtuappu_mode1_bg2x_hdma_strobe = port_hdma_dest_overlaps(gIoMem + 0x28, gIoMem + 0x2c) != 0;
     virtuappu_mode1_bg2y_hdma_strobe = port_hdma_dest_overlaps(gIoMem + 0x2c, gIoMem + 0x30) != 0;
 

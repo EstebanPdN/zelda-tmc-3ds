@@ -83,6 +83,12 @@ extern uint16_t* virtuappu_mode1_ws_shadow[MODE1_GBA_BG_COUNT];
 extern int virtuappu_mode1_ws_shadow_base_tile[MODE1_GBA_BG_COUNT];
 extern int virtuappu_mode1_ws_full_view;
 
+/* HBlank-driven BG3 effects are authored for the native GBA viewport. In a
+ * wider frame their 256px text tilemap wraps into a second visible copy; in a
+ * taller frame the 160-line HDMA program has no meaningful rows to extend.
+ * Hosts set this for frames where HBlank DMA targets BG3HOFS/BG3VOFS. */
+extern bool virtuappu_mode1_bg3_hdma_native_bounds;
+
 /* A 240-line viewport makes raw OAM Y values 160..239 ambiguous: they can be
  * real lower-screen positions or wrapped negative coordinates. The port-side
  * sprite emitter records the signed case before packing the 8-bit OAM field. */
@@ -90,6 +96,11 @@ extern uint8_t virtuappu_mode1_obj_y_negative[MODE1_GBA_OAM_COUNT];
 extern uint8_t virtuappu_mode1_obj_clip_mark[MODE1_GBA_OAM_COUNT];
 extern int virtuappu_mode1_obj_clip_y;
 extern int virtuappu_mode1_obj_clip_enable;
+extern uint8_t virtuappu_mode1_obj_y_negative_staged[MODE1_GBA_OAM_COUNT];
+extern uint8_t virtuappu_mode1_obj_clip_mark_staged[MODE1_GBA_OAM_COUNT];
+extern int virtuappu_mode1_obj_clip_y_staged;
+extern int virtuappu_mode1_obj_clip_enable_staged;
+void virtuappu_mode1_commit_obj_metadata(void);
 
 /* Runtime WIP widescreen HUD anchor. BG0 stays 32 tiles wide, but gameplay
  * HUD uses both left-anchored widgets (hearts/charge) and right-anchored

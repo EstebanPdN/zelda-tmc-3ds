@@ -63,6 +63,7 @@ static void BuildState(unsigned scene) {
     virtuappu_mode1_ws_msg_y0 = 0;
     virtuappu_mode1_ws_msg_y1 = 0;
     virtuappu_mode1_ws_full_view = MODE1_GBA_HEIGHT > MODE1_GBA_NATIVE_HEIGHT;
+    virtuappu_mode1_bg3_hdma_native_bounds = false;
 
     uint16_t dispcnt = MODE1_DISP_OBJ_1D;
     for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
@@ -228,6 +229,7 @@ static int CheckShortFullViewRepeatsOverlay(PPUMemory* ppu) {
     }
     for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) virtuappu_mode1_ws_shadow[bg] = NULL;
     virtuappu_mode1_ws_full_view = 1;
+    virtuappu_mode1_bg3_hdma_native_bounds = false;
     virtuappu_mode1_ws_msg_shift = 0;
     virtuappu_mode1_ws_msg_shift_y = 0;
     WriteIo16(MODE1_IO_DISPCNT, MODE1_DISP_BG3_ON);
@@ -253,7 +255,57 @@ static int CheckShortFullViewRepeatsOverlay(PPUMemory* ppu) {
     return 0;
 }
 
-static int CheckFullViewCentersMessageVertically(PPUMemory* ppu) {
+static int CheckHdmaBg3UsesNativeBounds(PPUMemory* ppu) {
+#if MODE1_GBA_WIDTH > 266 && MODE1_GBA_HEIGHT > MODE1_GBA_NATIVE_HEIGHT
+    memset(sIo, 0, sizeof(sIo));
+    memset(sVram, 0, sizeof(sVram));
+    memset(sBgPalette, 0, sizeof(sBgPalette));
+    memset(sObjPalette, 0, sizeof(sObjPalette));
+    memset(sOam, 0, sizeof(sOam));
+    for (int i = 0; i < MODE1_GBA_OAM_COUNT; ++i) sOam[i * 4] = 0x0200u;
+
+    /* An opaque 256x256 BG3 makes its horizontal wrap obvious. Ordinary Full
+     * View overlays repeat it (covered above); an HBlank-driven effect must
+     * be visible only in the centered 240x160 GBA viewport. */
+    memset(&sVram[32], 0x11, 32);
+    sBgPalette[1] = 0x001Fu;
+    for (size_t i = 0; i < 32u * 32u; ++i) {
+        sVram[0x8000u + i * 2u] = 1u;
+        sVram[0x8000u + i * 2u + 1u] = 0u;
+    }
+    for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) virtuappu_mode1_ws_shadow[bg] = NULL;
+    virtuappu_mode1_ws_full_view = 1;
+    virtuappu_mode1_bg3_hdma_native_bounds = true;
+    virtuappu_mode1_ws_msg_shift = 0;
+    virtuappu_mode1_ws_msg_shift_y = 0;
+    WriteIo16(MODE1_IO_DISPCNT, MODE1_DISP_BG3_ON);
+    WriteIo16(MODE1_IO_BG3CNT, (uint16_t)(16u << 8u));
+
+    virtuappu_mode1_set_old3ds_profile(false);
+    virtuappu_mode1_set_native_fast_paths_enabled(true);
+    virtuappu_mode1_render_frame(ppu);
+    virtuappu_mode1_bg3_hdma_native_bounds = false;
+
+    const uint32_t center = virtuappu_frame_buffer[100u * MODE1_GBA_WIDTH + 200u];
+    const uint32_t left = virtuappu_frame_buffer[100u * MODE1_GBA_WIDTH + 40u];
+    const uint32_t right = virtuappu_frame_buffer[100u * MODE1_GBA_WIDTH + 360u];
+    const uint32_t top = virtuappu_frame_buffer[20u * MODE1_GBA_WIDTH + 200u];
+    const uint32_t bottom = virtuappu_frame_buffer[220u * MODE1_GBA_WIDTH + 200u];
+    if (center == 0xFF000000u || left != 0xFF000000u || right != 0xFF000000u ||
+        top != 0xFF000000u || bottom != 0xFF000000u) {
+        fprintf(stderr,
+                "mode1_native_fast_path_test: HDMA BG3 native bounds failed: "
+                "center=%08x left=%08x right=%08x top=%08x bottom=%08x\n",
+                center, left, right, top, bottom);
+        return 1;
+    }
+#else
+    (void)ppu;
+#endif
+    return 0;
+}
+
+static int CheckFullViewAnchorsTopMessage(PPUMemory* ppu) {
 #if MODE1_GBA_HEIGHT > MODE1_GBA_NATIVE_HEIGHT
     memset(sIo, 0, sizeof(sIo));
     memset(sVram, 0, sizeof(sVram));
@@ -264,19 +316,19 @@ static int CheckFullViewCentersMessageVertically(PPUMemory* ppu) {
     for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) virtuappu_mode1_ws_shadow[bg] = NULL;
 
     /* A red message tile at native (8,16), plus an unrelated green BG0 tile
-     * beside its destination. Moving the box to (88,56) must leave that
+     * beside its destination. Moving the box to (88,0) must leave that
      * destination-row content untouched outside the box. */
     memset(&sVram[32], 0x11, 32);
     memset(&sVram[64], 0x22, 32);
     sBgPalette[1] = 0x001Fu;
     sBgPalette[2] = 0x03E0u;
     sVram[0x8000u + (2u * 32u + 1u) * 2u] = 1u;
-    sVram[0x8000u + (7u * 32u) * 2u] = 2u;
+    sVram[0x8000u] = 2u;
 
     virtuappu_mode1_ws_full_view = 1;
     virtuappu_mode1_ws_hud_right_anchor = 0;
     virtuappu_mode1_ws_msg_shift = 80;
-    virtuappu_mode1_ws_msg_shift_y = 40;
+    virtuappu_mode1_ws_msg_shift_y = -16;
     virtuappu_mode1_ws_msg_x0 = 8;
     virtuappu_mode1_ws_msg_x1 = 16;
     virtuappu_mode1_ws_msg_y0 = 16;
@@ -290,12 +342,12 @@ static int CheckFullViewCentersMessageVertically(PPUMemory* ppu) {
     virtuappu_mode1_render_frame(ppu);
 
     const uint32_t native_copy = virtuappu_frame_buffer[16u * MODE1_GBA_WIDTH + 8u];
-    const uint32_t moved_copy = virtuappu_frame_buffer[56u * MODE1_GBA_WIDTH + 88u];
-    const uint32_t destination_neighbor = virtuappu_frame_buffer[56u * MODE1_GBA_WIDTH];
+    const uint32_t moved_copy = virtuappu_frame_buffer[88u];
+    const uint32_t destination_neighbor = virtuappu_frame_buffer[0];
     if (native_copy != 0xFF000000u || moved_copy == 0xFF000000u ||
         destination_neighbor == 0xFF000000u || moved_copy == destination_neighbor) {
         fprintf(stderr,
-                "mode1_native_fast_path_test: full-view message placement failed: "
+                "mode1_native_fast_path_test: full-view top message placement failed: "
                 "native=%08x moved=%08x neighbor=%08x\n",
                 native_copy, moved_copy, destination_neighbor);
         return 1;
@@ -303,6 +355,133 @@ static int CheckFullViewCentersMessageVertically(PPUMemory* ppu) {
 #else
     (void)ppu;
 #endif
+    return 0;
+}
+
+static int CheckFullViewAnchorsBottomMessage(PPUMemory* ppu) {
+#if MODE1_GBA_HEIGHT > MODE1_GBA_NATIVE_HEIGHT
+    memset(sIo, 0, sizeof(sIo));
+    memset(sVram, 0, sizeof(sVram));
+    memset(sBgPalette, 0, sizeof(sBgPalette));
+    memset(sObjPalette, 0, sizeof(sObjPalette));
+    memset(sOam, 0, sizeof(sOam));
+    for (int i = 0; i < MODE1_GBA_OAM_COUNT; ++i) sOam[i * 4] = 0x0200u;
+    for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) virtuappu_mode1_ws_shadow[bg] = NULL;
+
+    memset(&sVram[32], 0x11, 32);
+    memset(&sVram[64], 0x22, 32);
+    sBgPalette[1] = 0x001Fu;
+    sBgPalette[2] = 0x03E0u;
+    sVram[0x8000u + (12u * 32u + 1u) * 2u] = 1u;
+    sVram[0x8000u + (28u * 32u) * 2u] = 2u;
+
+    virtuappu_mode1_ws_full_view = 1;
+    virtuappu_mode1_ws_hud_right_anchor = 0;
+    virtuappu_mode1_ws_msg_shift = 80;
+    virtuappu_mode1_ws_msg_shift_y = 128;
+    virtuappu_mode1_ws_msg_x0 = 8;
+    virtuappu_mode1_ws_msg_x1 = 16;
+    virtuappu_mode1_ws_msg_y0 = 96;
+    virtuappu_mode1_ws_msg_y1 = 104;
+    WriteIo16(MODE1_IO_DISPCNT, MODE1_DISP_BG0_ON);
+    WriteIo16(MODE1_IO_BG0CNT, (uint16_t)(16u << 8u));
+
+    virtuappu_mode1_set_color_correction(false);
+    virtuappu_mode1_set_old3ds_profile(false);
+    virtuappu_mode1_set_native_fast_paths_enabled(true);
+    virtuappu_mode1_render_frame(ppu);
+
+    const uint32_t native_copy = virtuappu_frame_buffer[96u * MODE1_GBA_WIDTH + 8u];
+    const uint32_t moved_copy = virtuappu_frame_buffer[224u * MODE1_GBA_WIDTH + 88u];
+    const uint32_t destination_neighbor = virtuappu_frame_buffer[224u * MODE1_GBA_WIDTH];
+    if (native_copy != 0xFF000000u || moved_copy == 0xFF000000u ||
+        destination_neighbor == 0xFF000000u || moved_copy == destination_neighbor) {
+        fprintf(stderr,
+                "mode1_native_fast_path_test: full-view bottom message placement failed: "
+                "native=%08x moved=%08x neighbor=%08x\n",
+                native_copy, moved_copy, destination_neighbor);
+        return 1;
+    }
+#else
+    (void)ppu;
+#endif
+    return 0;
+}
+
+static int CheckMessageSourceRowsClipWideShadow(PPUMemory* ppu) {
+#if MODE1_GBA_WIDTH > MODE1_GBA_NATIVE_WIDTH
+    memset(sIo, 0, sizeof(sIo));
+    memset(sVram, 0, sizeof(sVram));
+    memset(sBgPalette, 0, sizeof(sBgPalette));
+    memset(sObjPalette, 0, sizeof(sObjPalette));
+    memset(sOam, 0, sizeof(sOam));
+    memset(sShadow, 0, sizeof(sShadow));
+    for (int i = 0; i < MODE1_GBA_OAM_COUNT; ++i) sOam[i * 4] = 0x0200u;
+
+    /* Model a stale non-transparent BG0 shadow in the widened columns. While
+     * a message is moved, its original rows must not leak that shadow to the
+     * right of the native 240-pixel canvas. */
+    memset(&sVram[32], 0x11, 32);
+    sBgPalette[1] = 0x001Fu;
+    for (size_t i = 0; i < MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_COLS; ++i) {
+        sShadow[0][i] = 1u;
+    }
+    for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
+        virtuappu_mode1_ws_shadow[bg] = NULL;
+        virtuappu_mode1_ws_shadow_base_tile[bg] = 0;
+    }
+    virtuappu_mode1_ws_shadow[0] = sShadow[0];
+    virtuappu_mode1_ws_full_view = 0;
+    virtuappu_mode1_ws_hud_right_anchor = 0;
+    virtuappu_mode1_ws_msg_shift = 80;
+    virtuappu_mode1_ws_msg_shift_y = 40;
+    virtuappu_mode1_ws_msg_x0 = 8;
+    virtuappu_mode1_ws_msg_x1 = 232;
+    virtuappu_mode1_ws_msg_y0 = 8;
+    virtuappu_mode1_ws_msg_y1 = 48;
+    WriteIo16(MODE1_IO_DISPCNT, MODE1_DISP_BG0_ON);
+    WriteIo16(MODE1_IO_BG0CNT, (uint16_t)(16u << 8u));
+
+    virtuappu_mode1_set_color_correction(false);
+    virtuappu_mode1_set_old3ds_profile(false);
+    virtuappu_mode1_set_native_fast_paths_enabled(true);
+    virtuappu_mode1_render_frame(ppu);
+
+    const uint32_t leaked_source_row = virtuappu_frame_buffer[16u * MODE1_GBA_WIDTH + 300u];
+    if (leaked_source_row != 0xFF000000u) {
+        fprintf(stderr,
+                "mode1_native_fast_path_test: message source-row wide shadow leaked: %08x\n",
+                leaked_source_row);
+        return 1;
+    }
+#else
+    (void)ppu;
+#endif
+    return 0;
+}
+
+static int CheckObjMetadataCommit(void) {
+    memset(virtuappu_mode1_obj_y_negative, 0, sizeof(virtuappu_mode1_obj_y_negative));
+    memset(virtuappu_mode1_obj_clip_mark, 0, sizeof(virtuappu_mode1_obj_clip_mark));
+    memset(virtuappu_mode1_obj_y_negative_staged, 0,
+           sizeof(virtuappu_mode1_obj_y_negative_staged));
+    memset(virtuappu_mode1_obj_clip_mark_staged, 0,
+           sizeof(virtuappu_mode1_obj_clip_mark_staged));
+    virtuappu_mode1_obj_y_negative_staged[17] = 1;
+    virtuappu_mode1_obj_clip_mark_staged[23] = 1;
+    virtuappu_mode1_obj_clip_y_staged = 117;
+    virtuappu_mode1_obj_clip_enable_staged = 1;
+
+    virtuappu_mode1_commit_obj_metadata();
+    virtuappu_mode1_obj_y_negative_staged[17] = 0;
+    virtuappu_mode1_obj_clip_mark_staged[23] = 0;
+
+    if (virtuappu_mode1_obj_y_negative[17] != 1 ||
+        virtuappu_mode1_obj_clip_mark[23] != 1 ||
+        virtuappu_mode1_obj_clip_y != 117 || virtuappu_mode1_obj_clip_enable != 1) {
+        fprintf(stderr, "mode1_native_fast_path_test: OBJ metadata commit did not snapshot staging\n");
+        return 1;
+    }
     return 0;
 }
 
@@ -356,7 +535,11 @@ int main(void) {
 
     if (CheckFullViewUsesShadowEverywhere(&ppu) != 0) return 1;
     if (CheckShortFullViewRepeatsOverlay(&ppu) != 0) return 1;
-    if (CheckFullViewCentersMessageVertically(&ppu) != 0) return 1;
+    if (CheckHdmaBg3UsesNativeBounds(&ppu) != 0) return 1;
+    if (CheckFullViewAnchorsTopMessage(&ppu) != 0) return 1;
+    if (CheckFullViewAnchorsBottomMessage(&ppu) != 0) return 1;
+    if (CheckMessageSourceRowsClipWideShadow(&ppu) != 0) return 1;
+    if (CheckObjMetadataCommit() != 0) return 1;
 
     printf("mode1_native_fast_path_test: PASS (%u deterministic scenes)\n", SCENES);
     return 0;

@@ -418,9 +418,9 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
      * first emitted sprite has updated==0, since FlushSprites zeroes it). */
     extern PlayerEntity gPlayerEntity;
     if (updated == 0) {
-        memset(virtuappu_mode1_obj_clip_mark, 0, 128);
-        memset(virtuappu_mode1_obj_y_negative, 0, 128);
-        virtuappu_mode1_obj_clip_enable = 0;
+        memset(virtuappu_mode1_obj_clip_mark_staged, 0, 128);
+        memset(virtuappu_mode1_obj_y_negative_staged, 0, 128);
+        virtuappu_mode1_obj_clip_enable_staged = 0;
     }
     int sSwampClipActive = (sRenderingPlayer && gPlayerState.floor_type == SURFACE_SWAMP &&
                             gPlayerState.jump_status == 0 && gPlayerEntity.base.z.HALF.HI <= 0);
@@ -430,8 +430,8 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
         s32 sub = 2 + ((s32)gPlayerState.surfaceTimer / 48); /* slow, shallow climb */
         if (sub > 8)
             sub = 8; /* keep him ~knee/waist deep at most — never head-only */
-        virtuappu_mode1_obj_clip_y = (int)baseY - sub;
-        virtuappu_mode1_obj_clip_enable = 1;
+        virtuappu_mode1_obj_clip_y_staged = (int)baseY - sub;
+        virtuappu_mode1_obj_clip_enable_staged = 1;
     }
     /* OAM entries start at offset 0x20 in OAMControls, each 8 bytes */
     u8* oamBase = (u8*)&gOAMControls.oam[0];
@@ -495,7 +495,7 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
          *   bits 25-29: attr1.matrixNum/flip (from 'flags')
          *   bits 30-31: attr1.size
          */
-        virtuappu_mode1_obj_y_negative[updated] = y < 0;
+        virtuappu_mode1_obj_y_negative_staged[updated] = y < 0;
         u32 oamWord = (u32)(y & 0xFF);            /* y position */
         oamWord |= (u32)((x & 0x1FF)) << 16;      /* x position */
         oamWord |= flags;                         /* base flags */
@@ -518,7 +518,7 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
         /* Swamp sink: mark this player OAM entry for the per-pixel waterline
          * clip in ViruaPPU (see RenderSpritePieces top + port_gba_mem). */
         if (sSwampClipActive)
-            virtuappu_mode1_obj_clip_mark[updated & 0x7F] = 1;
+            virtuappu_mode1_obj_clip_mark_staged[updated & 0x7F] = 1;
 
         updated++;
     }

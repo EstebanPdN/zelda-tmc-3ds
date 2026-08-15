@@ -35,6 +35,7 @@ typedef struct Mode1TilemapEntry {
 uint16_t* virtuappu_mode1_ws_shadow[MODE1_GBA_BG_COUNT] = { NULL, NULL, NULL, NULL };
 int virtuappu_mode1_ws_shadow_base_tile[MODE1_GBA_BG_COUNT] = { 0, 0, 0, 0 };
 int virtuappu_mode1_ws_full_view = 0;
+bool virtuappu_mode1_bg3_hdma_native_bounds = false;
 int virtuappu_mode1_ws_hud_right_anchor = 0;
 /* Widescreen message-box centering (see mode1.h). All zero = inactive. */
 int virtuappu_mode1_ws_msg_shift = 0;
@@ -456,6 +457,19 @@ uint8_t virtuappu_mode1_obj_clip_mark[MODE1_GBA_OAM_COUNT];
 uint8_t virtuappu_mode1_obj_y_negative[MODE1_GBA_OAM_COUNT];
 int virtuappu_mode1_obj_clip_y;
 int virtuappu_mode1_obj_clip_enable;
+uint8_t virtuappu_mode1_obj_clip_mark_staged[MODE1_GBA_OAM_COUNT];
+uint8_t virtuappu_mode1_obj_y_negative_staged[MODE1_GBA_OAM_COUNT];
+int virtuappu_mode1_obj_clip_y_staged;
+int virtuappu_mode1_obj_clip_enable_staged;
+
+void virtuappu_mode1_commit_obj_metadata(void) {
+    memcpy(virtuappu_mode1_obj_clip_mark, virtuappu_mode1_obj_clip_mark_staged,
+           sizeof(virtuappu_mode1_obj_clip_mark));
+    memcpy(virtuappu_mode1_obj_y_negative, virtuappu_mode1_obj_y_negative_staged,
+           sizeof(virtuappu_mode1_obj_y_negative));
+    virtuappu_mode1_obj_clip_y = virtuappu_mode1_obj_clip_y_staged;
+    virtuappu_mode1_obj_clip_enable = virtuappu_mode1_obj_clip_enable_staged;
+}
 
 uint16_t virtuappu_mode1_io_read16(uint16_t offset) {
     const uint8_t* src = virtuappu_mode1_io_thread_override ? virtuappu_mode1_io_thread_override : mode1_memory.io_mem;
@@ -900,6 +914,21 @@ static void mode1_render_text_bg_compact_tokens(int bg_index, int line, uint16_t
     const int map_height_tiles = (size_flag & 2u) != 0u ? 64 : 32;
     const bool shadow_active = map_width_tiles < 64 && virtuappu_mode1_ws_shadow[bg_index] != NULL;
     const bool repeat_full_view_overlay = bg_index == 3 && mode1_shadow_covers_full_view();
+    const bool native_bounds = bg_index == 3 && virtuappu_mode1_bg3_hdma_native_bounds &&
+                               (frame_width > MODE1_GBA_BG_CLIP_X ||
+                                mode1_frame_height > MODE1_GBA_NATIVE_HEIGHT);
+    const int native_left = frame_width > MODE1_GBA_BG_CLIP_X
+                                ? (frame_width - MODE1_GBA_BG_CLIP_X) / 2
+                                : 0;
+    const int native_right = native_left +
+                             (frame_width < MODE1_GBA_BG_CLIP_X ? frame_width : MODE1_GBA_BG_CLIP_X);
+    const int native_top = mode1_frame_height > MODE1_GBA_NATIVE_HEIGHT
+                               ? (mode1_frame_height - MODE1_GBA_NATIVE_HEIGHT) / 2
+                               : 0;
+    const int native_bottom = native_top +
+                              (mode1_frame_height < MODE1_GBA_NATIVE_HEIGHT
+                                   ? mode1_frame_height
+                                   : MODE1_GBA_NATIVE_HEIGHT);
     const bool hud_right_anchor = bg_index == 0 && virtuappu_mode1_ws_hud_right_anchor != 0 &&
                                   frame_width > MODE1_GBA_BG_CLIP_X;
     const bool message_active = bg_index == 0 && virtuappu_mode1_ws_msg_shift != 0 &&
@@ -916,8 +945,15 @@ static void mode1_render_text_bg_compact_tokens(int bg_index, int line, uint16_t
     if (hud_right_anchor || message_remap_line) render_width = frame_width;
     if (render_width > frame_width) render_width = frame_width;
 
+    if (native_bounds && (line < native_top || line >= native_bottom)) return;
+
     if (!hud_right_anchor && !message_remap_line) {
         mode1_render_text_bg_native_tokens(bg_index, line, bgcnt, render_width, tokens);
+        if (native_bounds) {
+            memset(tokens, 0, (size_t)native_left * sizeof(*tokens));
+            memset(tokens + native_right, 0,
+                   (size_t)(frame_width - native_right) * sizeof(*tokens));
+        }
         return;
     }
 
@@ -947,7 +983,7 @@ static void mode1_render_text_bg_compact_tokens(int bg_index, int line, uint16_t
             } else if (x >= MODE1_WS_HUD_RIGHT_NATIVE_X) {
                 continue;
             }
-        } else if (message_destination_line && x >= MODE1_GBA_BG_CLIP_X) {
+        } else if (message_remap_line && x >= MODE1_GBA_BG_CLIP_X) {
             continue;
         }
 
@@ -994,6 +1030,11 @@ static void mode1_render_text_bg_compact_tokens(int bg_index, int line, uint16_t
         }
         tokens[x] = (uint16_t)(palette_index + 1u);
     }
+    if (native_bounds) {
+        memset(tokens, 0, (size_t)native_left * sizeof(*tokens));
+        memset(tokens + native_right, 0,
+               (size_t)(frame_width - native_right) * sizeof(*tokens));
+    }
 }
 
 void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_buffer, uint8_t* priority_buffer) {
@@ -1022,6 +1063,21 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
     int pixel_y = src_y % 8;
     int x;
     const int frame_width = mode1_frame_width;
+    const bool native_bounds = bg_index == 3 && virtuappu_mode1_bg3_hdma_native_bounds &&
+                               (frame_width > MODE1_GBA_BG_CLIP_X ||
+                                mode1_frame_height > MODE1_GBA_NATIVE_HEIGHT);
+    const int native_left = frame_width > MODE1_GBA_BG_CLIP_X
+                                ? (frame_width - MODE1_GBA_BG_CLIP_X) / 2
+                                : 0;
+    const int native_right = native_left +
+                             (frame_width < MODE1_GBA_BG_CLIP_X ? frame_width : MODE1_GBA_BG_CLIP_X);
+    const int native_top = mode1_frame_height > MODE1_GBA_NATIVE_HEIGHT
+                               ? (mode1_frame_height - MODE1_GBA_NATIVE_HEIGHT) / 2
+                               : 0;
+    const int native_bottom = native_top +
+                              (mode1_frame_height < MODE1_GBA_NATIVE_HEIGHT
+                                   ? mode1_frame_height
+                                   : MODE1_GBA_NATIVE_HEIGHT);
     /* Widescreen Option A: 32-tile BGs have valid VRAM tile data only
      * within the native 240 px. Cull the line to the current visible frame
      * width, but keep the fixed framebuffer pitch separate for presentation. */
@@ -1031,6 +1087,13 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
                            : ((virtuappu_mode1_ws_shadow[bg_index] != NULL) ? frame_width : MODE1_GBA_BG_CLIP_X);
     if (render_max_x > frame_width)
         render_max_x = frame_width;
+    int render_min_x = 0;
+    if (native_bounds) {
+        if (line < native_top || line >= native_bottom)
+            return;
+        render_min_x = native_left;
+        render_max_x = native_right;
+    }
     const bool ws_shadow_active = (map_width_tiles < 64) && (virtuappu_mode1_ws_shadow[bg_index] != NULL);
     const bool ws_shadow_full_view = ws_shadow_active && mode1_shadow_covers_full_view();
     const int ws_shadow_base = virtuappu_mode1_ws_shadow_base_tile[bg_index];
@@ -1063,7 +1126,7 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
      * instead of needlessly falling back on that inert flag. */
     if (MODE1_NATIVE_FAST_PATHS_ENABLED() && !bpp8 &&
         (!mosaic_on || (mode1_old3ds_profile && mosaic_h == 1 && mosaic_v == 1)) &&
-        !ws_hud_right_anchor && !ws_msg_remap_line) {
+        !ws_hud_right_anchor && !ws_msg_remap_line && render_min_x == 0) {
         mode1_render_text_bg_native_4bpp(bg_index, char_base, screen_base, map_width_tiles, tile_row, pixel_y,
                                         scroll_x, render_max_x, priority, line_buffer, priority_buffer);
         return;
@@ -1160,11 +1223,11 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
         /* Fast path: no widescreen column remap, so sample_x == x. Hoists the
          * per-pixel remap dispatch (its two flags are per-line invariants) out
          * of the hot loop entirely — A53 win, zero added per-pixel branch. */
-        for (x = 0; x < render_max_x; ++x) {
+        for (x = render_min_x; x < render_max_x; ++x) {
             MODE1_BG_PIXEL(x);
         }
     } else {
-        for (x = 0; x < render_max_x; ++x) {
+        for (x = render_min_x; x < render_max_x; ++x) {
             int sample_x = x;
             bool sample_message_source = false;
             if (ws_msg_destination_line && x >= ws_msg_x0 + ws_msg_shift && x < ws_msg_x1 + ws_msg_shift) {
@@ -1183,9 +1246,10 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
                 } else if (x >= MODE1_WS_HUD_RIGHT_NATIVE_X) {
                     continue;
                 }
-            } else if (ws_msg_destination_line && x >= MODE1_GBA_BG_CLIP_X) {
-                /* Box lines extend past 240 only for the shifted box copy;
-                 * everything else on the line keeps native clipping. */
+            } else if (ws_msg_remap_line && x >= MODE1_GBA_BG_CLIP_X) {
+                /* Message rows extend past 240 only for the shifted box copy;
+                 * everything else on both source and destination rows keeps
+                 * native clipping. */
                 continue;
             }
             const int wanted_screen_block_y =

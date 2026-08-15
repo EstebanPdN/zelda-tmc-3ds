@@ -1402,12 +1402,16 @@ void Port_Widescreen_UpdateShadows(void) {
      * from that corner, not around it. Publishing a rect short of the real
      * frame left the right border outside the shifted copy (overdrawn by the
      * interior) and the bottom border row outside the y-band (torn by the
-     * HUD right-anchor remap). Clamp to the native canvas. */
+     * HUD right-anchor remap). Text control code can change the live window's
+     * Y position in gTextRender without updating the original request in
+     * gMessage, so use the renderer's copy after message initialization.
+     * Clamp to the native canvas. */
     if ((gMessage.state & MESSAGE_ACTIVE) != 0) {
-        int x0 = (int)gMessage.textWindowPosX * 8;
-        int x1 = ((int)gMessage.textWindowPosX + (int)gMessage.textWindowWidth + 2) * 8;
-        int y0 = (int)gMessage.textWindowPosY * 8;
-        int y1 = ((int)gMessage.textWindowPosY + (int)gMessage.textWindowHeight + 2) * 8;
+        const Message* layout = gMessage.state == 1 ? &gMessage : &gTextRender.message;
+        int x0 = (int)layout->textWindowPosX * 8;
+        int x1 = ((int)layout->textWindowPosX + (int)layout->textWindowWidth + 2) * 8;
+        int y0 = (int)layout->textWindowPosY * 8;
+        int y1 = ((int)layout->textWindowPosY + (int)layout->textWindowHeight + 2) * 8;
         if (x0 < 0)
             x0 = 0;
         if (x1 > 240)
@@ -1422,8 +1426,18 @@ void Port_Widescreen_UpdateShadows(void) {
             virtuappu_mode1_ws_msg_y0 = y0;
             virtuappu_mode1_ws_msg_y1 = y1;
             virtuappu_mode1_ws_msg_shift = (Port_Widescreen_EffectiveViewWidth() - 240) / 2;
-            virtuappu_mode1_ws_msg_shift_y =
-                (Port_Widescreen_EffectiveViewHeight() - MODE1_GBA_NATIVE_HEIGHT) / 2;
+            if (Port_Widescreen_FullView1xActive()) {
+                const int boxHeight = y1 - y0;
+                const int viewHeight = Port_Widescreen_EffectiveViewHeight();
+                const int nativeCenterY = (y0 + y1) / 2;
+                const int bottomY = viewHeight > boxHeight + 8 ? viewHeight - boxHeight - 8 : 0;
+                /* Top messages touch the top edge. Bottom messages retain one
+                 * tile of safe margin so their complete border stays visible. */
+                const int destinationY = nativeCenterY < MODE1_GBA_NATIVE_HEIGHT / 2
+                                             ? 0
+                                             : bottomY;
+                virtuappu_mode1_ws_msg_shift_y = destinationY - y0;
+            }
         }
     }
 
