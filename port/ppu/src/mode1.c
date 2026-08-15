@@ -100,8 +100,8 @@ static int mode1_frame_pitch = MODE1_GBA_WIDTH;
 static uint32_t* mode1_output_buffer;
 static int mode1_output_pitch;
 static bool mode1_old3ds_profile;
-static uint8_t mode1_old3ds_field_blend_lut[32][32];
-static bool mode1_old3ds_field_blend_lut_initialized;
+static uint8_t mode1_field_blend_lut[32][32];
+static bool mode1_field_blend_lut_initialized;
 static bool mode1_bg_pair_palette_initialized;
 
 #ifdef VIRTUAPPU_TESTING
@@ -114,6 +114,24 @@ void virtuappu_mode1_set_native_fast_paths_enabled(bool enabled) {
 #define MODE1_NATIVE_FAST_PATHS_ENABLED() true
 #endif
 
+static void mode1_init_field_blend_lut(void) {
+    if (mode1_field_blend_lut_initialized) return;
+
+    /* Hyrule's normal outdoor profile uses BLDALPHA EVA=4, EVB=14. Build the
+     * exact GBA 5-bit channel result once, before any renderer worker starts,
+     * so the ARM11 replaces six multiplies and their clamps per blended
+     * pixel with three hot 1 KiB-table reads. The guarded renderer below only
+     * consumes this table when BLDALPHA is exactly 0x0E04. */
+    for (unsigned top = 0; top < 32u; ++top) {
+        for (unsigned bottom = 0; bottom < 32u; ++bottom) {
+            unsigned value = (top * 4u + bottom * 14u) >> 4u;
+            if (value > 31u) value = 31u;
+            mode1_field_blend_lut[top][bottom] = (uint8_t)value;
+        }
+    }
+    mode1_field_blend_lut_initialized = true;
+}
+
 void virtuappu_mode1_set_old3ds_profile(bool enabled) {
     const bool was_old3ds_profile = mode1_old3ds_profile;
     mode1_old3ds_profile = enabled;
@@ -123,21 +141,7 @@ void virtuappu_mode1_set_old3ds_profile(bool enabled) {
          * next New-profile publication to rebuild it from the live palette. */
         mode1_bg_pair_palette_initialized = false;
     }
-    if (!enabled || mode1_old3ds_field_blend_lut_initialized) return;
-
-    /* Hyrule's normal outdoor profile uses BLDALPHA EVA=4, EVB=14. Build the
-     * exact GBA 5-bit channel result once, before any renderer worker starts,
-     * so the Old ARM11 replaces six multiplies and their clamps per blended
-     * pixel with three hot 1 KiB-table reads. The guarded renderer below only
-     * consumes this table when BLDALPHA is exactly 0x0E04. */
-    for (unsigned top = 0; top < 32u; ++top) {
-        for (unsigned bottom = 0; bottom < 32u; ++bottom) {
-            unsigned value = (top * 4u + bottom * 14u) >> 4u;
-            if (value > 31u) value = 31u;
-            mode1_old3ds_field_blend_lut[top][bottom] = (uint8_t)value;
-        }
-    }
-    mode1_old3ds_field_blend_lut_initialized = true;
+    mode1_init_field_blend_lut();
 }
 
 void virtuappu_mode1_set_frame_geometry(const PPUMemory* ppu) {
@@ -381,6 +385,7 @@ static uint32_t mode1_darken(uint32_t abgr, int evy) {
 }
 
 void virtuappu_mode1_bind_gba_memory(const VirtuaPPUMode1GbaMemory* memory) {
+    mode1_init_field_blend_lut();
     /* Validate at bind: any missing pointer falls back to a (zeroed) default
      * buffer so render never dereferences NULL. A fallback means the engine's
      * memory wasn't wired up — surface it once instead of silently rendering a
@@ -1933,16 +1938,16 @@ static bool mode1_render_native_direct_no_effect_line(int line, uint16_t dispcnt
     return true;
 }
 
-static uint32_t mode1_old3ds_field_alpha_blend(uint32_t top_abgr, uint32_t bottom_abgr) {
+static uint32_t mode1_field_alpha_blend(uint32_t top_abgr, uint32_t bottom_abgr) {
     const unsigned top_r = (top_abgr & 0xFFu) >> 3u;
     const unsigned top_g = ((top_abgr >> 8u) & 0xFFu) >> 3u;
     const unsigned top_b = ((top_abgr >> 16u) & 0xFFu) >> 3u;
     const unsigned bottom_r = (bottom_abgr & 0xFFu) >> 3u;
     const unsigned bottom_g = ((bottom_abgr >> 8u) & 0xFFu) >> 3u;
     const unsigned bottom_b = ((bottom_abgr >> 16u) & 0xFFu) >> 3u;
-    const uint32_t r = mode1_old3ds_field_blend_lut[top_r][bottom_r];
-    const uint32_t g = mode1_old3ds_field_blend_lut[top_g][bottom_g];
-    const uint32_t b = mode1_old3ds_field_blend_lut[top_b][bottom_b];
+    const uint32_t r = mode1_field_blend_lut[top_r][bottom_r];
+    const uint32_t g = mode1_field_blend_lut[top_g][bottom_g];
+    const uint32_t b = mode1_field_blend_lut[top_b][bottom_b];
     return 0xFF000000u | (b << 19u) | (g << 11u) | (r << 3u);
 }
 
@@ -1953,10 +1958,10 @@ static uint32_t mode1_old3ds_field_alpha_blend(uint32_t top_abgr, uint32_t botto
  * and discovers two layers for every pixel. Here that fixed hardware order is
  * expressed directly, and a second layer is found only for BG3 or a forced
  * semi-transparent OBJ. Any different register value fails closed to the
- * existing renderer, including New 3DS where this profile flag stays false. */
-static __attribute__((noinline)) bool mode1_render_old3ds_field_alpha_line(int line, uint16_t dispcnt,
-                                                                           int frame_width) {
-    if (!mode1_old3ds_profile || !MODE1_NATIVE_FAST_PATHS_ENABLED() ||
+ * existing renderer. */
+static __attribute__((noinline)) bool mode1_render_field_alpha_line(int line, uint16_t dispcnt,
+                                                                    int frame_width) {
+    if (!MODE1_NATIVE_FAST_PATHS_ENABLED() ||
         (dispcnt & (MODE1_DISP_BG0_ON | MODE1_DISP_BG1_ON | MODE1_DISP_BG2_ON |
                     MODE1_DISP_BG3_ON)) !=
             (MODE1_DISP_BG0_ON | MODE1_DISP_BG1_ON | MODE1_DISP_BG2_ON |
@@ -2060,7 +2065,7 @@ static __attribute__((noinline)) bool mode1_render_old3ds_field_alpha_line(int l
                 bottom_layer = 4;
             }
             if (mode1_is_second_target(bldcnt, bottom_layer)) {
-                top_color = mode1_old3ds_field_alpha_blend(top_color, bottom_color);
+                top_color = mode1_field_alpha_blend(top_color, bottom_color);
             }
         } else if (top_layer == 4 && virtuappu_mode1_obj_semitrans[x]) {
             uint32_t bottom_color = backdrop;
@@ -2079,7 +2084,7 @@ static __attribute__((noinline)) bool mode1_render_old3ds_field_alpha_line(int l
                 bottom_layer = 2;
             }
             if (mode1_is_second_target(bldcnt, bottom_layer)) {
-                top_color = mode1_old3ds_field_alpha_blend(top_color, bottom_color);
+                top_color = mode1_field_alpha_blend(top_color, bottom_color);
             }
         }
 
@@ -2643,8 +2648,7 @@ static void mode1_render_lines(const Mode1RenderLinesContext* context, int first
             int old_path = -1;
             if (mode1_render_native_direct_no_effect_line(line, line_dispcnt, context->frame_width)) {
                 old_path = MODE1_OLD_PATH_DIRECT;
-            } else if (mode1_old3ds_profile &&
-                       mode1_render_old3ds_field_alpha_line(line, line_dispcnt, context->frame_width)) {
+            } else if (mode1_render_field_alpha_line(line, line_dispcnt, context->frame_width)) {
                 old_path = MODE1_OLD_PATH_FIELD_ALPHA;
             } else if (mode1_render_native_compact_line(line, line_dispcnt, context->frame_width)) {
                 old_path = MODE1_OLD_PATH_COMPACT;
