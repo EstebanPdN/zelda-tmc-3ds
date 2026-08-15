@@ -525,8 +525,13 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
     const bool ws_shadow_active = (map_width_tiles < 64) && (virtuappu_mode1_ws_shadow[bg_index] != NULL);
     const int ws_shadow_base = virtuappu_mode1_ws_shadow_base_tile[bg_index];
     uint16_t* const ws_shadow = virtuappu_mode1_ws_shadow[bg_index];
+    /* The right-side HUD tiles only live in the bottom four BG0 tile rows
+     * (screen Y 128..159). Restrict the remap to those scanlines so normal
+     * BG0 content above the HUD — notably area-entry title banners — is not
+     * mistaken for HUD and split between the native and far-right positions. */
     const bool ws_hud_right_anchor =
-        (bg_index == 0) && (virtuappu_mode1_ws_hud_right_anchor != 0) && (frame_width > MODE1_GBA_BG_CLIP_X);
+        (bg_index == 0) && (line >= 128) && (virtuappu_mode1_ws_hud_right_anchor != 0) &&
+        (frame_width > MODE1_GBA_BG_CLIP_X);
     const int ws_hud_right_dst_x = frame_width - (MODE1_GBA_BG_CLIP_X - MODE1_WS_HUD_RIGHT_NATIVE_X);
     /* Message-box centering: on BG0 lines inside the published box band,
      * draw the box's native columns shifted right by ws_msg_shift and skip

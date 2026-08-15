@@ -84,6 +84,7 @@ void Platform3DS_GetRuntimeStats(Platform3DSRuntimeStats* stats);
 void Platform3DS_WaitForVBlank(void);
 void Platform3DS_ShowFatal(const char* title, const char* message);
 void Platform3DS_Debug(const char* message);
+void Platform3DS_RedirectStderrToSvc(void);
 bool Platform3DS_SaveDisplayedScreens(const char* topPath, const char* bottomPath);
 bool Platform3DS_SaveDisplayedScreensDetailed(const char* topPath, const char* bottomPath,
                                               const char* topRawPath, const char* bottomRawPath,

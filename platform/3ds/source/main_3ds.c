@@ -128,6 +128,14 @@ int main(int argc, char** argv) {
     }
 
     printf("Starting engine...\n");
+
+    /* PC_PORT runtime diagnostics use stderr heavily. On 3DS the startup
+     * console is attached to the bottom screen, so leaving stderr routed to
+     * debugDevice_CONSOLE makes those traces flash over the second-screen UI.
+     * Keep stderr available to an interactive debugger without rendering it
+     * into the framebuffer. stdout remains attached to the startup console. */
+    Platform3DS_RedirectStderrToSvc();
+
     AgbMain();
 
     Port_PPU_Shutdown();

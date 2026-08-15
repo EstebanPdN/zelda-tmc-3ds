@@ -465,6 +465,13 @@ void Platform3DS_ShowFatal(const char* title, const char* message) {
     }
 }
 
+void Platform3DS_RedirectStderrToSvc(void) {
+    /* Keep the startup console on the bottom screen, but route runtime
+     * PC_PORT stderr diagnostics through svcOutputDebugString instead of
+     * letting them flash over the second-screen UI. */
+    consoleDebugInit(debugDevice_SVC);
+}
+
 void Platform3DS_Debug(const char* message) {
     if (!message) return;
     svcOutputDebugString(message, strlen(message));
