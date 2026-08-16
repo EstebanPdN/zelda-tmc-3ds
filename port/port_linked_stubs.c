@@ -9,6 +9,7 @@
 #include "entity.h"
 #include "enemy.h"
 #include "fade.h"
+#include "game.h"
 
 #define gMapDataBottomSpecial gMapDataBottomSpecial_HIDDEN
 #include "fileselect.h"
@@ -1005,6 +1006,94 @@ void UpdateScrollVram(void) {
 static u16 sWsShadowBG1[MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_COLS];
 static u16 sWsShadowBG2[MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_COLS];
 
+/* Direct ShowTextBox() overlays (room-entry banners and similar helpers) do
+ * not use gMessage. Keep their native BG0 tile rect long enough for the next
+ * VBlank, then apply the normal centered 240px remap. */
+typedef struct {
+    int active;
+    int x_tile;
+    int y_tile;
+    int width_tiles;
+    int height_tiles;
+} WsDirectTextBox;
+static WsDirectTextBox sWsDirectTextBox;
+
+void Port_Widescreen_BeginDirectText(void) {
+    sWsDirectTextBox.active = 0;
+}
+
+static void Port_Widescreen_RegisterDirectRect(const void* frame, int width_tiles, int height_tiles) {
+    const uintptr_t base = (uintptr_t)&gBG0Buffer[0];
+    const uintptr_t addr = (uintptr_t)frame;
+    const uintptr_t bytes = addr >= base ? addr - base : 0;
+    const uintptr_t buffer_size = sizeof(gBG0Buffer);
+    size_t tile_index;
+
+    if (!Port_Widescreen_IsActive() || addr < base || bytes >= buffer_size || (bytes & 1u) != 0 ||
+        width_tiles <= 0 || height_tiles <= 0) {
+        return;
+    }
+    tile_index = (size_t)(bytes / sizeof(u16));
+    const int new_x = (int)(tile_index & 31u);
+    const int new_y = (int)(tile_index >> 5);
+    int new_width = width_tiles;
+    int new_height = height_tiles;
+    if (new_x >= 32 || new_y >= 20)
+        return;
+    if (new_x + new_width > 32)
+        new_width = 32 - new_x;
+    if (new_y + new_height > 20)
+        new_height = 20 - new_y;
+    if (new_width <= 0 || new_height <= 0)
+        return;
+
+    if (!sWsDirectTextBox.active) {
+        sWsDirectTextBox.x_tile = new_x;
+        sWsDirectTextBox.y_tile = new_y;
+        sWsDirectTextBox.width_tiles = new_width;
+        sWsDirectTextBox.height_tiles = new_height;
+        sWsDirectTextBox.active = 1;
+        return;
+    }
+
+    /* A wrapped or multi-line helper can call sub_0805F5CC several times.
+     * Keep the union so the PPU moves and suppresses every glyph row. */
+    int x0 = sWsDirectTextBox.x_tile < new_x ? sWsDirectTextBox.x_tile : new_x;
+    int y0 = sWsDirectTextBox.y_tile < new_y ? sWsDirectTextBox.y_tile : new_y;
+    int old_x1 = sWsDirectTextBox.x_tile + sWsDirectTextBox.width_tiles;
+    int old_y1 = sWsDirectTextBox.y_tile + sWsDirectTextBox.height_tiles;
+    int new_x1 = new_x + new_width;
+    int new_y1 = new_y + new_height;
+    int x1 = old_x1 > new_x1 ? old_x1 : new_x1;
+    int y1 = old_y1 > new_y1 ? old_y1 : new_y1;
+    sWsDirectTextBox.x_tile = x0;
+    sWsDirectTextBox.y_tile = y0;
+    sWsDirectTextBox.width_tiles = x1 - x0;
+    sWsDirectTextBox.height_tiles = y1 - y0;
+}
+
+void Port_Widescreen_RegisterDirectTextBox(const void* frame, int width_tiles, int height_tiles) {
+    Port_Widescreen_RegisterDirectRect(frame, width_tiles + 2, height_tiles + 2);
+}
+
+void Port_Widescreen_RegisterDirectText(const void* text, int width_tiles, int height_tiles) {
+    Port_Widescreen_RegisterDirectRect(text, width_tiles, height_tiles);
+}
+
+static int Port_Widescreen_DirectTextBoxLive(void) {
+    if (!sWsDirectTextBox.active)
+        return 0;
+    for (int row = 0; row < sWsDirectTextBox.height_tiles; row++) {
+        const u16* tile = &gBG0Buffer[(sWsDirectTextBox.y_tile + row) * 32 + sWsDirectTextBox.x_tile];
+        for (int col = 0; col < sWsDirectTextBox.width_tiles; col++) {
+            if (tile[col] != 0)
+                return 1;
+        }
+    }
+    sWsDirectTextBox.active = 0;
+    return 0;
+}
+
 /* ---- Runtime widescreen gate --------------------------------------------
  * `--widescreen_width=N` only reserves a wider framebuffer. True widescreen
  * is still WIP, so a persisted runtime option decides whether gameplay uses
@@ -1150,20 +1239,36 @@ int Port_Widescreen_FallbackNative(void) {
     return 0;
 }
 
+static int Port_WidescreenFixedCanvasSubtask(void) {
+    if (gMain.task != TASK_GAME || gMain.substate != GAMEMAIN_SUBTASK) {
+        return 0;
+    }
+    /* nextToLoad 0 still shows gameplay fading to black. States 1 and 2 are
+     * fixed-canvas menus. State 3 remains native only until its fade reaches
+     * black; that final frame restores gameplay and must already use the wide
+     * camera/HUD targets so nothing moves during the visible fade-in. */
+    return gUI.nextToLoad == 1 || gUI.nextToLoad == 2 ||
+           (gUI.nextToLoad == 3 && gFadeControl.active != 0);
+}
+
 int Port_Widescreen_IsActive(void) {
     /* No message/controlMode gate here: snapping the viewport wide->240 for
      * every textbox (and back on close) was the single worst widescreen UX
      * issue. Dialogue now stays wide — the PPU centers the BG0 textbox via
      * the ws_msg_* knobs (published in Port_Widescreen_UpdateShadows), and
-     * overlay screens that replace the map BGs (prologue storybook, pause
-     * menu, ...) are caught by Port_Widescreen_ShadowsLive() instead: no
-     * matching BG -> no shadow -> present native 240. */
-    return (gMain.task == TASK_GAME && Port_Config_WidescreenEnabled() &&
+     * Fixed-canvas subtasks are excluded explicitly below. Other overlay
+     * screens are still caught by Port_Widescreen_ShadowsLive() in the
+     * presenter: no matching map BG means a native 240px frame. */
+    return (gMain.task == TASK_GAME && !Port_WidescreenFixedCanvasSubtask() &&
+            Port_Config_WidescreenEnabled() &&
             (Port_Widescreen_FullView1xActive() || !Port_Widescreen_FallbackNative())) ? 1 : 0;
 }
 
 int Port_Widescreen_FullView1xActive(void) {
 #ifdef TMC_3DS
+    /* This is also the camera's logical viewport. Keep it stable while a
+     * fixed-canvas menu is open; Port_Widescreen_IsActive separately controls
+     * whether that frame is rendered wide. */
     return gMain.task == TASK_GAME && Port_Config_FullView1xEnabled();
 #else
     return 0;
@@ -1172,7 +1277,7 @@ int Port_Widescreen_FullView1xActive(void) {
 
 int Port_Widescreen_EffectiveViewWidth(void) {
     s32 eff;
-    if (!Port_Widescreen_IsActive()) {
+    if (!Port_Widescreen_IsActive() && !Port_Widescreen_FullView1xActive()) {
         return 240;
     }
     eff = Port_WidescreenEffectiveTarget();
@@ -1243,13 +1348,10 @@ int Port_Widescreen_HudRightAnchor(void) {
     if (!Port_Widescreen_IsActive()) {
         return 0;
     }
-    if (gHUD.hideFlags != HUD_HIDE_NONE) {
-        return 0;
-    }
-    if (Port_Widescreen_FullView1xActive()) {
-        return 0;
-    }
-    return 1;
+    /* Dialogue hides the button sprites vertically before sliding them back
+     * in. Keep their horizontal target anchored while gameplay shadows are
+     * live, otherwise they reappear at native x and crawl across the screen. */
+    return gHUD.hideFlags == HUD_HIDE_NONE || Port_Widescreen_ShadowsLive();
 }
 
 static void Port_WidescreenShadow_Populate(int bg_index, u16* mapSpecial, u16* shadow) {
@@ -1372,7 +1474,8 @@ void Port_Widescreen_UpdateShadows(void) {
      * (FallbackNative consumes it). Keyed on area|room|origin; ratcheted so
      * late-streaming map data can only widen, never flip wide->native
      * mid-room. ~16K u16 reads worst case, once per vblank — negligible. */
-    if (gMain.task == TASK_GAME && Port_Config_WidescreenEnabled()) {
+    if (gMain.task == TASK_GAME && !Port_WidescreenFixedCanvasSubtask() &&
+        Port_Config_WidescreenEnabled()) {
         u32 key = Port_WidescreenRoomKey();
         if (key != sWsContentKey) {
             sWsContentKey = key;
@@ -1390,10 +1493,10 @@ void Port_Widescreen_UpdateShadows(void) {
     }
 
     if (!Port_Widescreen_IsActive()) {
+        sWsDirectTextBox.active = 0;
         return;
     }
     virtuappu_mode1_ws_full_view = Port_Widescreen_FullView1xActive();
-    virtuappu_mode1_ws_hud_right_anchor = Port_Widescreen_HudRightAnchor();
 
     /* Publish the live textbox rect so the PPU can center it (BG0 composes
      * the box for a 240-px canvas). The engine frame (DispMessageFrame /
@@ -1441,6 +1544,25 @@ void Port_Widescreen_UpdateShadows(void) {
         }
     }
 
+    /* Room-entry/location banners use ShowTextBox() directly and therefore
+     * have no MESSAGE_ACTIVE state. Treat a live BG0 banner exactly like the
+     * normal message window; unlike dialogs it keeps its native vertical
+     * position. */
+    if (virtuappu_mode1_ws_msg_shift == 0 && Port_Widescreen_DirectTextBoxLive()) {
+        const int x0 = sWsDirectTextBox.x_tile * 8;
+        const int x1 = (sWsDirectTextBox.x_tile + sWsDirectTextBox.width_tiles) * 8;
+        const int y0 = sWsDirectTextBox.y_tile * 8;
+        const int y1 = (sWsDirectTextBox.y_tile + sWsDirectTextBox.height_tiles) * 8;
+        virtuappu_mode1_ws_msg_x0 = x0 < 0 ? 0 : x0;
+        virtuappu_mode1_ws_msg_x1 = x1 > 240 ? 240 : x1;
+        virtuappu_mode1_ws_msg_y0 = y0 < 0 ? 0 : y0;
+        virtuappu_mode1_ws_msg_y1 = y1 > 160 ? 160 : y1;
+        if (virtuappu_mode1_ws_msg_x1 > virtuappu_mode1_ws_msg_x0 &&
+            virtuappu_mode1_ws_msg_y1 > virtuappu_mode1_ws_msg_y0) {
+            virtuappu_mode1_ws_msg_shift = (Port_Widescreen_EffectiveViewWidth() - 240) / 2;
+        }
+    }
+
     if (gMapBottom.bgSettings != NULL) {
         int bg = Port_WidescreenPpuBgForControl(gMapBottom.bgSettings->control);
         if (bg >= 0)
@@ -1451,9 +1573,25 @@ void Port_Widescreen_UpdateShadows(void) {
         if (bg >= 0)
             Port_WidescreenShadow_Populate(bg, gMapDataTopSpecial, sWsShadowBG2);
     }
+
+    /* Evaluate after publishing shadows so dialogue hideFlags do not make
+     * the returning controls briefly target the native 240px position. */
+    virtuappu_mode1_ws_hud_right_anchor = Port_Widescreen_HudRightAnchor();
 }
 #else
 void Port_Widescreen_UpdateShadows(void) { /* no-op at native 240 */
+}
+void Port_Widescreen_BeginDirectText(void) {
+}
+void Port_Widescreen_RegisterDirectTextBox(const void* frame, int width_tiles, int height_tiles) {
+    (void)frame;
+    (void)width_tiles;
+    (void)height_tiles;
+}
+void Port_Widescreen_RegisterDirectText(const void* text, int width_tiles, int height_tiles) {
+    (void)text;
+    (void)width_tiles;
+    (void)height_tiles;
 }
 int Port_Widescreen_FallbackNative(void) {
     return 1;

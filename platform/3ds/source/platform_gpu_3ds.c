@@ -1,4 +1,5 @@
 #include "platform_gpu_3ds.h"
+#include "port_widescreen.h"
 
 #include <3ds.h>
 #include <citro2d.h>
@@ -243,10 +244,14 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width, unsigned height
     const int style = Port_Config_Get3DSDisplayStyle();
     const int aspect = Port_Config_Get3DSAspectRatio();
     const bool fullViewMode = aspect == TOP_ASPECT_FULL_VIEW_1X;
-    const bool nativeFullViewFrame = fullViewMode && (width > 240u || height > 160u);
-    /* Full View only has a 1:1 source during live gameplay. Native overlays
-     * (pause/save/title/file select) keep the port's established 360x240
-     * Original presentation instead of shrinking to a literal 240x160 box. */
+    /* A one-screen gameplay room can legitimately be exactly 240x160 while
+     * still being a live full-view world frame. Map shadows distinguish that
+     * case from fixed native overlays such as pause/inventory. */
+    const bool nativeFullViewFrame =
+        fullViewMode && (width > 240u || height > 160u || Port_Widescreen_ShadowsLive());
+    /* Full View only expands live gameplay. Fixed GBA canvases such as the
+     * pause menu retain their complete native composition and use the port's
+     * established 360x240 nearest-neighbor presentation. */
     const bool fixedFullViewOverlay = fullViewMode && !nativeFullViewFrame;
     const bool linearFilter = !nativeFullViewFrame && !fixedFullViewOverlay && style == TOP_DISPLAY_BLUR;
     C3D_TexSetFilter(&sTopTexture, linearFilter ? GPU_LINEAR : GPU_NEAREST,

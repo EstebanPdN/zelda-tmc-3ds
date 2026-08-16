@@ -14,6 +14,7 @@ extern void UnpackTextNibbles(void*, u8*);
 #include "port_gba_mem.h"
 #include "port_rom.h"
 #include "port_asset_loader.h"
+#include "port_widescreen.h"
 #include <stdio.h>
 #define gUnk_02036AD8 (*(u8*)&gEwram[0x36AD8])
 #define gUnk_02036A58 (*(u8*)&gEwram[0x36A58])
@@ -580,6 +581,12 @@ u32 ShowTextBox(uintptr_t textIndexOrPtr, const Font* paramFont) {
     u32 fontStr;
     u32 temp2;
     u32 temp3;
+#ifdef PC_PORT
+    const u16* directFrame = NULL;
+    int directWidthTiles = 0;
+    int directHeightTiles = 0;
+    Port_Widescreen_BeginDirectText();
+#endif
 
     pWVar4 = sub_0805F2C8();
     if (pWVar4 != NULL) {
@@ -658,6 +665,13 @@ u32 ShowTextBox(uintptr_t textIndexOrPtr, const Font* paramFont) {
             uVar8 = uVar8 >> 3;
             textIndexOrPtr = font.gfx_src;
             DispMessageFrame(puVar9, uVar8, iVar10, textIndexOrPtr);
+#ifdef PC_PORT
+            /* Direct helper banners bypass MessageMain and do not set
+             * gMessage.state, so preserve their BG0 frame for widescreen. */
+            directFrame = puVar9;
+            directWidthTiles = (int)uVar8;
+            directHeightTiles = (int)iVar10;
+#endif
             puVar9 = puVar9 + 1;
             font.gfx_src = font.gfx_src + 7;
             textIndexOrPtr = font.gfx_src - 1;
@@ -672,6 +686,11 @@ u32 ShowTextBox(uintptr_t textIndexOrPtr, const Font* paramFont) {
         MemClear(&gUnk_02034330, sizeof(gUnk_02034330));
         while ((s16)sub_0805F5CC(&font, &token, pWVar4) != 0) {}
         sub_0805F300(pWVar4);
+#ifdef PC_PORT
+        if (directFrame != NULL) {
+            Port_Widescreen_RegisterDirectTextBox(directFrame, directWidthTiles, directHeightTiles);
+        }
+#endif
     }
     return 0;
 }
@@ -694,6 +713,12 @@ bool32 sub_0805F5CC(Font* param_1, Token* param_2, WStruct* param_3) {
         if (param_1->right_align) {
             puVar5 -= (iVar4 + 1U) >> 1;
         }
+#ifdef PC_PORT
+        /* Location banners and a few gameplay popups are borderless direct
+         * BG0 text. Capture the glyph rectangle before the tilemap write so
+         * it receives the same centered remap as a message frame. */
+        Port_Widescreen_RegisterDirectText(puVar5, iVar4, 2);
+#endif
         param_1->gfx_src = sub_0805F67C(puVar5, param_1->gfx_src, iVar4);
         param_1->dest += 0x40;
         iVar4 *= 0x40;

@@ -74,6 +74,20 @@ static s16 HudButtonTargetX(u32 type) {
     return x;
 }
 
+static u32 HudBottomTilemapOffset(void) {
+#ifdef PC_PORT
+#if defined(MODE1_GBA_HEIGHT) && (MODE1_GBA_HEIGHT > 160)
+    int extraHeight = Port_Widescreen_EffectiveViewHeight() - 160;
+    if (extraHeight > 0) {
+        /* BG0 is a 32x32 tilemap. Move the native bottom HUD rows down by
+         * whole tile rows so they remain flush with the live viewport. */
+        return (u32)(extraHeight / 8) * 0x20;
+    }
+#endif
+#endif
+    return 0;
+}
+
 void UpdateUIElements(void) {
     u32 index;
     UIElement* element;
@@ -284,17 +298,27 @@ void DrawRupees(void) {
     u32 temp2;
     u16* row1;
     u16* row2;
+    static u32 sTilemapOffset;
+    u32 tilemapOffset = HudBottomTilemapOffset();
+
+    if (tilemapOffset != sTilemapOffset) {
+        MemClear(&gBG0Buffer[0x258 + sTilemapOffset], 5 * sizeof(u16));
+        MemClear(&gBG0Buffer[0x278 + sTilemapOffset], 5 * sizeof(u16));
+        sTilemapOffset = tilemapOffset;
+        gHUD.unk_a = 0;
+        gScreen.bg0.updated = 1;
+    }
 
     if (gHUD.hideFlags & HUD_HIDE_RUPEES) {
         if (gHUD.unk_a != 0) {
             gHUD.unk_a = 0;
-            row1 = &gBG0Buffer[0x258];
+            row1 = &gBG0Buffer[0x258 + tilemapOffset];
             row1[0] = 0;
             row1[1] = 0;
             row1[2] = 0;
             row1[3] = 0;
             row1[4] = 0;
-            row2 = &gBG0Buffer[0x278];
+            row2 = &gBG0Buffer[0x278 + tilemapOffset];
             row2[0] = 0;
             row2[1] = 0;
             row2[2] = 0;
@@ -305,8 +329,8 @@ void DrawRupees(void) {
     } else {
         if (gHUD.unk_a == 0) {
             gHUD.unk_a = 2;
-            row1 = &gBG0Buffer[0x258];
-            row2 = &gBG0Buffer[0x278];
+            row1 = &gBG0Buffer[0x258 + tilemapOffset];
+            row2 = &gBG0Buffer[0x278 + tilemapOffset];
             row1[0] = temp2 = gWalletSizes[gSave.stats.walletType].iconStartTile;
             row1[1] = temp2 + 1;
             row2[0] = temp2 + 2;
@@ -596,11 +620,21 @@ void DrawKeys(void) {
     u16* row1;
     u16* row2;
     u32 temp;
+    static u32 sTilemapOffset;
+    u32 tilemapOffset = HudBottomTilemapOffset();
+
+    if (tilemapOffset != sTilemapOffset) {
+        MemClear(&gBG0Buffer[0x219 + sTilemapOffset], 4 * sizeof(u16));
+        MemClear(&gBG0Buffer[0x239 + sTilemapOffset], 4 * sizeof(u16));
+        sTilemapOffset = tilemapOffset;
+        gHUD.unk_10 = 0;
+        gScreen.bg0.updated = 1;
+    }
 
     if (!(((gHUD.hideFlags & HUD_HIDE_KEYS) == 0) && (AreaHasKeys()))) {
         if (gHUD.unk_10 != 0) {
             gHUD.unk_10 = 0;
-            row1 = &gBG0Buffer[0x219];
+            row1 = &gBG0Buffer[0x219 + tilemapOffset];
             row1[0] = 0;
             row1[1] = 0;
             row1[2] = 0;
@@ -613,8 +647,8 @@ void DrawKeys(void) {
         }
     } else {
         if (gHUD.unk_10 == 0) {
-            row1 = &gBG0Buffer[0x219];
-            row2 = &gBG0Buffer[0x239];
+            row1 = &gBG0Buffer[0x219 + tilemapOffset];
+            row2 = &gBG0Buffer[0x239 + tilemapOffset];
             temp = 0xf01c;
             row1[0] = temp;
             row1[1] = temp + 1;

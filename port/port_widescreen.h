@@ -69,6 +69,9 @@ int Port_Widescreen_EffectiveViewWidth(void);
 int Port_Widescreen_EffectiveViewHeight(void);
 int Port_Widescreen_FullView1xActive(void);
 int Port_Widescreen_HudRightAnchor(void);
+void Port_Widescreen_BeginDirectText(void);
+void Port_Widescreen_RegisterDirectTextBox(const void* frame, int width_tiles, int height_tiles);
+void Port_Widescreen_RegisterDirectText(const void* text, int width_tiles, int height_tiles);
 /* True while the map BGs are what the PPU renders (>=1 shadow registered);
  * overlay screens (storybook, pause) drop this to 0 -> present native 240. */
 int Port_Widescreen_ShadowsLive(void);
