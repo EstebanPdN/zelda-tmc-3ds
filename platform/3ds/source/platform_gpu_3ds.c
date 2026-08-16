@@ -314,7 +314,7 @@ bool PlatformGpu3DS_EndBottom(const uint32_t* pixels, bool changed) {
                                 (u32*)sBottomTexture.data, GX_BUFFER_DIM(512, 256), TextureTransfer());
         ++sStats.bottomTransfers;
     }
-    if (!sOld3DSProfile || changed || !sBottomTargetValid) {
+    if (changed || !sBottomTargetValid) {
         sBottomSubtexture = (Tex3DS_SubTexture){
             .width = 320, .height = 240, .left = 0.0f, .top = 1.0f,
             .right = 320.0f / 512.0f, .bottom = 1.0f - 240.0f / 256.0f,
@@ -332,9 +332,8 @@ bool PlatformGpu3DS_EndBottom(const uint32_t* pixels, bool changed) {
         ++sStats.bottomTargetDraws;
     } else {
         /* The physical bottom image and its hitbox generation are unchanged.
-         * Old 3DS can leave that render target displayed instead of clearing,
-         * drawing and scheduling an identical output transfer on every top
-         * presentation. New 3DS retains the established two-target frame. */
+         * Leave that render target displayed instead of clearing, drawing and
+         * scheduling an identical output transfer on every top presentation. */
         ++sStats.bottomTargetReuseSkips;
     }
     C2D_Flush();

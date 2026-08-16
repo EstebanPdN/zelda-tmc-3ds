@@ -483,6 +483,9 @@ static bool EnsureBottomWorker(void) {
     svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
     if (priority < 0x3e) priority += 2;
     sBottomWorkerRunning = true;
+    /* Keep the asynchronous painter below the main thread on core 0. It then
+     * runs during VBlank idle time instead of contending with the top PPU for
+     * memory bandwidth on another core. */
     const int core = 0;
     sBottomWorkerThread = threadCreate(BottomWorkerMain, NULL, 64u * 1024u, priority, core, false);
     if (!sBottomWorkerThread) sBottomWorkerRunning = false;

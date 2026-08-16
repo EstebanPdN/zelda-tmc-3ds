@@ -287,7 +287,8 @@ void Port_PPU_3DS_WriteQuickDump(void) {
         fprintf(info, "Core 1 time limit: %u%%\n", Platform3DS_Core1TimeLimit());
         fprintf(info, "PPU workers: %lu (core 1: %s, New 3DS core 2: %s)\n",
                 (unsigned long)workerStats.workerCount,
-                Platform3DS_CanUseCore1() ? "enabled" : "unavailable",
+                Platform3DS_IsNew3DS() ? "not on PPU path" :
+                                          (Platform3DS_CanUseCore1() ? "enabled" : "unavailable"),
                 Platform3DS_IsNew3DS() ? "enabled" : "unavailable");
         fprintf(info, "Application memory free: %lu bytes\n", (unsigned long)runtimeStats.applicationMemoryFree);
         fprintf(info, "System memory free: %lu bytes\n", (unsigned long)runtimeStats.systemMemoryFree);
@@ -399,7 +400,7 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 (unsigned long long)gpuStats.frames, (unsigned long long)gpuStats.frameBeginFailures);
         fprintf(info, "GPU top/bottom transfers: %llu / %llu\n",
                 (unsigned long long)gpuStats.topTransfers, (unsigned long long)gpuStats.bottomTransfers);
-        fprintf(info, "Bottom target draws / unchanged Old 3DS reuses: %llu / %llu\n",
+        fprintf(info, "Bottom target draws / unchanged reuses: %llu / %llu\n",
                 (unsigned long long)gpuStats.bottomTargetDraws,
                 (unsigned long long)gpuStats.bottomTargetReuseSkips);
         fprintf(info, "Citro3D drawing/processing time: %.3f / %.3f ms\n",

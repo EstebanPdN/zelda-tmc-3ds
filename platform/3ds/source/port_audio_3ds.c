@@ -1,6 +1,7 @@
 #include "port_audio.h"
 #include "port_audio_3ds.h"
 #include "port_m4a_backend.h"
+#include "platform_3ds.h"
 
 #include <3ds.h>
 #include <math.h>
@@ -145,6 +146,9 @@ bool Port_Audio_Init(void) {
 
     s32 priority = 0x30;
     svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
+    /* Audio must stay above the main thread: the 3DS callback has a hard
+     * buffer deadline, and lowering this worker causes starvation during the
+     * full-view render even though NDSP may hide it for a while. */
     if (priority > 0x18) --priority;
     sStats.threadPriority = priority;
     __atomic_store_n(&sAudioThreadRunning, true, __ATOMIC_RELEASE);

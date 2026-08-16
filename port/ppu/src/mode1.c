@@ -2772,7 +2772,11 @@ static int mode1_ensure_workers(void) {
     s32 priority = 0x30;
     svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
 
-    if (Platform3DS_CanUseCore1()) {
+    /* On New 3DS, core 1 is limited by APT to a small CPU-time quota. A
+     * throttled third PPU worker can finish its last chunks after cores 0/2
+     * and make the whole frame miss VBlank. Keep it for the asynchronous
+     * bottom-screen painter; the two full-speed cores render the top frame. */
+    if (!Platform3DS_IsNew3DS() && Platform3DS_CanUseCore1()) {
         LightEvent_Init(&sMode1Workers[0].start, RESET_ONESHOT);
         LightEvent_Init(&sMode1Workers[0].done, RESET_ONESHOT);
         sMode1Workers[0].running = true;
