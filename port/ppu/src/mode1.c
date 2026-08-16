@@ -103,6 +103,7 @@ static bool mode1_old3ds_profile;
 static uint8_t mode1_field_blend_lut[32][32];
 static bool mode1_field_blend_lut_initialized;
 static bool mode1_bg_pair_palette_initialized;
+static bool mode1_bg_token_pairs_initialized;
 
 #ifdef VIRTUAPPU_TESTING
 static bool mode1_native_fast_paths_enabled = true;
@@ -140,6 +141,7 @@ void virtuappu_mode1_set_old3ds_profile(bool enabled) {
          * deliberately leaves the 32 KiB color-pair table stale, so force the
          * next New-profile publication to rebuild it from the live palette. */
         mode1_bg_pair_palette_initialized = false;
+        mode1_bg_token_pairs_initialized = false;
     }
     mode1_init_field_blend_lut();
 }
@@ -504,7 +506,7 @@ static uint32_t mode1_obj_abgr_lut[MODE1_PALETTE_COLORS];
 static uint64_t mode1_bg_4bpp_pair_lut[16][256];
 static uint32_t mode1_bg_pair_palette_cache[MODE1_PALETTE_COLORS];
 static uint32_t mode1_bg_4bpp_token_pair_lut[16][256];
-static bool mode1_bg_token_pairs_initialized;
+static uint32_t mode1_bg_4bpp_shadow_token_pair_lut[16][256];
 static uint16_t mode1_bg_palette_source_cache[MODE1_PALETTE_COLORS];
 static uint16_t mode1_obj_palette_source_cache[MODE1_PALETTE_COLORS];
 static bool mode1_palette_source_initialized;
@@ -583,7 +585,7 @@ static void virtuappu_mode1_publish_palette_luts(void) {
         mode1_bg_pair_palette_initialized = true;
     }
 
-    if (!mode1_old3ds_profile && !mode1_bg_token_pairs_initialized) {
+    if (!mode1_old3ds_profile && (bg_changed || !mode1_bg_token_pairs_initialized)) {
         for (unsigned bank = 0; bank < 16u; ++bank) {
             const unsigned paletteBase = bank * 16u;
             for (unsigned packed = 0; packed < 256u; ++packed) {
@@ -593,6 +595,16 @@ static void virtuappu_mode1_publish_palette_luts(void) {
                 const uint16_t hiToken = hi != 0u ? (uint16_t)(paletteBase + hi + 1u) : 0u;
                 mode1_bg_4bpp_token_pair_lut[bank][packed] =
                     (uint32_t)loToken | ((uint32_t)hiToken << 16u);
+                const uint16_t shadowLoToken =
+                    lo != 0u && (mode1_memory.bg_palette[paletteBase + lo] & 0x7FFFu) != 0x7C1Fu
+                        ? loToken
+                        : 0u;
+                const uint16_t shadowHiToken =
+                    hi != 0u && (mode1_memory.bg_palette[paletteBase + hi] & 0x7FFFu) != 0x7C1Fu
+                        ? hiToken
+                        : 0u;
+                mode1_bg_4bpp_shadow_token_pair_lut[bank][packed] =
+                    (uint32_t)shadowLoToken | ((uint32_t)shadowHiToken << 16u);
             }
         }
         mode1_bg_token_pairs_initialized = true;
@@ -820,6 +832,25 @@ static uint32_t mode1_bg_token_pair(unsigned palette_bank, uint8_t packed_pair) 
     return (uint32_t)lo_token | ((uint32_t)hi_token << 16u);
 }
 
+static uint32_t mode1_bg_shadow_token_pair(unsigned palette_bank, uint8_t packed_pair) {
+    if (!mode1_old3ds_profile) {
+        return mode1_bg_4bpp_shadow_token_pair_lut[palette_bank][packed_pair];
+    }
+
+    const unsigned palette_base = palette_bank * 16u;
+    const unsigned lo = packed_pair & 0x0Fu;
+    const unsigned hi = packed_pair >> 4u;
+    const uint16_t lo_token =
+        lo != 0u && (mode1_memory.bg_palette[palette_base + lo] & 0x7FFFu) != 0x7C1Fu
+            ? (uint16_t)(palette_base + lo + 1u)
+            : 0u;
+    const uint16_t hi_token =
+        hi != 0u && (mode1_memory.bg_palette[palette_base + hi] & 0x7FFFu) != 0x7C1Fu
+            ? (uint16_t)(palette_base + hi + 1u)
+            : 0u;
+    return (uint32_t)lo_token | ((uint32_t)hi_token << 16u);
+}
+
 static void mode1_render_text_bg_native_tokens(int bg_index, int line, uint16_t bgcnt,
                                                int render_width, uint16_t* tokens) {
     const uint32_t char_base = (uint32_t)((bgcnt >> 2u) & 3u) * 0x4000u;
@@ -880,14 +911,16 @@ static void mode1_render_text_bg_native_tokens(int bg_index, int line, uint16_t 
 
             const unsigned palette_bank = mode1_tile_palette(entry);
             const bool hflip = mode1_tile_hflip(entry);
-            if (!use_shadow && run == 8 && x + run <= MODE1_GBA_BG_CLIP_X) {
+            if (run == 8) {
                 for (int pair_index = 0; pair_index < 4; ++pair_index) {
                     const int byte_index = hflip ? 3 - pair_index : pair_index;
                     uint8_t packed_pair = (uint8_t)(packed_row >> (byte_index * 8));
                     if (hflip) packed_pair = (uint8_t)((packed_pair << 4u) | (packed_pair >> 4u));
                     if (packed_pair != 0u) {
                         mode1_store_bg_token_pair(&tokens[x + pair_index * 2],
-                                                  mode1_bg_token_pair(palette_bank, packed_pair));
+                                                  use_shadow
+                                                      ? mode1_bg_shadow_token_pair(palette_bank, packed_pair)
+                                                      : mode1_bg_token_pair(palette_bank, packed_pair));
                     }
                 }
                 x += run;
@@ -2020,18 +2053,45 @@ static __attribute__((noinline)) bool mode1_render_field_alpha_line(int line, ui
         const uint16_t bg2 = bg_tokens[2][x];
         const uint16_t bg3 = bg_tokens[3][x];
         const bool has_obj = obj_enabled && obj_layer[x] != 0u;
-        const unsigned obj_p = has_obj ? obj_priority[x] : 4u;
+        if (!has_obj) {
+            uint32_t top_color;
+            if (bg0 != 0u) {
+                top_color = mode1_bg_abgr_lut[bg0 - 1u];
+            } else if (bg1 != 0u) {
+                top_color = mode1_bg_abgr_lut[bg1 - 1u];
+            } else if (bg3 != 0u) {
+                /* The guarded 0x3648 profile marks both BG2 and backdrop as
+                 * second targets.  Without an OBJ, one of those is always
+                 * directly below BG3, so the blend is unconditional. */
+                const uint32_t bottom_color =
+                    bg2 != 0u ? mode1_bg_abgr_lut[bg2 - 1u] : backdrop;
+                top_color = mode1_field_alpha_blend(
+                    mode1_bg_abgr_lut[bg3 - 1u], bottom_color);
+            } else if (bg2 != 0u) {
+                top_color = mode1_bg_abgr_lut[bg2 - 1u];
+            } else {
+                top_color = backdrop;
+            }
+            if (x >= MODE1_GBA_BG_CLIP_X && bg0 == 0u && bg1 == 0u &&
+                bg2 == 0u && bg3 == 0u) {
+                top_color = 0xFF000000u;
+            }
+            out_row[x] = top_color;
+            continue;
+        }
+
+        const unsigned obj_p = obj_priority[x];
         uint32_t top_color = backdrop;
         int top_layer = 5;
 
         /* Exact order for BG priorities 0,1,2,1, with OBJ winning ties. */
-        if (has_obj && obj_p == 0u) {
+        if (obj_p == 0u) {
             top_color = obj_layer[x];
             top_layer = 4;
         } else if (bg0 != 0u) {
             top_color = mode1_bg_abgr_lut[bg0 - 1u];
             top_layer = 0;
-        } else if (has_obj && obj_p == 1u) {
+        } else if (obj_p == 1u) {
             top_color = obj_layer[x];
             top_layer = 4;
         } else if (bg1 != 0u) {
@@ -2040,13 +2100,13 @@ static __attribute__((noinline)) bool mode1_render_field_alpha_line(int line, ui
         } else if (bg3 != 0u) {
             top_color = mode1_bg_abgr_lut[bg3 - 1u];
             top_layer = 3;
-        } else if (has_obj && obj_p == 2u) {
+        } else if (obj_p == 2u) {
             top_color = obj_layer[x];
             top_layer = 4;
         } else if (bg2 != 0u) {
             top_color = mode1_bg_abgr_lut[bg2 - 1u];
             top_layer = 2;
-        } else if (has_obj) {
+        } else {
             top_color = obj_layer[x];
             top_layer = 4;
         }
@@ -2054,13 +2114,13 @@ static __attribute__((noinline)) bool mode1_render_field_alpha_line(int line, ui
         if (top_layer == 3) {
             uint32_t bottom_color = backdrop;
             int bottom_layer = 5;
-            if (has_obj && obj_p == 2u) {
+            if (obj_p == 2u) {
                 bottom_color = obj_layer[x];
                 bottom_layer = 4;
             } else if (bg2 != 0u) {
                 bottom_color = mode1_bg_abgr_lut[bg2 - 1u];
                 bottom_layer = 2;
-            } else if (has_obj) {
+            } else {
                 bottom_color = obj_layer[x];
                 bottom_layer = 4;
             }
@@ -2736,7 +2796,7 @@ static uint64_t sMode1OldPathTotalLines[MODE1_OLD_PATH_COUNT];
 
 static uint32_t mode1_render_dynamic(const Mode1RenderLinesContext* context,
                                      uint32_t old_path_lines[MODE1_OLD_PATH_COUNT]) {
-    enum { MODE1_3DS_LINE_CHUNK = 8 };
+    enum { MODE1_3DS_LINE_CHUNK = 4 };
     uint32_t renderedLines = 0;
     if (old_path_lines != NULL) memset(old_path_lines, 0, MODE1_OLD_PATH_COUNT * sizeof(uint32_t));
     for (;;) {
