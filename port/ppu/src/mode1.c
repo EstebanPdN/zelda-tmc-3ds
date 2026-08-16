@@ -2654,13 +2654,16 @@ static void mode1_render_lines(const Mode1RenderLinesContext* context, int first
                 old_path = MODE1_OLD_PATH_COMPACT;
             }
             if (old_path >= 0) {
-                if (mode1_old3ds_profile && old_path_lines != NULL) ++old_path_lines[old_path];
+                /* Keep path counters on every 3DS profile.  The optimized
+                 * native paths are also used by New 3DS full-view, where the
+                 * old diagnostics used to report zeros and hid the hot path. */
+                if (old_path_lines != NULL) ++old_path_lines[old_path];
                 virtuappu_mode1_io_thread_override = prev_override;
                 continue;
             }
         }
 
-        if (mode1_old3ds_profile && old_path_lines != NULL) {
+        if (old_path_lines != NULL) {
             ++old_path_lines[MODE1_OLD_PATH_FALLBACK];
         }
 

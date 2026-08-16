@@ -77,6 +77,7 @@ static uint64_t sPerfIntervalMaxTicks;
 static uint64_t sPerfIntervalSamples;
 static uint64_t sPerfFramesOver16ms;
 static uint64_t sPerfFramesOver33ms;
+static uint64_t sPerfIntervalBins[5];
 static volatile uint32_t sCurrentFpsX100;
 static volatile uint32_t sAverageFpsX100;
 static int sTopPresentWidth = GBA_NATIVE_W;
@@ -354,6 +355,13 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 TicksToMilliseconds(sPerfIntervalMaxTicks));
         fprintf(info, "Frames over 16.67 ms / 33.33 ms: %llu / %llu\n",
                 (unsigned long long)sPerfFramesOver16ms, (unsigned long long)sPerfFramesOver33ms);
+        fprintf(info, "Frame interval histogram (<14 / 14-16.67 / 16.67-20 / 20-33.33 / >33.33 ms): "
+                      "%llu / %llu / %llu / %llu / %llu\n",
+                (unsigned long long)sPerfIntervalBins[0],
+                (unsigned long long)sPerfIntervalBins[1],
+                (unsigned long long)sPerfIntervalBins[2],
+                (unsigned long long)sPerfIntervalBins[3],
+                (unsigned long long)sPerfIntervalBins[4]);
         fprintf(info, "Engine work between frame boundaries: last %.3f ms, average %.3f ms, maximum %.3f ms\n",
                 TicksToMilliseconds(runtimeStats.engineWorkLastTicks),
                 TicksToMilliseconds(runtimeStats.engineWorkTicks) / (double)engineSamples,
@@ -386,12 +394,12 @@ void Port_PPU_3DS_WriteQuickDump(void) {
             fprintf(info, "PPU core %d measured load in last frame interval: %.1f%%\n", i + 1,
                     (double)workerStats.workerLastTicks[i] * 100.0 / loadIntervalTicks);
         }
-        fprintf(info, "Old 3DS PPU paths last frame (direct/field-alpha/compact/fallback): %lu/%lu/%lu/%lu lines\n",
+        fprintf(info, "PPU paths last frame (direct/field-alpha/compact/fallback): %lu/%lu/%lu/%lu lines\n",
                 (unsigned long)workerStats.oldPathLastLines[MODE1_OLD_PATH_DIRECT],
                 (unsigned long)workerStats.oldPathLastLines[MODE1_OLD_PATH_FIELD_ALPHA],
                 (unsigned long)workerStats.oldPathLastLines[MODE1_OLD_PATH_COMPACT],
                 (unsigned long)workerStats.oldPathLastLines[MODE1_OLD_PATH_FALLBACK]);
-        fprintf(info, "Old 3DS PPU paths cumulative (direct/field-alpha/compact/fallback): %llu/%llu/%llu/%llu lines\n",
+        fprintf(info, "PPU paths cumulative (direct/field-alpha/compact/fallback): %llu/%llu/%llu/%llu lines\n",
                 (unsigned long long)workerStats.oldPathTotalLines[MODE1_OLD_PATH_DIRECT],
                 (unsigned long long)workerStats.oldPathTotalLines[MODE1_OLD_PATH_FIELD_ALPHA],
                 (unsigned long long)workerStats.oldPathTotalLines[MODE1_OLD_PATH_COMPACT],
@@ -602,6 +610,7 @@ void Port_PPU_Init(SDL_Window* window) {
     sPerfIntervalSamples = 0;
     sPerfFramesOver16ms = 0;
     sPerfFramesOver33ms = 0;
+    memset(sPerfIntervalBins, 0, sizeof(sPerfIntervalBins));
     sCurrentFpsX100 = 0;
     sAverageFpsX100 = 0;
     sGpuPresenterReady = PlatformGpu3DS_Init(!Platform3DS_IsNew3DS());
@@ -747,6 +756,17 @@ void Port_PPU_PresentFrame(void) {
                              __ATOMIC_RELAXED);
             if (intervalTicks * 60u > ticksPerSecond) ++sPerfFramesOver16ms;
             if (intervalTicks * 30u > ticksPerSecond) ++sPerfFramesOver33ms;
+            if (intervalTicks * 1000u < ticksPerSecond * 14u) {
+                ++sPerfIntervalBins[0];
+            } else if (intervalTicks * 60u <= ticksPerSecond) {
+                ++sPerfIntervalBins[1];
+            } else if (intervalTicks * 50u <= ticksPerSecond) {
+                ++sPerfIntervalBins[2];
+            } else if (intervalTicks * 30u <= ticksPerSecond) {
+                ++sPerfIntervalBins[3];
+            } else {
+                ++sPerfIntervalBins[4];
+            }
         }
         sPerfLastFrameTick = frameStartTick;
         ++sPerfSamples;
