@@ -20,6 +20,7 @@ static bool sFrameActive;
 static bool sReady;
 static bool sOld3DSProfile;
 static bool sBottomTargetValid;
+static PlatformGpu3DSUploadLayout sUploadLayout;
 static PlatformGpu3DSStats sStats;
 static unsigned sTopPresentWidth = 240;
 
@@ -134,19 +135,24 @@ static void ConfigureAbgrTextureEnv(void) {
 bool PlatformGpu3DS_Init(bool old3dsProfile) {
     memset(&sStats, 0, sizeof(sStats));
     sOld3DSProfile = old3dsProfile;
+    sUploadLayout = PlatformGpu3DS_GetUploadLayout(old3dsProfile);
+    const size_t topBytes =
+        (size_t)sUploadLayout.topPitch * sUploadLayout.topRows * sizeof(uint32_t);
+    const size_t bottomBytes =
+        (size_t)sUploadLayout.bottomPitch * sUploadLayout.bottomRows * sizeof(uint32_t);
     sBottomTargetValid = false;
     sC2dFlushBase = NULL;
     sC2dFlushSize = 0;
-    sTopUpload = (uint32_t*)linearMemAlign(TOP_TEXTURE_WIDTH * TOP_TEXTURE_HEIGHT * sizeof(uint32_t), 0x80);
-    sBottomUploads[0] = (uint32_t*)linearMemAlign(512u * 256u * sizeof(uint32_t), 0x80);
-    sBottomUploads[1] = (uint32_t*)linearMemAlign(512u * 256u * sizeof(uint32_t), 0x80);
+    sTopUpload = (uint32_t*)linearMemAlign(topBytes, 0x80);
+    sBottomUploads[0] = (uint32_t*)linearMemAlign(bottomBytes, 0x80);
+    sBottomUploads[1] = (uint32_t*)linearMemAlign(bottomBytes, 0x80);
     if (!sTopUpload || !sBottomUploads[0] || !sBottomUploads[1]) goto fail_linear;
-    memset(sTopUpload, 0, TOP_TEXTURE_WIDTH * TOP_TEXTURE_HEIGHT * sizeof(uint32_t));
-    memset(sBottomUploads[0], 0, 512u * 256u * sizeof(uint32_t));
-    memset(sBottomUploads[1], 0, 512u * 256u * sizeof(uint32_t));
-    GSPGPU_FlushDataCache(sTopUpload, TOP_TEXTURE_WIDTH * TOP_TEXTURE_HEIGHT * sizeof(uint32_t));
-    GSPGPU_FlushDataCache(sBottomUploads[0], 512u * 256u * sizeof(uint32_t));
-    GSPGPU_FlushDataCache(sBottomUploads[1], 512u * 256u * sizeof(uint32_t));
+    memset(sTopUpload, 0, topBytes);
+    memset(sBottomUploads[0], 0, bottomBytes);
+    memset(sBottomUploads[1], 0, bottomBytes);
+    GSPGPU_FlushDataCache(sTopUpload, topBytes);
+    GSPGPU_FlushDataCache(sBottomUploads[0], bottomBytes);
+    GSPGPU_FlushDataCache(sBottomUploads[1], bottomBytes);
     if (!C3D_Init(C3D_DEFAULT_CMDBUF_SIZE)) goto fail_linear;
     if (!C2D_Init(128)) {
         C3D_Fini();
@@ -171,6 +177,10 @@ bool PlatformGpu3DS_Init(bool old3dsProfile) {
     sStats.linearHeapBytes = __ctru_linear_heap_size;
     sStats.c2dFlushBytes = (uint32_t)sC2dFlushSize;
     sStats.c2dFlushAddress = (uintptr_t)sC2dFlushBase;
+    sStats.topUploadPitch = sUploadLayout.topPitch;
+    sStats.topUploadBytes = (uint32_t)topBytes;
+    sStats.bottomUploadPitch = sUploadLayout.bottomPitch;
+    sStats.bottomUploadBytes = (uint32_t)bottomBytes;
     sStats.topUploadAddress = (uintptr_t)sTopUpload;
     sStats.bottomUploadAddress[0] = (uintptr_t)sBottomUploads[0];
     sStats.bottomUploadAddress[1] = (uintptr_t)sBottomUploads[1];
@@ -222,13 +232,13 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width) {
     if (width > 266u) width = 266u;
     sTopPresentWidth = width;
 
-    GSPGPU_FlushDataCache(pixels, TOP_TEXTURE_WIDTH * 160u * sizeof(uint32_t));
-    /* Old 3DS only: the CPU renderer publishes 160 rows. Describe that exact
-     * source rectangle so the display engine does not read another 96 unused
-     * RGBA rows. New 3DS retains the established transfer dimensions. */
-    const unsigned sourceHeight = sOld3DSProfile ? 160u : TOP_TEXTURE_HEIGHT;
-    C3D_SyncDisplayTransfer((u32*)pixels, GX_BUFFER_DIM(TOP_TEXTURE_WIDTH, sourceHeight),
-                            (u32*)sTopTexture.data, GX_BUFFER_DIM(TOP_TEXTURE_WIDTH, TOP_TEXTURE_HEIGHT),
+    const size_t topFlushBytes =
+        (size_t)sUploadLayout.topPitch * 160u * sizeof(uint32_t);
+    GSPGPU_FlushDataCache(pixels, topFlushBytes);
+    C3D_SyncDisplayTransfer((u32*)pixels,
+                            GX_BUFFER_DIM(sUploadLayout.topPitch, sUploadLayout.topRows),
+                            (u32*)sTopTexture.data,
+                            GX_BUFFER_DIM(TOP_TEXTURE_WIDTH, TOP_TEXTURE_HEIGHT),
                             TextureTransfer());
     sTopSubtexture = (Tex3DS_SubTexture){
         .width = (u16)width, .height = 160, .left = 0.0f, .top = 1.0f,
@@ -287,10 +297,13 @@ void PlatformGpu3DS_BeginTop(const uint32_t* pixels, unsigned width) {
 bool PlatformGpu3DS_EndBottom(const uint32_t* pixels, bool changed) {
     if (!sFrameActive || !pixels) return false;
     if (changed) {
-        GSPGPU_FlushDataCache(pixels, 512u * 240u * sizeof(uint32_t));
-        const unsigned sourceHeight = sOld3DSProfile ? 240u : 256u;
-        C3D_SyncDisplayTransfer((u32*)pixels, GX_BUFFER_DIM(512, sourceHeight),
-                                (u32*)sBottomTexture.data, GX_BUFFER_DIM(512, 256), TextureTransfer());
+        const size_t bottomFlushBytes =
+            (size_t)sUploadLayout.bottomPitch * 240u * sizeof(uint32_t);
+        GSPGPU_FlushDataCache(pixels, bottomFlushBytes);
+        C3D_SyncDisplayTransfer((u32*)pixels,
+                                GX_BUFFER_DIM(sUploadLayout.bottomPitch, sUploadLayout.bottomRows),
+                                (u32*)sBottomTexture.data, GX_BUFFER_DIM(512, 256),
+                                TextureTransfer());
         ++sStats.bottomTransfers;
     }
     if (!sOld3DSProfile || changed || !sBottomTargetValid) {
@@ -393,4 +406,5 @@ void PlatformGpu3DS_Shutdown(void) {
     sReady = false;
     sOld3DSProfile = false;
     sBottomTargetValid = false;
+    sUploadLayout = (PlatformGpu3DSUploadLayout){ 0 };
 }

@@ -33,10 +33,11 @@
 
 #define GBA_NATIVE_W 240
 #define GBA_H 160
-#define TOP_PITCH 512
 
 static uint32_t* sBottomUploads[2];
 static uint32_t* sTopUpload;
+static unsigned sTopUploadPitch;
+static unsigned sBottomUploadPitch;
 static uint32_t sBottomTick;
 static bool sBottomReady;
 static bool sBottomTextureReady;
@@ -391,6 +392,9 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 (unsigned long long)gpuStats.frames, (unsigned long long)gpuStats.frameBeginFailures);
         fprintf(info, "GPU top/bottom transfers: %llu / %llu\n",
                 (unsigned long long)gpuStats.topTransfers, (unsigned long long)gpuStats.bottomTransfers);
+        fprintf(info, "GPU upload pitch/bytes top: %lu / %lu; bottom: %lu / %lu\n",
+                (unsigned long)gpuStats.topUploadPitch, (unsigned long)gpuStats.topUploadBytes,
+                (unsigned long)gpuStats.bottomUploadPitch, (unsigned long)gpuStats.bottomUploadBytes);
         fprintf(info, "Bottom target draws / unchanged Old 3DS reuses: %llu / %llu\n",
                 (unsigned long long)gpuStats.bottomTargetDraws,
                 (unsigned long long)gpuStats.bottomTargetReuseSkips);
@@ -531,8 +535,8 @@ void Port_PPU_3DS_WriteQuickDump(void) {
 void Port_PPU_3DS_RenderBottomWorker(void) {
     const uint64_t startTick = Platform3DS_SystemTick();
     sBottomWorkerGeneration =
-        Port_SecondScreen_3DS_PaintInto(sBottomUploads[sBottomWorkerBuffer], 320, 240, 512,
-                                        &sBottomWorkerSnapshot, sBottomWorkerTick);
+        Port_SecondScreen_3DS_PaintInto(sBottomUploads[sBottomWorkerBuffer], 320, 240,
+                                        sBottomUploadPitch, &sBottomWorkerSnapshot, sBottomWorkerTick);
     sBottomWorkerLastTicks = Platform3DS_SystemTick() - startTick;
 }
 
@@ -545,14 +549,18 @@ static void RecordBottomWorkerTiming(void) {
 
 void Port_PPU_Init(SDL_Window* window) {
     (void)window;
+    const bool old3dsProfile = !Platform3DS_IsNew3DS();
+    const PlatformGpu3DSUploadLayout uploadLayout = PlatformGpu3DS_GetUploadLayout(old3dsProfile);
+    sTopUploadPitch = uploadLayout.topPitch;
+    sBottomUploadPitch = uploadLayout.bottomPitch;
     VirtuaPPUMode1GbaMemory memory = { gIoMem, gVram, gBgPltt, gObjPltt, gOamMem };
     virtuappu_mode1_bind_gba_memory(&memory);
-    virtuappu_mode1_set_old3ds_profile(!Platform3DS_IsNew3DS());
+    virtuappu_mode1_set_old3ds_profile(old3dsProfile);
     sColorCorrection = Port_Config_GetColorCorrection();
     virtuappu_mode1_set_color_correction(sColorCorrection);
     Port_Widescreen_SetWindowPixels(400, 240);
     virtuappu_registers.frame_width = GBA_NATIVE_W;
-    virtuappu_registers.frame_pitch = TOP_PITCH;
+    virtuappu_registers.frame_pitch = sTopUploadPitch;
     virtuappu_registers.mode = 1;
     Port_SecondScreen_Init();
     Port_SecondScreen_3DS_ResetFrameState();
@@ -592,12 +600,12 @@ void Port_PPU_Init(SDL_Window* window) {
     sPerfFramesOver33ms = 0;
     sCurrentFpsX100 = 0;
     sAverageFpsX100 = 0;
-    sGpuPresenterReady = PlatformGpu3DS_Init(!Platform3DS_IsNew3DS());
+    sGpuPresenterReady = PlatformGpu3DS_Init(old3dsProfile);
     sTopUpload = PlatformGpu3DS_TopBuffer();
     sBottomUploads[0] = PlatformGpu3DS_BottomBuffer(0);
     sBottomUploads[1] = PlatformGpu3DS_BottomBuffer(1);
     sInitialized = sGpuPresenterReady && sTopUpload && sBottomUploads[0] && sBottomUploads[1];
-    virtuappu_mode1_set_output_buffer(sInitialized ? sTopUpload : NULL, TOP_PITCH);
+    virtuappu_mode1_set_output_buffer(sInitialized ? sTopUpload : NULL, sTopUploadPitch);
 }
 
 void Port_PPU_PresentFrame(void) {
@@ -613,7 +621,7 @@ void Port_PPU_PresentFrame(void) {
     virtuappu_registers.mode = (mode == 1 || mode == 2) ? 2 : 1;
     sTopPresentWidth = TopFrameWidth();
     virtuappu_registers.frame_width = sTopPresentWidth;
-    virtuappu_registers.frame_pitch = TOP_PITCH;
+    virtuappu_registers.frame_pitch = sTopUploadPitch;
     virtuappu_mode1_pre_line_callback = port_hdma_has_active_channels() ? port_hdma_step_line : NULL;
     virtuappu_mode1_bg2x_hdma_strobe = port_hdma_dest_overlaps(gIoMem + 0x28, gIoMem + 0x2c) != 0;
     virtuappu_mode1_bg2y_hdma_strobe = port_hdma_dest_overlaps(gIoMem + 0x2c, gIoMem + 0x30) != 0;

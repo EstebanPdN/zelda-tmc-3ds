@@ -26,6 +26,10 @@ typedef struct PlatformGpu3DSStats {
     uint64_t boundedFlushBytes;
     uint32_t linearHeapBytes;
     uint32_t c2dFlushBytes;
+    uint32_t topUploadPitch;
+    uint32_t topUploadBytes;
+    uint32_t bottomUploadPitch;
+    uint32_t bottomUploadBytes;
     uintptr_t c2dFlushAddress;
     uintptr_t topUploadAddress;
     uintptr_t bottomUploadAddress[2];
