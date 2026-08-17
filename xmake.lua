@@ -1314,6 +1314,17 @@ target("bottom_frame_state_3ds_test")
     add_files("platform/3ds/tests/bottom_frame_state_3ds_test.c")
 target_end()
 
+-- ====================
+-- Old/New 3DS GPU upload layout regression test.
+-- ====================
+target("platform_gpu_layout_3ds_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs("platform/3ds/source")
+    add_files("platform/3ds/tests/platform_gpu_layout_3ds_test.c")
+target_end()
+
 
 -- ====================
 -- Old 3DS 60 Hz logic-target / adaptive presentation pacing regression test.
