@@ -1326,6 +1326,17 @@ target("platform_gpu_layout_3ds_test")
 target_end()
 
 
+target("port_ppu_gpu_3ds_model_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_defines("MODE1_GBA_WIDTH=266")
+    add_includedirs("platform/3ds/source", "port/ppu/include")
+    add_files("platform/3ds/source/port_ppu_gpu_3ds_model.c")
+    add_files("platform/3ds/tests/port_ppu_gpu_3ds_model_test.c")
+target_end()
+
+
 -- ====================
 -- Old 3DS 60 Hz logic-target / adaptive presentation pacing regression test.
 -- ====================
