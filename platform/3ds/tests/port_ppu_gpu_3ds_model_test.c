@@ -1214,22 +1214,28 @@ int main(void) {
         memset(renderIo, 0, sizeof(renderIo));
         renderView.width = 320;
         renderView.height = 3;
-        renderView.frameDispcnt = MODE1_DISP_BG0_ON;
+        renderView.frameDispcnt = MODE1_DISP_BG0_ON | MODE1_DISP_BG1_ON;
         renderView.wsHudRightAnchor = 1;
         renderView.wsHudRightNativeX = MODE1_WS_HUD_RIGHT_NATIVE_X;
-        renderView.wsMsgShift = 40;
+        renderView.wsMsgShift = 240;
         renderView.wsMsgX0 = 16;
         renderView.wsMsgX1 = 24;
         renderView.wsMsgY0 = 1;
         renderView.wsMsgY1 = 2;
         for (unsigned bgIndex = 0; bgIndex < MODE1_GBA_BG_COUNT; ++bgIndex)
             renderView.wsShadowBaseTile[bgIndex] = -1;
+        renderView.wsShadowBaseTile[0] = 30;
+        renderView.wsShadowBaseTile[1] = 30;
         for (unsigned line = 0; line < renderView.height; ++line)
             renderDispcnt[line] = renderView.frameDispcnt;
         write16(renderIo[0], MODE1_IO_BG0CNT,
                 (uint16_t)((1u << 7u) | (1u << 8u)));
+        write16(renderIo[0], MODE1_IO_BG1CNT,
+                (uint16_t)((1u << 7u) | (2u << 8u) | (1u << 2u)));
         for (unsigned tile = 0; tile < 32; ++tile)
             write16(renderVram, 0x800u + tile * 2u, (uint16_t)tile);
+        shadow[4] = 31;
+        shadow[(1u * 32u) * MODE1_WS_SHADOW_COLS] = 29;
         PpuGpu3DS_CacheInit(&cache);
         PpuGpu3DS_CacheBeginFrame(&cache, renderBg, renderObj, 25);
         PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768,
@@ -1249,10 +1255,11 @@ int main(void) {
         CHECK(!affine_source_at(&renderCommand, &cache, remappedBg, 16, 1,
                                 renderView.width, renderView.height, &sourceX,
                                 &sourceY));
-        CHECK(affine_source_at(&renderCommand, &cache, remappedBg, 56, 1,
+        CHECK(affine_source_at(&renderCommand, &cache, remappedBg, 256, 1,
                                renderView.width, renderView.height, &sourceX,
                                &sourceY));
         CHECK(sourceX == 16);
+        CHECK(bg_cache_contains(&cache, 0x4000u + 29u * 64u, true));
 
         write16(renderIo[0], MODE1_IO_BLDCNT,
                 (uint16_t)((2u << 6u) | 1u));

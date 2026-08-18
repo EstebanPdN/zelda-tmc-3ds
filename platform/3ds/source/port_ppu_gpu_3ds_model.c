@@ -682,12 +682,13 @@ typedef struct PpuGpu3DSTextSample {
 } PpuGpu3DSTextSample;
 
 static bool destination_sample_x(const PpuGpu3DSFrameView* frame, unsigned bg,
-                                 unsigned line, int destinationX,
-                                 int* sampleX) {
+                                 unsigned line, int destinationX, int* sampleX,
+                                 bool* trueExtension) {
     const bool message = message_line(frame, bg, line);
     if (message && destinationX >= frame->wsMsgX0 + frame->wsMsgShift &&
         destinationX < frame->wsMsgX1 + frame->wsMsgShift) {
         *sampleX = destinationX - frame->wsMsgShift;
+        *trueExtension = false;
         return true;
     }
     if (message && destinationX >= frame->wsMsgX0 &&
@@ -701,6 +702,7 @@ static bool destination_sample_x(const PpuGpu3DSFrameView* frame, unsigned bg,
         if (destinationX >= destination) {
             *sampleX =
                     destinationX - ((int)frame->width - MODE1_GBA_BG_CLIP_X);
+            *trueExtension = false;
             return true;
         }
         if (destinationX >= frame->wsHudRightNativeX) return false;
@@ -708,6 +710,7 @@ static bool destination_sample_x(const PpuGpu3DSFrameView* frame, unsigned bg,
         return false;
     }
     *sampleX = destinationX;
+    *trueExtension = destinationX >= MODE1_GBA_BG_CLIP_X;
     return true;
 }
 
@@ -720,8 +723,9 @@ static bool text_bg_sample(const PpuGpu3DSFrameView* frame, unsigned bg,
                            PpuGpu3DSTextSample* sample) {
     sample->visible = false;
     int sampleX;
+    bool trueExtension;
     if (!destination_sample_x(frame, bg, destinationY, (int)destinationX,
-                              &sampleX))
+                              &sampleX, &trueExtension))
         return true;
     const int effectiveX =
             mosaicWidth == 1u
@@ -740,7 +744,7 @@ static bool text_bg_sample(const PpuGpu3DSFrameView* frame, unsigned bg,
     const unsigned tileX = sourceX / PPU_GPU3DS_TILE_SIDE;
     const unsigned tileY = sourceY / PPU_GPU3DS_TILE_SIDE;
     uint16_t entry;
-    if (mapWidthTiles == 32u && destinationX >= MODE1_GBA_BG_CLIP_X &&
+    if (mapWidthTiles == 32u && trueExtension &&
         frame->wsShadowBaseTile[bg] >= 0) {
         const unsigned column =
                 (unsigned)((int64_t)tileX - frame->wsShadowBaseTile[bg] + 32) &
