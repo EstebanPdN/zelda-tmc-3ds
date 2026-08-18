@@ -56,16 +56,16 @@ bool PpuGpu3DS_CacheTile(PpuGpu3DSCache* cache, const uint8_t* vram, PpuGpu3DSTi
                          uint16_t* atlas, uint16_t* outSlot) {
     const size_t tileBytes = key.bpp8 ? 64u : 32u;
     if (key.paletteBank >= 16 ||
-        (key.domain != PPU_GPU3DS_BG && key.domain != PPU_GPU3DS_OBJ) ||
+        (key.domain != PPU_GPU3DS_PALETTE_BG && key.domain != PPU_GPU3DS_PALETTE_OBJ) ||
         key.vramOffset > MODE1_VRAM_SIZE - tileBytes) {
         return false;
     }
 
-    const uint32_t* bankGenerations = key.domain == PPU_GPU3DS_BG
+    const uint32_t* bankGenerations = key.domain == PPU_GPU3DS_PALETTE_BG
                                               ? cache->bgBankGeneration
                                               : cache->objBankGeneration;
     const uint32_t fullGeneration =
-            key.domain == PPU_GPU3DS_BG ? cache->bg256Generation : cache->obj256Generation;
+            key.domain == PPU_GPU3DS_PALETTE_BG ? cache->bg256Generation : cache->obj256Generation;
     const uint32_t paletteGeneration =
             key.bpp8 ? fullGeneration : bankGenerations[key.paletteBank];
     const uint8_t* source = vram + key.vramOffset;
@@ -103,7 +103,7 @@ bool PpuGpu3DS_CacheTile(PpuGpu3DSCache* cache, const uint8_t* vram, PpuGpu3DSTi
 
     PpuGpu3DSCacheEntry* entry = &cache->entries[selected];
     const uint16_t* palette =
-            key.domain == PPU_GPU3DS_BG ? cache->bgPalette : cache->objPalette;
+            key.domain == PPU_GPU3DS_PALETTE_BG ? cache->bgPalette : cache->objPalette;
     memcpy(entry->source, source, tileBytes);
     for (unsigned y = 0; y < PPU_GPU3DS_TILE_SIDE; ++y) {
         for (unsigned x = 0; x < PPU_GPU3DS_TILE_SIDE; ++x) {
@@ -126,5 +126,105 @@ bool PpuGpu3DS_CacheTile(PpuGpu3DSCache* cache, const uint8_t* vram, PpuGpu3DSTi
     entry->valid = true;
     entry->pinned = true;
     *outSlot = (uint16_t)selected;
+    return true;
+}
+
+static bool io_rows_equal(const uint8_t* left, const uint8_t* right) {
+    return memcmp(left + MODE1_IO_BG0CNT, right + MODE1_IO_BG0CNT, 0x18) == 0 &&
+           memcmp(left + 0x20, right + 0x20, 2) == 0 &&
+           memcmp(left + 0x24, right + 0x24, 2) == 0 &&
+           memcmp(left + 0x30, right + 0x30, 2) == 0 &&
+           memcmp(left + 0x34, right + 0x34, 2) == 0 &&
+           memcmp(left + MODE1_IO_WIN0H, right + MODE1_IO_WIN0H, 0x0e) == 0 &&
+           memcmp(left + MODE1_IO_BLDCNT, right + MODE1_IO_BLDCNT, 6) == 0;
+}
+
+static bool line_states_equal(const PpuGpu3DSFrameView* frame, unsigned left,
+                              unsigned right) {
+    const unsigned leftRow = frame->ioUniform ? 0 : left;
+    const unsigned rightRow = frame->ioUniform ? 0 : right;
+    if (frame->dispcntPerLine[left] != frame->dispcntPerLine[right] ||
+        !io_rows_equal(frame->ioPerLine + leftRow * MODE1_IO_MEM_SIZE,
+                       frame->ioPerLine + rightRow * MODE1_IO_MEM_SIZE)) {
+        return false;
+    }
+    return !frame->affine ||
+           (frame->affineRefX[left] == frame->affineRefX[right] &&
+            frame->affineRefY[left] == frame->affineRefY[right]);
+}
+
+size_t PpuGpu3DS_BuildBands(const PpuGpu3DSFrameView* frame, PpuGpu3DSBand out[160]) {
+    if (frame->height == 0) {
+        return 0;
+    }
+
+    size_t count = 1;
+    out[0] = (PpuGpu3DSBand){ .firstLine = 0,
+                             .lineCount = 1,
+                             .ioRow = 0 };
+    for (unsigned line = 1; line < frame->height; ++line) {
+        if (line_states_equal(frame, line - 1, line)) {
+            ++out[count - 1].lineCount;
+        } else {
+            out[count++] = (PpuGpu3DSBand){ .firstLine = (uint16_t)line,
+                                           .lineCount = 1,
+                                           .ioRow = (uint8_t)(frame->ioUniform ? 0 : line) };
+        }
+    }
+    return count;
+}
+
+size_t PpuGpu3DS_WindowIntervals(unsigned left, unsigned right, unsigned width,
+                                 PpuGpu3DSInterval out[2]) {
+    if (left == right || width == 0) {
+        return 0;
+    }
+
+    const unsigned clippedLeft = left < width ? left : width;
+    const unsigned clippedRight = right < width ? right : width;
+    size_t count = 0;
+    if (left < right) {
+        if (clippedLeft < clippedRight) {
+            out[count++] = (PpuGpu3DSInterval){ (uint16_t)clippedLeft,
+                                                (uint16_t)clippedRight };
+        }
+    } else {
+        if (clippedLeft < width) {
+            out[count++] = (PpuGpu3DSInterval){ (uint16_t)clippedLeft,
+                                                (uint16_t)width };
+        }
+        if (clippedRight > 0) {
+            out[count++] = (PpuGpu3DSInterval){ 0, (uint16_t)clippedRight };
+        }
+    }
+    return count;
+}
+
+void PpuGpu3DS_CommandInit(PpuGpu3DSCommandBuffer* cmd, PpuGpu3DSVertex* vertices,
+                           size_t vertexCapacity, uint16_t* indices, size_t indexCapacity,
+                           PpuGpu3DSBatch* batches, size_t batchCapacity) {
+    *cmd = (PpuGpu3DSCommandBuffer){
+        .vertices = vertices,
+        .indices = indices,
+        .batches = batches,
+        .vertexCapacity = vertexCapacity,
+        .indexCapacity = indexCapacity,
+        .batchCapacity = batchCapacity,
+    };
+}
+
+bool PpuGpu3DS_CommandReserve(PpuGpu3DSCommandBuffer* cmd, size_t vertices, size_t indices,
+                              size_t batches) {
+    if (cmd->vertexCount > cmd->vertexCapacity ||
+        vertices > cmd->vertexCapacity - cmd->vertexCount ||
+        cmd->indexCount > cmd->indexCapacity ||
+        indices > cmd->indexCapacity - cmd->indexCount ||
+        cmd->batchCount > cmd->batchCapacity ||
+        batches > cmd->batchCapacity - cmd->batchCount) {
+        return false;
+    }
+    cmd->vertexCount += vertices;
+    cmd->indexCount += indices;
+    cmd->batchCount += batches;
     return true;
 }

@@ -16,7 +16,7 @@ static PpuGpu3DSTileKey cache_key(unsigned index) {
         .vramOffset = (index % (MODE1_VRAM_SIZE / 32u)) * 32u,
         .paletteBank = (uint8_t)(index / (MODE1_VRAM_SIZE / 32u)),
         .bpp8 = false,
-        .domain = PPU_GPU3DS_BG,
+        .domain = PPU_GPU3DS_PALETTE_BG,
     };
 }
 
@@ -50,7 +50,7 @@ int main(void) {
                               (PpuGpu3DSTileKey){ .vramOffset = 0,
                                                  .paletteBank = 0,
                                                  .bpp8 = false,
-                                                 .domain = PPU_GPU3DS_BG },
+                                                 .domain = PPU_GPU3DS_PALETTE_BG },
                               atlas, &slot0));
     CHECK(atlas[(size_t)slot0 * 64 + PpuGpu3DS_MortonIndex(0, 0)] == 0xf801);
     CHECK(atlas[(size_t)slot0 * 64 + PpuGpu3DS_MortonIndex(1, 0)] == 0x07c1);
@@ -60,7 +60,7 @@ int main(void) {
                               (PpuGpu3DSTileKey){ .vramOffset = 0,
                                                  .paletteBank = 0,
                                                  .bpp8 = false,
-                                                 .domain = PPU_GPU3DS_BG },
+                                                 .domain = PPU_GPU3DS_PALETTE_BG },
                               atlas, &slot1));
     CHECK(slot1 == slot0);
 
@@ -70,7 +70,7 @@ int main(void) {
                               (PpuGpu3DSTileKey){ .vramOffset = 0,
                                                  .paletteBank = 0,
                                                  .bpp8 = false,
-                                                 .domain = PPU_GPU3DS_BG },
+                                                 .domain = PPU_GPU3DS_PALETTE_BG },
                               atlas, &slot1));
     CHECK(slot1 == slot0);
 
@@ -80,7 +80,7 @@ int main(void) {
                               (PpuGpu3DSTileKey){ .vramOffset = 0,
                                                  .paletteBank = 0,
                                                  .bpp8 = false,
-                                                 .domain = PPU_GPU3DS_BG },
+                                                 .domain = PPU_GPU3DS_PALETTE_BG },
                               atlas, &slot1));
     CHECK(atlas[(size_t)slot1 * 64] == 0x003f);
 
@@ -93,7 +93,7 @@ int main(void) {
                               (PpuGpu3DSTileKey){ .vramOffset = 64,
                                                  .paletteBank = 0,
                                                  .bpp8 = true,
-                                                 .domain = PPU_GPU3DS_OBJ },
+                                                 .domain = PPU_GPU3DS_PALETTE_OBJ },
                               atlas, &slot0));
     CHECK(atlas[(size_t)slot0 * 64 + PpuGpu3DS_MortonIndex(0, 0)] == 0xf801);
     CHECK(atlas[(size_t)slot0 * 64 + PpuGpu3DS_MortonIndex(1, 0)] == 0x07c1);
@@ -104,7 +104,7 @@ int main(void) {
                               (PpuGpu3DSTileKey){ .vramOffset = 64,
                                                  .paletteBank = 0,
                                                  .bpp8 = true,
-                                                 .domain = PPU_GPU3DS_OBJ },
+                                                 .domain = PPU_GPU3DS_PALETTE_OBJ },
                               atlas, &slot1));
     CHECK(slot1 != slot0);
     CHECK(atlas[(size_t)slot1 * 64] == 0x07c1);
@@ -115,7 +115,7 @@ int main(void) {
                               (PpuGpu3DSTileKey){ .vramOffset = 64,
                                                  .paletteBank = 0,
                                                  .bpp8 = true,
-                                                 .domain = PPU_GPU3DS_OBJ },
+                                                 .domain = PPU_GPU3DS_PALETTE_OBJ },
                               atlas, &slot1));
     CHECK(atlas[(size_t)slot1 * 64] == 0x003f);
 
@@ -125,19 +125,19 @@ int main(void) {
                                (PpuGpu3DSTileKey){ .vramOffset = MODE1_VRAM_SIZE - 31u,
                                                   .paletteBank = 0,
                                                   .bpp8 = false,
-                                                  .domain = PPU_GPU3DS_BG },
+                                                  .domain = PPU_GPU3DS_PALETTE_BG },
                                atlas, &slot0));
     CHECK(!PpuGpu3DS_CacheTile(&cache, vram,
                                (PpuGpu3DSTileKey){ .vramOffset = MODE1_VRAM_SIZE - 63u,
                                                   .paletteBank = 0,
                                                   .bpp8 = true,
-                                                  .domain = PPU_GPU3DS_BG },
+                                                  .domain = PPU_GPU3DS_PALETTE_BG },
                                atlas, &slot0));
     CHECK(!PpuGpu3DS_CacheTile(&cache, vram,
                                (PpuGpu3DSTileKey){ .vramOffset = 0,
                                                   .paletteBank = 16,
                                                   .bpp8 = false,
-                                                  .domain = PPU_GPU3DS_BG },
+                                                  .domain = PPU_GPU3DS_PALETTE_BG },
                                atlas, &slot0));
     CHECK(!PpuGpu3DS_CacheTile(&cache, vram,
                                (PpuGpu3DSTileKey){ .vramOffset = 0,
@@ -149,7 +149,7 @@ int main(void) {
                               (PpuGpu3DSTileKey){ .vramOffset = MODE1_VRAM_SIZE - 32u,
                                                  .paletteBank = 0,
                                                  .bpp8 = false,
-                                                 .domain = PPU_GPU3DS_BG },
+                                                 .domain = PPU_GPU3DS_PALETTE_BG },
                               atlas, &slot0));
 
     PpuGpu3DS_CacheInit(&cache);
@@ -172,7 +172,7 @@ int main(void) {
                               (PpuGpu3DSTileKey){ .vramOffset = 0,
                                                  .paletteBank = 2,
                                                  .bpp8 = false,
-                                                 .domain = PPU_GPU3DS_BG },
+                                                 .domain = PPU_GPU3DS_PALETTE_BG },
                               atlas, &slot0));
     CHECK(slot0 == 1);
     for (unsigned i = 0; i < PPU_GPU3DS_SLOT_COUNT; ++i) {
@@ -185,8 +185,83 @@ int main(void) {
                                (PpuGpu3DSTileKey){ .vramOffset = 32,
                                                   .paletteBank = 2,
                                                   .bpp8 = false,
-                                                  .domain = PPU_GPU3DS_BG },
+                                                  .domain = PPU_GPU3DS_PALETTE_BG },
                                atlas, &slot1));
+
+    {
+        uint8_t io[4][MODE1_IO_MEM_SIZE] = { 0 };
+        uint16_t dispcnt[4] = {
+            MODE1_DISP_BG0_ON, MODE1_DISP_BG0_ON, MODE1_DISP_BG0_ON, MODE1_DISP_BG0_ON
+        };
+        int32_t affX[4] = { 0 };
+        int32_t affY[4] = { 0 };
+        PpuGpu3DSBand bands[160];
+        PpuGpu3DSInterval intervals[2];
+        PpuGpu3DSVertex vertices[4];
+        uint16_t indices[6];
+        PpuGpu3DSBatch batchesOut[1];
+        PpuGpu3DSCommandBuffer command;
+
+        io[2][MODE1_IO_BG0HOFS] = 1;
+        io[3][MODE1_IO_BG0HOFS] = 1;
+        io[3][0x100] = 1;
+        PpuGpu3DSFrameView view = {
+            .width = 240,
+            .height = 4,
+            .ioPerLine = &io[0][0],
+            .ioUniform = false,
+            .dispcntPerLine = dispcnt,
+            .affineRefX = affX,
+            .affineRefY = affY,
+        };
+        CHECK(PpuGpu3DS_BuildBands(&view, bands) == 2);
+        CHECK(bands[0].firstLine == 0 && bands[0].lineCount == 2 && bands[0].ioRow == 0);
+        CHECK(bands[1].firstLine == 2 && bands[1].lineCount == 2 && bands[1].ioRow == 2);
+
+        io[3][MODE1_IO_WIN0V] = 1;
+        CHECK(PpuGpu3DS_BuildBands(&view, bands) == 3);
+        CHECK(bands[2].firstLine == 3 && bands[2].lineCount == 1 && bands[2].ioRow == 3);
+
+        io[3][MODE1_IO_WIN0V] = 0;
+        dispcnt[3] = MODE1_DISP_BG1_ON;
+        CHECK(PpuGpu3DS_BuildBands(&view, bands) == 3);
+        dispcnt[3] = MODE1_DISP_BG0_ON;
+
+        view.affine = true;
+        affX[3] = 1;
+        CHECK(PpuGpu3DS_BuildBands(&view, bands) == 3);
+        affX[3] = 0;
+        view.affine = false;
+        view.ioUniform = true;
+        CHECK(PpuGpu3DS_BuildBands(&view, bands) == 1);
+        CHECK(bands[0].firstLine == 0 && bands[0].lineCount == 4 && bands[0].ioRow == 0);
+
+        dispcnt[2] = MODE1_DISP_BG1_ON;
+        CHECK(PpuGpu3DS_BuildBands(&view, bands) == 3);
+        CHECK(bands[0].ioRow == 0 && bands[1].ioRow == 0 && bands[2].ioRow == 0);
+        dispcnt[2] = MODE1_DISP_BG0_ON;
+
+        CHECK(PpuGpu3DS_WindowIntervals(16, 32, 240, intervals) == 1);
+        CHECK(intervals[0].left == 16 && intervals[0].right == 32);
+        CHECK(PpuGpu3DS_WindowIntervals(220, 20, 240, intervals) == 2);
+        CHECK(intervals[0].left == 220 && intervals[0].right == 240);
+        CHECK(intervals[1].left == 0 && intervals[1].right == 20);
+        CHECK(PpuGpu3DS_WindowIntervals(8, 8, 240, intervals) == 0);
+        CHECK(PpuGpu3DS_WindowIntervals(230, 250, 240, intervals) == 1);
+        CHECK(intervals[0].left == 230 && intervals[0].right == 240);
+        CHECK(PpuGpu3DS_WindowIntervals(250, 20, 240, intervals) == 1);
+        CHECK(intervals[0].left == 0 && intervals[0].right == 20);
+        CHECK(PpuGpu3DS_WindowIntervals(0, 1, 0, intervals) == 0);
+
+        PpuGpu3DS_CommandInit(&command, vertices, 4, indices, 6, batchesOut, 1);
+        CHECK(PpuGpu3DS_CommandReserve(&command, 4, 6, 1));
+        CHECK(!PpuGpu3DS_CommandReserve(&command, 1, 0, 0));
+        CHECK(!PpuGpu3DS_CommandReserve(&command, 0, 1, 0));
+        CHECK(!PpuGpu3DS_CommandReserve(&command, 0, 0, 1));
+        CHECK(!PpuGpu3DS_CommandReserve(&command, SIZE_MAX, SIZE_MAX, SIZE_MAX));
+        CHECK(command.vertexCount == 4 && command.indexCount == 6 && command.batchCount == 1);
+        CHECK(PpuGpu3DS_CommandReserve(&command, 0, 0, 0));
+    }
 
     puts("port_ppu_gpu_3ds_model_test: PASS");
     return 0;
