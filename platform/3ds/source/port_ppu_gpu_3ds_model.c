@@ -154,10 +154,9 @@ static bool line_states_equal(const PpuGpu3DSFrameView* frame, unsigned left,
 }
 
 size_t PpuGpu3DS_BuildBands(const PpuGpu3DSFrameView* frame, PpuGpu3DSBand out[160]) {
-    if (frame->height == 0) {
+    if (frame->height == 0 || frame->height > MODE1_GBA_HEIGHT) {
         return 0;
     }
-
     size_t count = 1;
     out[0] = (PpuGpu3DSBand){ .firstLine = 0,
                              .lineCount = 1,

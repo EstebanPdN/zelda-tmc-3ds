@@ -263,6 +263,33 @@ int main(void) {
         CHECK(PpuGpu3DS_CommandReserve(&command, 0, 0, 0));
     }
 
+    {
+        uint8_t io[MODE1_IO_MEM_SIZE] = { 0 };
+        uint16_t dispcnt[161];
+        PpuGpu3DSBand bands[161];
+        PpuGpu3DSBand unchanged[161];
+        for (unsigned line = 0; line < 161; ++line) {
+            dispcnt[line] = (uint16_t)(line & 1u);
+        }
+        PpuGpu3DSFrameView view = {
+            .height = 160,
+            .ioPerLine = io,
+            .ioUniform = true,
+            .dispcntPerLine = dispcnt,
+        };
+
+        CHECK(PpuGpu3DS_BuildBands(&view, bands) == 160);
+        CHECK(bands[159].firstLine == 159 && bands[159].lineCount == 1 &&
+              bands[159].ioRow == 0);
+
+        memset(bands, 0xa5, sizeof(bands));
+        memcpy(unchanged, bands, sizeof(bands));
+        view.height = 161;
+        const size_t bandCount = PpuGpu3DS_BuildBands(&view, bands);
+        CHECK(memcmp(bands, unchanged, sizeof(bands)) == 0);
+        CHECK(bandCount == 0);
+    }
+
     puts("port_ppu_gpu_3ds_model_test: PASS");
     return 0;
 }
