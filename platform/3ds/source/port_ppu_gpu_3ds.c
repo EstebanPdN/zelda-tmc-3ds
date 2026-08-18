@@ -12,6 +12,8 @@ enum {
     PPU_GPU3DS_MAX_BATCHES = 4096,
     PPU_GPU3DS_OUTPUT_WIDTH = 512,
     PPU_GPU3DS_OUTPUT_HEIGHT = 256,
+    PPU_GPU3DS_REGION_SHIFT = 14,
+    PPU_GPU3DS_ALPHA_COMPLEMENT = 1u << 13u,
 };
 
 static PpuGpu3DSCache* sCache;
@@ -147,13 +149,6 @@ bool PortPpuGpu3DS_Preflight(const PpuGpu3DSFrameView* frame) {
         return false;
     }
 
-    for (size_t i = 0; i < sCommands.batchCount; ++i) {
-        if (!sCommands.batches[i].semiTransparent) continue;
-        sCommands.vertexCount = 0;
-        sCommands.indexCount = 0;
-        sCommands.batchCount = 0;
-        return false;
-    }
 
     for (unsigned slot = 0; slot < PPU_GPU3DS_SLOT_COUNT; ++slot) {
         PpuGpu3DSCacheEntry* entry = &sCache->entries[slot];
@@ -185,16 +180,87 @@ bool PortPpuGpu3DS_Preflight(const PpuGpu3DSFrameView* frame) {
     return true;
 }
 
-static void SetBatchStencil(const PpuGpu3DSBatch* batch) {
-    const unsigned region = batch->target2 >> 6u;
-    C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP, GPU_STENCIL_KEEP);
-    if (region == 0u) {
-        C3D_StencilTest(true, GPU_NOTEQUAL, 0x04, 0x04, 0);
-    } else if (region == 1u) {
-        C3D_StencilTest(true, GPU_EQUAL, 0x04, 0x04, 0);
+static unsigned BatchRegion(const PpuGpu3DSBatch* batch) {
+    return batch->color >> PPU_GPU3DS_REGION_SHIFT;
+}
+
+static u32 Coefficient8(unsigned coefficient) {
+    return coefficient == 16u ? 0xffu : coefficient * 255u / 16u;
+}
+
+static void ResetTev(const PpuGpu3DSBatch* batch) {
+    for (int stage = 0; stage < 3; ++stage)
+        C3D_TexEnvInit(C3D_GetTexEnv(stage));
+    C3D_TexEnv* texture = C3D_GetTexEnv(0);
+    C3D_TexEnvSrc(texture, C3D_Both, GPU_TEXTURE0, GPU_TEXTURE0,
+                  GPU_TEXTURE0);
+    C3D_TexEnvFunc(texture, C3D_Both, GPU_REPLACE);
+    if (batch->effect != PPU_GPU3DS_EFFECT_BRIGHTEN &&
+        batch->effect != PPU_GPU3DS_EFFECT_DARKEN)
+        return;
+
+    C3D_TexEnv* effect = C3D_GetTexEnv(1);
+    const u32 constant =
+            (batch->effect == PPU_GPU3DS_EFFECT_BRIGHTEN ? 0x00ffffffu : 0) |
+            (Coefficient8(batch->evy) << 24u);
+    C3D_TexEnvColor(effect, constant);
+    C3D_TexEnvSrc(effect, C3D_RGB, GPU_CONSTANT, GPU_PREVIOUS,
+                  GPU_CONSTANT);
+    C3D_TexEnvOpRgb(effect, GPU_TEVOP_RGB_SRC_COLOR,
+                    GPU_TEVOP_RGB_SRC_COLOR, GPU_TEVOP_RGB_SRC_ALPHA);
+    C3D_TexEnvFunc(effect, C3D_RGB, GPU_INTERPOLATE);
+    C3D_TexEnvSrc(effect, C3D_Alpha, GPU_PREVIOUS, GPU_PREVIOUS,
+                  GPU_PREVIOUS);
+    C3D_TexEnvFunc(effect, C3D_Alpha, GPU_REPLACE);
+}
+
+static void ResetBlend(const PpuGpu3DSBatch* batch) {
+    if (batch->effect == PPU_GPU3DS_EFFECT_ALPHA) {
+        const u32 eva = Coefficient8(batch->eva);
+        C3D_BlendingColor(eva | (eva << 8u) | (eva << 16u) |
+                          (Coefficient8(batch->evb) << 24u));
+        C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_CONSTANT_COLOR,
+                       GPU_CONSTANT_ALPHA, GPU_ONE, GPU_ZERO);
     } else {
-        C3D_StencilTest(false, GPU_ALWAYS, 0, 0xff, 0);
+        C3D_BlendingColor(0);
+        C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_ONE, GPU_ZERO,
+                       GPU_ONE, GPU_ZERO);
     }
+}
+
+static void SetWindowStencil(const PpuGpu3DSBatch* batch) {
+    const unsigned region = BatchRegion(batch);
+    C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP, GPU_STENCIL_KEEP);
+    if (region == 0u)
+        C3D_StencilTest(true, GPU_EQUAL, 0, 0x04, 0);
+    else if (region == 1u)
+        C3D_StencilTest(true, GPU_EQUAL, 0x04, 0x04, 0);
+    else
+        C3D_StencilTest(false, GPU_ALWAYS, 0, 0xff, 0);
+}
+
+static void SetColorStencil(const PpuGpu3DSBatch* batch) {
+    const unsigned region = BatchRegion(batch);
+    const bool alphaBranch =
+            batch->effect == PPU_GPU3DS_EFFECT_ALPHA ||
+            (batch->color & PPU_GPU3DS_ALPHA_COMPLEMENT) != 0;
+    const bool oldTarget =
+            batch->effect == PPU_GPU3DS_EFFECT_ALPHA;
+    unsigned mask = region < 2u ? 0x04u : 0;
+    unsigned ref = region == 1u ? 0x04u : 0;
+    if (alphaBranch) {
+        mask |= 0x08u;
+        if (oldTarget) ref |= 0x08u;
+        C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP,
+                      oldTarget == (batch->target2 != 0)
+                              ? GPU_STENCIL_KEEP
+                              : GPU_STENCIL_INVERT);
+    } else {
+        if (batch->target2) ref |= 0x08u;
+        C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP,
+                      GPU_STENCIL_REPLACE);
+    }
+    C3D_StencilTest(true, mask ? GPU_EQUAL : GPU_ALWAYS, ref, mask, 0x08);
 }
 
 static void DrawBatch(const PpuGpu3DSBatch* batch) {
@@ -222,49 +288,70 @@ bool PortPpuGpu3DS_DrawPrepared(void) {
     C3D_SetAttrInfo(&sAttributes);
     C3D_SetBufInfo(&sBuffers);
     C3D_CullFace(GPU_CULL_NONE);
-    C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_COLOR);
-
-    for (int stage = 0; stage < 6; ++stage) {
+    for (int stage = 0; stage < 6; ++stage)
         C3D_TexEnvInit(C3D_GetTexEnv(stage));
-    }
-    C3D_TexEnv* env = C3D_GetTexEnv(0);
-    C3D_TexEnvSrc(env, C3D_RGB, GPU_TEXTURE0, GPU_TEXTURE0, GPU_TEXTURE0);
-    C3D_TexEnvFunc(env, C3D_RGB, GPU_REPLACE);
-    C3D_TexEnvSrc(env, C3D_Alpha, GPU_TEXTURE0, GPU_TEXTURE0, GPU_TEXTURE0);
-    C3D_TexEnvFunc(env, C3D_Alpha, GPU_REPLACE);
     C3D_TexSetFilter(&sAtlas, GPU_NEAREST, GPU_NEAREST);
     C3D_TexSetWrap(&sAtlas, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
     C3D_TexBind(0, &sAtlas);
-    C3D_AlphaTest(true, GPU_GREATER, 0);
 
-    C3D_DepthTest(false, GPU_ALWAYS, (GPU_WRITEMASK)0);
-    C3D_StencilTest(true, GPU_ALWAYS, 0x04, 0xff, 0x04);
-    C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP, GPU_STENCIL_REPLACE);
     for (size_t i = 1; i < sCommands.batchCount; ++i) {
-        if (sCommands.batches[i].objWindow) DrawBatch(&sCommands.batches[i]);
+        const PpuGpu3DSBatch* batch = &sCommands.batches[i];
+        if (!batch->objWindow) continue;
+        ResetTev(batch);
+        ResetBlend(batch);
+        C3D_AlphaTest(true, GPU_GREATER, 0);
+        C3D_DepthTest(false, GPU_ALWAYS, (GPU_WRITEMASK)0);
+        C3D_StencilTest(true, GPU_ALWAYS, 0x04, 0xff, 0x04);
+        C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP,
+                      GPU_STENCIL_REPLACE);
+        DrawBatch(batch);
     }
 
-    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_DEPTH);
     for (size_t i = 1; i < sCommands.batchCount; ++i) {
         const PpuGpu3DSBatch* batch = &sCommands.batches[i];
         if (batch->layer != PPU_GPU3DS_OBJ || batch->objWindow) continue;
-        SetBatchStencil(batch);
+        ResetTev(batch);
+        ResetBlend(batch);
+        C3D_AlphaTest(true, GPU_GREATER, 0);
+        SetWindowStencil(batch);
+        C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_DEPTH);
         DrawBatch(batch);
     }
 
     for (size_t i = 1; i < sCommands.batchCount; ++i) {
         const PpuGpu3DSBatch* batch = &sCommands.batches[i];
         if (batch->objWindow) continue;
-        SetBatchStencil(batch);
+        if (batch->layer == PPU_GPU3DS_BACKDROP) {
+            ResetTev(batch);
+            ResetBlend(batch);
+            C3D_AlphaTest(false, GPU_ALWAYS, 0);
+            C3D_DepthTest(false, GPU_ALWAYS, (GPU_WRITEMASK)0);
+            C3D_StencilTest(true, GPU_ALWAYS, 0x08, 0, 0x08);
+            C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP,
+                          GPU_STENCIL_REPLACE);
+            DrawBatch(batch);
+            continue;
+        }
+        ResetTev(batch);
+        ResetBlend(batch);
+        C3D_AlphaTest(true, GPU_GREATER, 0);
+        SetColorStencil(batch);
         if (batch->layer == PPU_GPU3DS_OBJ)
             C3D_DepthTest(true, GPU_EQUAL, GPU_WRITE_COLOR);
         else
             C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_COLOR);
         DrawBatch(batch);
     }
+
+    for (int stage = 0; stage < 3; ++stage)
+        C3D_TexEnvInit(C3D_GetTexEnv(stage));
+    C3D_BlendingColor(0);
+    C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_ONE, GPU_ZERO,
+                   GPU_ONE, GPU_ZERO);
+    C3D_AlphaTest(false, GPU_ALWAYS, 0);
+    C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP, GPU_STENCIL_KEEP);
     C3D_StencilTest(false, GPU_ALWAYS, 0, 0xff, 0);
     C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_ALL);
-    C3D_AlphaTest(false, GPU_ALWAYS, 0);
     return true;
 }
 

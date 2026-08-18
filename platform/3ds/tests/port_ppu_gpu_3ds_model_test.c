@@ -34,6 +34,18 @@ static size_t find_batch(const PpuGpu3DSCommandBuffer* command, uint8_t layer,
     }
     return SIZE_MAX;
 }
+static size_t find_effect_batch(const PpuGpu3DSCommandBuffer* command,
+                                uint8_t layer, uint8_t objectIndex,
+                                uint8_t effect, size_t occurrence) {
+    for (size_t i = 0; i < command->batchCount; ++i) {
+        const PpuGpu3DSBatch* batch = &command->batches[i];
+        if (batch->layer == layer && batch->objectIndex == objectIndex &&
+            batch->effect == effect && occurrence-- == 0)
+            return i;
+    }
+    return SIZE_MAX;
+}
+
 
 static size_t find_window_batch(const PpuGpu3DSCommandBuffer* command,
                                 uint16_t left, uint16_t right, uint8_t control) {
@@ -493,26 +505,45 @@ int main(void) {
         write16(renderIo[0], MODE1_IO_BG0CNT, 0);
         write16(renderIo[0], MODE1_IO_BG0HOFS, 0);
         write16(renderIo[0], MODE1_IO_BG0VOFS, 0);
-        write16(renderIo[0], MODE1_IO_BLDCNT, 1u << 6u);
+        write16(renderIo[0], MODE1_IO_BLDCNT,
+                (uint16_t)((1u << 6u) | 1u | (1u << 8u)));
+        write16(renderIo[0], MODE1_IO_BLDALPHA, 0x1f11u);
         PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
                               renderBatches, 4096);
-        CHECK(!PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
-        CHECK(renderCommand.batchCount == 0);
-        write16(renderIo[0], MODE1_IO_BLDCNT, 0);
+        CHECK(PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
+        const size_t alphaBatch =
+                find_effect_batch(&renderCommand, PPU_GPU3DS_BG0, UINT8_MAX,
+                                  PPU_GPU3DS_EFFECT_ALPHA, 0);
+        const size_t alphaComplement =
+                find_effect_batch(&renderCommand, PPU_GPU3DS_BG0, UINT8_MAX,
+                                  PPU_GPU3DS_EFFECT_NONE, 0);
+        CHECK(alphaBatch != SIZE_MAX && alphaComplement != SIZE_MAX);
+        CHECK(renderCommand.batches[alphaBatch].eva == 16 &&
+              renderCommand.batches[alphaBatch].evb == 16);
+        CHECK(renderCommand.batches[alphaBatch].target2 == 1);
+        CHECK(renderCommand.batches[alphaComplement].firstIndex ==
+              renderCommand.batches[alphaBatch].firstIndex);
+        CHECK(alphaBatch < alphaComplement);
 
+        write16(renderIo[0], MODE1_IO_BLDCNT, 0);
 
         renderView.frameDispcnt = MODE1_DISP_BG0_ON;
         for (unsigned line = 0; line < 8; ++line) {
             renderDispcnt[line] = renderView.frameDispcnt;
         }
         renderView.affine = true;
+        PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
+                              renderBatches, 4096);
         CHECK(!PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
         CHECK(renderCommand.batchCount == 0);
         renderView.affine = false;
 
         write16(renderIo[0], MODE1_IO_BG0CNT, 1u << 6u);
-        CHECK(!PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
-        CHECK(renderCommand.batchCount == 0);
+        write16(renderIo[0], MODE1_IO_MOSAIC, 0);
+        PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
+                              renderBatches, 4096);
+        CHECK(PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
+        CHECK(renderCommand.vertexCount == 4 && renderCommand.indexCount == 6);
         write16(renderIo[0], MODE1_IO_BG0CNT, 0);
 
         renderView.height = 4;
@@ -703,9 +734,9 @@ int main(void) {
         renderOam[0] |= 1u << 12u;
         PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
                               renderBatches, 4096);
-        CHECK(!PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
-        CHECK(renderCommand.vertexCount == 0 && renderCommand.indexCount == 0 &&
-              renderCommand.batchCount == 0);
+        CHECK(PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
+        CHECK(renderCommand.vertexCount != 0 && renderCommand.indexCount != 0 &&
+              renderCommand.batchCount != 0);
 
         renderOam[0] = 0x0200u;
         memset(renderIo[0], 0, MODE1_IO_MEM_SIZE);
@@ -727,6 +758,172 @@ int main(void) {
         CHECK(find_window_lines(&renderCommand, 30, 40, 1, 0, 10) != SIZE_MAX);
         CHECK(find_window_lines(&renderCommand, 0, 10, 1, 30, 10) != SIZE_MAX);
         CHECK(find_window_lines(&renderCommand, 30, 40, 1, 30, 10) != SIZE_MAX);
+
+        memset(renderIo[0], 0, MODE1_IO_MEM_SIZE);
+        renderView.width = 8;
+        renderView.height = 8;
+        renderView.frameDispcnt = MODE1_DISP_BG0_ON;
+        for (unsigned line = 0; line < renderView.height; ++line)
+            renderDispcnt[line] = renderView.frameDispcnt;
+        write16(renderIo[0], MODE1_IO_BLDCNT,
+                (uint16_t)((2u << 6u) | 1u));
+        write16(renderIo[0], MODE1_IO_BLDY, 31);
+        PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
+                              renderBatches, 4096);
+        CHECK(PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
+        size_t effectBatch =
+                find_effect_batch(&renderCommand, PPU_GPU3DS_BG0, UINT8_MAX,
+                                  PPU_GPU3DS_EFFECT_BRIGHTEN, 0);
+        CHECK(effectBatch != SIZE_MAX);
+        CHECK(renderCommand.batches[effectBatch].evy == 16);
+
+        write16(renderIo[0], MODE1_IO_BLDCNT,
+                (uint16_t)((3u << 6u) | 1u));
+        PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
+                              renderBatches, 4096);
+        CHECK(PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
+        effectBatch =
+                find_effect_batch(&renderCommand, PPU_GPU3DS_BG0, UINT8_MAX,
+                                  PPU_GPU3DS_EFFECT_DARKEN, 0);
+        CHECK(effectBatch != SIZE_MAX);
+        CHECK(renderCommand.batches[effectBatch].evy == 16);
+
+        renderView.frameDispcnt |= MODE1_DISP_WIN0_ON;
+        for (unsigned line = 0; line < renderView.height; ++line)
+            renderDispcnt[line] = renderView.frameDispcnt;
+        write16(renderIo[0], MODE1_IO_WIN0H, 8);
+        write16(renderIo[0], MODE1_IO_WIN0V, 8);
+        write16(renderIo[0], MODE1_IO_WININ, 1);
+        PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
+                              renderBatches, 4096);
+        CHECK(PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
+        CHECK(find_effect_batch(&renderCommand, PPU_GPU3DS_BG0, UINT8_MAX,
+                                PPU_GPU3DS_EFFECT_DARKEN, 0) == SIZE_MAX);
+        CHECK(find_effect_batch(&renderCommand, PPU_GPU3DS_BG0, UINT8_MAX,
+                                PPU_GPU3DS_EFFECT_NONE, 0) != SIZE_MAX);
+
+        memset(renderIo[0], 0, MODE1_IO_MEM_SIZE);
+        renderView.frameDispcnt = MODE1_DISP_BG0_ON;
+        for (unsigned line = 0; line < renderView.height; ++line)
+            renderDispcnt[line] = renderView.frameDispcnt;
+        write16(renderIo[0], MODE1_IO_BG0CNT, 1u << 6u);
+        write16(renderIo[0], MODE1_IO_MOSAIC, (uint16_t)(2u | (1u << 4u)));
+        PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
+                              renderBatches, 4096);
+        CHECK(PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
+        CHECK(renderCommand.vertexCount == 48 && renderCommand.indexCount == 72);
+        const size_t mosaicBatch =
+                find_batch(&renderCommand, PPU_GPU3DS_BG0, UINT8_MAX);
+        CHECK(mosaicBatch != SIZE_MAX);
+        CHECK(renderCommand.batches[mosaicBatch].firstLine % 2u == 0);
+        const uint16_t bgMosaicVertex =
+                renderIndices[renderCommand.batches[mosaicBatch].firstIndex];
+        CHECK(vertex_screen_x(&renderVertices[bgMosaicVertex], renderView.width) > -0.01f &&
+              vertex_screen_x(&renderVertices[bgMosaicVertex], renderView.width) < 0.01f);
+        CHECK(vertex_screen_x(&renderVertices[bgMosaicVertex + 1u], renderView.width) > 2.99f &&
+              vertex_screen_x(&renderVertices[bgMosaicVertex + 1u], renderView.width) < 3.01f);
+        CHECK(vertex_screen_y(&renderVertices[bgMosaicVertex + 3u], renderView.height) > 1.99f &&
+              vertex_screen_y(&renderVertices[bgMosaicVertex + 3u], renderView.height) < 2.01f);
+        CHECK(renderVertices[bgMosaicVertex].u == renderVertices[bgMosaicVertex + 2u].u &&
+              renderVertices[bgMosaicVertex].v == renderVertices[bgMosaicVertex + 2u].v);
+
+        for (unsigned object = 0; object < MODE1_GBA_OAM_COUNT; ++object)
+            renderOam[object * 4] = 0x0200u;
+        set_oam(renderOam, 0, (uint16_t)(1u | (1u << 12u)), 1, 0);
+        memset(renderIo[0], 0, MODE1_IO_MEM_SIZE);
+        write16(renderIo[0], MODE1_IO_MOSAIC,
+                (uint16_t)((3u << 8u) | (2u << 12u)));
+        renderView.width = 12;
+        renderView.height = 12;
+        renderView.frameDispcnt = MODE1_DISP_OBJ_ON | MODE1_DISP_OBJ_1D;
+        for (unsigned line = 0; line < renderView.height; ++line)
+            renderDispcnt[line] = renderView.frameDispcnt;
+        PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
+                              renderBatches, 4096);
+        CHECK(PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
+        const size_t objMosaicBatch =
+                find_batch(&renderCommand, PPU_GPU3DS_OBJ, 0);
+        CHECK(objMosaicBatch != SIZE_MAX);
+        const uint16_t objMosaicVertex =
+                renderIndices[renderCommand.batches[objMosaicBatch].firstIndex];
+        CHECK(vertex_screen_x(&renderVertices[objMosaicVertex], renderView.width) > 3.99f &&
+              vertex_screen_x(&renderVertices[objMosaicVertex], renderView.width) < 4.01f);
+        CHECK(vertex_screen_y(&renderVertices[objMosaicVertex], renderView.height) > 2.99f &&
+              vertex_screen_y(&renderVertices[objMosaicVertex], renderView.height) < 3.01f);
+        CHECK(renderVertices[objMosaicVertex].u == renderVertices[objMosaicVertex + 2u].u &&
+              renderVertices[objMosaicVertex].v == renderVertices[objMosaicVertex + 2u].v);
+
+        memset(renderIo[0], 0, MODE1_IO_MEM_SIZE);
+        for (unsigned object = 0; object < MODE1_GBA_OAM_COUNT; ++object)
+            renderOam[object * 4] = 0x0200u;
+        set_oam(renderOam, 0, 1u << 10u, 0, 0);
+        renderView.width = 8;
+        renderView.height = 8;
+        renderView.frameDispcnt =
+                MODE1_DISP_BG0_ON | MODE1_DISP_OBJ_ON | MODE1_DISP_OBJ_1D;
+        for (unsigned line = 0; line < renderView.height; ++line)
+            renderDispcnt[line] = renderView.frameDispcnt;
+        write16(renderIo[0], MODE1_IO_BG0CNT, 1);
+        write16(renderIo[0], MODE1_IO_BLDCNT, 1u << 8u);
+        write16(renderIo[0], MODE1_IO_BLDALPHA, 0x1f11u);
+        PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
+                              renderBatches, 4096);
+        CHECK(PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
+        const size_t semiAlpha =
+                find_effect_batch(&renderCommand, PPU_GPU3DS_OBJ, 0,
+                                  PPU_GPU3DS_EFFECT_ALPHA, 0);
+        const size_t semiOpaque =
+                find_effect_batch(&renderCommand, PPU_GPU3DS_OBJ, 0,
+                                  PPU_GPU3DS_EFFECT_NONE, 0);
+        CHECK(semiAlpha != SIZE_MAX && semiOpaque != SIZE_MAX);
+        CHECK(renderCommand.batches[semiAlpha].eva == 16 &&
+              renderCommand.batches[semiAlpha].evb == 16);
+        CHECK(renderCommand.batches[semiOpaque].target2 == 0);
+        CHECK(semiOpaque < semiAlpha);
+        CHECK(renderCommand.batches[semiAlpha].firstIndex ==
+              renderCommand.batches[semiOpaque].firstIndex);
+
+        renderView.frameDispcnt |= MODE1_DISP_WIN0_ON;
+        for (unsigned line = 0; line < renderView.height; ++line)
+            renderDispcnt[line] = renderView.frameDispcnt;
+        write16(renderIo[0], MODE1_IO_WIN0H, 8);
+        write16(renderIo[0], MODE1_IO_WIN0V, 8);
+        write16(renderIo[0], MODE1_IO_WININ, 1u << PPU_GPU3DS_OBJ);
+        PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
+                              renderBatches, 4096);
+        CHECK(PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
+        CHECK(find_effect_batch(&renderCommand, PPU_GPU3DS_OBJ, 0,
+                                PPU_GPU3DS_EFFECT_ALPHA, 0) == SIZE_MAX);
+        renderView.frameDispcnt &= (uint16_t)~MODE1_DISP_WIN0_ON;
+        for (unsigned line = 0; line < renderView.height; ++line)
+            renderDispcnt[line] = renderView.frameDispcnt;
+        write16(renderIo[0], MODE1_IO_WININ, 0);
+
+        write16(renderIo[0], MODE1_IO_BLDCNT, 0);
+        PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
+                              renderBatches, 4096);
+        CHECK(PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
+        CHECK(find_effect_batch(&renderCommand, PPU_GPU3DS_OBJ, 0,
+                                PPU_GPU3DS_EFFECT_ALPHA, 0) == SIZE_MAX);
+        CHECK(find_effect_batch(&renderCommand, PPU_GPU3DS_OBJ, 0,
+                                PPU_GPU3DS_EFFECT_NONE, 0) != SIZE_MAX);
+
+        renderView.frameDispcnt = MODE1_DISP_OBJ_ON | MODE1_DISP_OBJ_1D;
+        for (unsigned line = 0; line < renderView.height; ++line)
+            renderDispcnt[line] = renderView.frameDispcnt;
+        write16(renderIo[0], MODE1_IO_BLDCNT,
+                (uint16_t)(1u << (PPU_GPU3DS_BACKDROP + 8u)));
+        PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
+                              renderBatches, 4096);
+        CHECK(PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
+        bool foundBackdropTarget = false;
+        for (size_t i = 1; i < renderCommand.batchCount; ++i) {
+            if (renderCommand.batches[i].layer == PPU_GPU3DS_BACKDROP &&
+                renderCommand.batches[i].target2 == 1 &&
+                renderCommand.batches[i].indexCount == 6)
+                foundBackdropTarget = true;
+        }
+        CHECK(foundBackdropTarget);
     }
 
     puts("port_ppu_gpu_3ds_model_test: PASS");

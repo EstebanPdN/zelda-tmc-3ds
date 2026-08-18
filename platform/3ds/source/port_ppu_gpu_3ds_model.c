@@ -238,7 +238,8 @@ enum {
     PPU_GPU3DS_REGION_OBJWIN,
     PPU_GPU3DS_REGION_WIN1,
     PPU_GPU3DS_REGION_WIN0,
-    PPU_GPU3DS_REGION_SHIFT = 6,
+    PPU_GPU3DS_REGION_SHIFT = 14,
+    PPU_GPU3DS_ALPHA_COMPLEMENT = 1u << 13u,
     PPU_GPU3DS_OBJ_TILE_BASE = 0x10000
 };
 
@@ -359,24 +360,9 @@ static bool frame_features_supported(const PpuGpu3DSFrameView* frame,
     for (size_t bandIndex = 0; bandIndex < bandCount; ++bandIndex) {
         const PpuGpu3DSBand* band = &bands[bandIndex];
         const uint16_t dispcnt = frame->dispcntPerLine[band->firstLine];
-        const uint8_t* io =
-                frame->ioPerLine + (size_t)band->ioRow * MODE1_IO_MEM_SIZE;
         if (((dispcnt & MODE1_DISP_FORCED_BLANK) != 0) != forcedBlank ||
-            (read16(io, MODE1_IO_BLDCNT) & 0x00c0u) != 0)
+            ((dispcnt & MODE1_DISP_OBJ_ON) != 0 && !frame->memory.oam_mem))
             return false;
-        for (unsigned bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
-            if ((read16(io, MODE1_IO_BG0CNT + bg * 2u) & (1u << 6u)) != 0)
-                return false;
-        }
-        if ((dispcnt & MODE1_DISP_OBJ_ON) != 0) {
-            if (!frame->memory.oam_mem) return false;
-            for (unsigned index = 0; index < MODE1_GBA_OAM_COUNT; ++index) {
-                PpuGpu3DSObj obj;
-                if (read_obj(frame, index, &obj) &&
-                    (frame->memory.oam_mem[index * 4u] & (1u << 12u)) != 0)
-                    return false;
-            }
-        }
     }
     return true;
 }
@@ -493,10 +479,15 @@ static bool layer_has_region(const PpuGpu3DSRegion* regions, size_t regionCount,
     return false;
 }
 
+static uint8_t clamp_coefficient(uint16_t value) {
+    return (uint8_t)(value > 16u ? 16u : value);
+}
+
 static void append_layer_batches(PpuGpu3DSCommandBuffer* cmd,
                                  const PpuGpu3DSBatch* base,
                                  const PpuGpu3DSRegion* regions,
-                                 size_t regionCount, bool emit,
+                                 size_t regionCount, uint16_t bldcnt,
+                                 uint16_t bldalpha, uint16_t bldy, bool emit,
                                  size_t* batchCursor) {
     const unsigned bit = 1u << base->layer;
     for (size_t i = 0; i < regionCount; ++i) {
@@ -508,17 +499,170 @@ static void append_layer_batches(PpuGpu3DSCommandBuffer* cmd,
                                  ? base->scissorRight
                                  : regions[i].right;
         if (left >= right) continue;
-        if (emit) {
-            cmd->batches[*batchCursor] = *base;
-            cmd->batches[*batchCursor].scissorLeft = left;
-            cmd->batches[*batchCursor].scissorRight = right;
-            cmd->batches[*batchCursor].windowControl = regions[i].control;
-            cmd->batches[*batchCursor].target2 =
-                    (uint8_t)((base->target2 & 0x3fu) |
-                              (regions[i].kind << PPU_GPU3DS_REGION_SHIFT));
+
+        PpuGpu3DSBatch batch = *base;
+        batch.scissorLeft = left;
+        batch.scissorRight = right;
+        batch.windowControl = regions[i].control;
+        batch.color = (uint16_t)(regions[i].kind << PPU_GPU3DS_REGION_SHIFT);
+        batch.target2 =
+                (uint8_t)((bldcnt >> (base->layer + 8u)) & 1u);
+        const unsigned effect = (bldcnt >> 6u) & 3u;
+        const bool effectsEnabled = (regions[i].control & 0x20u) != 0;
+        const bool firstTarget = (bldcnt & bit) != 0;
+        const bool alpha =
+                effectsEnabled &&
+                (base->semiTransparent ||
+                 (effect == PPU_GPU3DS_EFFECT_ALPHA && firstTarget)) &&
+                (bldcnt & 0x3f00u) != 0;
+        if (alpha) {
+            batch.effect = PPU_GPU3DS_EFFECT_ALPHA;
+            batch.eva = clamp_coefficient(bldalpha & 0x1fu);
+            batch.evb = clamp_coefficient((bldalpha >> 8u) & 0x1fu);
+            PpuGpu3DSBatch complement = batch;
+            complement.effect = PPU_GPU3DS_EFFECT_NONE;
+            complement.color |= PPU_GPU3DS_ALPHA_COMPLEMENT;
+            if (emit)
+                cmd->batches[*batchCursor] =
+                        batch.target2 ? batch : complement;
+            ++*batchCursor;
+            if (emit)
+                cmd->batches[*batchCursor] =
+                        batch.target2 ? complement : batch;
+            ++*batchCursor;
+            continue;
         }
+        if (effectsEnabled && firstTarget && !base->semiTransparent &&
+            (effect == PPU_GPU3DS_EFFECT_BRIGHTEN ||
+             effect == PPU_GPU3DS_EFFECT_DARKEN)) {
+            batch.effect = (uint8_t)effect;
+            batch.evy = clamp_coefficient(bldy & 0x1fu);
+        } else {
+            batch.effect = PPU_GPU3DS_EFFECT_NONE;
+        }
+        if (emit) cmd->batches[*batchCursor] = batch;
         ++*batchCursor;
     }
+}
+
+static bool tile_sample_uv(PpuGpu3DSCache* cache, const uint8_t* vram,
+                           PpuGpu3DSTileKey key, uint16_t* atlas,
+                           unsigned pixelX, unsigned pixelY, bool emit,
+                           float* u, float* v) {
+    if (!emit) return true;
+    uint16_t slot;
+    if (!PpuGpu3DS_CacheTile(cache, vram, key, atlas, &slot)) return false;
+    const unsigned tilesPerRow =
+            PPU_GPU3DS_ATLAS_SIDE / PPU_GPU3DS_TILE_SIDE;
+    const unsigned slotX =
+            (slot % tilesPerRow) * PPU_GPU3DS_TILE_SIDE;
+    const unsigned slotY =
+            (slot / tilesPerRow) * PPU_GPU3DS_TILE_SIDE;
+    *u = ((float)(slotX + pixelX) + 0.5f) / PPU_GPU3DS_ATLAS_SIDE;
+    *v = ((float)(slotY + pixelY) + 0.5f) / PPU_GPU3DS_ATLAS_SIDE;
+    return true;
+}
+
+static void emit_sample_quad(const PpuGpu3DSFrameView* frame,
+                             PpuGpu3DSCommandBuffer* cmd, bool emit,
+                             float left, float top, float right, float bottom,
+                             float z, float u, float v,
+                             size_t* vertexCursor, size_t* indexCursor) {
+    if (emit) {
+        const uint16_t base = (uint16_t)*vertexCursor;
+        const float x0 = 2.0f * left / frame->width - 1.0f;
+        const float x1 = 2.0f * right / frame->width - 1.0f;
+        const float y0 = 1.0f - 2.0f * top / frame->height;
+        const float y1 = 1.0f - 2.0f * bottom / frame->height;
+        cmd->vertices[*vertexCursor + 0] =
+                (PpuGpu3DSVertex){ x0, y0, z, 1.0f, u, v };
+        cmd->vertices[*vertexCursor + 1] =
+                (PpuGpu3DSVertex){ x1, y0, z, 1.0f, u, v };
+        cmd->vertices[*vertexCursor + 2] =
+                (PpuGpu3DSVertex){ x1, y1, z, 1.0f, u, v };
+        cmd->vertices[*vertexCursor + 3] =
+                (PpuGpu3DSVertex){ x0, y1, z, 1.0f, u, v };
+        cmd->indices[*indexCursor + 0] = base;
+        cmd->indices[*indexCursor + 1] = (uint16_t)(base + 1u);
+        cmd->indices[*indexCursor + 2] = (uint16_t)(base + 2u);
+        cmd->indices[*indexCursor + 3] = base;
+        cmd->indices[*indexCursor + 4] = (uint16_t)(base + 2u);
+        cmd->indices[*indexCursor + 5] = (uint16_t)(base + 3u);
+    }
+    *vertexCursor += 4;
+    *indexCursor += 6;
+}
+
+static bool build_mosaic_bg_geometry(
+        const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
+        uint16_t* atlas, PpuGpu3DSCommandBuffer* cmd,
+        const PpuGpu3DSBand* band, uint16_t bgcnt, unsigned bg, bool emit,
+        size_t* vertexCursor, size_t* indexCursor) {
+    const uint8_t* io =
+            frame->ioPerLine + (size_t)band->ioRow * MODE1_IO_MEM_SIZE;
+    const uint16_t mosaic = read16(io, MODE1_IO_MOSAIC);
+    const unsigned blockWidth = (mosaic & 0x0fu) + 1u;
+    const unsigned blockHeight = ((mosaic >> 4u) & 0x0fu) + 1u;
+    const uint32_t charBase = ((bgcnt >> 2u) & 3u) * 0x4000u;
+    const bool bpp8 = ((bgcnt >> 7u) & 1u) != 0;
+    const uint32_t screenBase = ((bgcnt >> 8u) & 0x1fu) * 0x800u;
+    const unsigned size = (bgcnt >> 14u) & 3u;
+    const unsigned mapWidthTiles = (size & 1u) ? 64u : 32u;
+    const unsigned mapHeightTiles = (size & 2u) ? 64u : 32u;
+    const unsigned mapWidth = mapWidthTiles * PPU_GPU3DS_TILE_SIDE;
+    const unsigned mapHeight = mapHeightTiles * PPU_GPU3DS_TILE_SIDE;
+    const unsigned scrollX =
+            read16(io, MODE1_IO_BG0HOFS + bg * 4u) & 0x1ffu;
+    const unsigned scrollY =
+            read16(io, MODE1_IO_BG0VOFS + bg * 4u) & 0x1ffu;
+    const unsigned firstY =
+            (band->firstLine / blockHeight) * blockHeight;
+    const unsigned bottom = band->firstLine + band->lineCount;
+    for (unsigned y = firstY; y < bottom; y += blockHeight) {
+        const unsigned sourceY = (y + scrollY) & (mapHeight - 1u);
+        const unsigned tileY = sourceY / PPU_GPU3DS_TILE_SIDE;
+        for (unsigned x = 0; x < frame->width; x += blockWidth) {
+            const unsigned sourceX = (x + scrollX) & (mapWidth - 1u);
+            const unsigned tileX = sourceX / PPU_GPU3DS_TILE_SIDE;
+            const unsigned blockX = tileX / 32u;
+            const unsigned blockY = tileY / 32u;
+            const uint32_t mapOffset =
+                    (blockX + blockY * (mapWidthTiles / 32u)) * 0x800u +
+                    ((tileY & 31u) * 32u + (tileX & 31u)) * 2u;
+            if (screenBase > MODE1_VRAM_SIZE - 2u ||
+                mapOffset > MODE1_VRAM_SIZE - 2u - screenBase)
+                return false;
+            const uint16_t entry =
+                    read16(frame->memory.vram, screenBase + mapOffset);
+            const uint32_t tileBytes = bpp8 ? 64u : 32u;
+            const uint32_t tileOffset =
+                    charBase + (uint32_t)(entry & 0x03ffu) * tileBytes;
+            if (tileOffset > MODE1_VRAM_SIZE - tileBytes) return false;
+            unsigned pixelX = sourceX & 7u;
+            unsigned pixelY = sourceY & 7u;
+            if ((entry & (1u << 10u)) != 0) pixelX = 7u - pixelX;
+            if ((entry & (1u << 11u)) != 0) pixelY = 7u - pixelY;
+            float u = 0.0f;
+            float v = 0.0f;
+            if (!tile_sample_uv(
+                        cache, frame->memory.vram,
+                        (PpuGpu3DSTileKey){
+                            .vramOffset = tileOffset,
+                            .paletteBank = (uint8_t)(entry >> 12u),
+                            .bpp8 = bpp8,
+                            .domain = PPU_GPU3DS_PALETTE_BG,
+                        },
+                        atlas, pixelX, pixelY, emit, &u, &v))
+                return false;
+            unsigned right = x + blockWidth;
+            unsigned quadBottom = y + blockHeight;
+            if (right > frame->width) right = frame->width;
+            emit_sample_quad(frame, cmd, emit, (float)x, (float)y,
+                             (float)right, (float)quadBottom, 0.0f, u, v,
+                             vertexCursor, indexCursor);
+        }
+    }
+    return true;
 }
 
 static bool build_text_bg(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
@@ -551,6 +695,15 @@ static bool build_text_bg(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache
     const int firstX = -(int)(scrollX & 7u);
     const int bandBottom = (int)band->firstLine + band->lineCount;
     const size_t firstIndex = *indexCursor;
+    const uint16_t mosaic = read16(io, MODE1_IO_MOSAIC);
+    const bool mosaicEnabled =
+            (bgcnt & (1u << 6u)) != 0 &&
+            ((mosaic & 0x0fu) != 0 || (mosaic & 0xf0u) != 0);
+    if (mosaicEnabled) {
+        if (!build_mosaic_bg_geometry(frame, cache, atlas, cmd, band, bgcnt,
+                                      bg, emit, vertexCursor, indexCursor))
+            return false;
+    } else {
 
     unsigned tileRowOffset = 0;
     for (int y = firstY; y < bandBottom;
@@ -645,7 +798,9 @@ static bool build_text_bg(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache
             *indexCursor += 6;
         }
     }
+    }
 
+    const uint16_t bldcnt = read16(io, MODE1_IO_BLDCNT);
     const PpuGpu3DSBatch base = {
         .firstIndex = (uint32_t)firstIndex,
         .indexCount = (uint32_t)(*indexCursor - firstIndex),
@@ -655,10 +810,89 @@ static bool build_text_bg(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache
         .layer = (uint8_t)(PPU_GPU3DS_BG0 + bg),
         .priority = (uint8_t)priority,
         .effect = PPU_GPU3DS_EFFECT_NONE,
-        .target2 = (uint8_t)((read16(io, MODE1_IO_BLDCNT) >> 8u) & 0x3fu),
+        .target2 = (uint8_t)((bldcnt >> (PPU_GPU3DS_BG0 + bg + 8u)) & 1u),
         .objectIndex = UINT8_MAX,
     };
-    append_layer_batches(cmd, &base, regions, regionCount, emit, batchCursor);
+    append_layer_batches(cmd, &base, regions, regionCount, bldcnt,
+                         read16(io, MODE1_IO_BLDALPHA),
+                         read16(io, MODE1_IO_BLDY), emit, batchCursor);
+    return true;
+}
+
+static bool build_mosaic_obj_geometry(
+        const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
+        uint16_t* atlas, PpuGpu3DSCommandBuffer* cmd,
+        const PpuGpu3DSBand* band, const PpuGpu3DSObj* obj,
+        int clipLeft, int clipRight, int clipTop, int clipBottom, bool emit,
+        size_t* vertexCursor, size_t* indexCursor) {
+    const uint8_t* io =
+            frame->ioPerLine + (size_t)band->ioRow * MODE1_IO_MEM_SIZE;
+    const uint16_t mosaic = read16(io, MODE1_IO_MOSAIC);
+    const int blockWidth = (int)((mosaic >> 8u) & 0x0fu) + 1;
+    const int blockHeight = (int)((mosaic >> 12u) & 0x0fu) + 1;
+    const int firstX = (clipLeft / blockWidth) * blockWidth;
+    const int firstY = (clipTop / blockHeight) * blockHeight;
+    const int tilesWide = obj->width / PPU_GPU3DS_TILE_SIDE;
+    const unsigned tileScale = obj->bpp8 ? 2u : 1u;
+    const uint16_t baseTile =
+            obj->bpp8 ? (uint16_t)(obj->baseTile & ~1u) : obj->baseTile;
+    const bool obj1d =
+            (frame->dispcntPerLine[band->firstLine] & MODE1_DISP_OBJ_1D) != 0;
+    const float z = (128.0f - obj->index) / 129.0f;
+    for (int y = firstY; y < clipBottom; y += blockHeight) {
+        if (y < obj->y) continue;
+        for (int x = firstX; x < clipRight; x += blockWidth) {
+            if (x < obj->x) continue;
+            int texX;
+            int texY;
+            if (obj->affine) {
+                const int inputX = x - obj->x - obj->boundsWidth / 2;
+                const int inputY = y - obj->y - obj->boundsHeight / 2;
+                texX = ((obj->pa * inputX + obj->pb * inputY) >> 8) +
+                       obj->width / 2;
+                texY = ((obj->pc * inputX + obj->pd * inputY) >> 8) +
+                       obj->height / 2;
+            } else {
+                texX = x - obj->x;
+                texY = y - obj->y;
+                if (obj->hflip) texX = obj->width - 1 - texX;
+                if (obj->vflip) texY = obj->height - 1 - texY;
+            }
+            if (texX < 0 || texX >= obj->width ||
+                texY < 0 || texY >= obj->height)
+                continue;
+            const unsigned tileRow =
+                    (unsigned)texY / PPU_GPU3DS_TILE_SIDE;
+            const unsigned tileCol =
+                    (unsigned)texX / PPU_GPU3DS_TILE_SIDE;
+            const uint32_t tileIndex =
+                    obj1d ? baseTile +
+                                    (tileRow * (unsigned)tilesWide + tileCol) *
+                                            tileScale
+                          : baseTile + tileRow * 32u + tileCol * tileScale;
+            const uint32_t tileBytes = obj->bpp8 ? 64u : 32u;
+            const uint32_t tileOffset =
+                    PPU_GPU3DS_OBJ_TILE_BASE + tileIndex * 32u;
+            if (tileOffset > MODE1_VRAM_SIZE - tileBytes) return false;
+            float u = 0.0f;
+            float v = 0.0f;
+            if (!tile_sample_uv(
+                        cache, frame->memory.vram,
+                        (PpuGpu3DSTileKey){
+                            .vramOffset = tileOffset,
+                            .paletteBank = obj->bpp8 ? 0 : obj->palette,
+                            .bpp8 = obj->bpp8,
+                            .domain = PPU_GPU3DS_PALETTE_OBJ,
+                        },
+                        atlas, (unsigned)texX & 7u, (unsigned)texY & 7u, emit,
+                        &u, &v))
+                return false;
+            emit_sample_quad(frame, cmd, emit, (float)x, (float)y,
+                             (float)(x + blockWidth),
+                             (float)(y + blockHeight), z, u, v,
+                             vertexCursor, indexCursor);
+        }
+    }
     return true;
 }
 
@@ -695,6 +929,18 @@ static bool build_obj(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
             (int64_t)obj->pa * obj->pd - (int64_t)obj->pb * obj->pc;
     if (obj->affine && determinant == 0) return false;
     const size_t firstIndex = *indexCursor;
+    const uint8_t* bandIo =
+            frame->ioPerLine + (size_t)band->ioRow * MODE1_IO_MEM_SIZE;
+    const uint16_t mosaic = read16(bandIo, MODE1_IO_MOSAIC);
+    const bool mosaicEnabled =
+            (frame->memory.oam_mem[obj->index * 4u] & (1u << 12u)) != 0 &&
+            ((mosaic & 0x0f00u) != 0 || (mosaic & 0xf000u) != 0);
+    if (mosaicEnabled) {
+        if (!build_mosaic_obj_geometry(
+                    frame, cache, atlas, cmd, band, obj, clipLeft, clipRight,
+                    clipTop, clipBottom, emit, vertexCursor, indexCursor))
+            return false;
+    } else {
     const int tilesWide = obj->width / PPU_GPU3DS_TILE_SIDE;
     const int tilesHigh = obj->height / PPU_GPU3DS_TILE_SIDE;
     const unsigned tileScale = obj->bpp8 ? 2u : 1u;
@@ -833,9 +1079,11 @@ static bool build_obj(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
             *indexCursor += 6;
         }
     }
+    }
 
     const uint8_t* io =
             frame->ioPerLine + (size_t)band->ioRow * MODE1_IO_MEM_SIZE;
+    const uint16_t bldcnt = read16(io, MODE1_IO_BLDCNT);
     const PpuGpu3DSBatch base = {
         .firstIndex = (uint32_t)firstIndex,
         .indexCount = (uint32_t)(*indexCursor - firstIndex),
@@ -849,11 +1097,11 @@ static bool build_obj(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
                                  ? (uint8_t)(read16(io, MODE1_IO_WINOUT) >> 8u) &
                                            0x3fu
                                  : 0,
-        .target2 = (uint8_t)((read16(io, MODE1_IO_BLDCNT) >> 8u) & 0x3fu) |
-                   (stencilOnly
-                            ? PPU_GPU3DS_REGION_OBJWIN
-                                      << PPU_GPU3DS_REGION_SHIFT
-                            : 0),
+        .target2 = (uint8_t)((bldcnt >> (PPU_GPU3DS_OBJ + 8u)) & 1u),
+        .color = stencilOnly
+                         ? (uint16_t)(PPU_GPU3DS_REGION_OBJWIN
+                                      << PPU_GPU3DS_REGION_SHIFT)
+                         : 0,
         .effect = PPU_GPU3DS_EFFECT_NONE,
         .objectIndex = obj->index,
         .objWindow = stencilOnly,
@@ -863,12 +1111,40 @@ static bool build_obj(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
         if (emit) cmd->batches[*batchCursor] = base;
         ++*batchCursor;
     } else {
-        append_layer_batches(cmd, &base, regions, regionCount, emit,
-                             batchCursor);
+        append_layer_batches(cmd, &base, regions, regionCount, bldcnt,
+                             read16(io, MODE1_IO_BLDALPHA),
+                             read16(io, MODE1_IO_BLDY), emit, batchCursor);
     }
     return true;
 }
 
+static bool build_backdrop_target2(const PpuGpu3DSFrameView* frame,
+                                   PpuGpu3DSCommandBuffer* cmd,
+                                   const PpuGpu3DSBand* band, const uint8_t* io,
+                                   bool emit, size_t* vertexCursor,
+                                   size_t* indexCursor, size_t* batchCursor) {
+    const uint16_t bldcnt = read16(io, MODE1_IO_BLDCNT);
+    if ((bldcnt & (1u << (PPU_GPU3DS_BACKDROP + 8u))) == 0) return true;
+    const size_t firstIndex = *indexCursor;
+    emit_sample_quad(frame, cmd, emit, 0.0f, band->firstLine,
+                     frame->width, band->firstLine + band->lineCount,
+                     0.0f, 0.0f, 0.0f, vertexCursor, indexCursor);
+    if (emit) {
+        cmd->batches[*batchCursor] = (PpuGpu3DSBatch){
+            .firstIndex = (uint32_t)firstIndex,
+            .indexCount = 6,
+            .firstLine = band->firstLine,
+            .lineCount = band->lineCount,
+            .scissorRight = (uint16_t)frame->width,
+            .layer = PPU_GPU3DS_BACKDROP,
+            .priority = UINT8_MAX,
+            .target2 = 1,
+            .objectIndex = UINT8_MAX,
+        };
+    }
+    ++*batchCursor;
+    return true;
+}
 static bool build_scene(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
                         uint16_t* atlas, PpuGpu3DSCommandBuffer* cmd,
                         const PpuGpu3DSBand* bands, size_t bandCount, bool emit,
@@ -887,6 +1163,7 @@ static bool build_scene(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
                 !build_obj(frame, cache, atlas, cmd, band, &obj, NULL, 0,
                            true, emit, vertexCursor, indexCursor, batchCursor))
                 return false;
+
         }
     }
 
@@ -896,6 +1173,9 @@ static bool build_scene(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
         const uint8_t* io =
                 frame->ioPerLine + (size_t)band->ioRow * MODE1_IO_MEM_SIZE;
         const size_t regionCount = build_regions(frame, band, regions);
+        if (!build_backdrop_target2(frame, cmd, band, io, emit, vertexCursor,
+                                    indexCursor, batchCursor))
+            return false;
         for (int priority = 3; priority >= 0; --priority) {
             for (int bg = MODE1_GBA_BG_COUNT - 1; bg >= 0; --bg) {
                 const uint16_t bgcnt =
