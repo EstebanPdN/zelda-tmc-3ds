@@ -1,5 +1,6 @@
 #include "port_audio.h"
 #include "port_audio_3ds.h"
+#include "platform_3ds.h"
 #include "port_m4a_backend.h"
 
 #include <3ds.h>
@@ -14,7 +15,6 @@
 #define BUFFER_FRAMES 256
 #define BUFFER_COUNT 4
 #define AUDIO_THREAD_STACK (64u * 1024u)
-#define AUDIO_THREAD_CORE 0
 
 static ndspWaveBuf sWave[BUFFER_COUNT];
 static int16_t* sSamples;
@@ -133,9 +133,10 @@ bool Port_Audio_Init(void) {
     LightEvent_Init(&sAudioWake, RESET_ONESHOT);
     memset(&sStats, 0, sizeof(sStats));
     sStats.sampleRate = SAMPLE_RATE;
+    const int audioThreadCore = Platform3DS_IsNew3DS() ? 0 : 1;
     sStats.bufferFrames = BUFFER_FRAMES;
     sStats.bufferCount = BUFFER_COUNT;
-    sStats.threadCore = AUDIO_THREAD_CORE;
+    sStats.threadCore = audioThreadCore;
     sStats.initialized = true;
     sCallbackSignals = 0;
     sInitialized = true;
@@ -148,7 +149,7 @@ bool Port_Audio_Init(void) {
     if (priority > 0x18) --priority;
     sStats.threadPriority = priority;
     __atomic_store_n(&sAudioThreadRunning, true, __ATOMIC_RELEASE);
-    sAudioThread = threadCreate(AudioThreadMain, NULL, AUDIO_THREAD_STACK, priority, AUDIO_THREAD_CORE, false);
+    sAudioThread = threadCreate(AudioThreadMain, NULL, AUDIO_THREAD_STACK, priority, audioThreadCore, false);
     if (!sAudioThread) {
         __atomic_store_n(&sAudioThreadRunning, false, __ATOMIC_RELEASE);
     }

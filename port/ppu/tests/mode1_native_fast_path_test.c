@@ -40,14 +40,21 @@ static void WriteIo16(unsigned offset, uint16_t value) {
     sIo[offset + 1u] = (uint8_t)(value >> 8u);
 }
 
+static void WriteIo32(unsigned offset, uint32_t value) {
+    WriteIo16(offset, (uint16_t)value);
+    WriteIo16(offset + 2u, (uint16_t)(value >> 16u));
+}
+
 static void BuildState(unsigned scene) {
-    for (size_t i = 0; i < sizeof(sVram); ++i) sVram[i] = (uint8_t)NextRandom();
+    for (size_t i = 0; i < sizeof(sVram); ++i)
+        sVram[i] = (uint8_t)NextRandom();
     for (int i = 0; i < MODE1_PALETTE_COLORS; ++i) {
         sBgPalette[i] = (uint16_t)(NextRandom() & 0x7FFFu);
         sObjPalette[i] = (uint16_t)(NextRandom() & 0x7FFFu);
     }
     memset(sIo, 0, sizeof(sIo));
-    for (int i = 0; i < MODE1_GBA_OAM_COUNT; ++i) sOam[i * 4] = 0x0200u;
+    for (int i = 0; i < MODE1_GBA_OAM_COUNT; ++i)
+        sOam[i * 4] = 0x0200u;
     for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
         virtuappu_mode1_ws_shadow[bg] = NULL;
         virtuappu_mode1_ws_shadow_base_tile[bg] = 0;
@@ -64,7 +71,8 @@ static void BuildState(unsigned scene) {
 
     uint16_t dispcnt = MODE1_DISP_OBJ_1D;
     for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
-        if ((NextRandom() & 3u) != 0u) dispcnt |= (uint16_t)(MODE1_DISP_BG0_ON << bg);
+        if ((NextRandom() & 3u) != 0u)
+            dispcnt |= (uint16_t)(MODE1_DISP_BG0_ON << bg);
         const uint16_t priority = (uint16_t)(NextRandom() & 3u);
         const uint16_t charBase = (uint16_t)(NextRandom() & 3u);
         const uint16_t screenBase = (uint16_t)(16u + (NextRandom() & 0x0Fu));
@@ -88,12 +96,10 @@ static void BuildState(unsigned scene) {
             const uint16_t x = (uint16_t)(NextRandom() & 0x1FFu);
             const uint16_t hflip = (uint16_t)(NextRandom() & 1u);
             const uint16_t vflip = (uint16_t)(NextRandom() & 1u);
-            sOam[i * 4] =
-                (uint16_t)(y | (mode << 10u) | (mosaic << 12u) | (bpp8 << 13u) | (shape << 14u));
+            sOam[i * 4] = (uint16_t)(y | (mode << 10u) | (mosaic << 12u) | (bpp8 << 13u) | (shape << 14u));
             sOam[i * 4 + 1] = (uint16_t)(x | (hflip << 12u) | (vflip << 13u) | (size << 14u));
-            sOam[i * 4 + 2] = (uint16_t)((NextRandom() & 0x3FFu) |
-                                          ((NextRandom() & 3u) << 10u) |
-                                          ((NextRandom() & 0x0Fu) << 12u));
+            sOam[i * 4 + 2] =
+                (uint16_t)((NextRandom() & 0x3FFu) | ((NextRandom() & 3u) << 10u) | ((NextRandom() & 0x0Fu) << 12u));
         }
     }
     WriteIo16(MODE1_IO_DISPCNT, dispcnt);
@@ -101,10 +107,8 @@ static void BuildState(unsigned scene) {
 
     const uint16_t effect = (uint16_t)(NextRandom() & 3u);
     WriteIo16(MODE1_IO_BLDCNT,
-              (uint16_t)((NextRandom() & 0x3Fu) | ((uint32_t)effect << 6u) |
-                         ((NextRandom() & 0x3Fu) << 8u)));
-    WriteIo16(MODE1_IO_BLDALPHA,
-              (uint16_t)((NextRandom() & 0x1Fu) | ((NextRandom() & 0x1Fu) << 8u)));
+              (uint16_t)((NextRandom() & 0x3Fu) | ((uint32_t)effect << 6u) | ((NextRandom() & 0x3Fu) << 8u)));
+    WriteIo16(MODE1_IO_BLDALPHA, (uint16_t)((NextRandom() & 0x1Fu) | ((NextRandom() & 0x1Fu) << 8u)));
     WriteIo16(MODE1_IO_BLDY, (uint16_t)(NextRandom() & 0x1Fu));
 
     /* Deterministically include the exact structural profiles of the E2 dump
@@ -125,6 +129,29 @@ static void BuildState(unsigned scene) {
         WriteIo16(MODE1_IO_BG2CNT, 0x1C42u);
         WriteIo16(MODE1_IO_BLDCNT, 0u);
         WriteIo16(MODE1_IO_MOSAIC, 0u);
+    } else if ((scene % 16u) == 4u || (scene % 16u) == 5u) {
+        WriteIo16(MODE1_IO_DISPCNT, 0x1F40u);
+        WriteIo16(MODE1_IO_BG0CNT, 0x1F0Cu);
+        WriteIo16(MODE1_IO_BG1CNT, 0x1C01u);
+        WriteIo16(MODE1_IO_BG2CNT, 0x1D02u);
+        WriteIo16(MODE1_IO_BG3CNT, 0x1E0Bu);
+        WriteIo16(MODE1_IO_BLDCNT, 0x0844u);
+        WriteIo16(MODE1_IO_BLDALPHA, 0x0A0Fu);
+        WriteIo16(MODE1_IO_MOSAIC, 0u);
+    } else if ((scene % 16u) == 6u || (scene % 16u) == 7u) {
+        WriteIo16(MODE1_IO_DISPCNT, 0x1741u);
+        WriteIo16(MODE1_IO_BG0CNT, 0x1D02u);
+        WriteIo16(MODE1_IO_BG1CNT, 0x1E03u);
+        WriteIo16(MODE1_IO_BG2CNT, 0x7C89u);
+        WriteIo16(0x20u, 0x0100u);
+        WriteIo16(0x22u, 0u);
+        WriteIo16(0x24u, 0u);
+        WriteIo16(0x26u, 0x0100u);
+        WriteIo32(0x28u, 0x00000800u);
+        WriteIo32(0x2Cu, 0x00003800u);
+        WriteIo16(MODE1_IO_BLDCNT, 0x0241u);
+        WriteIo16(MODE1_IO_BLDALPHA, (scene % 16u) == 6u ? 0x0D05u : 0x0A08u);
+        WriteIo16(MODE1_IO_MOSAIC, 0u);
     }
 
     /* Exercise the actual 266-wide 3DS field path. The GBA's 32-tile
@@ -132,10 +159,9 @@ static void BuildState(unsigned scene) {
      * the fast renderer and generic oracle must agree on both sides of that
      * boundary, including scroll-induced partial tiles. */
     for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
-        const uint16_t control = (uint16_t)sIo[MODE1_IO_BG0CNT + bg * 2] |
-                                 ((uint16_t)sIo[MODE1_IO_BG0CNT + bg * 2 + 1] << 8u);
-        const bool enabled = ((uint16_t)sIo[MODE1_IO_DISPCNT] |
-                              ((uint16_t)sIo[MODE1_IO_DISPCNT + 1] << 8u)) &
+        const uint16_t control =
+            (uint16_t)sIo[MODE1_IO_BG0CNT + bg * 2] | ((uint16_t)sIo[MODE1_IO_BG0CNT + bg * 2 + 1] << 8u);
+        const bool enabled = ((uint16_t)sIo[MODE1_IO_DISPCNT] | ((uint16_t)sIo[MODE1_IO_DISPCNT + 1] << 8u)) &
                              (uint16_t)(MODE1_DISP_BG0_ON << bg);
         if (enabled && (control & 0x4000u) == 0u && ((scene + (unsigned)bg) % 3u) != 2u) {
             virtuappu_mode1_ws_shadow[bg] = sShadow[bg];
@@ -167,6 +193,7 @@ int main(void) {
     enum { SCENES = 4096 };
     for (unsigned scene = 0; scene < SCENES; ++scene) {
         BuildState(scene);
+        ppu.mode = (sIo[MODE1_IO_DISPCNT] & 7u) != 0u ? 2u : 1u;
         virtuappu_mode1_set_color_correction((scene & 1u) != 0u);
 
         virtuappu_mode1_set_old3ds_profile(true);
@@ -184,19 +211,18 @@ int main(void) {
         memcpy(sReference, virtuappu_frame_buffer, sizeof(sReference));
 
         for (size_t pixel = 0; pixel < MODE1_GBA_WIDTH * MODE1_GBA_HEIGHT; ++pixel) {
-            if (sFast[pixel] == sReference[pixel]) continue;
-            fprintf(stderr,
-                    "mode1_native_fast_path_test: scene %u pixel (%zu,%zu): fast=%08x reference=%08x\n",
-                    scene, pixel % MODE1_GBA_WIDTH, pixel / MODE1_GBA_WIDTH,
-                    sFast[pixel], sReference[pixel]);
+            if (sFast[pixel] == sReference[pixel])
+                continue;
+            fprintf(stderr, "mode1_native_fast_path_test: scene %u pixel (%zu,%zu): fast=%08x reference=%08x\n", scene,
+                    pixel % MODE1_GBA_WIDTH, pixel / MODE1_GBA_WIDTH, sFast[pixel], sReference[pixel]);
             return 1;
         }
         for (size_t pixel = 0; pixel < MODE1_GBA_WIDTH * MODE1_GBA_HEIGHT; ++pixel) {
-            if (sNewFast[pixel] == sReference[pixel]) continue;
+            if (sNewFast[pixel] == sReference[pixel])
+                continue;
             fprintf(stderr,
                     "mode1_native_fast_path_test: New profile scene %u pixel (%zu,%zu): fast=%08x reference=%08x\n",
-                    scene, pixel % MODE1_GBA_WIDTH, pixel / MODE1_GBA_WIDTH,
-                    sNewFast[pixel], sReference[pixel]);
+                    scene, pixel % MODE1_GBA_WIDTH, pixel / MODE1_GBA_WIDTH, sNewFast[pixel], sReference[pixel]);
             return 1;
         }
     }

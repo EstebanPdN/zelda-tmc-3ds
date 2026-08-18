@@ -28,7 +28,9 @@ extern void LoadRoomGfx(void);
 extern void LoadRoomTileSet(void);
 extern void sub_0807C4F8(void);
 
+#ifndef PC_PORT
 extern u8 gMapData[];
+#endif
 extern u8 gUpdateVisibleTiles;
 extern u16 MAY_ALIAS gMapDataTopSpecial[];
 extern u16 MAY_ALIAS gMapDataBottomSpecial[];

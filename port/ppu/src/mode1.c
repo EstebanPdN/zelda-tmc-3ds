@@ -97,7 +97,8 @@ static uint32_t* mode1_output_buffer;
 static int mode1_output_pitch;
 static bool mode1_old3ds_profile;
 static uint8_t mode1_old3ds_field_blend_lut[32][32];
-static bool mode1_old3ds_field_blend_lut_initialized;
+static uint8_t mode1_old3ds_ui_blend_lut[32][32];
+static bool mode1_old3ds_blend_luts_initialized;
 static bool mode1_bg_pair_palette_initialized;
 
 #ifdef VIRTUAPPU_TESTING
@@ -119,21 +120,24 @@ void virtuappu_mode1_set_old3ds_profile(bool enabled) {
          * next New-profile publication to rebuild it from the live palette. */
         mode1_bg_pair_palette_initialized = false;
     }
-    if (!enabled || mode1_old3ds_field_blend_lut_initialized) return;
+    if (!enabled || mode1_old3ds_blend_luts_initialized)
+        return;
 
-    /* Hyrule's normal outdoor profile uses BLDALPHA EVA=4, EVB=14. Build the
-     * exact GBA 5-bit channel result once, before any renderer worker starts,
-     * so the Old ARM11 replaces six multiplies and their clamps per blended
-     * pixel with three hot 1 KiB-table reads. The guarded renderer below only
-     * consumes this table when BLDALPHA is exactly 0x0E04. */
+    /* Build the exact 5-bit channel results used by the two fixed Old 3DS
+     * alpha profiles before any renderer worker starts. */
     for (unsigned top = 0; top < 32u; ++top) {
         for (unsigned bottom = 0; bottom < 32u; ++bottom) {
-            unsigned value = (top * 4u + bottom * 14u) >> 4u;
-            if (value > 31u) value = 31u;
-            mode1_old3ds_field_blend_lut[top][bottom] = (uint8_t)value;
+            unsigned field_value = (top * 4u + bottom * 14u) >> 4u;
+            unsigned ui_value = (top * 15u + bottom * 10u) >> 4u;
+            if (field_value > 31u)
+                field_value = 31u;
+            if (ui_value > 31u)
+                ui_value = 31u;
+            mode1_old3ds_field_blend_lut[top][bottom] = (uint8_t)field_value;
+            mode1_old3ds_ui_blend_lut[top][bottom] = (uint8_t)ui_value;
         }
     }
-    mode1_old3ds_field_blend_lut_initialized = true;
+    mode1_old3ds_blend_luts_initialized = true;
 }
 
 void virtuappu_mode1_set_frame_geometry(const PPUMemory* ppu) {
@@ -500,13 +504,11 @@ void virtuappu_mode1_set_color_correction(bool enabled) {
  * per frame after the palette is final (post pre-line callback) and before the
  * parallel scanline render. */
 static void virtuappu_mode1_publish_palette_luts(void) {
-    const bool correction_changed = !mode1_palette_source_initialized ||
-                                    mode1_palette_source_color_correction != mode1_color_correction;
-    const bool bg_changed = correction_changed ||
-                            memcmp(mode1_bg_palette_source_cache, mode1_memory.bg_palette,
+    const bool correction_changed =
+        !mode1_palette_source_initialized || mode1_palette_source_color_correction != mode1_color_correction;
+    const bool bg_changed = correction_changed || memcmp(mode1_bg_palette_source_cache, mode1_memory.bg_palette,
                                    sizeof(mode1_bg_palette_source_cache)) != 0;
-    const bool obj_changed = correction_changed ||
-                             memcmp(mode1_obj_palette_source_cache, mode1_memory.obj_palette,
+    const bool obj_changed = correction_changed || memcmp(mode1_obj_palette_source_cache, mode1_memory.obj_palette,
                                     sizeof(mode1_obj_palette_source_cache)) != 0;
 
     if (bg_changed) {
@@ -539,8 +541,7 @@ static void virtuappu_mode1_publish_palette_luts(void) {
                 const uint32_t hiColor = hi != 0u ? mode1_bg_abgr_lut[paletteBase + hi] : 0u;
                 mode1_bg_4bpp_pair_lut[bank][packed] = (uint64_t)loColor | ((uint64_t)hiColor << 32u);
             }
-            memcpy(&mode1_bg_pair_palette_cache[paletteBase], &mode1_bg_abgr_lut[paletteBase],
-                   16u * sizeof(uint32_t));
+            memcpy(&mode1_bg_pair_palette_cache[paletteBase], &mode1_bg_abgr_lut[paletteBase], 16u * sizeof(uint32_t));
         }
         mode1_bg_pair_palette_initialized = true;
     }
@@ -553,8 +554,7 @@ static void virtuappu_mode1_publish_palette_luts(void) {
                 const unsigned hi = packed >> 4u;
                 const uint16_t loToken = lo != 0u ? (uint16_t)(paletteBase + lo + 1u) : 0u;
                 const uint16_t hiToken = hi != 0u ? (uint16_t)(paletteBase + hi + 1u) : 0u;
-                mode1_bg_4bpp_token_pair_lut[bank][packed] =
-                    (uint32_t)loToken | ((uint32_t)hiToken << 16u);
+                mode1_bg_4bpp_token_pair_lut[bank][packed] = (uint32_t)loToken | ((uint32_t)hiToken << 16u);
             }
         }
         mode1_bg_token_pairs_initialized = true;
@@ -570,17 +570,23 @@ static void virtuappu_mode1_publish_obj_line_lists(void) {
             mode1_memory.oam_mem[i * 4 + 1],
             mode1_memory.oam_mem[i * 4 + 2],
         };
-        if (mode1_oam_hidden(attr)) continue;
+        if (mode1_oam_hidden(attr))
+            continue;
         const uint8_t shape = mode1_oam_shape(attr);
-        if (shape >= 3) continue;
+        if (shape >= 3)
+            continue;
         const uint8_t size = mode1_oam_size(attr);
         int height = mode1_obj_heights[shape][size];
-        if (mode1_oam_affine(attr) && mode1_oam_double_size(attr)) height *= 2;
+        if (mode1_oam_affine(attr) && mode1_oam_double_size(attr))
+            height *= 2;
         int first = mode1_oam_y(attr);
-        if (first >= MODE1_GBA_HEIGHT) first -= 256;
+        if (first >= MODE1_GBA_HEIGHT)
+            first -= 256;
         int last = first + height;
-        if (first < 0) first = 0;
-        if (last > MODE1_GBA_HEIGHT) last = MODE1_GBA_HEIGHT;
+        if (first < 0)
+            first = 0;
+        if (last > MODE1_GBA_HEIGHT)
+            last = MODE1_GBA_HEIGHT;
         for (int line = first; line < last; ++line) {
             const uint8_t count = mode1_obj_line_counts[line];
             mode1_obj_line_indices[line][count] = (uint8_t)i;
@@ -602,8 +608,7 @@ static void virtuappu_mode1_publish_obj_line_lists(void) {
  * byte-exact. */
 static uint32_t mode1_read_tile_row_4bpp(const uint8_t* bytes) {
 #ifdef TMC_N64
-    return (uint32_t)bytes[0] | ((uint32_t)bytes[1] << 8u) | ((uint32_t)bytes[2] << 16u) |
-           ((uint32_t)bytes[3] << 24u);
+    return (uint32_t)bytes[0] | ((uint32_t)bytes[1] << 8u) | ((uint32_t)bytes[2] << 16u) | ((uint32_t)bytes[3] << 24u);
 #else
     uint32_t value;
     memcpy(&value, bytes, sizeof(value));
@@ -637,9 +642,9 @@ static uint64_t mode1_bg_color_pair(unsigned palette_bank, uint8_t packed_pair) 
 }
 
 static void mode1_render_text_bg_native_4bpp(int bg_index, uint32_t char_base, uint32_t screen_base,
-                                             int map_width_tiles, int tile_row, int pixel_y,
-                                             int scroll_x, int render_width, uint8_t priority,
-                                             uint32_t* line_buffer, uint8_t* priority_buffer) {
+                                             int map_width_tiles, int tile_row, int pixel_y, int scroll_x,
+                                             int render_width, uint8_t priority, uint32_t* line_buffer,
+                                             uint8_t* priority_buffer) {
     const int map_pixel_mask = map_width_tiles * 8 - 1;
     const int screen_block_y = tile_row >> 5;
     const int local_row = tile_row & 31;
@@ -650,7 +655,8 @@ static void mode1_render_text_bg_native_4bpp(int bg_index, uint32_t char_base, u
         const int tile_col = src_x >> 3;
         const int first_tile_pixel = src_x & 7;
         int run = 8 - first_tile_pixel;
-        if (run > render_width - x) run = render_width - x;
+        if (run > render_width - x)
+            run = render_width - x;
         /* The native VRAM screenblock and the port shadow can split one source
          * tile fragment when BGHOFS is not tile-aligned. Start a fresh fragment
          * exactly at x=240 so its map entry comes from the correct provider. */
@@ -662,22 +668,19 @@ static void mode1_render_text_bg_native_4bpp(int bg_index, uint32_t char_base, u
         const int screen_block_index = screen_block_x + screen_block_y * blocks_per_row;
         const int local_col = tile_col & 31;
         Mode1TilemapEntry entry;
-        if (x >= MODE1_GBA_BG_CLIP_X && map_width_tiles < 64 &&
-            virtuappu_mode1_ws_shadow[bg_index] != NULL) {
+        if (x >= MODE1_GBA_BG_CLIP_X && map_width_tiles < 64 && virtuappu_mode1_ws_shadow[bg_index] != NULL) {
             const int shadow_index = (tile_col - virtuappu_mode1_ws_shadow_base_tile[bg_index] + 32) & 31;
             entry.raw = shadow_index < MODE1_WS_SHADOW_COLS
-                            ? virtuappu_mode1_ws_shadow[bg_index][(size_t)local_row * MODE1_WS_SHADOW_COLS +
-                                                                 (size_t)shadow_index]
+                            ? virtuappu_mode1_ws_shadow[bg_index]
+                                                       [(size_t)local_row * MODE1_WS_SHADOW_COLS + (size_t)shadow_index]
                             : 0u;
         } else {
-            const uint32_t map_addr = screen_base + (uint32_t)screen_block_index * 0x800u +
-                                      (uint32_t)(local_row * 32 + local_col) * 2u;
-            entry.raw = (uint16_t)mode1_memory.vram[map_addr] |
-                        ((uint16_t)mode1_memory.vram[map_addr + 1u] << 8u);
+            const uint32_t map_addr =
+                screen_base + (uint32_t)screen_block_index * 0x800u + (uint32_t)(local_row * 32 + local_col) * 2u;
+            entry.raw = (uint16_t)mode1_memory.vram[map_addr] | ((uint16_t)mode1_memory.vram[map_addr + 1u] << 8u);
         }
         const int tile_pixel_y = mode1_tile_vflip(entry) ? 7 - pixel_y : pixel_y;
-        const uint32_t row_base = char_base + (uint32_t)mode1_tile_index(entry) * 32u +
-                                  (uint32_t)tile_pixel_y * 4u;
+        const uint32_t row_base = char_base + (uint32_t)mode1_tile_index(entry) * 32u + (uint32_t)tile_pixel_y * 4u;
 
         if (row_base + 3u < MODE1_VRAM_SIZE) {
             const uint32_t packed_row = mode1_read_tile_row_4bpp(mode1_memory.vram + row_base);
@@ -693,23 +696,26 @@ static void mode1_render_text_bg_native_4bpp(int bg_index, uint32_t char_base, u
                 for (int pair_index = 0; pair_index < 4; ++pair_index) {
                     const int byte_index = hflip ? 3 - pair_index : pair_index;
                     uint8_t packed_pair = (uint8_t)(packed_row >> (byte_index * 8));
-                    if (hflip) packed_pair = (uint8_t)((packed_pair << 4u) | (packed_pair >> 4u));
-                    if (packed_pair == 0u) continue;
+                    if (hflip)
+                        packed_pair = (uint8_t)((packed_pair << 4u) | (packed_pair >> 4u));
+                    if (packed_pair == 0u)
+                        continue;
 
                     const uint64_t colors = mode1_bg_color_pair(palette_bank, packed_pair);
                     uint32_t* const dst = &line_buffer[x + pair_index * 2];
                     if ((packed_pair & 0x0Fu) != 0u && (packed_pair & 0xF0u) != 0u) {
                         mode1_store_bg_color_pair(dst, colors);
                         if (priority_buffer != NULL) {
-                            memcpy(&priority_buffer[x + pair_index * 2], &packed_priority,
-                                   sizeof(packed_priority));
+                            memcpy(&priority_buffer[x + pair_index * 2], &packed_priority, sizeof(packed_priority));
                         }
                     } else if ((packed_pair & 0x0Fu) != 0u) {
                         dst[0] = (uint32_t)colors;
-                        if (priority_buffer != NULL) priority_buffer[x + pair_index * 2] = priority;
+                        if (priority_buffer != NULL)
+                            priority_buffer[x + pair_index * 2] = priority;
                     } else {
                         dst[1] = (uint32_t)(colors >> 32u);
-                        if (priority_buffer != NULL) priority_buffer[x + pair_index * 2 + 1] = priority;
+                        if (priority_buffer != NULL)
+                            priority_buffer[x + pair_index * 2 + 1] = priority;
                     }
                 }
                 x += run;
@@ -719,13 +725,15 @@ static void mode1_render_text_bg_native_4bpp(int bg_index, uint32_t char_base, u
                 const int source_pixel = first_tile_pixel + i;
                 const int tile_pixel_x = hflip ? 7 - source_pixel : source_pixel;
                 const uint8_t color_index = (uint8_t)((packed_row >> (tile_pixel_x * 4)) & 0x0Fu);
-                if (color_index == 0u) continue;
+                if (color_index == 0u)
+                    continue;
                 if (x + i >= MODE1_GBA_BG_CLIP_X &&
                     (mode1_memory.bg_palette[palette_base + color_index] & 0x7FFFu) == 0x7C1Fu) {
                     continue;
                 }
                 line_buffer[x + i] = mode1_bg_abgr_lut[palette_base + color_index];
-                if (priority_buffer != NULL) priority_buffer[x + i] = priority;
+                if (priority_buffer != NULL)
+                    priority_buffer[x + i] = priority;
             }
         }
         x += run;
@@ -768,8 +776,8 @@ static uint32_t mode1_bg_token_pair(unsigned palette_bank, uint8_t packed_pair) 
     return (uint32_t)lo_token | ((uint32_t)hi_token << 16u);
 }
 
-static void mode1_render_text_bg_native_tokens(int bg_index, int line, uint16_t bgcnt,
-                                               int render_width, uint16_t* tokens) {
+static void mode1_render_text_bg_native_tokens(int bg_index, int line, uint16_t bgcnt, int render_width,
+                                               uint16_t* tokens) {
     const uint32_t char_base = (uint32_t)((bgcnt >> 2u) & 3u) * 0x4000u;
     const uint32_t screen_base = (uint32_t)((bgcnt >> 8u) & 0x1Fu) * 0x800u;
     const uint16_t size_flag = (uint16_t)((bgcnt >> 14u) & 3u);
@@ -790,7 +798,8 @@ static void mode1_render_text_bg_native_tokens(int bg_index, int line, uint16_t 
         const int tile_col = src_x >> 3;
         const int first_tile_pixel = src_x & 7;
         int run = 8 - first_tile_pixel;
-        if (run > render_width - x) run = render_width - x;
+        if (run > render_width - x)
+            run = render_width - x;
         if (x < MODE1_GBA_BG_CLIP_X && x + run > MODE1_GBA_BG_CLIP_X) {
             run = MODE1_GBA_BG_CLIP_X - x;
         }
@@ -798,23 +807,20 @@ static void mode1_render_text_bg_native_tokens(int bg_index, int line, uint16_t 
         const int screen_block_x = tile_col >> 5;
         const int screen_block_index = screen_block_x + screen_block_y * blocks_per_row;
         const int local_col = tile_col & 31;
-        const uint32_t map_addr = screen_base + (uint32_t)screen_block_index * 0x800u +
-                                  (uint32_t)(local_row * 32 + local_col) * 2u;
+        const uint32_t map_addr =
+            screen_base + (uint32_t)screen_block_index * 0x800u + (uint32_t)(local_row * 32 + local_col) * 2u;
         Mode1TilemapEntry entry;
-        if (x >= MODE1_GBA_BG_CLIP_X && map_width_tiles < 64 &&
-            virtuappu_mode1_ws_shadow[bg_index] != NULL) {
+        if (x >= MODE1_GBA_BG_CLIP_X && map_width_tiles < 64 && virtuappu_mode1_ws_shadow[bg_index] != NULL) {
             const int shadow_index = (tile_col - virtuappu_mode1_ws_shadow_base_tile[bg_index] + 32) & 31;
             entry.raw = shadow_index < MODE1_WS_SHADOW_COLS
-                            ? virtuappu_mode1_ws_shadow[bg_index][(size_t)local_row * MODE1_WS_SHADOW_COLS +
-                                                                 (size_t)shadow_index]
+                            ? virtuappu_mode1_ws_shadow[bg_index]
+                                                       [(size_t)local_row * MODE1_WS_SHADOW_COLS + (size_t)shadow_index]
                             : 0u;
         } else {
-            entry.raw = (uint16_t)mode1_memory.vram[map_addr] |
-                        ((uint16_t)mode1_memory.vram[map_addr + 1u] << 8u);
+            entry.raw = (uint16_t)mode1_memory.vram[map_addr] | ((uint16_t)mode1_memory.vram[map_addr + 1u] << 8u);
         }
         const int tile_pixel_y = mode1_tile_vflip(entry) ? 7 - pixel_y : pixel_y;
-        const uint32_t row_base = char_base + (uint32_t)mode1_tile_index(entry) * 32u +
-                                  (uint32_t)tile_pixel_y * 4u;
+        const uint32_t row_base = char_base + (uint32_t)mode1_tile_index(entry) * 32u + (uint32_t)tile_pixel_y * 4u;
 
         if (row_base + 3u < MODE1_VRAM_SIZE) {
             const uint32_t packed_row = mode1_read_tile_row_4bpp(mode1_memory.vram + row_base);
@@ -829,7 +835,8 @@ static void mode1_render_text_bg_native_tokens(int bg_index, int line, uint16_t 
                 for (int pair_index = 0; pair_index < 4; ++pair_index) {
                     const int byte_index = hflip ? 3 - pair_index : pair_index;
                     uint8_t packed_pair = (uint8_t)(packed_row >> (byte_index * 8));
-                    if (hflip) packed_pair = (uint8_t)((packed_pair << 4u) | (packed_pair >> 4u));
+                    if (hflip)
+                        packed_pair = (uint8_t)((packed_pair << 4u) | (packed_pair >> 4u));
                     if (packed_pair != 0u) {
                         mode1_store_bg_token_pair(&tokens[x + pair_index * 2],
                                                   mode1_bg_token_pair(palette_bank, packed_pair));
@@ -857,20 +864,21 @@ static void mode1_render_text_bg_native_tokens(int bg_index, int line, uint16_t 
     }
 }
 
-static void mode1_render_text_bg_compact_tokens(int bg_index, int line, uint16_t bgcnt,
-                                                int frame_width, uint16_t* tokens) {
+static void mode1_render_text_bg_compact_tokens(int bg_index, int line, uint16_t bgcnt, int frame_width,
+                                                uint16_t* tokens) {
     const uint16_t size_flag = (uint16_t)((bgcnt >> 14u) & 3u);
     const int map_width_tiles = (size_flag & 1u) != 0u ? 64 : 32;
     const int map_height_tiles = (size_flag & 2u) != 0u ? 64 : 32;
     const bool shadow_active = map_width_tiles < 64 && virtuappu_mode1_ws_shadow[bg_index] != NULL;
-    const bool hud_right_anchor = bg_index == 0 && virtuappu_mode1_ws_hud_right_anchor != 0 &&
-                                  frame_width > MODE1_GBA_BG_CLIP_X;
-    const bool message_line = bg_index == 0 && virtuappu_mode1_ws_msg_shift != 0 &&
-                              frame_width > MODE1_GBA_BG_CLIP_X && line >= virtuappu_mode1_ws_msg_y0 &&
-                              line < virtuappu_mode1_ws_msg_y1;
+    const bool hud_right_anchor =
+        bg_index == 0 && virtuappu_mode1_ws_hud_right_anchor != 0 && frame_width > MODE1_GBA_BG_CLIP_X;
+    const bool message_line = bg_index == 0 && virtuappu_mode1_ws_msg_shift != 0 && frame_width > MODE1_GBA_BG_CLIP_X &&
+                              line >= virtuappu_mode1_ws_msg_y0 && line < virtuappu_mode1_ws_msg_y1;
     int render_width = map_width_tiles >= 64 || shadow_active ? frame_width : MODE1_GBA_BG_CLIP_X;
-    if (hud_right_anchor || message_line) render_width = frame_width;
-    if (render_width > frame_width) render_width = frame_width;
+    if (hud_right_anchor || message_line)
+        render_width = frame_width;
+    if (render_width > frame_width)
+        render_width = frame_width;
 
     if (!hud_right_anchor && !message_line) {
         mode1_render_text_bg_native_tokens(bg_index, line, bgcnt, render_width, tokens);
@@ -888,8 +896,7 @@ static void mode1_render_text_bg_compact_tokens(int bg_index, int line, uint16_t
     const int local_row = tile_row & 31;
     const int blocks_per_row = map_width_tiles >> 5;
     const int map_pixel_mask = map_width_tiles * 8 - 1;
-    const int hud_right_destination = frame_width -
-                                      (MODE1_GBA_BG_CLIP_X - MODE1_WS_HUD_RIGHT_NATIVE_X);
+    const int hud_right_destination = frame_width - (MODE1_GBA_BG_CLIP_X - MODE1_WS_HUD_RIGHT_NATIVE_X);
 
     for (int x = 0; x < render_width; ++x) {
         int sample_x = x;
@@ -915,30 +922,30 @@ static void mode1_render_text_bg_compact_tokens(int bg_index, int line, uint16_t
         if (shadow_active && x >= MODE1_GBA_BG_CLIP_X) {
             const int shadow_index = (tile_col - virtuappu_mode1_ws_shadow_base_tile[bg_index] + 32) & 31;
             entry.raw = shadow_index < MODE1_WS_SHADOW_COLS
-                            ? virtuappu_mode1_ws_shadow[bg_index][(size_t)local_row * MODE1_WS_SHADOW_COLS +
-                                                                 (size_t)shadow_index]
+                            ? virtuappu_mode1_ws_shadow[bg_index]
+                                                       [(size_t)local_row * MODE1_WS_SHADOW_COLS + (size_t)shadow_index]
                             : 0u;
         } else {
             const int screen_block_x = tile_col >> 5;
             const int screen_block_index = screen_block_x + screen_block_y * blocks_per_row;
             const int local_col = tile_col & 31;
-            const uint32_t map_addr = screen_base + (uint32_t)screen_block_index * 0x800u +
-                                      (uint32_t)(local_row * 32 + local_col) * 2u;
-            entry.raw = (uint16_t)mode1_memory.vram[map_addr] |
-                        ((uint16_t)mode1_memory.vram[map_addr + 1u] << 8u);
+            const uint32_t map_addr =
+                screen_base + (uint32_t)screen_block_index * 0x800u + (uint32_t)(local_row * 32 + local_col) * 2u;
+            entry.raw = (uint16_t)mode1_memory.vram[map_addr] | ((uint16_t)mode1_memory.vram[map_addr + 1u] << 8u);
         }
 
         const int tile_pixel_x = mode1_tile_hflip(entry) ? 7 - pixel_x : pixel_x;
         const int tile_pixel_y = mode1_tile_vflip(entry) ? 7 - pixel_y : pixel_y;
-        const uint32_t byte_addr = char_base + (uint32_t)mode1_tile_index(entry) * 32u +
-                                   (uint32_t)tile_pixel_y * 4u + (uint32_t)(tile_pixel_x >> 1);
-        if (byte_addr >= MODE1_VRAM_SIZE) continue;
+        const uint32_t byte_addr = char_base + (uint32_t)mode1_tile_index(entry) * 32u + (uint32_t)tile_pixel_y * 4u +
+                                   (uint32_t)(tile_pixel_x >> 1);
+        if (byte_addr >= MODE1_VRAM_SIZE)
+            continue;
         const uint8_t packed = mode1_memory.vram[byte_addr];
         const uint8_t color_index = (tile_pixel_x & 1) != 0 ? packed >> 4u : packed & 0x0Fu;
-        if (color_index == 0u) continue;
+        if (color_index == 0u)
+            continue;
         const unsigned palette_index = (unsigned)mode1_tile_palette(entry) * 16u + color_index;
-        if (x >= MODE1_GBA_BG_CLIP_X &&
-            (mode1_memory.bg_palette[palette_index] & 0x7FFFu) == 0x7C1Fu) {
+        if (x >= MODE1_GBA_BG_CLIP_X && (mode1_memory.bg_palette[palette_index] & 0x7FFFu) == 0x7C1Fu) {
             continue;
         }
         tokens[x] = (uint16_t)(palette_index + 1u);
@@ -1003,10 +1010,10 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
      * MOSAIC itself is zero, so key the fast path on the effective dimensions
      * instead of needlessly falling back on that inert flag. */
     if (MODE1_NATIVE_FAST_PATHS_ENABLED() && !bpp8 &&
-        (!mosaic_on || (mode1_old3ds_profile && mosaic_h == 1 && mosaic_v == 1)) &&
-        !ws_hud_right_anchor && !ws_msg_line) {
-        mode1_render_text_bg_native_4bpp(bg_index, char_base, screen_base, map_width_tiles, tile_row, pixel_y,
-                                        scroll_x, render_max_x, priority, line_buffer, priority_buffer);
+        (!mosaic_on || (mode1_old3ds_profile && mosaic_h == 1 && mosaic_v == 1)) && !ws_hud_right_anchor &&
+        !ws_msg_line) {
+        mode1_render_text_bg_native_4bpp(bg_index, char_base, screen_base, map_width_tiles, tile_row, pixel_y, scroll_x,
+                                         render_max_x, priority, line_buffer, priority_buffer);
         return;
     }
 
@@ -1239,8 +1246,8 @@ void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffe
         obj_mode = mode1_oam_mode(attr);
         obj_palette_base = (size_t)mode1_oam_palette(attr) * 16u;
         obj_semitransparent = obj_mode == 1u;
-        object_color_clipped = virtuappu_mode1_obj_clip_enable && virtuappu_mode1_obj_clip_mark[i] &&
-                               line >= virtuappu_mode1_obj_clip_y;
+        object_color_clipped =
+            virtuappu_mode1_obj_clip_enable && virtuappu_mode1_obj_clip_mark[i] && line >= virtuappu_mode1_obj_clip_y;
 
         if (is_affine) {
             int affine_group = mode1_oam_affine_index(attr);
@@ -1275,7 +1282,8 @@ void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffe
 
         if (MODE1_NATIVE_FAST_PATHS_ENABLED() && !is_affine && !bpp8 && !mosaic_x_on) {
             int draw_y = eff_line - obj_y;
-            if (mode1_oam_vflip(attr)) draw_y = obj_height - 1 - draw_y;
+            if (mode1_oam_vflip(attr))
+                draw_y = obj_height - 1 - draw_y;
             const int tile_row = draw_y >> 3;
             const int pixel_y = draw_y & 7;
             const bool hflip = mode1_oam_hflip(attr);
@@ -1284,22 +1292,20 @@ void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffe
                 const int source_x = hflip ? obj_width - 1 - sx : sx;
                 const int tile_col = source_x >> 3;
                 int run = hflip ? ((source_x & 7) + 1) : (8 - (source_x & 7));
-                if (run > sx_end - sx) run = sx_end - sx;
-                const uint16_t tile_index = obj_1d
-                                                ? (uint16_t)(base_tile + tile_row * tiles_w + tile_col)
+                if (run > sx_end - sx)
+                    run = sx_end - sx;
+                const uint16_t tile_index = obj_1d ? (uint16_t)(base_tile + tile_row * tiles_w + tile_col)
                                                 : (uint16_t)(base_tile + tile_row * 32 + tile_col);
-                const uint32_t row_addr = obj_tile_base + (uint32_t)tile_index * 32u +
-                                          (uint32_t)pixel_y * 4u;
-                const uint32_t packed_row = row_addr + 3u < MODE1_VRAM_SIZE
-                                                ? mode1_read_tile_row_4bpp(mode1_memory.vram + row_addr)
-                                                : 0u;
+                const uint32_t row_addr = obj_tile_base + (uint32_t)tile_index * 32u + (uint32_t)pixel_y * 4u;
+                const uint32_t packed_row =
+                    row_addr + 3u < MODE1_VRAM_SIZE ? mode1_read_tile_row_4bpp(mode1_memory.vram + row_addr) : 0u;
 
                 if (packed_row != 0u) {
                     for (int j = 0; j < run; ++j) {
                         const int pixel_x = hflip ? source_x - j : source_x + j;
-                        const uint8_t color_index =
-                            (uint8_t)((packed_row >> ((pixel_x & 7) * 4)) & 0x0Fu);
-                        if (color_index == 0u) continue;
+                        const uint8_t color_index = (uint8_t)((packed_row >> ((pixel_x & 7) * 4)) & 0x0Fu);
+                        if (color_index == 0u)
+                            continue;
                         const int screen_x = obj_x + sx + j;
                         if (obj_mode == 2u) {
                             virtuappu_mode1_obj_window[screen_x] = 1u;
@@ -1569,7 +1575,8 @@ void virtuappu_mode1_composite_line(int line, uint32_t bg_layers[MODE1_GBA_BG_CO
                     break;
                 }
             }
-            if (!found_top && obj_candidate) top_color = obj_layer[x];
+            if (!found_top && obj_candidate)
+                top_color = obj_layer[x];
             out_row[x] = top_color;
             continue;
         }
@@ -1752,13 +1759,15 @@ static bool mode1_render_native_direct_no_effect_line(int line, uint16_t dispcnt
 
     uint32_t* const out_row = mode1_output_row(line);
     const uint32_t backdrop = mode1_bg_abgr_lut[0];
-    for (int x = 0; x < frame_width; ++x) out_row[x] = backdrop;
+    for (int x = 0; x < frame_width; ++x)
+        out_row[x] = backdrop;
     uint8_t winning_bg_priority[MODE1_GBA_WIDTH];
     memset(winning_bg_priority, 0xFF, (size_t)frame_width);
 
     for (int order_index = MODE1_GBA_BG_COUNT - 1; order_index >= 0; --order_index) {
         const int bg = bg_order[order_index];
-        if (!bg_enabled[bg]) continue;
+        if (!bg_enabled[bg])
+            continue;
 
         virtuappu_mode1_render_text_bg_line(bg, line, out_row, winning_bg_priority);
     }
@@ -1780,7 +1789,8 @@ static bool mode1_render_native_direct_no_effect_line(int line, uint16_t dispcnt
     }
 
     for (int x = MODE1_GBA_BG_CLIP_X; x < frame_width; ++x) {
-        if (winning_bg_priority[x] == 0xFFu) out_row[x] = 0xFF000000u;
+        if (winning_bg_priority[x] == 0xFFu)
+            out_row[x] = 0xFF000000u;
     }
 
     return true;
@@ -1799,6 +1809,19 @@ static uint32_t mode1_old3ds_field_alpha_blend(uint32_t top_abgr, uint32_t botto
     return 0xFF000000u | (b << 19u) | (g << 11u) | (r << 3u);
 }
 
+static uint32_t mode1_old3ds_ui_alpha_blend(uint32_t top_abgr, uint32_t bottom_abgr) {
+    const unsigned top_r = (top_abgr & 0xFFu) >> 3u;
+    const unsigned top_g = ((top_abgr >> 8u) & 0xFFu) >> 3u;
+    const unsigned top_b = ((top_abgr >> 16u) & 0xFFu) >> 3u;
+    const unsigned bottom_r = (bottom_abgr & 0xFFu) >> 3u;
+    const unsigned bottom_g = ((bottom_abgr >> 8u) & 0xFFu) >> 3u;
+    const unsigned bottom_b = ((bottom_abgr >> 16u) & 0xFFu) >> 3u;
+    const uint32_t r = mode1_old3ds_ui_blend_lut[top_r][bottom_r];
+    const uint32_t g = mode1_old3ds_ui_blend_lut[top_g][bottom_g];
+    const uint32_t b = mode1_old3ds_ui_blend_lut[top_b][bottom_b];
+    return 0xFF000000u | (b << 19u) | (g << 11u) | (r << 3u);
+}
+
 /* Exact fast path for the profile observed in every supplied outdoor Old 3DS
  * capture. Hyrule's field renderer has four 4bpp tiled BGs with priorities
  * 0,1,2,1; BG3 alone is the alpha first target (EVA=4), while BG1/BG2/OBJ/
@@ -1810,12 +1833,9 @@ static uint32_t mode1_old3ds_field_alpha_blend(uint32_t top_abgr, uint32_t botto
 static __attribute__((noinline)) bool mode1_render_old3ds_field_alpha_line(int line, uint16_t dispcnt,
                                                                            int frame_width) {
     if (!mode1_old3ds_profile || !MODE1_NATIVE_FAST_PATHS_ENABLED() ||
-        (dispcnt & (MODE1_DISP_BG0_ON | MODE1_DISP_BG1_ON | MODE1_DISP_BG2_ON |
-                    MODE1_DISP_BG3_ON)) !=
-            (MODE1_DISP_BG0_ON | MODE1_DISP_BG1_ON | MODE1_DISP_BG2_ON |
-             MODE1_DISP_BG3_ON) ||
-        (dispcnt & (MODE1_DISP_WIN0_ON | MODE1_DISP_WIN1_ON |
-                    MODE1_DISP_OBJWIN_ON)) != 0u) {
+        (dispcnt & (MODE1_DISP_BG0_ON | MODE1_DISP_BG1_ON | MODE1_DISP_BG2_ON | MODE1_DISP_BG3_ON)) !=
+            (MODE1_DISP_BG0_ON | MODE1_DISP_BG1_ON | MODE1_DISP_BG2_ON | MODE1_DISP_BG3_ON) ||
+        (dispcnt & (MODE1_DISP_WIN0_ON | MODE1_DISP_WIN1_ON | MODE1_DISP_OBJWIN_ON)) != 0u) {
         return false;
     }
 
@@ -1823,27 +1843,23 @@ static __attribute__((noinline)) bool mode1_render_old3ds_field_alpha_line(int l
     uint16_t bgcnt[MODE1_GBA_BG_COUNT];
     for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
         bgcnt[bg] = virtuappu_mode1_io_read16((uint16_t)(MODE1_IO_BG0CNT + bg * 2));
-        if ((bgcnt[bg] & 0x0080u) != 0u ||
-            ((bgcnt[bg] & 0x0040u) != 0u && (mosaic & 0x00FFu) != 0u)) {
+        if ((bgcnt[bg] & 0x0080u) != 0u || ((bgcnt[bg] & 0x0040u) != 0u && (mosaic & 0x00FFu) != 0u)) {
             return false;
         }
     }
-    if ((bgcnt[0] & 3u) != 0u || (bgcnt[1] & 3u) != 1u ||
-        (bgcnt[2] & 3u) != 2u || (bgcnt[3] & 3u) != 1u) {
+    if ((bgcnt[0] & 3u) != 0u || (bgcnt[1] & 3u) != 1u || (bgcnt[2] & 3u) != 2u || (bgcnt[3] & 3u) != 1u) {
         return false;
     }
 
     const uint16_t bldcnt = virtuappu_mode1_io_read16(MODE1_IO_BLDCNT);
-    if (bldcnt != 0x3648u ||
-        virtuappu_mode1_io_read16(MODE1_IO_BLDALPHA) != 0x0E04u) {
+    if (bldcnt != 0x3648u || virtuappu_mode1_io_read16(MODE1_IO_BLDALPHA) != 0x0E04u) {
         return false;
     }
 
     uint16_t bg_tokens[MODE1_GBA_BG_COUNT][MODE1_GBA_WIDTH];
     for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
         memset(bg_tokens[bg], 0, (size_t)frame_width * sizeof(uint16_t));
-        mode1_render_text_bg_compact_tokens(bg, line, bgcnt[bg], frame_width,
-                                            bg_tokens[bg]);
+        mode1_render_text_bg_compact_tokens(bg, line, bgcnt[bg], frame_width, bg_tokens[bg]);
     }
 
     const bool obj_enabled = (dispcnt & MODE1_DISP_OBJ_ON) != 0u;
@@ -1852,9 +1868,7 @@ static __attribute__((noinline)) bool mode1_render_old3ds_field_alpha_line(int l
     if (obj_enabled) {
         memset(obj_layer, 0, (size_t)frame_width * sizeof(uint32_t));
         memset(obj_priority, 0xFF, (size_t)frame_width);
-        virtuappu_mode1_render_obj_line(line,
-                                        (dispcnt & MODE1_DISP_OBJ_1D) != 0u,
-                                        obj_layer, obj_priority);
+        virtuappu_mode1_render_obj_line(line, (dispcnt & MODE1_DISP_OBJ_1D) != 0u, obj_layer, obj_priority);
     } else {
         memset(virtuappu_mode1_obj_window, 0, (size_t)frame_width);
         memset(virtuappu_mode1_obj_semitrans, 0, (size_t)frame_width);
@@ -1936,11 +1950,189 @@ static __attribute__((noinline)) bool mode1_render_old3ds_field_alpha_line(int l
             }
         }
 
-        if (x >= MODE1_GBA_BG_CLIP_X && bg0 == 0u && bg1 == 0u &&
-            bg2 == 0u && bg3 == 0u) {
+        if (x >= MODE1_GBA_BG_CLIP_X && bg0 == 0u && bg1 == 0u && bg2 == 0u && bg3 == 0u) {
             top_color = 0xFF000000u;
         }
         out_row[x] = top_color;
+    }
+    return true;
+}
+
+/* Exact file-select/menu alpha profile from the Old 3DS capture. Render the
+ * uniquely ordered BGs directly; only BG2 over BG3 and a top OBJ over BG3 can
+ * blend. Any other register profile falls through to the compact renderer. */
+static bool mode1_render_old3ds_ui_alpha_line(int line, uint16_t dispcnt, int frame_width) {
+    if (!mode1_old3ds_profile || !MODE1_NATIVE_FAST_PATHS_ENABLED() || (unsigned)frame_width > MODE1_GBA_WIDTH ||
+        (dispcnt & (MODE1_DISP_BG0_ON | MODE1_DISP_BG1_ON | MODE1_DISP_BG2_ON | MODE1_DISP_BG3_ON)) !=
+            (MODE1_DISP_BG0_ON | MODE1_DISP_BG1_ON | MODE1_DISP_BG2_ON | MODE1_DISP_BG3_ON) ||
+        (dispcnt & (MODE1_DISP_WIN0_ON | MODE1_DISP_WIN1_ON | MODE1_DISP_OBJWIN_ON)) != 0u) {
+        return false;
+    }
+
+    const uint16_t mosaic = virtuappu_mode1_io_read16(MODE1_IO_MOSAIC);
+    uint16_t bgcnt[MODE1_GBA_BG_COUNT];
+    for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
+        bgcnt[bg] = virtuappu_mode1_io_read16((uint16_t)(MODE1_IO_BG0CNT + bg * 2));
+        if ((bgcnt[bg] & 0x0080u) != 0u || ((bgcnt[bg] & 0x0040u) != 0u && (mosaic & 0x00FFu) != 0u)) {
+            return false;
+        }
+    }
+    if ((bgcnt[0] & 3u) != 0u || (bgcnt[1] & 3u) != 1u || (bgcnt[2] & 3u) != 2u || (bgcnt[3] & 3u) != 3u ||
+        virtuappu_mode1_io_read16(MODE1_IO_BLDCNT) != 0x0844u ||
+        virtuappu_mode1_io_read16(MODE1_IO_BLDALPHA) != 0x0A0Fu) {
+        return false;
+    }
+
+    const bool obj_enabled = (dispcnt & MODE1_DISP_OBJ_ON) != 0u;
+    uint32_t obj_layer[MODE1_GBA_WIDTH];
+    uint8_t obj_priority[MODE1_GBA_WIDTH];
+    if (obj_enabled) {
+        memset(obj_layer, 0, (size_t)frame_width * sizeof(uint32_t));
+        memset(obj_priority, 0xFF, (size_t)frame_width);
+        virtuappu_mode1_render_obj_line(line, (dispcnt & MODE1_DISP_OBJ_1D) != 0u, obj_layer, obj_priority);
+    } else {
+        memset(virtuappu_mode1_obj_window, 0, (size_t)frame_width);
+        memset(virtuappu_mode1_obj_semitrans, 0, (size_t)frame_width);
+    }
+
+    uint32_t* const out_row = mode1_output_row(line);
+    const uint32_t backdrop = mode1_bg_abgr_lut[0];
+    for (int x = 0; x < frame_width; ++x)
+        out_row[x] = backdrop;
+    uint8_t winning_bg_priority[MODE1_GBA_WIDTH];
+    memset(winning_bg_priority, 0xFF, (size_t)frame_width);
+
+    virtuappu_mode1_render_text_bg_line(3, line, out_row, winning_bg_priority);
+
+    uint16_t bg2_tokens[MODE1_GBA_WIDTH];
+    memset(bg2_tokens, 0, (size_t)frame_width * sizeof(uint16_t));
+    mode1_render_text_bg_compact_tokens(2, line, bgcnt[2], frame_width, bg2_tokens);
+    for (int x = 0; x < frame_width; ++x) {
+        const uint16_t token = bg2_tokens[x];
+        if (token == 0u)
+            continue;
+        const bool has_obj = obj_enabled && obj_layer[x] != 0u;
+        uint32_t color = mode1_bg_abgr_lut[token - 1u];
+        if (winning_bg_priority[x] == 3u && !has_obj) {
+            color = mode1_old3ds_ui_alpha_blend(color, out_row[x]);
+        }
+        out_row[x] = color;
+        winning_bg_priority[x] = 2u;
+    }
+
+    virtuappu_mode1_render_text_bg_line(1, line, out_row, winning_bg_priority);
+    virtuappu_mode1_render_text_bg_line(0, line, out_row, winning_bg_priority);
+
+    if (obj_enabled) {
+        for (int x = 0; x < frame_width; ++x) {
+            if (obj_layer[x] == 0u || obj_priority[x] > winning_bg_priority[x])
+                continue;
+            uint32_t color = obj_layer[x];
+            if (virtuappu_mode1_obj_semitrans[x] && winning_bg_priority[x] == 3u) {
+                color = mode1_old3ds_ui_alpha_blend(color, out_row[x]);
+            }
+            out_row[x] = color;
+        }
+    }
+
+    for (int x = MODE1_GBA_BG_CLIP_X; x < frame_width; ++x) {
+        if (winning_bg_priority[x] == 0xFFu)
+            out_row[x] = 0xFF000000u;
+    }
+    return true;
+}
+
+static void mode1_render_affine_bg2_line(int frame_width, int32_t ref_x, int32_t ref_y, uint32_t* line_buffer,
+                                         uint8_t* priority_buffer);
+
+/* Exact title-screen affine profile from the Old 3DS capture. BG0 blends over
+ * BG1; affine BG2 and OBJ then resolve by priority. */
+static bool mode1_render_old3ds_title_alpha_line(int line, uint16_t dispcnt, int frame_width, int32_t aff_ref_x,
+                                                 int32_t aff_ref_y) {
+    const uint16_t enabled_bgs =
+        dispcnt & (MODE1_DISP_BG0_ON | MODE1_DISP_BG1_ON | MODE1_DISP_BG2_ON | MODE1_DISP_BG3_ON);
+    if (!mode1_old3ds_profile || !MODE1_NATIVE_FAST_PATHS_ENABLED() || (unsigned)frame_width > MODE1_GBA_WIDTH ||
+        (dispcnt & 7u) != 1u || enabled_bgs != (MODE1_DISP_BG0_ON | MODE1_DISP_BG1_ON | MODE1_DISP_BG2_ON) ||
+        (dispcnt & (MODE1_DISP_WIN0_ON | MODE1_DISP_WIN1_ON | MODE1_DISP_OBJWIN_ON)) != 0u) {
+        return false;
+    }
+
+    const uint16_t mosaic = virtuappu_mode1_io_read16(MODE1_IO_MOSAIC);
+    uint16_t bgcnt[3];
+    for (int bg = 0; bg < 3; ++bg) {
+        bgcnt[bg] = virtuappu_mode1_io_read16((uint16_t)(MODE1_IO_BG0CNT + bg * 2));
+        if ((bgcnt[bg] & 0x0040u) != 0u && (mosaic & 0x00FFu) != 0u) {
+            return false;
+        }
+    }
+    if ((bgcnt[0] & 0x0083u) != 2u || (bgcnt[1] & 0x0083u) != 3u || (bgcnt[2] & 3u) != 1u ||
+        virtuappu_mode1_io_read16(MODE1_IO_BLDCNT) != 0x0241u) {
+        return false;
+    }
+    const uint16_t bldalpha = virtuappu_mode1_io_read16(MODE1_IO_BLDALPHA);
+    int eva = bldalpha & 0x1Fu;
+    int evb = (bldalpha >> 8u) & 0x1Fu;
+    if (eva > 16)
+        eva = 16;
+    if (evb > 16)
+        evb = 16;
+
+    const bool obj_enabled = (dispcnt & MODE1_DISP_OBJ_ON) != 0u;
+    uint32_t obj_layer[MODE1_GBA_WIDTH];
+    uint8_t obj_priority[MODE1_GBA_WIDTH];
+    if (obj_enabled) {
+        memset(obj_layer, 0, (size_t)frame_width * sizeof(uint32_t));
+        memset(obj_priority, 0xFF, (size_t)frame_width);
+        virtuappu_mode1_render_obj_line(line, (dispcnt & MODE1_DISP_OBJ_1D) != 0u, obj_layer, obj_priority);
+    } else {
+        memset(virtuappu_mode1_obj_window, 0, (size_t)frame_width);
+        memset(virtuappu_mode1_obj_semitrans, 0, (size_t)frame_width);
+    }
+
+    uint32_t* const out_row = mode1_output_row(line);
+    const uint32_t backdrop = mode1_bg_abgr_lut[0];
+    for (int x = 0; x < frame_width; ++x)
+        out_row[x] = backdrop;
+    uint8_t winning_bg_priority[MODE1_GBA_WIDTH];
+    memset(winning_bg_priority, 0xFF, (size_t)frame_width);
+
+    virtuappu_mode1_render_text_bg_line(1, line, out_row, winning_bg_priority);
+
+    uint16_t bg0_tokens[MODE1_GBA_WIDTH];
+    memset(bg0_tokens, 0, (size_t)frame_width * sizeof(uint16_t));
+    mode1_render_text_bg_compact_tokens(0, line, bgcnt[0], frame_width, bg0_tokens);
+    for (int x = 0; x < frame_width; ++x) {
+        const uint16_t token = bg0_tokens[x];
+        if (token == 0u)
+            continue;
+        const bool has_obj = obj_enabled && obj_layer[x] != 0u;
+        uint32_t color = mode1_bg_abgr_lut[token - 1u];
+        if (winning_bg_priority[x] == 3u && !has_obj) {
+            color = mode1_alpha_blend(color, out_row[x], eva, evb);
+        }
+        out_row[x] = color;
+        winning_bg_priority[x] = 2u;
+    }
+
+    mode1_render_affine_bg2_line(frame_width, aff_ref_x, aff_ref_y, out_row, winning_bg_priority);
+
+    if (obj_enabled) {
+        for (int x = 0; x < frame_width; ++x) {
+            if (obj_layer[x] == 0u || obj_priority[x] > winning_bg_priority[x]) {
+                continue;
+            }
+            uint32_t color = obj_layer[x];
+            if (virtuappu_mode1_obj_semitrans[x] && winning_bg_priority[x] == 3u) {
+                color = mode1_alpha_blend(color, out_row[x], eva, evb);
+            }
+            out_row[x] = color;
+        }
+    }
+
+    for (int x = MODE1_GBA_BG_CLIP_X; x < frame_width; ++x) {
+        if (winning_bg_priority[x] == 0xFFu) {
+            out_row[x] = 0xFF000000u;
+        }
     }
     return true;
 }
@@ -1966,10 +2158,8 @@ static bool mode1_render_native_compact_line(int line, uint16_t dispcnt, int fra
         bg_enabled[bg] = (dispcnt & (uint16_t)(MODE1_DISP_BG0_ON << bg)) != 0u;
         bgcnt[bg] = virtuappu_mode1_io_read16((uint16_t)(MODE1_IO_BG0CNT + bg * 2));
         bg_order_priority[bg] = (uint8_t)(bgcnt[bg] & 3u);
-        if (bg_enabled[bg] &&
-            ((bgcnt[bg] & 0x0080u) != 0u ||
-             ((bgcnt[bg] & 0x0040u) != 0u &&
-              (!mode1_old3ds_profile || (mosaic & 0x00FFu) != 0u)))) {
+        if (bg_enabled[bg] && ((bgcnt[bg] & 0x0080u) != 0u ||
+                               ((bgcnt[bg] & 0x0040u) != 0u && (!mode1_old3ds_profile || (mosaic & 0x00FFu) != 0u)))) {
             return false;
         }
     }
@@ -1987,7 +2177,8 @@ static bool mode1_render_native_compact_line(int line, uint16_t dispcnt, int fra
 
     uint16_t bg_tokens[MODE1_GBA_BG_COUNT][MODE1_GBA_WIDTH];
     for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
-        if (!bg_enabled[bg]) continue;
+        if (!bg_enabled[bg])
+            continue;
         memset(bg_tokens[bg], 0, (size_t)frame_width * sizeof(uint16_t));
         mode1_render_text_bg_compact_tokens(bg, line, bgcnt[bg], frame_width, bg_tokens[bg]);
     }
@@ -2011,9 +2202,12 @@ static bool mode1_render_native_compact_line(int line, uint16_t dispcnt, int fra
     int eva = bldalpha & 0x1Fu;
     int evb = (bldalpha >> 8u) & 0x1Fu;
     int evy = bldy & 0x1Fu;
-    if (eva > 16) eva = 16;
-    if (evb > 16) evb = 16;
-    if (evy > 16) evy = 16;
+    if (eva > 16)
+        eva = 16;
+    if (evb > 16)
+        evb = 16;
+    if (evy > 16)
+        evy = 16;
 
     const uint32_t backdrop_color = mode1_bg_abgr_lut[0];
     const bool no_effect_fast_path = effect == MODE1_BLEND_NONE;
@@ -2021,10 +2215,8 @@ static bool mode1_render_native_compact_line(int line, uint16_t dispcnt, int fra
     uint32_t* const out_row = mode1_output_row(line);
 
     for (int x = 0; x < frame_width; ++x) {
-        const bool any_bg_drew = (bg_enabled[0] && bg_tokens[0][x] != 0u) ||
-                                 (bg_enabled[1] && bg_tokens[1][x] != 0u) ||
-                                 (bg_enabled[2] && bg_tokens[2][x] != 0u) ||
-                                 (bg_enabled[3] && bg_tokens[3][x] != 0u);
+        const bool any_bg_drew = (bg_enabled[0] && bg_tokens[0][x] != 0u) || (bg_enabled[1] && bg_tokens[1][x] != 0u) ||
+                                 (bg_enabled[2] && bg_tokens[2][x] != 0u) || (bg_enabled[3] && bg_tokens[3][x] != 0u);
         const bool obj_candidate = obj_enabled && obj_layer[x] != 0u;
         const unsigned obj_p = obj_candidate ? obj_priority[x] : 0xFFu;
         uint32_t top_color = backdrop_color;
@@ -2034,8 +2226,7 @@ static bool mode1_render_native_compact_line(int line, uint16_t dispcnt, int fra
         bool found_top = false;
         bool found_bottom = false;
 
-        if (no_effect_fast_path &&
-            !(obj_candidate && virtuappu_mode1_obj_semitrans[x] && has_second_targets)) {
+        if (no_effect_fast_path && !(obj_candidate && virtuappu_mode1_obj_semitrans[x] && has_second_targets)) {
             for (int order_index = 0; order_index < MODE1_GBA_BG_COUNT; ++order_index) {
                 const int bg = bg_order[order_index];
                 if (obj_candidate && bg_order_priority[bg] >= obj_p) {
@@ -2050,7 +2241,8 @@ static bool mode1_render_native_compact_line(int line, uint16_t dispcnt, int fra
                     break;
                 }
             }
-            if (!found_top && obj_candidate) top_color = obj_layer[x];
+            if (!found_top && obj_candidate)
+                top_color = obj_layer[x];
             out_row[x] = x >= MODE1_GBA_BG_CLIP_X && !any_bg_drew ? 0xFF000000u : top_color;
             continue;
         }
@@ -2074,7 +2266,8 @@ static bool mode1_render_native_compact_line(int line, uint16_t dispcnt, int fra
             if (obj_candidate && !obj_emitted && bg_order_priority[bg] >= obj_p) {
                 MODE1_COMPACT_CONSIDER(obj_layer[x], 4);
                 obj_emitted = true;
-                if (found_bottom) break;
+                if (found_bottom)
+                    break;
             }
             const uint16_t token = bg_enabled[bg] ? bg_tokens[bg][x] : 0u;
             if (token != 0u) {
@@ -2097,8 +2290,7 @@ static bool mode1_render_native_compact_line(int line, uint16_t dispcnt, int fra
         } else {
             switch (effect) {
                 case MODE1_BLEND_ALPHA:
-                    if (mode1_is_first_target(bldcnt, top_layer) &&
-                        mode1_is_second_target(bldcnt, bottom_layer)) {
+                    if (mode1_is_first_target(bldcnt, top_layer) && mode1_is_second_target(bldcnt, bottom_layer)) {
                         top_color = mode1_alpha_blend(top_color, bottom_color, eva, evb);
                     }
                     break;
@@ -2485,24 +2677,29 @@ static void mode1_render_lines(const Mode1RenderLinesContext* context, int first
         uint16_t line_dispcnt = context->affine ? context->dispcnt : context->per_line_dispcnt[line];
         const uint8_t* prev_override = virtuappu_mode1_io_thread_override;
 
-        virtuappu_mode1_io_thread_override =
-            context->per_line_io ? context->io_snapshots[line] : mode1_memory.io_mem;
+        virtuappu_mode1_io_thread_override = context->per_line_io ? context->io_snapshots[line] : mode1_memory.io_mem;
 
-        if (!context->affine) {
-            int old_path = -1;
-            if (mode1_render_native_direct_no_effect_line(line, line_dispcnt, context->frame_width)) {
-                old_path = MODE1_OLD_PATH_DIRECT;
-            } else if (mode1_old3ds_profile &&
-                       mode1_render_old3ds_field_alpha_line(line, line_dispcnt, context->frame_width)) {
+        int old_path = -1;
+        if (context->affine) {
+            if (mode1_render_old3ds_title_alpha_line(line, line_dispcnt, context->frame_width, context->aff_ref_x[line],
+                                                     context->aff_ref_y[line])) {
                 old_path = MODE1_OLD_PATH_FIELD_ALPHA;
-            } else if (mode1_render_native_compact_line(line, line_dispcnt, context->frame_width)) {
-                old_path = MODE1_OLD_PATH_COMPACT;
             }
-            if (old_path >= 0) {
-                if (mode1_old3ds_profile && old_path_lines != NULL) ++old_path_lines[old_path];
-                virtuappu_mode1_io_thread_override = prev_override;
-                continue;
+        } else if (mode1_render_native_direct_no_effect_line(line, line_dispcnt, context->frame_width)) {
+            old_path = MODE1_OLD_PATH_DIRECT;
+        } else if (mode1_old3ds_profile &&
+                   (mode1_render_old3ds_field_alpha_line(line, line_dispcnt, context->frame_width) ||
+                    mode1_render_old3ds_ui_alpha_line(line, line_dispcnt, context->frame_width))) {
+            old_path = MODE1_OLD_PATH_FIELD_ALPHA;
+        } else if (mode1_render_native_compact_line(line, line_dispcnt, context->frame_width)) {
+            old_path = MODE1_OLD_PATH_COMPACT;
+        }
+        if (old_path >= 0) {
+            if (mode1_old3ds_profile && old_path_lines != NULL) {
+                ++old_path_lines[old_path];
             }
+            virtuappu_mode1_io_thread_override = prev_override;
+            continue;
         }
 
         if (mode1_old3ds_profile && old_path_lines != NULL) {
@@ -2528,8 +2725,8 @@ static void mode1_render_lines(const Mode1RenderLinesContext* context, int first
         if ((line_dispcnt & MODE1_DISP_BG2_ON) != 0u) {
             memset(bg_layers[2], 0, (size_t)context->frame_width * sizeof(uint32_t));
             if (context->affine) {
-                mode1_render_affine_bg2_line(context->frame_width, context->aff_ref_x[line],
-                                             context->aff_ref_y[line], bg_layers[2], NULL);
+                mode1_render_affine_bg2_line(context->frame_width, context->aff_ref_x[line], context->aff_ref_y[line],
+                                             bg_layers[2], NULL);
             } else {
                 virtuappu_mode1_render_text_bg_line(2, line, bg_layers[2], NULL);
             }
@@ -2580,13 +2777,14 @@ static uint32_t mode1_render_dynamic(const Mode1RenderLinesContext* context,
                                      uint32_t old_path_lines[MODE1_OLD_PATH_COUNT]) {
     enum { MODE1_3DS_LINE_CHUNK = 8 };
     uint32_t renderedLines = 0;
-    if (old_path_lines != NULL) memset(old_path_lines, 0, MODE1_OLD_PATH_COUNT * sizeof(uint32_t));
+    if (old_path_lines != NULL)
+        memset(old_path_lines, 0, MODE1_OLD_PATH_COUNT * sizeof(uint32_t));
     for (;;) {
         const int first = __atomic_fetch_add(&sMode1NextLine, MODE1_3DS_LINE_CHUNK, __ATOMIC_RELAXED);
-        if (first >= MODE1_GBA_HEIGHT) return renderedLines;
-        const int last = first + MODE1_3DS_LINE_CHUNK < MODE1_GBA_HEIGHT
-                             ? first + MODE1_3DS_LINE_CHUNK
-                             : MODE1_GBA_HEIGHT;
+        if (first >= MODE1_GBA_HEIGHT)
+            return renderedLines;
+        const int last =
+            first + MODE1_3DS_LINE_CHUNK < MODE1_GBA_HEIGHT ? first + MODE1_3DS_LINE_CHUNK : MODE1_GBA_HEIGHT;
         mode1_render_lines(context, first, last, old_path_lines);
         renderedLines += (uint32_t)(last - first);
     }
@@ -2596,12 +2794,14 @@ static void mode1_worker_main(void* argument) {
     Mode1Worker* worker = (Mode1Worker*)argument;
     for (;;) {
         LightEvent_Wait(&worker->start);
-        if (!__atomic_load_n(&worker->running, __ATOMIC_ACQUIRE)) break;
+        if (!__atomic_load_n(&worker->running, __ATOMIC_ACQUIRE))
+            break;
         __atomic_thread_fence(__ATOMIC_ACQUIRE);
         const uint64_t startTick = svcGetSystemTick();
         worker->last_lines = mode1_render_dynamic(worker->context, worker->old_path_lines);
         worker->last_ticks = svcGetSystemTick() - startTick;
-        if (worker->last_ticks > worker->max_ticks) worker->max_ticks = worker->last_ticks;
+        if (worker->last_ticks > worker->max_ticks)
+            worker->max_ticks = worker->last_ticks;
         LightEvent_Signal(&worker->done);
     }
 }
@@ -2622,7 +2822,8 @@ static int mode1_ensure_workers(void) {
         LightEvent_Init(&sMode1Workers[0].done, RESET_ONESHOT);
         sMode1Workers[0].running = true;
         sMode1Workers[0].thread = threadCreate(mode1_worker_main, &sMode1Workers[0], 24 * 1024, priority, 1, false);
-        if (!sMode1Workers[0].thread) sMode1Workers[0].running = false;
+        if (!sMode1Workers[0].thread)
+            sMode1Workers[0].running = false;
     }
 
     if (Platform3DS_IsNew3DS()) {
@@ -2630,7 +2831,8 @@ static int mode1_ensure_workers(void) {
         LightEvent_Init(&sMode1Workers[1].done, RESET_ONESHOT);
         sMode1Workers[1].running = true;
         sMode1Workers[1].thread = threadCreate(mode1_worker_main, &sMode1Workers[1], 24 * 1024, priority, 2, false);
-        if (!sMode1Workers[1].thread) sMode1Workers[1].running = false;
+        if (!sMode1Workers[1].thread)
+            sMode1Workers[1].running = false;
     }
     return (sMode1Workers[0].thread != NULL) + (sMode1Workers[1].thread != NULL);
 }
@@ -2641,7 +2843,8 @@ static void mode1_render_lines_3ds(const Mode1RenderLinesContext* context) {
 
     for (int i = 0; i < 2; ++i) {
         Mode1Worker* worker = &sMode1Workers[i];
-        if (!worker->thread) continue;
+        if (!worker->thread)
+            continue;
         worker->context = context;
         __atomic_thread_fence(__ATOMIC_RELEASE);
         LightEvent_Signal(&worker->start);
@@ -2649,15 +2852,18 @@ static void mode1_render_lines_3ds(const Mode1RenderLinesContext* context) {
     const uint64_t mainStartTick = svcGetSystemTick();
     sMode1MainLastLines = mode1_render_dynamic(context, sMode1MainOldPathLines);
     sMode1MainLastTicks = svcGetSystemTick() - mainStartTick;
-    if (sMode1MainLastTicks > sMode1MainMaxTicks) sMode1MainMaxTicks = sMode1MainLastTicks;
+    if (sMode1MainLastTicks > sMode1MainMaxTicks)
+        sMode1MainMaxTicks = sMode1MainLastTicks;
     for (int i = 0; i < 2; ++i) {
-        if (sMode1Workers[i].thread) LightEvent_Wait(&sMode1Workers[i].done);
+        if (sMode1Workers[i].thread)
+            LightEvent_Wait(&sMode1Workers[i].done);
     }
     memset(sMode1OldPathLastLines, 0, sizeof(sMode1OldPathLastLines));
     for (int path = 0; path < MODE1_OLD_PATH_COUNT; ++path) {
         uint32_t lines = sMode1MainOldPathLines[path];
         for (int i = 0; i < 2; ++i) {
-            if (sMode1Workers[i].thread) lines += sMode1Workers[i].old_path_lines[path];
+            if (sMode1Workers[i].thread)
+                lines += sMode1Workers[i].old_path_lines[path];
         }
         sMode1OldPathLastLines[path] = lines;
         sMode1OldPathTotalLines[path] += lines;
@@ -2666,7 +2872,8 @@ static void mode1_render_lines_3ds(const Mode1RenderLinesContext* context) {
 }
 
 void virtuappu_mode1_get_3ds_stats(VirtuaPPUMode13DSStats* stats) {
-    if (!stats) return;
+    if (!stats)
+        return;
     memset(stats, 0, sizeof(*stats));
     stats->frames = sMode1StatsFrames;
     stats->mainLastTicks = sMode1MainLastTicks;
@@ -2678,14 +2885,16 @@ void virtuappu_mode1_get_3ds_stats(VirtuaPPUMode13DSStats* stats) {
         stats->workerLastTicks[i] = sMode1Workers[i].last_ticks;
         stats->workerMaxTicks[i] = sMode1Workers[i].max_ticks;
         stats->workerLastLines[i] = sMode1Workers[i].last_lines;
-        if (sMode1Workers[i].thread) ++stats->workerCount;
+        if (sMode1Workers[i].thread)
+            ++stats->workerCount;
     }
 }
 
 void virtuappu_mode1_shutdown_workers(void) {
     for (int i = 0; i < 2; ++i) {
         Mode1Worker* worker = &sMode1Workers[i];
-        if (!worker->thread) continue;
+        if (!worker->thread)
+            continue;
         __atomic_store_n(&worker->running, false, __ATOMIC_RELEASE);
         LightEvent_Signal(&worker->start);
         threadJoin(worker->thread, 2000000000ULL);
@@ -2704,9 +2913,11 @@ void virtuappu_mode1_shutdown_workers(void) {
 }
 #else
 void virtuappu_mode1_get_3ds_stats(VirtuaPPUMode13DSStats* stats) {
-    if (stats) memset(stats, 0, sizeof(*stats));
+    if (stats)
+        memset(stats, 0, sizeof(*stats));
 }
-void virtuappu_mode1_shutdown_workers(void) {}
+void virtuappu_mode1_shutdown_workers(void) {
+}
 #endif
 
 void virtuappu_mode1_render_frame(const PPUMemory* ppu) {

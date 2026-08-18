@@ -82,6 +82,10 @@ int main(void) {
     CHECK_EQ(PORT_FUSER_FUSION_PTRS_EU, 0x1E74u, "EU offered-fusion table offset");
 
     memset(rom, 0, sizeof(rom));
+    CHECK_TRUE(Port_MapDataFromRom(rom, sizeof(rom), 0x1000u) == rom + 0x1000u,
+               "map data aliases its immutable window in the loaded ROM");
+    CHECK_TRUE(Port_MapDataFromRom(rom, sizeof(rom), sizeof(rom)) == NULL,
+               "map data rejects an offset beyond the loaded ROM");
     WriteU32(rom + PORT_COLLISION_SHAPE_PTRS_USA, 0x08001000u);
     WriteU32(rom + PORT_COLLISION_SHAPE_PTRS_EU, 0x08001100u);
     memset(rom + 0x1000, 0xFF, 16u * sizeof(u16));

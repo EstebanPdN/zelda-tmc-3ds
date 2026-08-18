@@ -16,8 +16,8 @@ typedef struct PlatformGpu3DSUploadLayout {
 } PlatformGpu3DSUploadLayout;
 
 static inline PlatformGpu3DSUploadLayout PlatformGpu3DS_GetUploadLayout(bool old3dsProfile) {
-    return old3dsProfile ? (PlatformGpu3DSUploadLayout){ 272u, 160u, 320u, 240u }
-                         : (PlatformGpu3DSUploadLayout){ 512u, 256u, 512u, 256u };
+    (void)old3dsProfile;
+    return (PlatformGpu3DSUploadLayout){ 512u, 256u, 512u, 256u };
 }
 
 typedef struct PlatformGpu3DSStats {
