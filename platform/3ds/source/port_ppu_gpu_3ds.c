@@ -147,6 +147,14 @@ bool PortPpuGpu3DS_Preflight(const PpuGpu3DSFrameView* frame) {
         return false;
     }
 
+    for (size_t i = 0; i < sCommands.batchCount; ++i) {
+        if (!sCommands.batches[i].semiTransparent) continue;
+        sCommands.vertexCount = 0;
+        sCommands.indexCount = 0;
+        sCommands.batchCount = 0;
+        return false;
+    }
+
     for (unsigned slot = 0; slot < PPU_GPU3DS_SLOT_COUNT; ++slot) {
         PpuGpu3DSCacheEntry* entry = &sCache->entries[slot];
         if (!entry->dirty) continue;
@@ -177,6 +185,27 @@ bool PortPpuGpu3DS_Preflight(const PpuGpu3DSFrameView* frame) {
     return true;
 }
 
+static void SetBatchStencil(const PpuGpu3DSBatch* batch) {
+    const unsigned region = batch->target2 >> 6u;
+    C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP, GPU_STENCIL_KEEP);
+    if (region == 0u) {
+        C3D_StencilTest(true, GPU_NOTEQUAL, 0x04, 0x04, 0);
+    } else if (region == 1u) {
+        C3D_StencilTest(true, GPU_EQUAL, 0x04, 0x04, 0);
+    } else {
+        C3D_StencilTest(false, GPU_ALWAYS, 0, 0xff, 0);
+    }
+}
+
+static void DrawBatch(const PpuGpu3DSBatch* batch) {
+    const u32 top = sPreparedHeight - (batch->firstLine + batch->lineCount);
+    const u32 bottom = sPreparedHeight - batch->firstLine;
+    C3D_SetScissor(GPU_SCISSOR_NORMAL, batch->scissorLeft, top,
+                   batch->scissorRight, bottom);
+    C3D_DrawElements(GPU_TRIANGLES, (int)batch->indexCount,
+                     C3D_UNSIGNED_SHORT, sIndices + batch->firstIndex);
+}
+
 bool PortPpuGpu3DS_DrawPrepared(void) {
     if (!sReady || sDisabled || !sPrepared || sCommands.batchCount == 0)
         return false;
@@ -193,7 +222,7 @@ bool PortPpuGpu3DS_DrawPrepared(void) {
     C3D_SetAttrInfo(&sAttributes);
     C3D_SetBufInfo(&sBuffers);
     C3D_CullFace(GPU_CULL_NONE);
-    C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_ALL);
+    C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_COLOR);
 
     for (int stage = 0; stage < 6; ++stage) {
         C3D_TexEnvInit(C3D_GetTexEnv(stage));
@@ -208,16 +237,33 @@ bool PortPpuGpu3DS_DrawPrepared(void) {
     C3D_TexBind(0, &sAtlas);
     C3D_AlphaTest(true, GPU_GREATER, 0);
 
+    C3D_DepthTest(false, GPU_ALWAYS, (GPU_WRITEMASK)0);
+    C3D_StencilTest(true, GPU_ALWAYS, 0x04, 0xff, 0x04);
+    C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP, GPU_STENCIL_REPLACE);
+    for (size_t i = 1; i < sCommands.batchCount; ++i) {
+        if (sCommands.batches[i].objWindow) DrawBatch(&sCommands.batches[i]);
+    }
+
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_DEPTH);
     for (size_t i = 1; i < sCommands.batchCount; ++i) {
         const PpuGpu3DSBatch* batch = &sCommands.batches[i];
-        const u32 top =
-                sPreparedHeight - (batch->firstLine + batch->lineCount);
-        const u32 bottom = sPreparedHeight - batch->firstLine;
-        C3D_SetScissor(GPU_SCISSOR_NORMAL, batch->scissorLeft, top,
-                       batch->scissorRight, bottom);
-        C3D_DrawElements(GPU_TRIANGLES, (int)batch->indexCount,
-                         C3D_UNSIGNED_SHORT, sIndices + batch->firstIndex);
+        if (batch->layer != PPU_GPU3DS_OBJ || batch->objWindow) continue;
+        SetBatchStencil(batch);
+        DrawBatch(batch);
     }
+
+    for (size_t i = 1; i < sCommands.batchCount; ++i) {
+        const PpuGpu3DSBatch* batch = &sCommands.batches[i];
+        if (batch->objWindow) continue;
+        SetBatchStencil(batch);
+        if (batch->layer == PPU_GPU3DS_OBJ)
+            C3D_DepthTest(true, GPU_EQUAL, GPU_WRITE_COLOR);
+        else
+            C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_COLOR);
+        DrawBatch(batch);
+    }
+    C3D_StencilTest(false, GPU_ALWAYS, 0, 0xff, 0);
+    C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_ALL);
     C3D_AlphaTest(false, GPU_ALWAYS, 0);
     return true;
 }
