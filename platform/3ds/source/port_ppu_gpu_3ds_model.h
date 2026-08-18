@@ -120,6 +120,12 @@ bool PpuGpu3DS_CacheTile(PpuGpu3DSCache* cache, const uint8_t* vram, PpuGpu3DSTi
                          uint16_t* atlas, uint16_t* outSlot);
 uint8_t PpuGpu3DS_MortonIndex(unsigned x, unsigned y);
 uint16_t PpuGpu3DS_PackRgba5551(uint16_t gbaColor, bool opaque);
+int32_t PpuGpu3DS_AffineSample(int32_t reference, int16_t coefficient,
+                               int screenCoordinate);
+int PpuGpu3DS_RemapBgX(const PpuGpu3DSFrameView* frame, unsigned bg,
+                       unsigned line, int nativeX);
+bool PpuGpu3DS_ShadowEntry(const PpuGpu3DSFrameView* frame, unsigned bg,
+                           unsigned row, unsigned column, uint16_t* entry);
 size_t PpuGpu3DS_BuildBands(const PpuGpu3DSFrameView* frame, PpuGpu3DSBand out[160]);
 size_t PpuGpu3DS_WindowIntervals(unsigned left, unsigned right, unsigned width,
                                  PpuGpu3DSInterval out[2]);

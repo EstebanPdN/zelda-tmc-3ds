@@ -233,6 +233,54 @@ static uint16_t read16(const uint8_t* bytes, unsigned offset) {
     return (uint16_t)bytes[offset] | ((uint16_t)bytes[offset + 1] << 8u);
 }
 
+int32_t PpuGpu3DS_AffineSample(int32_t reference, int16_t coefficient,
+                               int screenCoordinate) {
+    const int64_t fixed =
+            (int64_t)reference + (int64_t)coefficient * screenCoordinate;
+    int64_t sample = fixed / 256;
+    if (fixed < 0 && fixed % 256 != 0) --sample;
+    if (sample < INT32_MIN) return INT32_MIN;
+    if (sample > INT32_MAX) return INT32_MAX;
+    return (int32_t)sample;
+}
+
+static bool message_line(const PpuGpu3DSFrameView* frame, unsigned bg,
+                         unsigned line) {
+    return bg == 0 && frame->width > MODE1_GBA_BG_CLIP_X &&
+           frame->wsMsgShift != 0 && (int)line >= frame->wsMsgY0 &&
+           (int)line < frame->wsMsgY1;
+}
+
+int PpuGpu3DS_RemapBgX(const PpuGpu3DSFrameView* frame, unsigned bg,
+                       unsigned line, int nativeX) {
+    if (!frame || bg >= MODE1_GBA_BG_COUNT) return nativeX;
+    if (message_line(frame, bg, line) && nativeX >= frame->wsMsgX0 &&
+        nativeX < frame->wsMsgX1)
+        return nativeX + frame->wsMsgShift;
+    if (bg == 0 && frame->width > MODE1_GBA_BG_CLIP_X &&
+        frame->wsHudRightAnchor && !message_line(frame, bg, line) &&
+        nativeX >= frame->wsHudRightNativeX &&
+        nativeX < MODE1_GBA_BG_CLIP_X)
+        return nativeX + (int)frame->width - MODE1_GBA_BG_CLIP_X;
+    return nativeX;
+}
+
+bool PpuGpu3DS_ShadowEntry(const PpuGpu3DSFrameView* frame, unsigned bg,
+                           unsigned row, unsigned column, uint16_t* entry) {
+    if (!frame || !entry || !frame->wsShadow ||
+        bg >= MODE1_GBA_BG_COUNT || row >= 32u ||
+        frame->wsShadowBaseTile[bg] < 0 || frame->wsCols <= 0 ||
+        column >= (unsigned)frame->wsCols || frame->wsShadowHalfwords <= 0)
+        return false;
+    const size_t shadowRow = (size_t)bg * 32u + row;
+    const size_t stride = (size_t)frame->wsCols;
+    if (shadowRow > (SIZE_MAX - column) / stride) return false;
+    const size_t index = shadowRow * stride + column;
+    if (index >= (size_t)frame->wsShadowHalfwords) return false;
+    *entry = frame->wsShadow[index];
+    return true;
+}
+
 enum {
     PPU_GPU3DS_REGION_OUTSIDE,
     PPU_GPU3DS_REGION_OBJWIN,
@@ -356,7 +404,6 @@ static size_t split_window_bands(const PpuGpu3DSFrameView* frame,
 static bool frame_features_supported(const PpuGpu3DSFrameView* frame,
                                      const PpuGpu3DSBand* bands, size_t bandCount,
                                      bool forcedBlank) {
-    if (frame->affine) return false;
     for (size_t bandIndex = 0; bandIndex < bandCount; ++bandIndex) {
         const PpuGpu3DSBand* band = &bands[bandIndex];
         const uint16_t dispcnt = frame->dispcntPerLine[band->firstLine];
@@ -593,6 +640,429 @@ static void emit_sample_quad(const PpuGpu3DSFrameView* frame,
     *indexCursor += 6;
 }
 
+static void emit_uv_quad(const PpuGpu3DSFrameView* frame,
+                         PpuGpu3DSCommandBuffer* cmd, bool emit, float left,
+                         float top, float right, float bottom, float z,
+                         float u0, float v0, float u1, float v1,
+                         bool horizontalStrip, size_t* vertexCursor,
+                         size_t* indexCursor) {
+    if (emit) {
+        const uint16_t base = (uint16_t)*vertexCursor;
+        const float x0 = 2.0f * left / frame->width - 1.0f;
+        const float x1 = 2.0f * right / frame->width - 1.0f;
+        const float y0 = 1.0f - 2.0f * top / frame->height;
+        const float y1 = 1.0f - 2.0f * bottom / frame->height;
+        cmd->vertices[*vertexCursor + 0] =
+                (PpuGpu3DSVertex){ x0, y0, z, 1.0f, u0, v0 };
+        cmd->vertices[*vertexCursor + 1] =
+                (PpuGpu3DSVertex){
+                    x1, y0, z, 1.0f, u1, horizontalStrip ? v1 : v0
+                };
+        cmd->vertices[*vertexCursor + 2] =
+                (PpuGpu3DSVertex){ x1, y1, z, 1.0f, u1, v1 };
+        cmd->vertices[*vertexCursor + 3] =
+                (PpuGpu3DSVertex){
+                    x0, y1, z, 1.0f, u0, horizontalStrip ? v0 : v1
+                };
+        cmd->indices[*indexCursor + 0] = base;
+        cmd->indices[*indexCursor + 1] = (uint16_t)(base + 1u);
+        cmd->indices[*indexCursor + 2] = (uint16_t)(base + 2u);
+        cmd->indices[*indexCursor + 3] = base;
+        cmd->indices[*indexCursor + 4] = (uint16_t)(base + 2u);
+        cmd->indices[*indexCursor + 5] = (uint16_t)(base + 3u);
+    }
+    *vertexCursor += 4;
+    *indexCursor += 6;
+}
+
+typedef struct PpuGpu3DSTextSample {
+    PpuGpu3DSTileKey key;
+    uint8_t pixelX, pixelY;
+    bool visible;
+} PpuGpu3DSTextSample;
+
+static bool destination_sample_x(const PpuGpu3DSFrameView* frame, unsigned bg,
+                                 unsigned line, int destinationX,
+                                 int* sampleX) {
+    const bool message = message_line(frame, bg, line);
+    if (message && destinationX >= frame->wsMsgX0 + frame->wsMsgShift &&
+        destinationX < frame->wsMsgX1 + frame->wsMsgShift) {
+        *sampleX = destinationX - frame->wsMsgShift;
+        return true;
+    }
+    if (message && destinationX >= frame->wsMsgX0 &&
+        destinationX < frame->wsMsgX1)
+        return false;
+    if (bg == 0 && frame->width > MODE1_GBA_BG_CLIP_X &&
+        frame->wsHudRightAnchor && !message) {
+        const int destination =
+                (int)frame->width -
+                (MODE1_GBA_BG_CLIP_X - frame->wsHudRightNativeX);
+        if (destinationX >= destination) {
+            *sampleX =
+                    destinationX - ((int)frame->width - MODE1_GBA_BG_CLIP_X);
+            return true;
+        }
+        if (destinationX >= frame->wsHudRightNativeX) return false;
+    } else if (message && destinationX >= MODE1_GBA_BG_CLIP_X) {
+        return false;
+    }
+    *sampleX = destinationX;
+    return true;
+}
+
+static bool text_bg_sample(const PpuGpu3DSFrameView* frame, unsigned bg,
+                           uint32_t charBase, uint32_t screenBase, bool bpp8,
+                           unsigned mapWidthTiles, unsigned mapHeightTiles,
+                           unsigned scrollX, unsigned scrollY,
+                           unsigned mosaicWidth, unsigned mosaicHeight,
+                           unsigned destinationX, unsigned destinationY,
+                           PpuGpu3DSTextSample* sample) {
+    sample->visible = false;
+    int sampleX;
+    if (!destination_sample_x(frame, bg, destinationY, (int)destinationX,
+                              &sampleX))
+        return true;
+    const int effectiveX =
+            mosaicWidth == 1u
+                    ? sampleX
+                    : (sampleX / (int)mosaicWidth) * (int)mosaicWidth;
+    const unsigned effectiveY =
+            mosaicHeight == 1u
+                    ? destinationY
+                    : (destinationY / mosaicHeight) * mosaicHeight;
+    const unsigned sourceX =
+            ((unsigned)(effectiveX + (int)scrollX)) &
+            (mapWidthTiles * PPU_GPU3DS_TILE_SIDE - 1u);
+    const unsigned sourceY =
+            (effectiveY + scrollY) &
+            (mapHeightTiles * PPU_GPU3DS_TILE_SIDE - 1u);
+    const unsigned tileX = sourceX / PPU_GPU3DS_TILE_SIDE;
+    const unsigned tileY = sourceY / PPU_GPU3DS_TILE_SIDE;
+    uint16_t entry;
+    if (mapWidthTiles == 32u && destinationX >= MODE1_GBA_BG_CLIP_X &&
+        frame->wsShadowBaseTile[bg] >= 0) {
+        const unsigned column =
+                (unsigned)((int64_t)tileX - frame->wsShadowBaseTile[bg] + 32) &
+                31u;
+        if (!PpuGpu3DS_ShadowEntry(frame, bg, tileY & 31u, column, &entry))
+            return true;
+    } else {
+        const unsigned blockX = tileX / 32u;
+        const unsigned blockY = tileY / 32u;
+        const uint32_t mapOffset =
+                (blockX + blockY * (mapWidthTiles / 32u)) * 0x800u +
+                ((tileY & 31u) * 32u + (tileX & 31u)) * 2u;
+        if (screenBase > MODE1_VRAM_SIZE - 2u ||
+            mapOffset > MODE1_VRAM_SIZE - 2u - screenBase)
+            return false;
+        entry = read16(frame->memory.vram, screenBase + mapOffset);
+    }
+    const uint32_t tileBytes = bpp8 ? 64u : 32u;
+    const uint32_t tileOffset =
+            charBase + (uint32_t)(entry & 0x03ffu) * tileBytes;
+    if (tileOffset > MODE1_VRAM_SIZE - tileBytes) return false;
+    unsigned pixelX = sourceX & 7u;
+    unsigned pixelY = sourceY & 7u;
+    if ((entry & (1u << 10u)) != 0) pixelX = 7u - pixelX;
+    if ((entry & (1u << 11u)) != 0) pixelY = 7u - pixelY;
+    sample->key = (PpuGpu3DSTileKey){
+        .vramOffset = tileOffset,
+        .paletteBank = bpp8 ? 0 : (uint8_t)(entry >> 12u),
+        .bpp8 = bpp8,
+        .domain = PPU_GPU3DS_PALETTE_BG,
+    };
+    sample->pixelX = (uint8_t)pixelX;
+    sample->pixelY = (uint8_t)pixelY;
+    sample->visible = true;
+    return true;
+}
+
+
+static bool build_widescreen_bg_geometry(
+        const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
+        uint16_t* atlas, PpuGpu3DSCommandBuffer* cmd,
+        const PpuGpu3DSBand* band, uint16_t bgcnt, unsigned bg, bool emit,
+        size_t* vertexCursor, size_t* indexCursor) {
+    const uint8_t* io =
+            frame->ioPerLine + (size_t)band->ioRow * MODE1_IO_MEM_SIZE;
+    const uint32_t charBase = ((bgcnt >> 2u) & 3u) * 0x4000u;
+    const bool bpp8 = ((bgcnt >> 7u) & 1u) != 0;
+    const uint32_t screenBase = ((bgcnt >> 8u) & 0x1fu) * 0x800u;
+    const unsigned size = (bgcnt >> 14u) & 3u;
+    const unsigned mapWidthTiles = (size & 1u) ? 64u : 32u;
+    const unsigned mapHeightTiles = (size & 2u) ? 64u : 32u;
+    const unsigned scrollX =
+            read16(io, MODE1_IO_BG0HOFS + bg * 4u) & 0x1ffu;
+    const unsigned scrollY =
+            read16(io, MODE1_IO_BG0VOFS + bg * 4u) & 0x1ffu;
+    const uint16_t mosaic = read16(io, MODE1_IO_MOSAIC);
+    const bool mosaicEnabled =
+            (bgcnt & (1u << 6u)) != 0 &&
+            ((mosaic & 0x0fu) != 0 || (mosaic & 0xf0u) != 0);
+    const unsigned mosaicWidth =
+            mosaicEnabled ? (mosaic & 0x0fu) + 1u : 1u;
+    const unsigned mosaicHeight =
+            mosaicEnabled ? ((mosaic >> 4u) & 0x0fu) + 1u : 1u;
+    unsigned nativeRenderWidth =
+            mapWidthTiles == 64u || frame->wsShadowBaseTile[bg] >= 0
+                    ? frame->width
+                    : MODE1_GBA_BG_CLIP_X;
+    if (nativeRenderWidth > frame->width) nativeRenderWidth = frame->width;
+
+    const unsigned bandBottom = band->firstLine + band->lineCount;
+    for (unsigned y = band->firstLine; y < bandBottom;) {
+        const unsigned effectiveY =
+                mosaicHeight == 1u ? y : (y / mosaicHeight) * mosaicHeight;
+        const unsigned sourceY =
+                (effectiveY + scrollY) &
+                (mapHeightTiles * PPU_GPU3DS_TILE_SIDE - 1u);
+        unsigned height =
+                mosaicHeight == 1u ? PPU_GPU3DS_TILE_SIDE - (sourceY & 7u)
+                                   : mosaicHeight - y % mosaicHeight;
+        if (height > bandBottom - y) height = bandBottom - y;
+        if (bg == 0 && frame->wsMsgShift != 0) {
+            if (frame->wsMsgY0 > (int)y &&
+                frame->wsMsgY0 < (int)(y + height))
+                height = (unsigned)frame->wsMsgY0 - y;
+            if (frame->wsMsgY1 > (int)y &&
+                frame->wsMsgY1 < (int)(y + height))
+                height = (unsigned)frame->wsMsgY1 - y;
+        }
+        const unsigned renderWidth =
+                (bg == 0 &&
+                 (frame->wsHudRightAnchor || message_line(frame, bg, y)))
+                        ? frame->width
+                        : nativeRenderWidth;
+        unsigned x = 0;
+        while (x < renderWidth) {
+            PpuGpu3DSTextSample first;
+            if (!text_bg_sample(frame, bg, charBase, screenBase, bpp8,
+                                mapWidthTiles, mapHeightTiles, scrollX, scrollY,
+                                mosaicWidth, mosaicHeight, x, y, &first))
+                return false;
+            if (!first.visible) {
+                ++x;
+                continue;
+            }
+            int dx = 0;
+            unsigned width = 1;
+            PpuGpu3DSTextSample next;
+            if (x + 1u < renderWidth &&
+                !text_bg_sample(frame, bg, charBase, screenBase, bpp8,
+                                mapWidthTiles, mapHeightTiles, scrollX, scrollY,
+                                mosaicWidth, mosaicHeight, x + 1u, y, &next))
+                return false;
+            if (x + 1u < renderWidth && next.visible &&
+                keys_equal(first.key, next.key) &&
+                first.pixelY == next.pixelY) {
+                dx = (int)next.pixelX - first.pixelX;
+                width = 2;
+                while (x + width < renderWidth) {
+                    PpuGpu3DSTextSample candidate;
+                    if (!text_bg_sample(
+                                frame, bg, charBase, screenBase, bpp8,
+                                mapWidthTiles, mapHeightTiles, scrollX, scrollY,
+                                mosaicWidth, mosaicHeight, x + width, y,
+                                &candidate))
+                        return false;
+                    if (!candidate.visible ||
+                        !keys_equal(first.key, candidate.key) ||
+                        candidate.pixelY != first.pixelY ||
+                        (int)candidate.pixelX !=
+                                (int)first.pixelX + dx * (int)width)
+                        break;
+                    ++width;
+                }
+            }
+            int dy = 0;
+            if (height > 1u) {
+                PpuGpu3DSTextSample below;
+                if (!text_bg_sample(frame, bg, charBase, screenBase, bpp8,
+                                    mapWidthTiles, mapHeightTiles, scrollX,
+                                    scrollY, mosaicWidth, mosaicHeight, x,
+                                    y + 1u, &below))
+                    return false;
+                if (!below.visible || !keys_equal(first.key, below.key) ||
+                    below.pixelX != first.pixelX)
+                    return false;
+                dy = (int)below.pixelY - first.pixelY;
+            }
+            float u0 = 0.0f;
+            float v0 = 0.0f;
+            float u1 = 0.0f;
+            float v1 = 0.0f;
+            if (emit) {
+                uint16_t slot;
+                if (!PpuGpu3DS_CacheTile(cache, frame->memory.vram, first.key,
+                                         atlas, &slot))
+                    return false;
+                const unsigned tilesPerRow =
+                        PPU_GPU3DS_ATLAS_SIDE / PPU_GPU3DS_TILE_SIDE;
+                const unsigned slotX =
+                        (slot % tilesPerRow) * PPU_GPU3DS_TILE_SIDE;
+                const unsigned slotY =
+                        (slot / tilesPerRow) * PPU_GPU3DS_TILE_SIDE;
+                const float invAtlas = 1.0f / PPU_GPU3DS_ATLAS_SIDE;
+                u0 = (slotX + first.pixelX + 0.5f - 0.5f * dx) * invAtlas;
+                v0 = (slotY + first.pixelY + 0.5f - 0.5f * dy) * invAtlas;
+                u1 = u0 + dx * (float)width * invAtlas;
+                v1 = v0 + dy * (float)height * invAtlas;
+            }
+            emit_uv_quad(frame, cmd, emit, (float)x, (float)y,
+                         (float)(x + width), (float)(y + height), 0.0f, u0, v0,
+                         u1, v1, false, vertexCursor, indexCursor);
+            x += width;
+        }
+        y += height;
+    }
+    return true;
+}
+
+typedef struct PpuGpu3DSAffineSample {
+    PpuGpu3DSTileKey key;
+    uint8_t pixelX, pixelY;
+    bool visible;
+} PpuGpu3DSAffineSample;
+
+static bool affine_bg_sample(const PpuGpu3DSFrameView* frame,
+                             const uint8_t* io, uint16_t bgcnt, unsigned line,
+                             unsigned x, PpuGpu3DSAffineSample* sample) {
+    static const int mapSizes[4] = { 128, 256, 512, 1024 };
+    const int mapSize = mapSizes[(bgcnt >> 14u) & 3u];
+    const int mapTiles = mapSize / PPU_GPU3DS_TILE_SIDE;
+    int32_t sourceX = PpuGpu3DS_AffineSample(
+            frame->affineRefX[line], (int16_t)read16(io, 0x20), (int)x);
+    int32_t sourceY = PpuGpu3DS_AffineSample(
+            frame->affineRefY[line], (int16_t)read16(io, 0x24), (int)x);
+    if ((bgcnt & (1u << 13u)) != 0) {
+        sourceX = (int32_t)((uint32_t)sourceX & (unsigned)(mapSize - 1));
+        sourceY = (int32_t)((uint32_t)sourceY & (unsigned)(mapSize - 1));
+    } else if (sourceX < 0 || sourceX >= mapSize || sourceY < 0 ||
+               sourceY >= mapSize) {
+        sample->visible = false;
+        return true;
+    }
+    const unsigned tileX = (unsigned)sourceX / PPU_GPU3DS_TILE_SIDE;
+    const unsigned tileY = (unsigned)sourceY / PPU_GPU3DS_TILE_SIDE;
+    const uint32_t screenBase = ((bgcnt >> 8u) & 0x1fu) * 0x800u;
+    const uint32_t mapOffset = tileY * (unsigned)mapTiles + tileX;
+    uint8_t tile = 0;
+    if (screenBase < MODE1_VRAM_SIZE &&
+        mapOffset < MODE1_VRAM_SIZE - screenBase)
+        tile = frame->memory.vram[screenBase + mapOffset];
+    const uint32_t charBase = ((bgcnt >> 2u) & 3u) * 0x4000u;
+    sample->key = (PpuGpu3DSTileKey){
+        .vramOffset = charBase + (uint32_t)tile * 64u,
+        .paletteBank = 0,
+        .bpp8 = true,
+        .domain = PPU_GPU3DS_PALETTE_BG,
+    };
+    sample->pixelX = (uint8_t)((unsigned)sourceX & 7u);
+    sample->pixelY = (uint8_t)((unsigned)sourceY & 7u);
+    sample->visible = true;
+    return true;
+}
+
+static bool build_affine_bg(const PpuGpu3DSFrameView* frame,
+                            PpuGpu3DSCache* cache, uint16_t* atlas,
+                            PpuGpu3DSCommandBuffer* cmd,
+                            const PpuGpu3DSBand* band,
+                            const PpuGpu3DSRegion* regions,
+                            size_t regionCount, bool emit,
+                            size_t* vertexCursor, size_t* indexCursor,
+                            size_t* batchCursor) {
+    if (!layer_has_region(regions, regionCount, PPU_GPU3DS_BG2, 0,
+                          (uint16_t)frame->width))
+        return true;
+    const uint8_t* io =
+            frame->ioPerLine + (size_t)band->ioRow * MODE1_IO_MEM_SIZE;
+    const uint16_t bgcnt = read16(io, MODE1_IO_BG2CNT);
+    const size_t firstIndex = *indexCursor;
+    unsigned x = 0;
+    while (x < frame->width) {
+        PpuGpu3DSAffineSample first;
+        if (!affine_bg_sample(frame, io, bgcnt, band->firstLine, x, &first))
+            return false;
+        if (!first.visible) {
+            ++x;
+            continue;
+        }
+        int dx = 0;
+        int dy = 0;
+        unsigned width = 1;
+        PpuGpu3DSAffineSample next;
+        if (x + 1u < frame->width &&
+            !affine_bg_sample(frame, io, bgcnt, band->firstLine, x + 1u,
+                              &next))
+            return false;
+        if (x + 1u < frame->width && next.visible &&
+            keys_equal(first.key, next.key)) {
+            dx = (int)next.pixelX - first.pixelX;
+            dy = (int)next.pixelY - first.pixelY;
+            width = 2;
+            while (x + width < frame->width) {
+                PpuGpu3DSAffineSample candidate;
+                if (!affine_bg_sample(frame, io, bgcnt, band->firstLine,
+                                      x + width, &candidate))
+                    return false;
+                if (!candidate.visible ||
+                    !keys_equal(first.key, candidate.key) ||
+                    (int)candidate.pixelX !=
+                            (int)first.pixelX + dx * (int)width ||
+                    (int)candidate.pixelY !=
+                            (int)first.pixelY + dy * (int)width)
+                    break;
+                ++width;
+            }
+        }
+        float u0 = 0.0f;
+        float v0 = 0.0f;
+        float u1 = 0.0f;
+        float v1 = 0.0f;
+        if (emit) {
+            uint16_t slot;
+            if (!PpuGpu3DS_CacheTile(cache, frame->memory.vram, first.key,
+                                     atlas, &slot))
+                return false;
+            const unsigned tilesPerRow =
+                    PPU_GPU3DS_ATLAS_SIDE / PPU_GPU3DS_TILE_SIDE;
+            const unsigned slotX =
+                    (slot % tilesPerRow) * PPU_GPU3DS_TILE_SIDE;
+            const unsigned slotY =
+                    (slot / tilesPerRow) * PPU_GPU3DS_TILE_SIDE;
+            const float invAtlas = 1.0f / PPU_GPU3DS_ATLAS_SIDE;
+            u0 = (slotX + first.pixelX + 0.5f - 0.5f * dx) * invAtlas;
+            v0 = (slotY + first.pixelY + 0.5f - 0.5f * dy) * invAtlas;
+            u1 = u0 + dx * (float)width * invAtlas;
+            v1 = v0 + dy * (float)width * invAtlas;
+        }
+        emit_uv_quad(frame, cmd, emit, (float)x, band->firstLine,
+                     (float)(x + width), band->firstLine + band->lineCount,
+                     0.0f, u0, v0, u1, v1, true, vertexCursor, indexCursor);
+        x += width;
+    }
+
+    const uint16_t bldcnt = read16(io, MODE1_IO_BLDCNT);
+    const PpuGpu3DSBatch base = {
+        .firstIndex = (uint32_t)firstIndex,
+        .indexCount = (uint32_t)(*indexCursor - firstIndex),
+        .firstLine = band->firstLine,
+        .lineCount = band->lineCount,
+        .scissorRight = (uint16_t)frame->width,
+        .layer = PPU_GPU3DS_BG2,
+        .priority = (uint8_t)(bgcnt & 3u),
+        .effect = PPU_GPU3DS_EFFECT_NONE,
+        .target2 =
+                (uint8_t)((bldcnt >> (PPU_GPU3DS_BG2 + 8u)) & 1u),
+        .objectIndex = UINT8_MAX,
+    };
+    append_layer_batches(cmd, &base, regions, regionCount, bldcnt,
+                         read16(io, MODE1_IO_BLDALPHA),
+                         read16(io, MODE1_IO_BLDY), emit, batchCursor);
+    return true;
+}
+
 static bool build_mosaic_bg_geometry(
         const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
         uint16_t* atlas, PpuGpu3DSCommandBuffer* cmd,
@@ -699,7 +1169,17 @@ static bool build_text_bg(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache
     const bool mosaicEnabled =
             (bgcnt & (1u << 6u)) != 0 &&
             ((mosaic & 0x0fu) != 0 || (mosaic & 0xf0u) != 0);
-    if (mosaicEnabled) {
+    const bool widescreenRules =
+            frame->width > MODE1_GBA_BG_CLIP_X &&
+            (mapWidthTiles == 32u ||
+             (bg == 0 &&
+              (frame->wsHudRightAnchor || frame->wsMsgShift != 0)));
+    if (widescreenRules) {
+        if (!build_widescreen_bg_geometry(
+                    frame, cache, atlas, cmd, band, bgcnt, bg, emit,
+                    vertexCursor, indexCursor))
+            return false;
+    } else if (mosaicEnabled) {
         if (!build_mosaic_bg_geometry(frame, cache, atlas, cmd, band, bgcnt,
                                       bg, emit, vertexCursor, indexCursor))
             return false;
@@ -1183,10 +1663,20 @@ static bool build_scene(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
                 if ((dispcnt & (MODE1_DISP_BG0_ON << bg)) == 0 ||
                     (bgcnt & 3u) != (unsigned)priority)
                     continue;
-                if (!build_text_bg(frame, cache, atlas, cmd, band,
-                                   (unsigned)bg, regions, regionCount, emit,
-                                   vertexCursor, indexCursor, batchCursor))
-                    return false;
+                if (frame->affine && bg == 3) continue;
+                const bool built =
+                        frame->affine && bg == 2
+                                ? build_affine_bg(
+                                          frame, cache, atlas, cmd, band,
+                                          regions, regionCount, emit,
+                                          vertexCursor, indexCursor,
+                                          batchCursor)
+                                : build_text_bg(
+                                          frame, cache, atlas, cmd, band,
+                                          (unsigned)bg, regions, regionCount,
+                                          emit, vertexCursor, indexCursor,
+                                          batchCursor);
+                if (!built) return false;
             }
             if ((dispcnt & MODE1_DISP_OBJ_ON) == 0) continue;
             for (int index = MODE1_GBA_OAM_COUNT - 1; index >= 0; --index) {
@@ -1209,7 +1699,8 @@ bool PpuGpu3DS_BuildCommands(const PpuGpu3DSFrameView* frame,
                              PpuGpu3DSCommandBuffer* cmd) {
     if (!frame || !cache || !atlas || !cmd || !cmd->vertices || !cmd->indices ||
         !cmd->batches || !frame->memory.vram || !frame->memory.bg_palette ||
-        !frame->ioPerLine || !frame->dispcntPerLine || frame->affine ||
+        !frame->ioPerLine || !frame->dispcntPerLine ||
+        (frame->affine && (!frame->affineRefX || !frame->affineRefY)) ||
         frame->width == 0 || frame->width > PPU_GPU3DS_ATLAS_SIDE ||
         frame->height == 0 || frame->height > MODE1_GBA_HEIGHT)
         return false;
