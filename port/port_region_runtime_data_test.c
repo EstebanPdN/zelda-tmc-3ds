@@ -2,8 +2,13 @@
 #include <string.h>
 
 #include "port_config.h"
+#include "port_charge_bar.h"
 #include "port_collision_fidelity.h"
+#include "port_offset_remap.h"
 #include "port_rom.h"
+#include "region.h"
+
+int gActiveRegion = TMC_REGION_USA;
 
 static int sFailures;
 
@@ -36,6 +41,31 @@ int main(void) {
     static _Alignas(4) u8 rom[0x8400];
     const u8* fusionData;
     const u16* shape;
+
+    CHECK_EQ(Port_ChargeBarUsaGfxOffset(0u), 0x21F20u, "charge frame 0 USA offset");
+    CHECK_EQ(Port_ChargeBarUsaGfxOffset(1u), 0x21FE0u, "charge frame 1 USA offset");
+    CHECK_EQ(Port_ChargeBarUsaGfxOffset(2u), 0x220A0u, "charge frame 2 USA offset");
+    CHECK_EQ(Port_ChargeBarUsaGfxOffset(3u), 0x22160u, "charge frame 3 USA offset");
+    CHECK_EQ(Port_ChargeBarUsaGfxOffset(4u), 0x21F20u, "charge frame upper bound falls back safely");
+    CHECK_EQ(Port_ChargeBarUsaGfxOffset(UINT32_MAX), 0x21F20u,
+             "charge frame wrapped value falls back safely");
+
+    gActiveRegion = TMC_REGION_USA;
+    CHECK_EQ(Port_RemapGfxOffset(Port_ChargeBarUsaGfxOffset(1u)), 0x21FE0u,
+             "USA charge artwork keeps its native offset");
+    gActiveRegion = TMC_REGION_EU;
+    CHECK_EQ(Port_RemapGfxOffset(Port_ChargeBarUsaGfxOffset(0u)), 0x21EE0u,
+             "EU charge frame 0 uses the regional runtime table");
+    CHECK_EQ(Port_RemapGfxOffset(Port_ChargeBarUsaGfxOffset(1u)), 0x21FA0u,
+             "EU charge frame 1 uses the regional runtime table");
+    CHECK_EQ(Port_RemapGfxOffset(Port_ChargeBarUsaGfxOffset(2u)), 0x22060u,
+             "EU charge frame 2 uses the regional runtime table");
+    CHECK_EQ(Port_RemapGfxOffset(Port_ChargeBarUsaGfxOffset(3u)), 0x22120u,
+             "EU charge frame 3 uses the regional runtime table");
+    gActiveRegion = TMC_REGION_JP;
+    CHECK_EQ(Port_RemapGfxOffset(Port_ChargeBarUsaGfxOffset(3u)), 0x22160u,
+             "JP charge artwork shares the USA blob layout");
+    gActiveRegion = TMC_REGION_USA;
 
     CHECK_EQ(Port_RemapFixedUiSpriteIndexForRegion(ROM_REGION_USA, 322u), 322u,
              "USA item UI sprite stays native");

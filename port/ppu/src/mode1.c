@@ -102,12 +102,30 @@ static bool mode1_bg_pair_palette_initialized;
 
 #ifdef VIRTUAPPU_TESTING
 static bool mode1_native_fast_paths_enabled = true;
+static uint32_t mode1_native_compact_test_lines;
+static bool mode1_native_compact_test_counting;
 void virtuappu_mode1_set_native_fast_paths_enabled(bool enabled) {
     mode1_native_fast_paths_enabled = enabled;
 }
+void virtuappu_mode1_reset_native_compact_test_lines(void) {
+    __atomic_store_n(&mode1_native_compact_test_lines, 0u, __ATOMIC_RELAXED);
+    __atomic_store_n(&mode1_native_compact_test_counting, true, __ATOMIC_RELAXED);
+}
+uint32_t virtuappu_mode1_get_native_compact_test_lines(void) {
+    const uint32_t lines = __atomic_load_n(&mode1_native_compact_test_lines, __ATOMIC_RELAXED);
+    __atomic_store_n(&mode1_native_compact_test_counting, false, __ATOMIC_RELAXED);
+    return lines;
+}
 #define MODE1_NATIVE_FAST_PATHS_ENABLED() mode1_native_fast_paths_enabled
+#define MODE1_RECORD_NATIVE_COMPACT_TEST_LINE()                                               \
+    do {                                                                                       \
+        if (__atomic_load_n(&mode1_native_compact_test_counting, __ATOMIC_RELAXED)) {          \
+            (void)__atomic_fetch_add(&mode1_native_compact_test_lines, 1u, __ATOMIC_RELAXED);  \
+        }                                                                                      \
+    } while (0)
 #else
 #define MODE1_NATIVE_FAST_PATHS_ENABLED() true
+#define MODE1_RECORD_NATIVE_COMPACT_TEST_LINE() ((void)0)
 #endif
 
 void virtuappu_mode1_set_old3ds_profile(bool enabled) {
@@ -1176,6 +1194,9 @@ void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffe
         size_t obj_palette_base;
         bool obj_semitransparent;
         bool object_color_clipped;
+        bool affine_incremental;
+        int affine_tex_x_fp;
+        int affine_tex_y_fp;
 
         attr.attr0 = mode1_memory.oam_mem[i * 4];
         attr.attr1 = mode1_memory.oam_mem[i * 4 + 1];
@@ -1273,6 +1294,22 @@ void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffe
             mosaic_x_on = mosaic_on && mosaic_h > 1;
         }
 
+        /* Without horizontal OBJ mosaic, affine input_rel_x advances by
+         * exactly one for every screen pixel. Seed the 8.8 fixed-point
+         * transform once and advance it by PA/PC instead of repeating four
+         * multiplies per pixel. Sprite bounds cap both inputs at +/-64, so
+         * every intermediate is comfortably inside signed int range. The
+         * mosaic path keeps the original formula because snapped samples do
+         * not advance uniformly. */
+        affine_incremental = MODE1_NATIVE_FAST_PATHS_ENABLED() && is_affine && !mosaic_x_on;
+        affine_tex_x_fp = 0;
+        affine_tex_y_fp = 0;
+        if (affine_incremental) {
+            const int input_rel_x = sx_start - half_width;
+            affine_tex_x_fp = pa * input_rel_x + pb * input_rel_y;
+            affine_tex_y_fp = pc * input_rel_x + pd * input_rel_y;
+        }
+
         if (MODE1_NATIVE_FAST_PATHS_ENABLED() && !is_affine && !bpp8 && !mosaic_x_on) {
             int draw_y = eff_line - obj_y;
             if (mode1_oam_vflip(attr)) draw_y = obj_height - 1 - draw_y;
@@ -1341,9 +1378,18 @@ void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffe
             }
 
             if (is_affine) {
-                int input_rel_x = eff_sx - half_width;
-                tex_x = ((pa * input_rel_x + pb * input_rel_y) >> 8) + sprite_half_width;
-                tex_y = ((pc * input_rel_x + pd * input_rel_y) >> 8) + sprite_half_height;
+                if (affine_incremental) {
+                    tex_x = (affine_tex_x_fp >> 8) + sprite_half_width;
+                    tex_y = (affine_tex_y_fp >> 8) + sprite_half_height;
+                    /* Advance before any bounds-check continue so the next
+                     * screen column always receives its exact matrix input. */
+                    affine_tex_x_fp += pa;
+                    affine_tex_y_fp += pc;
+                } else {
+                    const int input_rel_x = eff_sx - half_width;
+                    tex_x = ((pa * input_rel_x + pb * input_rel_y) >> 8) + sprite_half_width;
+                    tex_y = ((pc * input_rel_x + pd * input_rel_y) >> 8) + sprite_half_height;
+                }
                 if (tex_x < 0 || tex_x >= obj_width || tex_y < 0 || tex_y >= obj_height) {
                     continue;
                 }
@@ -1946,14 +1992,15 @@ static __attribute__((noinline)) bool mode1_render_old3ds_field_alpha_line(int l
 }
 
 /* Allocation-free compact path for the exact display profile used by normal
- * native-width gameplay: tiled mode, 4bpp BGs, no BG mosaic, no windows.  The
- * generic renderer remains the fallback for every other GBA feature and is
- * also the parity-test oracle.  OBJ rendering is deliberately shared with the
- * generic path so affine/8bpp/mosaic sprites, OAM tie-breaking, swamp clipping,
- * and semi-transparency retain one implementation. */
+ * native-width gameplay: tiled mode, 4bpp BGs, and no effective BG mosaic.
+ * WIN0/WIN1/OBJ-window are composited with the same precedence and layer/SFX
+ * masks as the generic renderer, keeping spotlight/darkness rooms on compact
+ * tokens. The generic renderer remains the fallback for every other GBA
+ * feature and is also the parity-test oracle. OBJ rendering is deliberately
+ * shared with the generic path so affine/8bpp/mosaic sprites, OAM tie-breaking,
+ * swamp clipping, and semi-transparency retain one implementation. */
 static bool mode1_render_native_compact_line(int line, uint16_t dispcnt, int frame_width) {
-    if (!MODE1_NATIVE_FAST_PATHS_ENABLED() ||
-        (dispcnt & (MODE1_DISP_WIN0_ON | MODE1_DISP_WIN1_ON | MODE1_DISP_OBJWIN_ON)) != 0u) {
+    if (!MODE1_NATIVE_FAST_PATHS_ENABLED()) {
         return false;
     }
 
@@ -2015,17 +2062,92 @@ static bool mode1_render_native_compact_line(int line, uint16_t dispcnt, int fra
     if (evb > 16) evb = 16;
     if (evy > 16) evy = 16;
 
+    const bool win0_on = (dispcnt & MODE1_DISP_WIN0_ON) != 0u;
+    const bool win1_on = (dispcnt & MODE1_DISP_WIN1_ON) != 0u;
+    const bool objwin_on = (dispcnt & MODE1_DISP_OBJWIN_ON) != 0u;
+    const bool any_window = win0_on || win1_on || objwin_on;
+    uint8_t win0_ctrl = 0x3Fu;
+    uint8_t win1_ctrl = 0x3Fu;
+    uint8_t outside_ctrl = 0x3Fu;
+    uint8_t objwin_ctrl = 0x3Fu;
+    int win0_left = 0;
+    int win0_right = 0;
+    int win1_left = 0;
+    int win1_right = 0;
+    bool win0_h_wrap = false;
+    bool win1_h_wrap = false;
+    bool win0_v_active = false;
+    bool win1_v_active = false;
+    if (any_window) {
+        const uint16_t winin = virtuappu_mode1_io_read16(MODE1_IO_WININ);
+        const uint16_t winout = virtuappu_mode1_io_read16(MODE1_IO_WINOUT);
+        const uint16_t win0h = virtuappu_mode1_io_read16(MODE1_IO_WIN0H);
+        const uint16_t win0v = virtuappu_mode1_io_read16(MODE1_IO_WIN0V);
+        const uint16_t win1h = virtuappu_mode1_io_read16(MODE1_IO_WIN1H);
+        const uint16_t win1v = virtuappu_mode1_io_read16(MODE1_IO_WIN1V);
+        int win0_top = win0v >> 8u;
+        int win0_bottom = win0v & 0xFFu;
+        int win1_top = win1v >> 8u;
+        int win1_bottom = win1v & 0xFFu;
+
+        win0_left = win0h >> 8u;
+        win0_right = win0h & 0xFFu;
+        win1_left = win1h >> 8u;
+        win1_right = win1h & 0xFFu;
+        if (win0_right > frame_width) win0_right = frame_width;
+        if (win0_bottom > MODE1_GBA_HEIGHT) win0_bottom = MODE1_GBA_HEIGHT;
+        if (win1_right > frame_width) win1_right = frame_width;
+        if (win1_bottom > MODE1_GBA_HEIGHT) win1_bottom = MODE1_GBA_HEIGHT;
+
+        win0_h_wrap = win0_left > win0_right;
+        win1_h_wrap = win1_left > win1_right;
+        const bool win0_v_wrap = win0_top > win0_bottom;
+        const bool win1_v_wrap = win1_top > win1_bottom;
+        win0_v_active = win0_on &&
+                        (win0_v_wrap ? (line >= win0_top || line < win0_bottom)
+                                     : (line >= win0_top && line < win0_bottom));
+        win1_v_active = win1_on &&
+                        (win1_v_wrap ? (line >= win1_top || line < win1_bottom)
+                                     : (line >= win1_top && line < win1_bottom));
+
+        win0_ctrl = (uint8_t)(winin & 0x3Fu);
+        win1_ctrl = (uint8_t)((winin >> 8u) & 0x3Fu);
+        outside_ctrl = (uint8_t)(winout & 0x3Fu);
+        objwin_ctrl = (uint8_t)((winout >> 8u) & 0x3Fu);
+    }
+
     const uint32_t backdrop_color = mode1_bg_abgr_lut[0];
     const bool no_effect_fast_path = effect == MODE1_BLEND_NONE;
     const bool has_second_targets = (bldcnt & 0x3F00u) != 0u;
     uint32_t* const out_row = mode1_output_row(line);
 
     for (int x = 0; x < frame_width; ++x) {
+        uint8_t win_ctrl = 0x3Fu;
+        if (any_window) {
+            win_ctrl = outside_ctrl;
+            /* GBA window precedence: WIN0 > WIN1 > OBJ-window > outside. */
+            if (objwin_on && virtuappu_mode1_obj_window[x]) {
+                win_ctrl = objwin_ctrl;
+            }
+            if (win1_v_active) {
+                const bool in_h = win1_h_wrap ? (x >= win1_left || x < win1_right)
+                                                   : (x >= win1_left && x < win1_right);
+                if (in_h) win_ctrl = win1_ctrl;
+            }
+            if (win0_v_active) {
+                const bool in_h = win0_h_wrap ? (x >= win0_left || x < win0_right)
+                                                   : (x >= win0_left && x < win0_right);
+                if (in_h) win_ctrl = win0_ctrl;
+            }
+        }
+
         const bool any_bg_drew = (bg_enabled[0] && bg_tokens[0][x] != 0u) ||
                                  (bg_enabled[1] && bg_tokens[1][x] != 0u) ||
                                  (bg_enabled[2] && bg_tokens[2][x] != 0u) ||
                                  (bg_enabled[3] && bg_tokens[3][x] != 0u);
-        const bool obj_candidate = obj_enabled && obj_layer[x] != 0u;
+        const bool visible_obj = (win_ctrl & 0x10u) != 0u;
+        const bool allow_sfx = (win_ctrl & 0x20u) != 0u;
+        const bool obj_candidate = obj_enabled && visible_obj && obj_layer[x] != 0u;
         const unsigned obj_p = obj_candidate ? obj_priority[x] : 0xFFu;
         uint32_t top_color = backdrop_color;
         int top_layer = 5;
@@ -2035,7 +2157,7 @@ static bool mode1_render_native_compact_line(int line, uint16_t dispcnt, int fra
         bool found_bottom = false;
 
         if (no_effect_fast_path &&
-            !(obj_candidate && virtuappu_mode1_obj_semitrans[x] && has_second_targets)) {
+            !(allow_sfx && obj_candidate && virtuappu_mode1_obj_semitrans[x] && has_second_targets)) {
             for (int order_index = 0; order_index < MODE1_GBA_BG_COUNT; ++order_index) {
                 const int bg = bg_order[order_index];
                 if (obj_candidate && bg_order_priority[bg] >= obj_p) {
@@ -2044,7 +2166,7 @@ static bool mode1_render_native_compact_line(int line, uint16_t dispcnt, int fra
                     break;
                 }
                 const uint16_t token = bg_enabled[bg] ? bg_tokens[bg][x] : 0u;
-                if (token != 0u) {
+                if ((win_ctrl & (uint8_t)(1u << bg)) != 0u && token != 0u) {
                     top_color = mode1_bg_abgr_lut[token - 1u];
                     found_top = true;
                     break;
@@ -2077,7 +2199,7 @@ static bool mode1_render_native_compact_line(int line, uint16_t dispcnt, int fra
                 if (found_bottom) break;
             }
             const uint16_t token = bg_enabled[bg] ? bg_tokens[bg][x] : 0u;
-            if (token != 0u) {
+            if ((win_ctrl & (uint8_t)(1u << bg)) != 0u && token != 0u) {
                 MODE1_COMPACT_CONSIDER(mode1_bg_abgr_lut[token - 1u], bg);
             }
         }
@@ -2086,40 +2208,43 @@ static bool mode1_render_native_compact_line(int line, uint16_t dispcnt, int fra
         }
 #undef MODE1_COMPACT_CONSIDER
 
-        if (top_layer == 4 && virtuappu_mode1_obj_semitrans[x]) {
-            if (mode1_is_second_target(bldcnt, bottom_layer)) {
-                top_color = mode1_alpha_blend(top_color, bottom_color, eva, evb);
-            } else if (effect == MODE1_BLEND_BRIGHTEN) {
-                top_color = mode1_brighten(top_color, evy);
-            } else if (effect == MODE1_BLEND_DARKEN) {
-                top_color = mode1_darken(top_color, evy);
-            }
-        } else {
-            switch (effect) {
-                case MODE1_BLEND_ALPHA:
-                    if (mode1_is_first_target(bldcnt, top_layer) &&
-                        mode1_is_second_target(bldcnt, bottom_layer)) {
-                        top_color = mode1_alpha_blend(top_color, bottom_color, eva, evb);
-                    }
-                    break;
-                case MODE1_BLEND_BRIGHTEN:
-                    if (mode1_is_first_target(bldcnt, top_layer)) {
-                        top_color = mode1_brighten(top_color, evy);
-                    }
-                    break;
-                case MODE1_BLEND_DARKEN:
-                    if (mode1_is_first_target(bldcnt, top_layer)) {
-                        top_color = mode1_darken(top_color, evy);
-                    }
-                    break;
-                default:
-                    break;
+        if (allow_sfx) {
+            if (top_layer == 4 && virtuappu_mode1_obj_semitrans[x]) {
+                if (mode1_is_second_target(bldcnt, bottom_layer)) {
+                    top_color = mode1_alpha_blend(top_color, bottom_color, eva, evb);
+                } else if (effect == MODE1_BLEND_BRIGHTEN) {
+                    top_color = mode1_brighten(top_color, evy);
+                } else if (effect == MODE1_BLEND_DARKEN) {
+                    top_color = mode1_darken(top_color, evy);
+                }
+            } else {
+                switch (effect) {
+                    case MODE1_BLEND_ALPHA:
+                        if (mode1_is_first_target(bldcnt, top_layer) &&
+                            mode1_is_second_target(bldcnt, bottom_layer)) {
+                            top_color = mode1_alpha_blend(top_color, bottom_color, eva, evb);
+                        }
+                        break;
+                    case MODE1_BLEND_BRIGHTEN:
+                        if (mode1_is_first_target(bldcnt, top_layer)) {
+                            top_color = mode1_brighten(top_color, evy);
+                        }
+                        break;
+                    case MODE1_BLEND_DARKEN:
+                        if (mode1_is_first_target(bldcnt, top_layer)) {
+                            top_color = mode1_darken(top_color, evy);
+                        }
+                        break;
+                    default:
+                        break;
+                }
             }
         }
 
         out_row[x] = x >= MODE1_GBA_BG_CLIP_X && !any_bg_drew ? 0xFF000000u : top_color;
     }
 
+    MODE1_RECORD_NATIVE_COMPACT_TEST_LINE();
     return true;
 }
 
@@ -2468,13 +2593,20 @@ int virtuappu_mode1_prepare_frame(const PPUMemory* ppu, uint8_t* io_per_line, ui
     return (dispcnt & MODE1_DISP_FORCED_BLANK) != 0u;
 }
 
+/* The CPU renderer only reads display registers through BLDY (0x54). Keep
+ * its private per-line snapshots tightly packed instead of inheriting the
+ * public GPU prepare API's full 0x400-byte IO stride. */
+enum { MODE1_RENDER_IO_SNAPSHOT_SIZE = MODE1_IO_BLDY + 2u };
+_Static_assert(MODE1_RENDER_IO_SNAPSHOT_SIZE <= MODE1_IO_MEM_SIZE,
+               "CPU render IO snapshot must fit the bound IO register file");
+
 typedef struct Mode1RenderLinesContext {
     bool affine;
     bool per_line_io;
     uint16_t dispcnt;
     int frame_width;
     const uint16_t* per_line_dispcnt;
-    const uint8_t (*io_snapshots)[MODE1_IO_MEM_SIZE];
+    const uint8_t (*io_snapshots)[MODE1_RENDER_IO_SNAPSHOT_SIZE];
     const int32_t* aff_ref_x;
     const int32_t* aff_ref_y;
 } Mode1RenderLinesContext;
@@ -2738,7 +2870,7 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
      *      its line's snapshot, then renders BG / OBJ / composite normally
      *      via the existing single-line functions, which now read IO regs
      *      through the override. */
-    static uint8_t io_snapshots[MODE1_GBA_HEIGHT][MODE1_IO_MEM_SIZE];
+    static uint8_t io_snapshots[MODE1_GBA_HEIGHT][MODE1_RENDER_IO_SNAPSHOT_SIZE];
     uint16_t per_line_dispcnt[MODE1_GBA_HEIGHT];
 
     /* Affine BG2 carries an internal reference point across scanlines (#132).
@@ -2767,7 +2899,7 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
         if (per_line_io) {
             virtuappu_mode1_pre_line_callback(line);
             /* Display rendering only reads registers through BLDY (0x54). */
-            memcpy(io_snapshots[line], mode1_memory.io_mem, MODE1_IO_BLDY + 2u);
+            memcpy(io_snapshots[line], mode1_memory.io_mem, MODE1_RENDER_IO_SNAPSHOT_SIZE);
             per_line_dispcnt[line] =
 #ifdef TMC_N64
                 *(const uint16_t*)&io_snapshots[line][MODE1_IO_DISPCNT];

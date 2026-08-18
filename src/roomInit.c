@@ -36,10 +36,18 @@
 #include "port_config.h"
 #include "port_rom.h"
 #include "port_gba_mem.h"
+#include "port_story_guard.h"
 #include "object/itemOnGround.h"
 #include "rando/rando.h"
 #include "rando/rando_logic.h"
 #include "rando/rando_runtime.h"
+#endif
+
+#ifdef PC_PORT
+#define SHOULD_RUN_SOUTH_HYRULE_ZELDA_INTRO()                                                        \
+    Port_ShouldRunZeldaIntro(CheckLocalFlagB(SOUGEN_01_ZELDA) != 0, CheckGlobalFlag(TABIDACHI) != 0)
+#else
+#define SHOULD_RUN_SOUTH_HYRULE_ZELDA_INTRO() (!CheckLocalFlagB(SOUGEN_01_ZELDA))
 #endif
 extern u32 sub_08060354(void);
 extern void sub_08057E64(void);
@@ -5838,7 +5846,7 @@ void sub_StateChange_HyruleField_WesternWoodSouth(void) {
 }
 
 u32 sub_unk3_HyruleField_SouthHyruleField(void) {
-    if (!CheckLocalFlagB(SOUGEN_01_ZELDA)) {
+    if (SHOULD_RUN_SOUTH_HYRULE_ZELDA_INTRO()) {
         SetFade(FADE_IN_OUT | FADE_BLACK_WHITE | FADE_INSTANT, 256);
     }
     SetGlobalFlag(OUTDOOR);
@@ -5851,7 +5859,7 @@ extern EntityData gUnk_080F7088;
 
 void sub_StateChange_HyruleField_SouthHyruleField(void) {
     CloudOverlayManager_Main(NULL);
-    if (!CheckLocalFlagB(SOUGEN_01_ZELDA)) {
+    if (SHOULD_RUN_SOUTH_HYRULE_ZELDA_INTRO()) {
         LoadRoomEntityList(&gUnk_080F70A8);
         ClearGlobalFlag(ZELDA_CHASE);
     }

@@ -75,8 +75,12 @@ int main(void) {
     SaveFile legacy;
     unsigned canonicalCases = 0;
     unsigned falsePositives = 0;
+    unsigned vanillaCanonicalCases = 0;
+    unsigned vanillaFalsePositives = 0;
     unsigned progressedLegacyCases = 0;
     unsigned missedProgressedLegacy = 0;
+    unsigned vanillaLegacyCases = 0;
+    unsigned missedVanillaLegacy = 0;
     unsigned progress;
     unsigned storyStage;
     unsigned advancedInventory;
@@ -196,6 +200,35 @@ int main(void) {
     CHECK(memcmp(&legacy, &imported, sizeof(legacy)) == 0,
           "a progressed E1 rando migration restores its canonical bytes exactly");
 
+    /* Real vanilla LV1 completion also sets MACHI_SET_1. After the E1 shift,
+     * that bit masquerades as canonical LV1_CLEAR while the three prologue
+     * bits masquerade as MACHI_SET_2/3/4. The strict policy must leave the
+     * mathematically ambiguous bytes alone; the vanilla policy has enough
+     * game-order evidence to recover report 2 exactly. */
+    BuildCanonicalProgressState(&imported, 2, 3, 0, 0);
+    SetFlagAtOffset((unsigned char*)&imported, offsetof(SaveFile, flags), MACHI_SET_1);
+    memcpy(&legacy, &imported, sizeof(legacy));
+    EncodeV1LegacyAffectedRange(&legacy);
+    CHECK(!Port_SaveNormalizeLegacyLayout(&legacy),
+          "the strict policy fails closed on the LV1/MACHI_SET_1 byte collision");
+    CHECK(Port_SaveNormalizeLegacyLayoutWithPolicy(&legacy, true),
+          "the vanilla policy detects the real LV1/MACHI_SET_1 E1 fixture");
+    CHECK(memcmp(&legacy, &imported, sizeof(legacy)) == 0,
+          "the vanilla LV1 fixture restores every shifted flag and dungeon byte");
+
+    /* The indistinguishable canonical story-skip pattern is possible only for
+     * randomizer/corrupt state. Runtime randomizer loads use the strict policy,
+     * so even a nonzero padding byte cannot trigger a false migration. */
+    BuildCanonicalProgressState(&imported, 2, 0, 0, 1u << (LV1_CLEAR & 7));
+    SetFlagAtOffset((unsigned char*)&imported, offsetof(SaveFile, flags), MACHI_SET_2);
+    SetFlagAtOffset((unsigned char*)&imported, offsetof(SaveFile, flags), MACHI_SET_3);
+    SetFlagAtOffset((unsigned char*)&imported, offsetof(SaveFile, flags), MACHI_SET_4);
+    memcpy(&legacy, &imported, sizeof(legacy));
+    CHECK(!Port_SaveNormalizeLegacyLayoutWithPolicy(&imported, false),
+          "strict randomizer policy rejects the canonical LV1 collision twin");
+    CHECK(memcmp(&imported, &legacy, sizeof(imported)) == 0,
+          "the canonical LV1 collision twin remains byte-for-byte untouched");
+
     /* Every coherent post-LV1 v1.0 state has a nonzero legacy-global byte.
      * Cover all progress values, ordered story stages, and allowed inventory
      * combinations to ensure fail-closed handling does not strand progressed
@@ -219,6 +252,25 @@ int main(void) {
     CHECK(progressedLegacyCases == 54, "the progressed E1 audit covers all planned states");
     CHECK(missedProgressedLegacy == 0, "the progressed E1 audit detects and restores every state");
 
+    /* Vanilla post-LV1 saves always completed the prologue and defeated the
+     * Big Green Chuchu. Exercise the actual collision at every later progress
+     * value and with/without representative advanced inventory. */
+    for (progress = 2; progress <= 10; progress++) {
+        for (advancedInventory = 0; advancedInventory <= 1; advancedInventory++) {
+            BuildCanonicalProgressState(&imported, progress, 3, advancedInventory, 0);
+            SetFlagAtOffset((unsigned char*)&imported, offsetof(SaveFile, flags), MACHI_SET_1);
+            memcpy(&legacy, &imported, sizeof(legacy));
+            EncodeV1LegacyAffectedRange(&legacy);
+            vanillaLegacyCases++;
+            if (!Port_SaveNormalizeLegacyLayoutWithPolicy(&legacy, true) ||
+                memcmp(&legacy, &imported, sizeof(legacy)) != 0) {
+                missedVanillaLegacy++;
+            }
+        }
+    }
+    CHECK(vanillaLegacyCases == 18, "the vanilla E1 audit covers every post-LV1 progress state");
+    CHECK(missedVanillaLegacy == 0, "the vanilla E1 audit restores every real MACHI_SET_1 state");
+
     /* False-positive audit: exercise every progress value, every coherent
      * START/EZERO/TABIDACHI/inventory combination, all 256 possible values of
      * nominal padding, and all 256 neighboring global-flag bytes that a
@@ -237,6 +289,19 @@ int main(void) {
                         if (Port_SaveNormalizeLegacyLayout(&imported)) {
                             falsePositives++;
                         }
+                        /* A valid vanilla save cannot reach progress 2 before
+                         * completing START/EZERO/TABIDACHI. Audit the relaxed
+                         * collision policy across all otherwise-valid vanilla
+                         * states, including arbitrary padding and neighboring
+                         * flag bytes. */
+                        if (progress < 2 || storyStage == 3) {
+                            BuildCanonicalProgressState(&imported, progress, storyStage, advancedInventory, filler);
+                            ((unsigned char*)&imported)[offsetof(SaveFile, flags) + 1] = neighboringFlags;
+                            vanillaCanonicalCases++;
+                            if (Port_SaveNormalizeLegacyLayoutWithPolicy(&imported, true)) {
+                                vanillaFalsePositives++;
+                            }
+                        }
                     }
                 }
             }
@@ -244,6 +309,9 @@ int main(void) {
     }
     CHECK(canonicalCases == 4325376, "the canonical discriminator audit covers all planned states");
     CHECK(falsePositives == 0, "the canonical discriminator audit has zero false migrations");
+    CHECK(vanillaCanonicalCases == 1966080,
+          "the vanilla collision-policy audit covers every planned canonical state");
+    CHECK(vanillaFalsePositives == 0, "the vanilla collision policy has zero valid-save false migrations");
 
     if (sFailures != 0) {
         return 1;

@@ -408,7 +408,7 @@ int main(int argc, char* argv[]) {
      * applied if the config doesn't name one. */
     {
         extern const char* Port_Config_ActiveSaveProfile(void);
-        extern void Port_Save_SetActivePath(const char* path);
+        extern int Port_Save_SetActivePath(const char* path);
         Port_Save_SetActivePath(Port_Config_ActiveSaveProfile());
     }
 

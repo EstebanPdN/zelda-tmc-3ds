@@ -1225,6 +1225,68 @@ target("region_runtime_data_test")
     add_includedirs("include")
     add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
     add_files("port/port_region_runtime_data_test.c")
+    add_files("port/port_offset_remap.c")
+target_end()
+
+
+-- ====================
+-- ROM-backed raw gfx-group EWRAM alias regression test.
+-- ====================
+target("gfx_group_dma_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_files("port/port_gfx_group_dma_test.c")
+target_end()
+
+
+-- ====================
+-- Hidden-HUD second-screen charge-meter regression test.
+-- ====================
+target("second_screen_charge_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_files("port/port_second_screen_charge_test.c")
+target_end()
+
+
+-- ====================
+-- Enter-room banner widescreen lifecycle regression test.
+-- ====================
+target("widescreen_banner_state_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs("port")
+    add_files("port/port_widescreen_banner_state_test.c")
+target_end()
+
+
+-- ====================
+-- Pullable-mushroom transactional allocation regression test.
+-- ====================
+target("pullable_mushroom_allocation_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections")
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/pullable_mushroom_allocation_test.c")
+    add_files("src/object/pullableMushroom.c")
 target_end()
 
 
@@ -1240,6 +1302,38 @@ target("save_layout_test")
     add_includedirs("include")
     add_defines("PC_PORT", "USA", "ENGLISH")
     add_files("port/port_save_layout_test.c")
+target_end()
+
+
+-- ====================
+-- Fail-closed raw EEPROM persistence and interrupted-write recovery test.
+-- ====================
+target("save_persistence_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "TMC_3DS", "PORT_SAVE_TEST", "USA", "ENGLISH")
+    add_files("port/port_save.c")
+    add_files("port/port_save_persistence_test.c")
+target_end()
+
+
+-- ====================
+-- Story invariant, regional fusion-marker, and bounded fuser-data test.
+-- ====================
+target("save_story_region_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
+    add_files("port/flag_remap_generated.c")
+    add_files("port/port_save_story_region_test.c")
 target_end()
 
 

@@ -83,10 +83,12 @@ void Port_RandoFileMenu_PersistLogicOverrides(void) {}
 void Port_Rando3DS_ConfirmModeChange(bool enabled) {
     if (enabled == Port_Config_GetRandoEnabled()) return;
 
-    const int cleanupOk = Port_Save_ClearActiveProfileData();
+    if (!Port_Save_ClearActiveProfileData()) {
+        printf("Randomizer mode unchanged: active profile cleanup failed.\n");
+        return;
+    }
     Rando_Reset();
     Port_Config_SetRandoEnabled(enabled);
-    printf("Randomizer %s; active profile cleared%s. Restarting.\n", enabled ? "enabled" : "disabled",
-           cleanupOk ? "" : " with cleanup warnings");
+    printf("Randomizer %s; active profile cleared. Restarting.\n", enabled ? "enabled" : "disabled");
     DoSoftReset();
 }

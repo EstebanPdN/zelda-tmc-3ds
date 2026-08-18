@@ -607,7 +607,7 @@ static const u16 gUnk_080FC8DE[] = {
 #define PORT_SETTINGS_ROW_COUNT 5
 #define PORT_PROFILE_ROW 4
 extern const char* Port_Save_GetActivePath(void);
-extern void Port_Save_SetActivePath(const char* path);
+extern int Port_Save_SetActivePath(const char* path);
 extern int Port_Save_ListProfiles(char (*out)[64], int max);
 extern void Port_Config_SetActiveSaveProfile(const char* path);
 
@@ -631,7 +631,8 @@ static void Port_FileSelect_CycleProfile(int direction) {
     }
     cur = (cur + direction + n) % n;
 
-    Port_Save_SetActivePath(profiles[cur]);
+    if (!Port_Save_SetActivePath(profiles[cur]))
+        return;
     Port_Config_SetActiveSaveProfile(profiles[cur]);
 
     /* Re-read the three engine save slots so the on-screen file tiles

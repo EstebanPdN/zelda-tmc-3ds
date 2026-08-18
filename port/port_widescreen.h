@@ -69,6 +69,12 @@ int Port_Widescreen_HudRightAnchor(void);
  * overlay screens (storybook, pause) drop this to 0 -> present native 240. */
 int Port_Widescreen_ShadowsLive(void);
 
+/* EnterRoomTextboxManager writes its location banner directly to BG0 rather
+ * than opening gMessage.  Publish that separate lifecycle so wide rendering
+ * can center the complete two-row banner instead of applying the HUD's
+ * right-edge remap through its middle. */
+void Port_Widescreen_SetEnterRoomBannerActive(int active);
+
 /* True widescreen: the view width tracks the WINDOW's aspect each frame —
  * viewW = clamp(floor(window_width * 160 / window_height), 240,
  * MODE1_GBA_WIDTH) — so a 16:9 monitor fills exactly (~284 px) with a

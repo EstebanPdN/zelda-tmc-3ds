@@ -309,9 +309,14 @@ void sub_0808AEB0(PullableMushroomEntity* this) {
         COLLISION_OFF(super);
         super->spriteSettings.flipX = gPlayerEntity.base.spriteSettings.flipX;
         InitializeAnimation(super, super->animationState + 5);
-        if (sub_0808B21C(this, 0)) {
-            sub_0808B168((PullableMushroomEntity*)super->child, 0);
+        if (!sub_0808B21C(this, 0)) {
+            /* Entity pressure: abort this pull through the existing release
+             * state.  Advancing with no child would dereference NULL on the
+             * next frame; the release path restores the neutral mushroom. */
+            super->subAction = 6;
+            return;
         }
+        sub_0808B168((PullableMushroomEntity*)super->child, 0);
         if ((super->animationState & 1) != 0) {
             gPlayerEntity.base.y.HALF.HI = super->y.HALF.HI;
         } else {
@@ -359,9 +364,12 @@ void sub_0808B05C(PullableMushroomEntity* this) {
         super->spriteSettings.flipX = gPlayerEntity.base.spriteSettings.flipX;
         COLLISION_OFF(super);
         InitializeAnimation(super, super->animationState + 5);
-        if (sub_0808B21C(this, 1)) {
-            sub_0808B168((PullableMushroomEntity*)super->child, 1);
+        if (!sub_0808B21C(this, 1)) {
+            /* Stay in setup and retry after entity slots become available.
+             * sub_0808B21C leaves no half-linked child/affine entity behind. */
+            return;
         }
+        sub_0808B168((PullableMushroomEntity*)super->child, 1);
     }
     super->subAction++;
 }
@@ -454,24 +462,33 @@ u32 sub_0808B1F0(PullableMushroomEntity* this, Entity* other) {
 }
 
 bool32 sub_0808B21C(PullableMushroomEntity* this, u32 param_2) {
-    Entity* obj;
+    Entity* child;
+    Entity* affine;
+
+    /* This is one logical visual: the stretching cap and its affine helper
+     * must either both exist or neither may be published through the parent
+     * pointers.  The old code assigned each pointer immediately, so failure
+     * of either allocation left later states with NULL/half-linked entities. */
+    child = CreateObjectWithParent(super, PULLABLE_MUSHROOM, 1, 0);
+    if (child == NULL) {
+        return FALSE;
+    }
+    affine = CreateObjectWithParent(super, PULLABLE_MUSHROOM, 2, 0);
+    if (affine == NULL) {
+        DeleteEntity(child);
+        return FALSE;
+    }
+
+    child->animationState = super->animationState;
+    child->direction = super->direction;
+    child->spriteSettings.flipX = super->spriteSettings.flipX;
+    child->parent = super;
+    child->type2 = (u8)param_2;
+    affine->animationState = super->animationState;
+    affine->child = child;
 
     super->spritePriority.b0 = 6;
-    obj = CreateObjectWithParent(super, PULLABLE_MUSHROOM, 1, 0);
-    super->child = obj;
-    if (obj != NULL) {
-        obj->animationState = super->animationState;
-        (super->child)->direction = super->direction;
-        super->child->spriteSettings.flipX = super->spriteSettings.flipX;
-        (super->child)->parent = super;
-        (super->child)->type2 = (u8)param_2;
-    }
-    obj = CreateObjectWithParent(super, PULLABLE_MUSHROOM, 2, 0);
-    super->parent = obj;
-    if (obj != NULL) {
-        obj->animationState = super->animationState;
-        (super->parent)->child = super->child;
-        return TRUE;
-    }
-    return FALSE;
+    super->child = child;
+    super->parent = affine;
+    return TRUE;
 }

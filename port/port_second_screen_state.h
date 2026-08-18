@@ -18,6 +18,7 @@
  * that owns it.
  */
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -59,6 +60,12 @@ typedef struct {
     uint8_t equippedSlotB;
     uint8_t health;    /* 8 units per heart */
     uint8_t maxHealth;
+    /* Sword charge state for the bottom-screen replacement HUD.  The top
+     * HUD visibility bit is published too because DrawUI's runtime hide is
+     * deliberately temporary and never appears in gHUD.hideFlags. */
+    uint8_t topHudHidden;
+    uint8_t chargeAction; /* gPlayerState.chargeState.action; 0 = inactive */
+    int16_t chargeTimer;  /* native timer; 800 frames fills all 40 quarters */
     uint16_t rupees;
     int32_t playerX; /* area-space pixels */
     int32_t playerY;
@@ -163,6 +170,23 @@ typedef struct {
      * (port-side automap tracking, zelda3-android "visited rooms" style). */
     uint64_t visitedMask;
 } SecondScreenSnapshot;
+
+/* Native DrawChargeBar rounds each 20 timer ticks up to one of 40 quarter
+ * segments.  Keep that exact calculation beside the snapshot contract so
+ * renderers and focused tests cannot drift from gameplay. */
+static inline uint8_t Port_SecondScreenChargeVisible(const SecondScreenSnapshot* snapshot) {
+    return snapshot != NULL && snapshot->topHudHidden != 0 && snapshot->chargeAction != 0;
+}
+
+static inline uint8_t Port_SecondScreenChargeSteps(const SecondScreenSnapshot* snapshot) {
+    uint32_t steps;
+
+    if (!Port_SecondScreenChargeVisible(snapshot) || snapshot->chargeTimer <= 0) {
+        return 0;
+    }
+    steps = ((uint32_t)snapshot->chargeTimer + 19u) / 20u;
+    return (uint8_t)(steps > 40u ? 40u : steps);
+}
 
 /* Called once per game tick from the main loop (src/main.c). Builds a fresh
  * snapshot from gRoomControls/gPlayerEntity/gSave/gArea, applies any

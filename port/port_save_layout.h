@@ -82,17 +82,43 @@ static inline bool Port_SaveLayoutIsCoherent(const u8* bytes, size_t flagsOffset
     return true;
 }
 
-static inline bool Port_SaveLayoutLooksLegacy(const SaveFile* save) {
+/* Deepwood's boss sets both LV1_CLEAR and MACHI_SET_1. In the one-byte-early
+ * v1.0/v1.1-E1 layout that exact pair makes the canonical interpretation look
+ * superficially coherent: shifted MACHI_SET_1 lands on canonical LV1_CLEAR,
+ * while shifted START/EZERO/TABIDACHI land on MACHI_SET_2/3/4. This is the
+ * report-2 state (progress 2, no apparent prologue flags) that the original
+ * discriminator failed to migrate.
+ *
+ * The byte pattern is inherently ambiguous with a deliberately story-skipped
+ * randomizer save whose unused canonical padding byte was changed to 0x04.
+ * Callers must therefore opt in only when the slot is known to be vanilla. */
+static inline bool Port_SaveLayoutIsKnownVanillaLv1Collision(const u8* bytes, size_t canonicalFlags,
+                                                             size_t legacyFlags) {
+    const unsigned progress = bytes[offsetof(SaveFile, global_progress)];
+
+    return progress >= 2 && progress < 5 && Port_SaveLayoutStoryRank(bytes, canonicalFlags) == 0 &&
+           Port_SaveLayoutStoryRank(bytes, legacyFlags) == 3 &&
+           Port_SaveLayoutFlag(bytes, canonicalFlags, LV1_CLEAR) != 0 &&
+           Port_SaveLayoutFlag(bytes, legacyFlags, LV1_CLEAR) != 0 &&
+           Port_SaveLayoutFlag(bytes, legacyFlags, MACHI_SET_1) != 0;
+}
+
+static inline bool Port_SaveLayoutLooksLegacyWithPolicy(const SaveFile* save, bool allowVanillaLv1Collision) {
     const u8* bytes = (const u8*)save;
     const size_t canonicalFlags = offsetof(SaveFile, flags);
     const size_t legacyFlags = offsetof(SaveFile, filler25B);
     const int canonicalScore = Port_SaveLayoutScore(bytes, canonicalFlags);
     const int legacyScore = Port_SaveLayoutScore(bytes, legacyFlags);
+    const bool knownVanillaLv1Collision =
+        allowVanillaLv1Collision &&
+        Port_SaveLayoutIsKnownVanillaLv1Collision(bytes, canonicalFlags, legacyFlags);
 
     /* Fail closed on the inherently ambiguous early-v1.0 case: a zero byte at
      * 0x25B is indistinguishable from canonical padding without version
-     * metadata. Likewise, never reinterpret a coherent canonical record. */
-    if (bytes[legacyFlags] == 0 || Port_SaveLayoutIsCoherent(bytes, canonicalFlags) ||
+     * metadata. Likewise, never reinterpret a coherent canonical record except
+     * for the tightly scoped, vanilla-only LV1/MACHI_SET_1 collision above. */
+    if (bytes[legacyFlags] == 0 ||
+        (Port_SaveLayoutIsCoherent(bytes, canonicalFlags) && !knownVanillaLv1Collision) ||
         !Port_SaveLayoutIsCoherent(bytes, legacyFlags)) {
         return false;
     }
@@ -102,12 +128,17 @@ static inline bool Port_SaveLayoutLooksLegacy(const SaveFile* save) {
     return legacyScore >= canonicalScore + 3;
 }
 
-static inline bool Port_SaveNormalizeLegacyLayout(SaveFile* save) {
+static inline bool Port_SaveLayoutLooksLegacy(const SaveFile* save) {
+    return Port_SaveLayoutLooksLegacyWithPolicy(save, false);
+}
+
+static inline bool Port_SaveNormalizeLegacyLayoutWithPolicy(SaveFile* save, bool allowVanillaLv1Collision) {
     u8* bytes;
     const size_t canonicalFlags = offsetof(SaveFile, flags);
     const size_t legacyFlags = offsetof(SaveFile, filler25B);
 
-    if (save == NULL || save->initialized != 1 || !Port_SaveLayoutLooksLegacy(save)) {
+    if (save == NULL || save->initialized != 1 ||
+        !Port_SaveLayoutLooksLegacyWithPolicy(save, allowVanillaLv1Collision)) {
         return false;
     }
 
@@ -118,6 +149,10 @@ static inline bool Port_SaveNormalizeLegacyLayout(SaveFile* save) {
     memmove(bytes + canonicalFlags, bytes + legacyFlags, offsetof(SaveFile, darknut_timer) - canonicalFlags);
     bytes[legacyFlags] = 0;
     return true;
+}
+
+static inline bool Port_SaveNormalizeLegacyLayout(SaveFile* save) {
+    return Port_SaveNormalizeLegacyLayoutWithPolicy(save, false);
 }
 
 #endif /* PORT_SAVE_LAYOUT_H */

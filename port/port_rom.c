@@ -1072,7 +1072,8 @@ void* Port_GetFuserFusionData(u32 fuserId) {
     if (gRomOffsets == NULL) {
         return NULL;
     }
-    return (void*)Port_ResolveFuserDataFromRom(gRomData, gRomSize, gRomOffsets->fuserFusionPtrs, fuserId, 6u);
+    return (void*)Port_ResolveFuserDataFromRom(gRomData, gRomSize, gRomOffsets->fuserFusionPtrs, fuserId,
+                                               PORT_FUSER_FUSION_RECORD_BYTES);
 }
 
 static void* Port_ResolveAreaFirstLevelTable(u32 tableOffset, u32 area) {

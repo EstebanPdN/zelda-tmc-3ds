@@ -41,6 +41,18 @@ typedef struct PortSaveStats {
 
 void Port_Save_BeginTransaction(void);
 int Port_Save_EndTransaction(void);
+/* Create a durable, uniquely named copy of the active raw 8 KiB file before
+ * an automatic in-place migration. Returns 0 without altering the source. */
+int Port_Save_PreserveBeforeMigration(void);
+/* Switch profiles only after pending data for the current profile is durable.
+ * Returns 0 and retains the current path/state if that flush fails. */
+int Port_Save_SetActivePath(const char* path);
+const char* Port_Save_GetActivePath(void);
+int Port_Save_SaveAsProfile(const char* path);
+int Port_Save_ListProfiles(char out[][64], int max);
+int Port_Save_FilenameMax(void);
+int Port_Save_DeleteProfile(const char* path);
+int Port_Save_RenameProfile(const char* oldPath, const char* newPath);
 void Port_Save_GetStats(PortSaveStats* stats);
 const char* Port_Save_StageName(PortSaveStage stage);
 int Port_Save_ClearActiveProfileData(void);

@@ -2311,6 +2311,60 @@ static void DrawRPrompt(const SSurf* s, const SecondScreenSnapshot* snap, float 
     }
 }
 
+/* Bottom-screen counterpart of the native ten-cell/forty-quarter sword
+ * charge meter.  It is intentionally present only while the gameplay HUD
+ * is hidden: with the HUD visible the original BG0 meter remains the source
+ * of truth.  Full-charge actions cycle through four brightness phases at
+ * the same 8/16-tick cadence as DrawChargeBar's action 4/5 artwork. */
+static void DrawChargeIndicator(const SSurf* s, const SecondScreenSnapshot* snap, float x, float y,
+                                float w, float bandH, float u, uint32_t tick) {
+    if (!Port_SecondScreenChargeVisible(snap)) {
+        return;
+    }
+
+    const int steps = Port_SecondScreenChargeSteps(snap);
+    /* Preserve the native meter's roughly 12:1 aspect.  At the 320x240 3DS
+     * scale this also leaves every cell at least four pixels wide, so a
+     * one-pixel rim never consumes its quarter-fill interior. */
+    float barW = 160 * u;
+    if (barW > w - 16 * u) barW = w - 16 * u;
+    float gap = u;
+    if (gap < 1) gap = 1;
+    float cellW = (barW - 9 * gap) / 10;
+    float barH = 14 * u;
+    if (barH < 5) barH = 5;
+    float bx = x + (w - barW) / 2;
+    float by = y + (bandH - barH) / 2;
+    int32_t rim = (int32_t)u;
+    if (rim < 1) rim = 1;
+
+    uint32_t ink = Port_SecondScreenTheme_Color(SSC_MENU_INK);
+    uint32_t empty = Port_SecondScreenTheme_Color(SSC_MENU_STONE_DARK);
+    uint32_t fill = Port_SecondScreenTheme_Color(SSC_GOLD);
+    if (snap->chargeAction == 4 || snap->chargeAction == 5) {
+        uint32_t cadence = snap->chargeAction == 4 ? 8u : 16u;
+        uint32_t phase = (tick / cadence) & 3u;
+        fill = MixColor(fill, Port_SecondScreenTheme_Color(SSC_MENU_WHITE), phase * 42u);
+    }
+
+    for (int cell = 0; cell < 10; cell++) {
+        int quarters = steps - cell * 4;
+        if (quarters < 0) quarters = 0;
+        if (quarters > 4) quarters = 4;
+        int32_t x0 = (int32_t)(bx + cell * (cellW + gap));
+        int32_t x1 = (int32_t)(bx + cell * (cellW + gap) + cellW);
+        int32_t y0 = (int32_t)by;
+        int32_t y1 = (int32_t)(by + barH);
+        FillRect(s, x0, y0, x1, y1, empty);
+        OutlineRect(s, x0, y0, x1, y1, rim, ink);
+        if (quarters != 0 && x1 - x0 > rim * 2 && y1 - y0 > rim * 2) {
+            int32_t innerW = x1 - x0 - rim * 2;
+            int32_t fillW = (innerW * quarters + 3) / 4;
+            FillRect(s, x0 + rim, y0 + rim, x0 + rim + fillW, y1 - rim, fill);
+        }
+    }
+}
+
 /* Sidebar, right edge: hearts on top (the most-glanced info), the R
  * prompt band under them, the A/B equip rings centered in the middle, the
  * rupee/keys chip anchored to the bottom, just above the tab bar. */
@@ -2374,6 +2428,15 @@ static void PaintSidebar(const SSurf* s, const SecondScreenSnapshot* snap, Targe
         }
     }
     float vitalsBottom = hy + rows * 8 * hk + 4 * u;
+
+    /* When the top HUD is disabled, preserve the sword-charge cue beside
+     * the other glanceable vitals.  Reserve no space while inactive so the
+     * established sidebar geometry is unchanged during ordinary play. */
+    if (Port_SecondScreenChargeVisible(snap)) {
+        float chargeBandH = 28 * u;
+        DrawChargeIndicator(s, snap, x, vitalsBottom, w, chargeBandH, u, tick);
+        vitalsBottom += chargeBandH;
+    }
 
     /* R prompt band, reserved whether or not there is a prompt so the
      * rings below never shift when one appears. */

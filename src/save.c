@@ -200,8 +200,33 @@ u32 sub_0807CF1C(u8* arg0) {
 s32 ReadSaveFile(u32 index, SaveFile* saveFile) {
     s32 status = DataDoubleReadWithStatus(index, saveFile);
 #ifdef PC_PORT
-    if (status == 1 && Port_SaveNormalizeLegacyLayout(saveFile)) {
-        fprintf(stderr, "[SAVE] Migrated v1.0 save slot %u to the canonical EEPROM layout in memory.\n", index);
+    if (status == 1) {
+        SaveFile original;
+        extern bool Port_Config_GetRandoEnabled(void);
+        const bool allowVanillaLv1Collision = !Port_Config_GetRandoEnabled();
+
+        memcpy(&original, saveFile, sizeof(original));
+        if (Port_SaveNormalizeLegacyLayoutWithPolicy(saveFile, allowVanillaLv1Collision)) {
+            if (!Port_Save_PreserveBeforeMigration()) {
+                memcpy(saveFile, &original, sizeof(original));
+                fprintf(stderr,
+                        "[SAVE] Refused legacy-layout migration for slot %u because the permanent backup failed.\n",
+                        index);
+            } else if (DataDoubleWriteWithStatus(index, saveFile) == 1) {
+                fprintf(stderr,
+                        "[SAVE] Migrated legacy save slot %u to the canonical EEPROM layout and persisted both "
+                        "copies.\n",
+                        index);
+            } else {
+                /* The pre-migration image is permanent and the port EEPROM
+                 * remains dirty for retry. Keep canonical state in memory so
+                 * this session never replays shifted story flags. */
+                fprintf(stderr,
+                        "[SAVE] Legacy save slot %u was normalized in memory, but durable persistence failed; "
+                        "the original backup was retained.\n",
+                        index);
+            }
+        }
     }
 #endif
     return status;

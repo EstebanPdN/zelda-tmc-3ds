@@ -212,6 +212,69 @@ static inline const u8* Port_ResolveFuserDataFromRom(const u8* romData, u32 romS
     return Port_ResolvePackedRomDataPtrFromRom(romData, romSize, tableOffset, fuserId, minimumTargetBytes);
 }
 
+/* Bounded form of GetFuserData's six-byte entity-key table scan. Retail has a
+ * leading sentinel-sized record and a terminator well within this cap. A bad
+ * regional offset or missing terminator now returns no fuser instead of walking
+ * arbitrary ROM/host memory. Packed result: textId in bits 32..47, fuserId low. */
+static inline u64 Port_FindEntityFuserDataFromRom(const u8* romData, u32 romSize, u32 tableOffset, u8 id, u8 type,
+                                                 u8 type2) {
+    static const u32 masks[4] = {
+        0x00FFFFFFu, /* id + type + type2 */
+        0x00FFFF00u, /* id + type */
+        0x00FF00FFu, /* id + type2 */
+        0x00FF0000u, /* id only */
+    };
+    const u32 key = ((u32)id << 16) | ((u32)type << 8) | type2;
+    u32 record;
+
+    if (romData == NULL || tableOffset == 0u || tableOffset > romSize ||
+        PORT_FUSER_ENTITY_RECORD_SIZE > romSize - tableOffset) {
+        return 0;
+    }
+    for (record = 1; record <= PORT_FUSER_ENTITY_RECORD_LIMIT; ++record) {
+        u32 entryOffset;
+        const u8* entry;
+        u32 entryKey;
+        u32 maskIndex;
+        u32 fuserId;
+
+        if (record > (UINT32_MAX - tableOffset) / PORT_FUSER_ENTITY_RECORD_SIZE) return 0;
+        entryOffset = tableOffset + record * PORT_FUSER_ENTITY_RECORD_SIZE;
+        if (entryOffset > romSize || PORT_FUSER_ENTITY_RECORD_SIZE > romSize - entryOffset) return 0;
+        entry = romData + entryOffset;
+        if (entry[0] == 0) return 0;
+        entryKey = ((u32)entry[0] << 16) | ((u32)entry[1] << 8) | entry[2];
+        maskIndex = ((entry[1] == 0xFF) ? 2u : 0u) | ((entry[2] == 0xFF) ? 1u : 0u);
+        if ((key & masks[maskIndex]) != (entryKey & masks[maskIndex])) continue;
+        fuserId = entry[3];
+        if (fuserId >= PORT_FUSER_TABLE_COUNT) return 0;
+        return ((u64)((u32)entry[4] | ((u32)entry[5] << 8)) << 32) | fuserId;
+    }
+    return 0;
+}
+
+/* Validate the save-controlled cursor and offer before GetFusionToOffer uses
+ * either to advance through the fixed retail list. The record accessor below
+ * guarantees PORT_FUSER_FUSION_RECORD_BYTES readable bytes. */
+static inline int Port_IsFuserSaveStateValid(const u8* fuserData, u32 progress, u32 offer) {
+    u32 listLength;
+    int offerValid;
+
+    if (fuserData == NULL) return 0;
+    for (listLength = 0; listLength <= PORT_FUSER_FUSION_MAX_OFFERS; ++listLength) {
+        if (fuserData[5u + listLength] == 0) break;
+    }
+    if (listLength > PORT_FUSER_FUSION_MAX_OFFERS || progress > listLength) return 0;
+
+    offerValid = offer == 0 || (offer >= 1 && offer <= 100) || offer == 0xF1 || offer == 0xF2 || offer == 0xF3 ||
+                 offer == 0xFF;
+    if (!offerValid) return 0;
+    /* JUST_FUSED advances once before inspecting the list. At the terminator
+     * that would step beyond the validated record. */
+    if (offer == 0xF2 && progress == listLength) return 0;
+    return 1;
+}
+
 static inline const u8* Port_ResolveFusionTextDataFromRom(const u8* romData, u32 romSize, u32 tableOffset,
                                                           u32 fuserId) {
     return Port_ResolveFuserDataFromRom(romData, romSize, tableOffset, fuserId, 3u * sizeof(u16));

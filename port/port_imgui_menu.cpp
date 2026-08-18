@@ -426,7 +426,7 @@ void Port_Config_SetAutosaveEnabled(bool enabled);
 void Port_Config_SetAutosaveIntervalMs(unsigned int ms);
 
 const char* Port_Save_GetActivePath(void);
-void Port_Save_SetActivePath(const char* path);
+int Port_Save_SetActivePath(const char* path);
 int Port_Save_SaveAsProfile(const char* path);
 int Port_Save_ListProfiles(char (*out)[64], int max);
 int Port_Save_DeleteProfile(const char* path);
@@ -1079,9 +1079,12 @@ static void DrawRibbonProfilesTab(void) {
             ImGui::TableSetColumnIndex(2);
             if (!isActive) {
                 if (ImGui::Button("Activate")) {
-                    Port_Save_SetActivePath(names[i]);
-                    Port_Config_SetActiveSaveProfile(names[i]);
-                    Port_DebugMenu_ToastFromExternal("Profile activated - go to title to load");
+                    if (Port_Save_SetActivePath(names[i])) {
+                        Port_Config_SetActiveSaveProfile(names[i]);
+                        Port_DebugMenu_ToastFromExternal("Profile activated - go to title to load");
+                    } else {
+                        Port_DebugMenu_ToastFromExternal("Profile switch failed - pending save was not written");
+                    }
                 }
                 ImGui::SameLine();
             }

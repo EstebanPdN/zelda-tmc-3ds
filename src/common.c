@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "port_asset_loader.h"
+#include "port_fusion_marker.h"
+#include "port_gfx_group_dma.h"
 #include "port_rom.h"
 #include "port_hdma.h"
 #endif
@@ -594,7 +596,17 @@ void LoadGfxGroup(u32 group) {
                     LZ77UnCompWram(src, (void*)dest);
                 }
             } else {
+#ifdef PC_PORT
+                PortGfxGroupDmaResult result = Port_CopyGfxGroupDmaToEwram(src, dest, (u32)size);
+                if (result == PORT_GFX_GROUP_DMA_INVALID) {
+                    fprintf(stderr, "[port] LoadGfxGroup: invalid EWRAM DMA destination 0x%08X (%u bytes) — skipping\n",
+                            dest, (u32)size);
+                } else if (result == PORT_GFX_GROUP_DMA_NOT_EWRAM) {
+                    DmaSet(3, src, dest, dmaCtrl | ((u32)size >> 1));
+                }
+#else
                 DmaSet(3, src, dest, dmaCtrl | ((u32)size >> 1));
+#endif
             }
         }
 
@@ -1537,7 +1549,18 @@ void UpdateVisibleFusionMapMarkers(void) {
             const WorldEvent* s = &GetWorldEvents()[worldEventId];
             u32 flag = s->flag;
             u32 tmp;
-            switch (s->condition) {
+            u32 condition = s->condition;
+#ifdef PC_PORT
+            PortFusionMarkerReward reward;
+            condition = Port_SelectFusionMarkerCondition(condition, gWorldEvents[worldEventId].condition);
+            reward = Port_FusionMarkerRewardForCondition(condition);
+            if (reward.valid) {
+                tmp = reward.bank;
+                flag = reward.flag;
+            } else
+#endif
+            {
+            switch (condition) {
                 case CND_0:
                     tmp = 0;
                     break;
@@ -1581,7 +1604,14 @@ void UpdateVisibleFusionMapMarkers(void) {
                     break;
 #endif
             }
+            }
+#ifdef PC_PORT
+            /* `flag` is a compiled USA-baseline ordinal. sub_0807CB24 routes
+             * local banks through CheckLocalFlagByBankB for EU/JP remapping. */
+            if (sub_0807CB24(tmp, flag)) {
+#else
             if (sub_0807CB24(tmp, (REGION_IS_EU || REGION_IS_JP) ? s->flag : flag)) {
+#endif
                 WriteBit(&gSave.kinstones.fusionUnmarked, kinstoneId);
             }
         }
@@ -1615,6 +1645,15 @@ KinstoneId GetFusionToOffer(Entity* entity) {
     }
     offeredFusion = gSave.kinstones.fuserOffers[fuserId];
     fuserProgress = gSave.kinstones.fuserProgress[fuserId];
+#ifdef PC_PORT
+    if (!Port_IsFuserSaveStateValid(fuserData, fuserProgress, offeredFusion)) {
+        fprintf(stderr,
+                "[KINSTONE] Refusing invalid saved fuser state (id=%u progress=%u offer=0x%02X); save left "
+                "untouched.\n",
+                fuserId, fuserProgress, offeredFusion);
+        return KINSTONE_NONE;
+    }
+#endif
     fuserFusionData = fuserData + fuserProgress;
     while (TRUE) { // loop through fusions for this fuser
         switch (offeredFusion) {

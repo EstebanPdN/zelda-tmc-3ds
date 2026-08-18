@@ -14,6 +14,8 @@
 #include "structures.h"
 #include "port_rom.h"
 #ifdef PC_PORT
+#include "port_charge_bar.h"
+#include "port_offset_remap.h"
 #include "port_widescreen.h"
 #endif
 
@@ -589,7 +591,31 @@ void DrawChargeBar(void) {
     gHUD.unk_8 = chargeState;
 
     BufferPos = (u16*)(VRAM + 0xc2c0);
+#ifdef PC_PORT
+    {
+        /* gUnk_080C8F7C is a packed table of USA GBA addresses in the
+         * generated const stub.  Reading it as host pointers is wrong on
+         * 64-bit, and resolving those absolute addresses also selects USA
+         * art from an EU ROM.  Start from the compiled USA blob offset and
+         * use the same runtime remap table as every other compiled gfx
+         * offset. */
+        u32 gfxOffset = Port_RemapGfxOffset(Port_ChargeBarUsaGfxOffset(chargeState));
+        uintptr_t romBase = (uintptr_t)gRomData;
+        uintptr_t gfxBase = (uintptr_t)gGlobalGfxAndPalettes;
+        uintptr_t romEnd = romBase + (uintptr_t)gRomSize;
+
+        /* Validate both the blob base and the complete 0xc0-byte frame.
+         * This fails closed during startup or for a truncated/wrong ROM
+         * instead of feeding DMA an out-of-range host pointer. */
+        if (gRomData != NULL && gGlobalGfxAndPalettes != NULL && romEnd >= romBase && gfxBase >= romBase &&
+            gfxBase <= romEnd && (uintptr_t)gfxOffset <= romEnd - gfxBase &&
+            PORT_CHARGE_BAR_FRAME_BYTES <= romEnd - gfxBase - (uintptr_t)gfxOffset) {
+            DmaSet(3, gGlobalGfxAndPalettes + gfxOffset, BufferPos, 0x84000030);
+        }
+    }
+#else
     DmaSet(3, gUnk_080C8F7C[chargeState], BufferPos, 0x84000030);
+#endif
 }
 
 void DrawKeys(void) {

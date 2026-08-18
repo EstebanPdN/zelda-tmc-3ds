@@ -49,6 +49,10 @@ static inline u32 Port_ShouldUseAreaAssetCacheForRegion(RomRegion region) {
  * record instead of failing cleanly. Keep both table bases in the active ROM
  * profile and reject fuser ids beyond the retail table. */
 #define PORT_FUSER_TABLE_COUNT 120u
+#define PORT_FUSER_ENTITY_RECORD_SIZE 6u
+#define PORT_FUSER_ENTITY_RECORD_LIMIT 128u
+#define PORT_FUSER_FUSION_MAX_OFFERS 6u
+#define PORT_FUSER_FUSION_RECORD_BYTES (5u + PORT_FUSER_FUSION_MAX_OFFERS + 1u)
 #define PORT_FUSION_TEXT_PTRS_USA 0x00001A7Cu
 #define PORT_FUSION_TEXT_PTRS_EU 0x00001B24u
 #define PORT_FUSER_FUSION_PTRS_USA 0x00001DCCu

@@ -195,6 +195,8 @@ void virtuappu_mode1_shutdown_workers(void);
 /* Test-only oracle switch: the parity fuzzer renders each state once through
  * the optimized native paths and once through the generic reference path. */
 void virtuappu_mode1_set_native_fast_paths_enabled(bool enabled);
+void virtuappu_mode1_reset_native_compact_test_lines(void);
+uint32_t virtuappu_mode1_get_native_compact_test_lines(void);
 #endif
 
 /* GPU-raster prepare pass: run ONLY the sequential portion of render_frame —

@@ -36,6 +36,7 @@
 #include "port_rom.h"
 #include "port_runtime_config.h"
 #include "port_widescreen.h"
+#include "port_widescreen_banner_state.h"
 
 #include <string.h>
 
@@ -1025,6 +1026,11 @@ static u16 sWsShadowBG2[MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_COLS];
  * late-streaming map data can't flip the mode back and forth mid-room. */
 static u32 sWsContentKey = 0xffffffffu;
 static s32 sWsContentPx = 0;
+static PortWidescreenBannerState sWsEnterRoomBanner;
+
+void Port_Widescreen_SetEnterRoomBannerActive(int active) {
+    Port_WidescreenBannerState_Set(&sWsEnterRoomBanner, active, gRoomControls.area, gRoomControls.room);
+}
 
 /* Key identifying the room the content cache belongs to. Checked by
  * FallbackNative so a stale cache (previous room) is never consulted —
@@ -1283,6 +1289,9 @@ static int Port_WidescreenPpuBgForControl(u32 control) {
 
 /* Called per-VBlank from src/interrupts.c::UpdateDisplayControls. */
 void Port_Widescreen_UpdateShadows(void) {
+    int enterRoomBannerActive = Port_WidescreenBannerState_IsActive(
+        &sWsEnterRoomBanner, gMain.task == TASK_GAME, gRoomControls.area, gRoomControls.room);
+
     for (int i = 0; i < MODE1_GBA_BG_COUNT; i++)
         virtuappu_mode1_ws_shadow[i] = NULL;
     virtuappu_mode1_ws_hud_right_anchor = 0;
@@ -1342,6 +1351,16 @@ void Port_Widescreen_UpdateShadows(void) {
             virtuappu_mode1_ws_msg_y1 = y1;
             virtuappu_mode1_ws_msg_shift = (Port_Widescreen_EffectiveViewWidth() - 240) / 2;
         }
+    } else if (enterRoomBannerActive) {
+        /* The location-name banner bypasses gMessage and owns BG0 rows 5-6
+         * across the full native canvas.  Move that whole band together;
+         * this also suspends the HUD right-anchor remap on those rows, which
+         * otherwise cuts a viewWidth-240 gap through the banner text. */
+        virtuappu_mode1_ws_msg_x0 = PORT_WS_ENTER_ROOM_BANNER_X0;
+        virtuappu_mode1_ws_msg_x1 = PORT_WS_ENTER_ROOM_BANNER_X1;
+        virtuappu_mode1_ws_msg_y0 = PORT_WS_ENTER_ROOM_BANNER_Y0;
+        virtuappu_mode1_ws_msg_y1 = PORT_WS_ENTER_ROOM_BANNER_Y1;
+        virtuappu_mode1_ws_msg_shift = (Port_Widescreen_EffectiveViewWidth() - 240) / 2;
     }
 
     if (gMapBottom.bgSettings != NULL) {
@@ -1357,6 +1376,9 @@ void Port_Widescreen_UpdateShadows(void) {
 }
 #else
 void Port_Widescreen_UpdateShadows(void) { /* no-op at native 240 */
+}
+void Port_Widescreen_SetEnterRoomBannerActive(int active) {
+    (void)active;
 }
 int Port_Widescreen_FallbackNative(void) {
     return 1;
