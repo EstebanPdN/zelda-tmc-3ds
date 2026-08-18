@@ -1,0 +1,10 @@
+; position is already clip-space; texcoord is normalized atlas UV
+.out outpos position
+.out outtc0 texcoord0
+.alias inpos v0
+.alias intex v1
+.proc main
+    mov outpos, inpos
+    mov outtc0, intex
+    end
+.end

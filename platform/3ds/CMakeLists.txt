@@ -73,6 +73,9 @@ set(TMC_PORT_SOURCES
 )
 list(TRANSFORM TMC_PORT_SOURCES PREPEND "${TMC_ROOT}/")
 
+ctr_add_shader_library(ppu_gpu_3ds_shader source/ppu_gpu_3ds.v.pica)
+dkp_add_embedded_binary_library(ppu_gpu_3ds_shader_bin ppu_gpu_3ds_shader)
+
 add_executable(tmc-3ds
     ${TMC_ENGINE_SOURCES}
     ${TMC_ACTOR_SOURCES}
@@ -87,6 +90,8 @@ add_executable(tmc-3ds
     source/port_second_screen_3ds.c
     source/port_second_screen_sync_3ds.c
     source/port_ppu_3ds.c
+    source/port_ppu_gpu_3ds_model.c
+    source/port_ppu_gpu_3ds.c
     source/port_audio_3ds.c
     source/port_config_3ds.c
     source/port_rando_3ds.c
@@ -129,6 +134,8 @@ set_source_files_properties(
     "${TMC_ROOT}/port/port_second_screen_theme.c"
     "${CMAKE_CURRENT_LIST_DIR}/source/platform_gpu_3ds.c"
     "${CMAKE_CURRENT_LIST_DIR}/source/port_ppu_3ds.c"
+    "${CMAKE_CURRENT_LIST_DIR}/source/port_ppu_gpu_3ds_model.c"
+    "${CMAKE_CURRENT_LIST_DIR}/source/port_ppu_gpu_3ds.c"
     PROPERTIES COMPILE_OPTIONS "-flto;-fno-semantic-interposition"
 )
 set_source_files_properties(
@@ -137,7 +144,7 @@ set_source_files_properties(
     PROPERTIES COMPILE_OPTIONS "-flto;-fno-semantic-interposition;-ffast-math"
 )
 target_link_options(tmc-3ds PRIVATE -O3 -flto -Wl,--gc-sections)
-target_link_libraries(tmc-3ds PRIVATE citro2d citro3d ctru m)
+target_link_libraries(tmc-3ds PRIVATE citro2d citro3d ctru m ppu_gpu_3ds_shader_bin)
 
 set(TMC_ROMFS "${CMAKE_CURRENT_BINARY_DIR}/romfs")
 file(MAKE_DIRECTORY "${TMC_ROMFS}")

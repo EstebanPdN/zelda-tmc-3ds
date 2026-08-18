@@ -227,26 +227,19 @@ uint32_t* PlatformGpu3DS_BottomBuffer(unsigned index) {
     return index < 2 ? sBottomUploads[index] : NULL;
 }
 
-static void DrawTopImage(const uint32_t* pixels, unsigned width) {
+static void DrawTopTexture(C3D_Tex* texture, unsigned width, bool configureAbgr) {
     if (width < 240u) width = 240u;
     if (width > 266u) width = 266u;
     sTopPresentWidth = width;
 
-    const size_t topFlushBytes =
-        (size_t)sUploadLayout.topPitch * 160u * sizeof(uint32_t);
-    GSPGPU_FlushDataCache(pixels, topFlushBytes);
-    C3D_SyncDisplayTransfer((u32*)pixels,
-                            GX_BUFFER_DIM(sUploadLayout.topPitch, sUploadLayout.topRows),
-                            (u32*)sTopTexture.data,
-                            GX_BUFFER_DIM(TOP_TEXTURE_WIDTH, TOP_TEXTURE_HEIGHT),
-                            TextureTransfer());
     sTopSubtexture = (Tex3DS_SubTexture){
         .width = (u16)width, .height = 160, .left = 0.0f, .top = 1.0f,
-        .right = (float)width / TOP_TEXTURE_WIDTH, .bottom = 1.0f - 160.0f / TOP_TEXTURE_HEIGHT,
+        .right = (float)width / texture->width,
+        .bottom = 1.0f - 160.0f / texture->height,
     };
-    const C2D_Image image = { .tex = &sTopTexture, .subtex = &sTopSubtexture };
+    const C2D_Image image = { .tex = texture, .subtex = &sTopSubtexture };
     const int style = Port_Config_Get3DSDisplayStyle();
-    C3D_TexSetFilter(&sTopTexture, style == TOP_DISPLAY_BLUR ? GPU_LINEAR : GPU_NEAREST,
+    C3D_TexSetFilter(texture, style == TOP_DISPLAY_BLUR ? GPU_LINEAR : GPU_NEAREST,
                      style == TOP_DISPLAY_BLUR ? GPU_LINEAR : GPU_NEAREST);
 
     float drawW;
@@ -271,7 +264,7 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width) {
     C2D_TargetClear(sTopTarget, C2D_Color32(0, 0, 0, 255));
     C2D_SceneBegin(sTopTarget);
     C2D_DrawImage(image, &params, NULL);
-    ConfigureAbgrTextureEnv();
+    if (configureAbgr) ConfigureAbgrTextureEnv();
     if (Port_Config_GetShowFps()) {
         char label[20];
         double fps = Port_PPU_3DS_CurrentFps();
@@ -283,13 +276,35 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width) {
     }
 }
 
-void PlatformGpu3DS_BeginTop(const uint32_t* pixels, unsigned width) {
-    if (!sReady || !pixels) return;
+static void DrawTopImage(const uint32_t* pixels, unsigned width) {
+    const size_t topFlushBytes =
+        (size_t)sUploadLayout.topPitch * 160u * sizeof(uint32_t);
+    GSPGPU_FlushDataCache(pixels, topFlushBytes);
+    C3D_SyncDisplayTransfer((u32*)pixels,
+                            GX_BUFFER_DIM(sUploadLayout.topPitch, sUploadLayout.topRows),
+                            (u32*)sTopTexture.data,
+                            GX_BUFFER_DIM(TOP_TEXTURE_WIDTH, TOP_TEXTURE_HEIGHT),
+                            TextureTransfer());
+    DrawTopTexture(&sTopTexture, width, true);
+}
+
+bool PlatformGpu3DS_BeginCustomTop(void) {
+    if (!sReady) return false;
     if (!C3D_FrameBegin(0)) {
         ++sStats.frameBeginFailures;
-        return;
+        return false;
     }
     sFrameActive = true;
+    return true;
+}
+
+void PlatformGpu3DS_DrawTopTexture(C3D_Tex* texture, unsigned width) {
+    if (!sFrameActive || !texture) return;
+    DrawTopTexture(texture, width, false);
+}
+
+void PlatformGpu3DS_BeginTop(const uint32_t* pixels, unsigned width) {
+    if (!pixels || !PlatformGpu3DS_BeginCustomTop()) return;
     DrawTopImage(pixels, width);
     ++sStats.topTransfers;
 }
