@@ -10,6 +10,8 @@ enum {
     PPU_GPU3DS_MAX_VERTICES = 32768,
     PPU_GPU3DS_MAX_INDICES = 49152,
     PPU_GPU3DS_MAX_BATCHES = 4096,
+    PPU_GPU3DS_OUTPUT_WIDTH = 512,
+    PPU_GPU3DS_OUTPUT_HEIGHT = 256,
 };
 
 static PpuGpu3DSCache* sCache;
@@ -80,7 +82,9 @@ bool PortPpuGpu3DS_Init(void) {
     C3D_TexSetFilter(&sAtlas, GPU_NEAREST, GPU_NEAREST);
     C3D_TexSetWrap(&sAtlas, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
 
-    if (!C3D_TexInitVRAM(&sOutputTexture, 256, 256, GPU_RGBA5551)) goto fail;
+    if (!C3D_TexInitVRAM(&sOutputTexture, PPU_GPU3DS_OUTPUT_WIDTH,
+                         PPU_GPU3DS_OUTPUT_HEIGHT, GPU_RGBA5551))
+        goto fail;
     C3D_TexSetFilter(&sOutputTexture, GPU_NEAREST, GPU_NEAREST);
     C3D_TexSetWrap(&sOutputTexture, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
     sOutputTarget = C3D_RenderTargetCreateFromTex(&sOutputTexture, GPU_TEXFACE_2D, 0,
