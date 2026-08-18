@@ -41,6 +41,7 @@ typedef struct PpuGpu3DSCacheEntry {
     uint32_t lastUseFrame;
     bool valid;
     bool pinned;
+    bool dirty;
 } PpuGpu3DSCacheEntry;
 
 typedef struct PpuGpu3DSCache {
@@ -99,6 +100,7 @@ typedef struct PpuGpu3DSBatch {
     uint16_t firstLine, lineCount, scissorLeft, scissorRight;
     uint8_t layer, priority, windowControl, target2;
     uint8_t effect, eva, evb, evy, objectIndex;
+    uint16_t color;
     bool objWindow, semiTransparent;
 } PpuGpu3DSBatch;
 
@@ -126,3 +128,5 @@ void PpuGpu3DS_CommandInit(PpuGpu3DSCommandBuffer* cmd, PpuGpu3DSVertex* vertice
                            PpuGpu3DSBatch* batches, size_t batchCapacity);
 bool PpuGpu3DS_CommandReserve(PpuGpu3DSCommandBuffer* cmd, size_t vertices, size_t indices,
                               size_t batches);
+bool PpuGpu3DS_BuildCommands(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
+                             uint16_t* atlas, PpuGpu3DSCommandBuffer* cmd);
