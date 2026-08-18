@@ -12,6 +12,7 @@
 #include "port_widescreen.h"
 #include "platform_3ds.h"
 #include "platform_gpu_3ds.h"
+#include "port_ppu_gpu_3ds.h"
 
 #include "virtuappu.h"
 #include "cpu/mode1.h"
@@ -59,7 +60,6 @@ static bool sGpuPresenterReady;
 static bool sInitialized;
 static bool sColorCorrection;
 static uint32_t sFrameNumber;
-static uint64_t sPerfFirstFrameTick;
 static uint64_t sPerfLastFrameTick;
 static uint64_t sPerfRenderTicks;
 static uint64_t sPerfTopTicks;
@@ -81,6 +81,16 @@ static uint64_t sPerfFramesOver33ms;
 static volatile uint32_t sCurrentFpsX100;
 static volatile uint32_t sAverageFpsX100;
 static int sTopPresentWidth = GBA_NATIVE_W;
+static uint8_t sGpuIoPerLine[MODE1_GBA_HEIGHT][MODE1_IO_MEM_SIZE];
+static uint16_t sGpuDispcntPerLine[MODE1_GBA_HEIGHT];
+static int32_t sGpuAffRefX[MODE1_GBA_HEIGHT], sGpuAffRefY[MODE1_GBA_HEIGHT];
+static uint16_t
+    sGpuWsShadow[MODE1_GBA_BG_COUNT * MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_COLS];
+static bool sGpuPpuInitialized, sGpuPpuDisabled;
+
+extern uint8_t virtuappu_mode1_obj_clip_mark[MODE1_GBA_OAM_COUNT];
+extern int virtuappu_mode1_obj_clip_y;
+extern int virtuappu_mode1_obj_clip_enable;
 
 static int TopFrameWidth(void) {
     Port_Widescreen_SetWindowPixels(400, 240);
@@ -92,6 +102,45 @@ static int TopFrameWidth(void) {
             return width;
     }
     return GBA_NATIVE_W;
+}
+
+static void FillPreparedFrameView(PpuGpu3DSFrameView* view) {
+    memset(view, 0, sizeof(*view));
+    view->width = sTopPresentWidth;
+    view->height = MODE1_GBA_HEIGHT;
+    view->affine = virtuappu_registers.mode == 2;
+    view->ioUniform = virtuappu_mode1_pre_line_callback == NULL;
+    virtuappu_mode1_get_bound_gba_memory(&view->memory);
+    view->ioPerLine = &sGpuIoPerLine[0][0];
+    view->dispcntPerLine = sGpuDispcntPerLine;
+    view->affineRefX = sGpuAffRefX;
+    view->affineRefY = sGpuAffRefY;
+    view->wsCols = MODE1_WS_SHADOW_COLS;
+    view->wsHudRightAnchor = virtuappu_mode1_ws_hud_right_anchor;
+    view->wsHudRightNativeX = MODE1_WS_HUD_RIGHT_NATIVE_X;
+    view->wsMsgShift = virtuappu_mode1_ws_msg_shift;
+    view->wsMsgX0 = virtuappu_mode1_ws_msg_x0;
+    view->wsMsgX1 = virtuappu_mode1_ws_msg_x1;
+    view->wsMsgY0 = virtuappu_mode1_ws_msg_y0;
+    view->wsMsgY1 = virtuappu_mode1_ws_msg_y1;
+    view->objClipEnable = virtuappu_mode1_obj_clip_enable;
+    view->objClipMark = virtuappu_mode1_obj_clip_mark;
+    view->objClipY = virtuappu_mode1_obj_clip_y;
+    bool anyShadow = false;
+    for (unsigned bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
+        view->wsShadowBaseTile[bg] = virtuappu_mode1_ws_shadow[bg]
+                                                ? virtuappu_mode1_ws_shadow_base_tile[bg]
+                                                : -1;
+        if (virtuappu_mode1_ws_shadow[bg]) {
+            memcpy(&sGpuWsShadow[bg * MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_COLS],
+                   virtuappu_mode1_ws_shadow[bg],
+                   MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_COLS * sizeof(uint16_t));
+            anyShadow = true;
+        }
+    }
+    view->wsShadow = anyShadow ? sGpuWsShadow : NULL;
+    view->wsShadowHalfwords =
+        anyShadow ? (int)(sizeof(sGpuWsShadow) / sizeof(sGpuWsShadow[0])) : 0;
 }
 
 #ifdef TMC_3DS_DIAGNOSTICS
@@ -176,6 +225,7 @@ static double TicksToMilliseconds(uint64_t ticks) {
 void Port_PPU_3DS_WriteQuickDump(void) {
     if (!sInitialized)
         return;
+    if (sGpuPpuInitialized) PortPpuGpu3DS_RequestParityCheck();
     /* This synchronous SD capture and its confirmation overlay intentionally
      * pause gameplay. Mark it before any fallible I/O so the next cadence
      * boundary excludes the whole operation, including an early failure. */
@@ -239,20 +289,21 @@ void Port_PPU_3DS_WriteQuickDump(void) {
         const double sampleCount = sPerfSamples ? (double)sPerfSamples : 1.0;
         const double bottomSampleCount = sPerfBottomSamples ? (double)sPerfBottomSamples : 1.0;
         const double intervalSampleCount = sPerfIntervalSamples ? (double)sPerfIntervalSamples : 1.0;
-        const double elapsedSeconds =
-            sPerfLastFrameTick > sPerfFirstFrameTick
-                ? (double)(sPerfLastFrameTick - sPerfFirstFrameTick) / (double)Platform3DS_TicksPerSecond()
-                                       : 0.0;
         const double measuredFps =
-            elapsedSeconds > 0.0 && sPerfSamples > 1 ? (double)(sPerfSamples - 1u) / elapsedSeconds : 0.0;
+            sPerfIntervalTicks != 0 && sPerfIntervalSamples != 0
+                ? (double)Platform3DS_TicksPerSecond() *
+                      (double)sPerfIntervalSamples / (double)sPerfIntervalTicks
+                : 0.0;
         Platform3DSRuntimeStats runtimeStats;
         PlatformGpu3DSStats gpuStats;
+        PortPpuGpu3DSStats ppuGpuStats;
         BottomFrameState3DSStats bottomFrameStats;
         PortAudio3DSStats audioStats;
         PortSaveStats saveStats;
         VirtuaPPUMode13DSStats workerStats;
         Platform3DS_GetRuntimeStats(&runtimeStats);
         PlatformGpu3DS_GetStats(&gpuStats);
+        PortPpuGpu3DS_GetStats(&ppuGpuStats);
         Port_SecondScreen_3DS_GetFrameStats(&bottomFrameStats);
         Port_Audio_3DSGetStats(&audioStats);
         Port_Save_GetStats(&saveStats);
@@ -392,6 +443,32 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 (unsigned long long)workerStats.oldPathTotalLines[MODE1_OLD_PATH_FIELD_ALPHA],
                 (unsigned long long)workerStats.oldPathTotalLines[MODE1_OLD_PATH_COMPACT],
                 (unsigned long long)workerStats.oldPathTotalLines[MODE1_OLD_PATH_FALLBACK]);
+        fprintf(info, "PICA200 PPU initialized/enabled/disabled: %s/%s/%s\n",
+                ppuGpuStats.initialized ? "yes" : "no",
+                ppuGpuStats.enabled ? "yes" : "no",
+                ppuGpuStats.disabled ? "yes" : "no");
+        fprintf(info, "PICA200 PPU attempted/rendered/fallback/disabled frames: %llu/%llu/%llu/%llu\n",
+                (unsigned long long)ppuGpuStats.attemptedFrames,
+                (unsigned long long)ppuGpuStats.renderedFrames,
+                (unsigned long long)ppuGpuStats.fallbackFrames,
+                (unsigned long long)ppuGpuStats.disabledFrames);
+        fprintf(info, "PICA200 PPU tile hits/decodes/atlas flush bytes: %llu/%llu/%llu\n",
+                (unsigned long long)ppuGpuStats.tileHits,
+                (unsigned long long)ppuGpuStats.tileDecodes,
+                (unsigned long long)ppuGpuStats.atlasFlushBytes);
+        fprintf(info, "PICA200 PPU vertices/batches: %llu/%llu\n",
+                (unsigned long long)ppuGpuStats.vertices,
+                (unsigned long long)ppuGpuStats.batches);
+        fprintf(info, "PICA200 PPU parity checks/failures/differing pixels: %llu/%llu/%llu\n",
+                (unsigned long long)ppuGpuStats.parityChecks,
+                (unsigned long long)ppuGpuStats.parityFailures,
+                (unsigned long long)ppuGpuStats.differingPixels);
+        fprintf(info, "PICA200 PPU parity first difference: %lu,%lu\n",
+                (unsigned long)ppuGpuStats.firstDiffX,
+                (unsigned long)ppuGpuStats.firstDiffY);
+        fprintf(info, "PICA200 PPU preflight/draw CPU time: %.3f/%.3f ms\n",
+                TicksToMilliseconds(ppuGpuStats.preflightTicks),
+                TicksToMilliseconds(ppuGpuStats.drawTicks));
         fprintf(info, "GPU frames / begin failures: %llu / %llu\n", (unsigned long long)gpuStats.frames,
                 (unsigned long long)gpuStats.frameBeginFailures);
         fprintf(info, "GPU top/bottom transfers: %llu / %llu\n", (unsigned long long)gpuStats.topTransfers,
@@ -573,7 +650,6 @@ void Port_PPU_Init(SDL_Window* window) {
     sBottomPeriodicChecks = 0;
     sBottomPeriodicSkips = 0;
     sFrameNumber = 0;
-    sPerfFirstFrameTick = 0;
     sPerfLastFrameTick = 0;
     sPerfRenderTicks = 0;
     sPerfTopTicks = 0;
@@ -595,6 +671,9 @@ void Port_PPU_Init(SDL_Window* window) {
     sCurrentFpsX100 = 0;
     sAverageFpsX100 = 0;
     sGpuPresenterReady = PlatformGpu3DS_Init(old3dsProfile);
+    sGpuPpuDisabled = false;
+    sGpuPpuInitialized =
+        old3dsProfile && sGpuPresenterReady && PortPpuGpu3DS_Init();
     sTopUpload = PlatformGpu3DS_TopBuffer();
     sBottomUploads[0] = PlatformGpu3DS_BottomBuffer(0);
     sBottomUploads[1] = PlatformGpu3DS_BottomBuffer(1);
@@ -605,6 +684,12 @@ void Port_PPU_Init(SDL_Window* window) {
 void Port_PPU_PresentFrame(void) {
     if (!sInitialized)
         return;
+    PortPpuGpu3DS_FinishParityCheck();
+    const bool parityCompletionFrame =
+        PortPpuGpu3DS_ParityFinishedThisFrame();
+    if (sGpuPpuInitialized && PortPpuGpu3DS_IsDisabled())
+        sGpuPpuDisabled = true;
+    bool parityFrame = false;
     ++sFrameNumber;
     const uint64_t frameStartTick = Platform3DS_SystemTick();
 
@@ -621,7 +706,32 @@ void Port_PPU_PresentFrame(void) {
     virtuappu_mode1_bg2x_hdma_strobe = port_hdma_dest_overlaps(gIoMem + 0x28, gIoMem + 0x2c) != 0;
     virtuappu_mode1_bg2y_hdma_strobe = port_hdma_dest_overlaps(gIoMem + 0x2c, gIoMem + 0x30) != 0;
 
-    virtuappu_render_frame();
+    PpuGpu3DSFrameView frameView;
+    bool gpuReady = false;
+    if (PpuGpu3DS_ShouldUse(Platform3DS_IsNew3DS(), sGpuPpuInitialized,
+                            sGpuPpuDisabled)) {
+        parityFrame = PortPpuGpu3DS_ParityRequested();
+        if (parityFrame) {
+            Platform3DS_MarkFrameDiscontinuity(
+                OLD3DS_FRAME_PACER_DISCONTINUITY_DUMP);
+            virtuappu_render_frame();
+            PortPpuGpu3DS_CaptureParityReference(
+                sTopUpload, sTopUploadPitch, sTopPresentWidth, MODE1_GBA_HEIGHT);
+            port_hdma_vblank_reset();
+        }
+        FillPreparedFrameView(&frameView);
+        virtuappu_mode1_prepare_frame(
+            &virtuappu_registers, sGpuIoPerLine[0], sGpuDispcntPerLine,
+            sGpuAffRefX, sGpuAffRefY, &frameView.frameDispcnt);
+        gpuReady = PortPpuGpu3DS_Preflight(&frameView);
+        if (!gpuReady) {
+            port_hdma_vblank_reset();
+            if (parityFrame) PortPpuGpu3DS_CancelParityCheck();
+        }
+    } else if (sGpuPpuInitialized && sGpuPpuDisabled) {
+        PortPpuGpu3DS_RecordDisabledFrame();
+    }
+    if (!gpuReady) virtuappu_render_frame();
     const uint64_t renderEndTick = Platform3DS_SystemTick();
 #ifdef TMC_3DS_DIAGNOSTICS
     const uint64_t renderEnd = Platform3DS_Milliseconds();
@@ -643,7 +753,20 @@ void Port_PPU_PresentFrame(void) {
         DumpPpuSnapshot("tmc3ds-frame60.ppu1");
 #endif
 
-    PlatformGpu3DS_BeginTop(sTopUpload, (unsigned)sTopPresentWidth);
+    if (!gpuReady) {
+        PlatformGpu3DS_BeginTop(sTopUpload, (unsigned)sTopPresentWidth);
+    } else if (!PlatformGpu3DS_BeginCustomTop() ||
+               !PortPpuGpu3DS_DrawPrepared()) {
+        PortPpuGpu3DS_Disable();
+        sGpuPpuDisabled = true;
+    } else {
+        PlatformGpu3DS_DrawTopTexture(PortPpuGpu3DS_OutputTexture(),
+                                      (unsigned)sTopPresentWidth);
+        if (parityFrame && !PortPpuGpu3DS_QueueParityCopy()) {
+            PortPpuGpu3DS_Disable();
+            sGpuPpuDisabled = true;
+        }
+    }
     const uint64_t topEndTick = Platform3DS_SystemTick();
 #ifdef TMC_3DS_DIAGNOSTICS
     const uint64_t topEnd = Platform3DS_Milliseconds();
@@ -718,12 +841,12 @@ void Port_PPU_PresentFrame(void) {
     }
     const uint64_t frameEndTick = Platform3DS_SystemTick();
 
-    if (sFrameNumber >= 120u) {
+    if (parityFrame || parityCompletionFrame) {
+        sPerfLastFrameTick = 0;
+    } else if (sFrameNumber >= 120u) {
         const uint64_t renderTicks = renderEndTick - frameStartTick;
         const uint64_t topTicks = topEndTick - renderEndTick;
         const uint64_t totalTicks = frameEndTick - frameStartTick;
-        if (sPerfSamples == 0)
-            sPerfFirstFrameTick = frameStartTick;
         if (sPerfLastFrameTick != 0) {
             const uint64_t intervalTicks = frameStartTick - sPerfLastFrameTick;
             sPerfIntervalLastTicks = intervalTicks;
@@ -840,6 +963,11 @@ void Port_PPU_Shutdown(void) {
     sInitialized = false;
     Platform3DS_ShutdownBottomWorker();
     virtuappu_mode1_set_output_buffer(NULL, 0);
+    if (sGpuPpuInitialized) {
+        PortPpuGpu3DS_Shutdown();
+        sGpuPpuInitialized = false;
+        sGpuPpuDisabled = false;
+    }
     if (!sGpuPresenterReady)
         return;
     PlatformGpu3DS_Shutdown();

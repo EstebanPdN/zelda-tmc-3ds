@@ -290,6 +290,7 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width) {
 
 bool PlatformGpu3DS_BeginCustomTop(void) {
     if (!sReady) return false;
+    if (sFrameActive) return true;
     if (!C3D_FrameBegin(0)) {
         ++sStats.frameBeginFailures;
         return false;
@@ -298,9 +299,30 @@ bool PlatformGpu3DS_BeginCustomTop(void) {
     return true;
 }
 
-void PlatformGpu3DS_DrawTopTexture(C3D_Tex* texture, unsigned width) {
+void PlatformGpu3DS_DrawTopTexture(void* texturePointer, unsigned width) {
+    C3D_Tex* texture = texturePointer;
     if (!sFrameActive || !texture) return;
     DrawTopTexture(texture, width, false);
+}
+
+bool PlatformGpu3DS_QueueRgba5551Readback(void* texturePointer, uint16_t* pixels) {
+    C3D_Tex* texture = texturePointer;
+    if (!sFrameActive || !texture || !texture->data || !pixels ||
+        texture->fmt != GPU_RGBA5551)
+        return false;
+    const size_t bytes = (size_t)texture->width * texture->height * sizeof(*pixels);
+    if (R_FAILED(GSPGPU_FlushDataCache(pixels, bytes))) return false;
+    /* The top presenter samples visible row 0 at v=1 and its software upload
+     * uses the same no-flip transfer. Untiling with no flip is therefore the
+     * inverse mapping: linear row y is the visible row y, not raw Morton data. */
+    C3D_SyncDisplayTransfer(
+        (u32*)texture->data, GX_BUFFER_DIM(texture->width, texture->height),
+        (u32*)pixels, GX_BUFFER_DIM(texture->width, texture->height),
+        GX_TRANSFER_FLIP_VERT(0) | GX_TRANSFER_OUT_TILED(0) |
+            GX_TRANSFER_RAW_COPY(0) | GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB5A1) |
+            GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB5A1) |
+            GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO));
+    return true;
 }
 
 void PlatformGpu3DS_BeginTop(const uint32_t* pixels, unsigned width) {

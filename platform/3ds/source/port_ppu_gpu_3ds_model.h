@@ -6,6 +6,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+static inline bool PpuGpu3DS_ShouldUse(bool isNew3DS, bool initialized, bool disabled) {
+    return !isNew3DS && initialized && !disabled;
+}
+
 enum {
     PPU_GPU3DS_ATLAS_SIDE = 512,
     PPU_GPU3DS_TILE_SIDE = 8,
@@ -53,6 +57,7 @@ typedef struct PpuGpu3DSCache {
     uint32_t bg256Generation;
     uint32_t obj256Generation;
     uint32_t frame;
+    uint64_t hits, decodes;
 } PpuGpu3DSCache;
 
 typedef struct PpuGpu3DSFrameView {
@@ -120,6 +125,7 @@ bool PpuGpu3DS_CacheTile(PpuGpu3DSCache* cache, const uint8_t* vram, PpuGpu3DSTi
                          uint16_t* atlas, uint16_t* outSlot);
 uint8_t PpuGpu3DS_MortonIndex(unsigned x, unsigned y);
 uint16_t PpuGpu3DS_PackRgba5551(uint16_t gbaColor, bool opaque);
+uint16_t PpuGpu3DS_PackAbgr8888(uint32_t abgr);
 int32_t PpuGpu3DS_AffineSample(int32_t reference, int16_t coefficient,
                                int screenCoordinate);
 int PpuGpu3DS_RemapBgX(const PpuGpu3DSFrameView* frame, unsigned bg,

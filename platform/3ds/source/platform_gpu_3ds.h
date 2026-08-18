@@ -3,9 +3,6 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#if defined(__3DS__) && !defined(PORT_TYPES_H)
-#include <citro3d.h>
-#endif
 
 
 typedef struct PlatformGpu3DSUploadLayout {
@@ -45,10 +42,9 @@ bool PlatformGpu3DS_Init(bool old3dsProfile);
 uint32_t* PlatformGpu3DS_TopBuffer(void);
 uint32_t* PlatformGpu3DS_BottomBuffer(unsigned index);
 void PlatformGpu3DS_BeginTop(const uint32_t* pixels, unsigned width);
-#if defined(__3DS__) && !defined(PORT_TYPES_H)
 bool PlatformGpu3DS_BeginCustomTop(void);
-void PlatformGpu3DS_DrawTopTexture(C3D_Tex* texture, unsigned width);
-#endif
+void PlatformGpu3DS_DrawTopTexture(void* texture, unsigned width);
+bool PlatformGpu3DS_QueueRgba5551Readback(void* texture, uint16_t* pixels);
 /* Returns true only when a Citro3D frame was active and submitted. */
 bool PlatformGpu3DS_EndBottom(const uint32_t* pixels, bool changed);
 void PlatformGpu3DS_ShowDumpSavedOverlay(void);

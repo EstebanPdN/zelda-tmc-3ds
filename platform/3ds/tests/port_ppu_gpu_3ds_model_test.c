@@ -185,6 +185,17 @@ int main(void) {
     uint16_t slot0;
     uint16_t slot1;
 
+    for (unsigned bits = 0; bits < 8; ++bits) {
+        const bool isNew3DS = (bits & 4u) != 0;
+        const bool initialized = (bits & 2u) != 0;
+        const bool disabled = (bits & 1u) != 0;
+        CHECK(PpuGpu3DS_ShouldUse(isNew3DS, initialized, disabled) ==
+              (!isNew3DS && initialized && !disabled));
+    }
+    CHECK(PpuGpu3DS_PackAbgr8888(0xff0000ffu) == 0xf801);
+    CHECK(PpuGpu3DS_PackAbgr8888(0xff00ff00u) == 0x07c1);
+    CHECK(PpuGpu3DS_PackAbgr8888(0xffff0000u) == 0x003f);
+
     CHECK(PpuGpu3DS_MortonIndex(0, 0) == 0);
     CHECK(PpuGpu3DS_MortonIndex(1, 0) == 1);
     CHECK(PpuGpu3DS_MortonIndex(0, 1) == 2);
@@ -208,6 +219,8 @@ int main(void) {
                                                  .bpp8 = false,
                                                  .domain = PPU_GPU3DS_PALETTE_BG },
                               atlas, &slot0));
+    CHECK(cache.hits == 0);
+    CHECK(cache.decodes == 1);
     CHECK(atlas[(size_t)slot0 * 64 + PpuGpu3DS_MortonIndex(0, 0)] == 0xf801);
     CHECK(atlas[(size_t)slot0 * 64 + PpuGpu3DS_MortonIndex(1, 0)] == 0x07c1);
     CHECK(atlas[(size_t)slot0 * 64 + PpuGpu3DS_MortonIndex(2, 0)] == 0x0000);
@@ -218,6 +231,8 @@ int main(void) {
                                                  .bpp8 = false,
                                                  .domain = PPU_GPU3DS_PALETTE_BG },
                               atlas, &slot1));
+    CHECK(cache.hits == 1);
+    CHECK(cache.decodes == 1);
     CHECK(slot1 == slot0);
 
     bg[17] = 0x7c00;

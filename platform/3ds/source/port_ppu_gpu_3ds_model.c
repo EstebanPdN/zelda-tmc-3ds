@@ -35,6 +35,12 @@ uint16_t PpuGpu3DS_PackRgba5551(uint16_t gbaColor, bool opaque) {
                       ((gbaColor & 0x7c00u) >> 9u) | (opaque ? 1u : 0u));
 }
 
+uint16_t PpuGpu3DS_PackAbgr8888(uint32_t abgr) {
+    return (uint16_t)((((abgr >> 0u) & 0xffu) >> 3u) << 11u |
+                      (((abgr >> 8u) & 0xffu) >> 3u) << 6u |
+                      (((abgr >> 16u) & 0xffu) >> 3u) << 1u | 1u);
+}
+
 void PpuGpu3DS_CacheInit(PpuGpu3DSCache* cache) {
     memset(cache, 0, sizeof(*cache));
 }
@@ -76,6 +82,7 @@ bool PpuGpu3DS_CacheTile(PpuGpu3DSCache* cache, const uint8_t* vram, PpuGpu3DSTi
             keys_equal(entry->key, key) && memcmp(entry->source, source, tileBytes) == 0) {
             entry->lastUseFrame = cache->frame;
             entry->pinned = true;
+            ++cache->hits;
             *outSlot = (uint16_t)slot;
             return true;
         }
@@ -102,6 +109,7 @@ bool PpuGpu3DS_CacheTile(PpuGpu3DSCache* cache, const uint8_t* vram, PpuGpu3DSTi
     }
 
     PpuGpu3DSCacheEntry* entry = &cache->entries[selected];
+    ++cache->decodes;
     const uint16_t* palette =
             key.domain == PPU_GPU3DS_PALETTE_BG ? cache->bgPalette : cache->objPalette;
     memcpy(entry->source, source, tileBytes);
