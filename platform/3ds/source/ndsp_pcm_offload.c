@@ -3,6 +3,9 @@
 #include <3ds.h>
 #include <string.h>
 
+#include <stdbool.h>
+bool Port_Config_AudioDspInterpLinear(void);
+
 /* Channel 0 is the software mix and 1-4 are the CGB offload, so PCM starts
  * after those. MP2K's DirectSound polyphony is 8 in most games. */
 /* NDSP has 24 channels: 0 is the software mix, 1-4 the CGB offload, so PCM can
@@ -188,7 +191,12 @@ bool NdspPcm_Play(int* slot, const int8_t* samplePtr, uint32_t endPos,
         const int chn = PCM_FIRST_CHANNEL + free;
         memset(s->wave, 0, sizeof(s->wave));
         ndspChnReset(chn);
-        ndspChnSetInterp(chn, NDSP_INTERP_NONE); /* matches MP2K NEAREST */
+        /* Match the software mix's channel 0, which upsamples 16364 -> 32728 Hz
+         * with NDSP_INTERP_LINEAR. NDSP_INTERP_NONE is closer to MP2K's NEAREST
+         * pitching taken alone, but it made offloaded voices brighter than the
+         * software voices sharing the same mix. */
+        ndspChnSetInterp(chn, Port_Config_AudioDspInterpLinear() ? NDSP_INTERP_LINEAR
+                                                                : NDSP_INTERP_NONE);
         ndspChnSetFormat(chn, NDSP_FORMAT_MONO_PCM8);
         ndspChnSetRate(chn, rate);
         ApplyMix(chn, leftVol, rightVol);

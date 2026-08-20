@@ -3,6 +3,9 @@
 #include <3ds.h>
 #include <string.h>
 
+#include <stdbool.h>
+bool Port_Config_AudioDspInterpLinear(void);
+
 /* Four CGB voices exist on a GBA, so four hardware channels are enough.
  * Channel 0 belongs to the software mix. */
 #define PSG_FIRST_CHANNEL 1
@@ -229,7 +232,10 @@ static void psg_configure(int slot, const int16_t* data, int samples) {
     const int chn = PSG_FIRST_CHANNEL + slot;
     ndspChnWaveBufClear(chn);
     ndspChnReset(chn);
-    ndspChnSetInterp(chn, NDSP_INTERP_NONE);
+    /* Same reasoning as the PCM offload: match channel 0's LINEAR so hardware
+     * and software voices in one mix share a resampling character. */
+    ndspChnSetInterp(chn, Port_Config_AudioDspInterpLinear() ? NDSP_INTERP_LINEAR
+                                                            : NDSP_INTERP_NONE);
     ndspChnSetFormat(chn, NDSP_FORMAT_MONO_PCM16);
     ndspWaveBuf* buf = &sWave[slot];
     memset(buf, 0, sizeof(*buf));

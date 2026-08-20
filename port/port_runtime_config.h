@@ -106,6 +106,9 @@ bool Port_Config_BottomMapSkip(void);
 /* 3DS: `vblank_phase_lock=1` waits for the next VBlank instead of accepting an
  * already-pending one. Experiment; see Platform3DS_WaitForVBlank. */
 bool Port_Config_VblankPhaseLock(void);
+/* 3DS: interpolation for offloaded NDSP voices. Default 1 (linear) matches the
+ * software mix on channel 0; 0 selects NDSP_INTERP_NONE. */
+bool Port_Config_AudioDspInterpLinear(void);
 bool Port_Config_GpuStaticQuad(void);
 bool Port_Config_BottomRgb565(void);
 bool Port_Config_GpuShortVertices(void);
