@@ -53,7 +53,15 @@ static void FillBuffer(int index) {
     extern int Port_M4A_Backend_GetReverbLevel(void);
     NdspPsg_SetReverbLevel(Port_M4A_Backend_GetReverbLevel());
     Port_M4A_Backend_Render(dst, BUFFER_FRAMES, false);
-    DSP_FlushDataCache(dst, BUFFER_FRAMES * 2 * sizeof(int16_t));
+    /* DSP_FlushDataCache is IPC to the dsp sysmodule: the caller blocks while
+     * that service is scheduled on core 1, with only the app's quota share of
+     * it. This is the same round-trip that platform_3ds.c:638 measured at
+     * ~330 us for GSP and replaced with a direct SVC -- the GPU path was
+     * converted, the audio path never was, and it sits once per buffer here.
+     * The payload is 1 KiB, about 32 cache lines, so the IPC cost dwarfs the
+     * work by orders of magnitude. Clean-only is correct: the ARM writes and
+     * the DSP reads. */
+    Platform3DS_CleanDataCache(dst, BUFFER_FRAMES * 2 * sizeof(int16_t));
     sWave[index].data_pcm16 = dst;
     sWave[index].nsamples = BUFFER_FRAMES;
     sWave[index].status = NDSP_WBUF_FREE;

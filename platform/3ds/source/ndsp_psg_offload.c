@@ -6,6 +6,8 @@
 #include <stdbool.h>
 bool Port_Config_AudioDspInterpLinear(void);
 void SpeakerEq3DS_ApplyToChannel(int channel);
+#include <stddef.h>
+bool Platform3DS_CleanDataCache(const void* addr, size_t size);
 
 /* Four CGB voices exist on a GBA, so four hardware channels are enough.
  * Channel 0 belongs to the software mix. */
@@ -109,7 +111,7 @@ void NdspPsg_Init(void) {
             const float v = kDuty[duty][i % PSG_PERIOD_SAMPLES];
             sTables[duty][i] = (int16_t)(v * 32767.0f);
         }
-        DSP_FlushDataCache(sTables[duty], PSG_TABLE_SAMPLES * sizeof(int16_t));
+        Platform3DS_CleanDataCache(sTables[duty], PSG_TABLE_SAMPLES * sizeof(int16_t));
     }
     for (int i = 0; i < PSG_CHANNEL_COUNT; ++i) {
         sWaveTable[i] = (int16_t*)linearAlloc(PSG_WAVE_SAMPLES * sizeof(int16_t));
@@ -143,7 +145,7 @@ static const int16_t* noise_table(bool shortPeriod, int level, int* samplesOut) 
         }
         out[i] = (state & 1u) ? 16383 : -16384;
     }
-    DSP_FlushDataCache(out, (size_t)count * sizeof(int16_t));
+    Platform3DS_CleanDataCache(out, (size_t)count * sizeof(int16_t));
     *slot = out;
     return out;
 }
@@ -279,7 +281,7 @@ bool NdspPsg_PlayWave(int* slot, float fetchRateHz, const unsigned char* wave16,
             const unsigned nibble = (i & 1) ? (byte & 0x0fu) : (byte >> 4u);
             table[i] = (int16_t)(((int)nibble - 8) * 4095);
         }
-        DSP_FlushDataCache(table, PSG_WAVE_SAMPLES * sizeof(int16_t));
+        Platform3DS_CleanDataCache(table, PSG_WAVE_SAMPLES * sizeof(int16_t));
         sWaveSource[*slot] = wave16;
         psg_configure(*slot, table, PSG_WAVE_SAMPLES);
     }

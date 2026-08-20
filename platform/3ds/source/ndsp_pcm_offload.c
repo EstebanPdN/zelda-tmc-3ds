@@ -6,6 +6,8 @@
 #include <stdbool.h>
 bool Port_Config_AudioDspInterpLinear(void);
 void SpeakerEq3DS_ApplyToChannel(int channel);
+#include <stddef.h>
+bool Platform3DS_CleanDataCache(const void* addr, size_t size);
 
 /* Channel 0 is the software mix and 1-4 are the CGB offload, so PCM starts
  * after those. MP2K's DirectSound polyphony is 8 in most games. */
@@ -144,7 +146,9 @@ static PcmCacheEntry* AcquireSample(const int8_t* source, uint32_t bytes) {
     slot->linear = (int8_t*)linearAlloc(bytes);
     if (!slot->linear) { memset(slot, 0, sizeof(*slot)); return NULL; }
     memcpy(slot->linear, source, bytes);
-    DSP_FlushDataCache(slot->linear, bytes);
+    /* Direct SVC rather than DSP_FlushDataCache's sysmodule round trip; this
+     * runs on every newly claimed sample, i.e. constantly during music. */
+    Platform3DS_CleanDataCache(slot->linear, bytes);
     slot->source = source;
     slot->bytes = bytes;
     slot->refs = 1;
