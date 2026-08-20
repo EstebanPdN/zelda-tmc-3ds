@@ -252,6 +252,36 @@ the only remaining unknown.
 correctly at 272/320 pitch over 577 bottom transfers, and a pitch mismatch would
 shear the image diagonally. It is safe to leave enabled.
 
+## The whole goal reduces to one number: lostVblank
+
+The emulator run reported `lostVblank=0/7199` with `interval=16.810 ms`. Those
+two together mean the loop is vblank-locked: when it misses nothing, its
+interval *is* the display period. Azahar emulates ~59.49 Hz, which is exactly
+why `logic=59.55` there -- not a code shortfall.
+
+Apply that to real hardware:
+
+| | period | rate |
+|---|---|---|
+| real 3DS LCD | 16.7151 ms | **59.83 Hz** |
+| GBA logic target | 16.7427 ms | 59.73 Hz |
+
+**The display is faster than the target.** A vblank-locked loop that misses
+nothing presents at 59.83 Hz, which exceeds 59.73. The pacer then only needs to
+skip ~0.16% of frames to hold logic at the GBA rate.
+
+So success is not "shave N ms of work" -- work is already 7.8 ms of a 16.74 ms
+period. Success is:
+
+- **`lostVblank` ~= 0** (hardware baseline: inferred ~13% of iterations, though
+  the interval counters said 2.83% and the two disagreed -- which is why the
+  counter exists)
+- **`skips` ~= 0.2%** (hardware baseline: 432/7244 = 6.0%)
+
+Every remaining lever -- `compact_upload`, `bottom_core=0`, the async bottom
+transfer -- is aimed at the same thing: stop individual frames overrunning the
+period. Nothing else moves the number.
+
 ## Next, ranked
 
 **1. Take one long dump.** Five changes are deployed and unmeasured, and the
