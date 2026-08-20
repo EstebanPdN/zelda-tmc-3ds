@@ -3,6 +3,7 @@
 #include "platform_3ds.h"
 #include "ndsp_pcm_offload.h"
 #include "ndsp_psg_offload.h"
+#include "speaker_eq_3ds.h"
 #include "port_m4a_backend.h"
 
 #include <3ds.h>
@@ -137,6 +138,8 @@ bool Port_Audio_Init(void) {
     ndspChnSetFormat(0, NDSP_FORMAT_STEREO_PCM16);
     float mix[12] = { 1.0f, 0.0f, 0.0f, 1.0f };
     ndspChnSetMix(0, mix);
+    /* Establishes the filter on every channel and latches headphone state. */
+    SpeakerEq3DS_Poll();
 
     sSamples = (int16_t*)linearAlloc(BUFFER_COUNT * BUFFER_FRAMES * 2 * sizeof(int16_t));
     if (!sSamples || !Port_M4A_Backend_Init(SAMPLE_RATE)) {
@@ -191,6 +194,8 @@ bool Port_Audio_Init(void) {
 void Port_Audio_3DSPump(void) {
     if (!sInitialized) return;
     if (sPaused) return;
+    /* Headphones can be plugged in mid-session, and the correction must follow. */
+    SpeakerEq3DS_Poll();
     const bool playing = ndspChnIsPlaying(0);
     const uint32_t doneBuffers = CountDoneBuffers();
     const bool callbackMissed = doneBuffers > 0;

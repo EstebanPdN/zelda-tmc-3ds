@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 bool Port_Config_AudioDspInterpLinear(void);
+void SpeakerEq3DS_ApplyToChannel(int channel);
 
 /* Channel 0 is the software mix and 1-4 are the CGB offload, so PCM starts
  * after those. MP2K's DirectSound polyphony is 8 in most games. */
@@ -198,6 +199,8 @@ bool NdspPcm_Play(int* slot, const int8_t* samplePtr, uint32_t endPos,
         ndspChnSetInterp(chn, Port_Config_AudioDspInterpLinear() ? NDSP_INTERP_LINEAR
                                                                 : NDSP_INTERP_NONE);
         ndspChnSetFormat(chn, NDSP_FORMAT_MONO_PCM8);
+        /* ndspChnReset above cleared the channel's IIR config. */
+        SpeakerEq3DS_ApplyToChannel(chn);
         ndspChnSetRate(chn, rate);
         ApplyMix(chn, leftVol, rightVol);
 

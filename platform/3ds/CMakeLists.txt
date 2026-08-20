@@ -91,6 +91,7 @@ add_executable(tmc-3ds
     source/bottom_idle_3ds.c
     source/bottom_frame_state_3ds.c
     source/bottom_map_anim_3ds.c
+    source/speaker_eq_3ds.c
     source/port_second_screen_3ds.c
     source/port_second_screen_sync_3ds.c
     source/port_ppu_3ds.c

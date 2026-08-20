@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 bool Port_Config_AudioDspInterpLinear(void);
+void SpeakerEq3DS_ApplyToChannel(int channel);
 
 /* Four CGB voices exist on a GBA, so four hardware channels are enough.
  * Channel 0 belongs to the software mix. */
@@ -237,6 +238,9 @@ static void psg_configure(int slot, const int16_t* data, int samples) {
     ndspChnSetInterp(chn, Port_Config_AudioDspInterpLinear() ? NDSP_INTERP_LINEAR
                                                             : NDSP_INTERP_NONE);
     ndspChnSetFormat(chn, NDSP_FORMAT_MONO_PCM16);
+    /* ndspChnReset above cleared the channel's IIR config; without this the
+     * filter would silently apply to only part of the mix. */
+    SpeakerEq3DS_ApplyToChannel(chn);
     ndspWaveBuf* buf = &sWave[slot];
     memset(buf, 0, sizeof(*buf));
     buf->data_pcm16 = (int16_t*)data;

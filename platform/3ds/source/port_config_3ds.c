@@ -108,6 +108,12 @@ static bool sVblankPhaseLock = false;
  * NDSP_INTERP_NONE, which is closer to MP2K's NEAREST pitching in isolation
  * but inconsistent with the rest of the mix. */
 static bool sAudioDspInterpLinear = true;
+/* Speaker shaping. Off by default: it deliberately departs from GBA output, so
+ * it is the player's call, not the port's. The cutoff is a knob because the
+ * right value depends on the actual driver and on how NDSP's biquad interprets
+ * f0 relative to its output rate -- tune it by ear, not from a datasheet. */
+static bool sSpeakerEq = false;
+static float sSpeakerEqHz = 280.0f;
 /* Report and research items that measurement says are neutral or harmful by
  * default. Present, switchable, and off unless asked for. */
 static bool sGpuStaticQuad = false;
@@ -210,6 +216,8 @@ static void SaveConfig(void) {
     fprintf(file, "bottom_map_skip=%u\n", sBottomMapSkip ? 1u : 0u);
     fprintf(file, "vblank_phase_lock=%u\n", sVblankPhaseLock ? 1u : 0u);
     fprintf(file, "audio_dsp_interp_linear=%u\n", sAudioDspInterpLinear ? 1u : 0u);
+    fprintf(file, "speaker_eq=%u\n", sSpeakerEq ? 1u : 0u);
+    fprintf(file, "speaker_eq_hz=%.1f\n", (double)sSpeakerEqHz);
     fprintf(file, "gpu_static_quad=%u\n", sGpuStaticQuad ? 1u : 0u);
     fprintf(file, "bottom_rgb565=%u\n", sBottomRgb565 ? 1u : 0u);
     fprintf(file, "gpu_short_vertices=%u\n", sGpuShortVertices ? 1u : 0u);
@@ -263,6 +271,8 @@ void Port_Config_Load(const char* path) {
             else if (strcmp(key, "vblank_phase_lock") == 0) sVblankPhaseLock = ParseBool(value);
             else if (strcmp(key, "audio_dsp_interp_linear") == 0)
                 sAudioDspInterpLinear = ParseBool(value);
+            else if (strcmp(key, "speaker_eq") == 0) sSpeakerEq = ParseBool(value);
+            else if (strcmp(key, "speaker_eq_hz") == 0) sSpeakerEqHz = strtof(value, NULL);
             else if (strcmp(key, "gpu_static_quad") == 0) sGpuStaticQuad = ParseBool(value);
             else if (strcmp(key, "bottom_rgb565") == 0) sBottomRgb565 = ParseBool(value);
             else if (strcmp(key, "gpu_short_vertices") == 0) sGpuShortVertices = ParseBool(value);
@@ -331,6 +341,8 @@ int Port_Config_BottomCore(void) { return sBottomCore; }
 bool Port_Config_BottomMapSkip(void) { return sBottomMapSkip; }
 bool Port_Config_VblankPhaseLock(void) { return sVblankPhaseLock; }
 bool Port_Config_AudioDspInterpLinear(void) { return sAudioDspInterpLinear; }
+bool Port_Config_SpeakerEq(void) { return sSpeakerEq; }
+float Port_Config_SpeakerEqHz(void) { return sSpeakerEqHz; }
 bool Port_Config_GpuStaticQuad(void) { return sGpuStaticQuad; }
 bool Port_Config_BottomRgb565(void) { return sBottomRgb565; }
 bool Port_Config_GpuShortVertices(void) { return sGpuShortVertices; }
