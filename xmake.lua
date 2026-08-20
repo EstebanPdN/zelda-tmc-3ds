@@ -1328,6 +1328,19 @@ target("bottom_frame_state_3ds_test")
 target_end()
 
 -- ====================
+-- 3DS MAP-tab repaint-skip signature regression test.
+-- ====================
+target("bottom_map_anim_3ds_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs("platform/3ds/source")
+    add_files("platform/3ds/source/bottom_map_anim_3ds.c")
+    add_files("platform/3ds/tests/bottom_map_anim_3ds_test.c")
+    add_syslinks("m")
+target_end()
+
+-- ====================
 -- Old/New 3DS GPU upload layout regression test.
 -- ====================
 target("platform_gpu_layout_3ds_test")

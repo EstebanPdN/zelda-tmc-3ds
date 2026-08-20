@@ -1070,6 +1070,16 @@ void Port_PPU_PresentFrame(void) {
                     ? 30u
                     : (Platform3DS_IsNew3DS() ? 3u : 6u);
     const bool cadenceDue = (sFrameNumber % bottomInterval) == 0u;
+    /* The animation tick is free-running: it advances on the cadence, not on
+     * whether a paint was scheduled. It used to be `sBottomTick++` inside the
+     * schedulePaint branch below, which made the MAP-tab skip signature
+     * self-referential — skip one paint and the tick freezes, so the
+     * signature can never change again and the animation dies permanently.
+     * Paints tracked the cadence 1:1 before this (2230 paints / 2229 checks),
+     * so the animation rate is unchanged. */
+    if (cadenceDue) {
+        ++sBottomTick;
+    }
     const bool forcedUpdate = !sBottomReady || Port_SecondScreen_3DS_NeedsRefresh();
     if (!sBottomWorkerPending && (forcedUpdate || cadenceDue)) {
         SecondScreenSnapshot nextSnapshot;
@@ -1077,7 +1087,8 @@ void Port_PPU_PresentFrame(void) {
 
         const bool snapshotChanged = Port_SecondScreen_3DS_SnapshotChangeNeedsRefresh(
             &sBottomWorkerSnapshot, &nextSnapshot, sBottomSnapshotValid);
-        const bool animationRequired = Port_SecondScreen_3DS_NeedsPeriodicRefresh(&nextSnapshot);
+        const bool animationRequired = Port_SecondScreen_3DS_NeedsPeriodicRefresh(
+            &nextSnapshot, sBottomTick, sBottomWorkerTick, 320, 240);
         const bool schedulePaint = BottomFrameState3DS_ShouldSchedulePaint(
             sBottomWorkerPending, forcedUpdate, cadenceDue, bottomChanged, snapshotChanged, animationRequired);
         if (!forcedUpdate && cadenceDue && !bottomChanged) {
@@ -1097,7 +1108,7 @@ void Port_PPU_PresentFrame(void) {
             sBottomWorkerBuffer = 1 - sBottomFrontBuffer;
             sBottomWorkerSnapshot = nextSnapshot;
             sBottomSnapshotValid = true;
-            sBottomWorkerTick = sBottomTick++;
+            sBottomWorkerTick = sBottomTick;
             sBottomWorkerGeneration = 0;
             if (Platform3DS_SubmitBottomWorker()) {
                 sBottomWorkerPending = true;
