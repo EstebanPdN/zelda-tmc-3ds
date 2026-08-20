@@ -208,6 +208,50 @@ Kept because re-deriving them costs another hardware run each.
 - **Shared `port/` code also builds for Android**, where `w ≈ 2049`. A proposed
   `int16_t[320]` per-call table would have smashed the stack.
 
+## The run reports itself now -- read the log, not just dumps
+
+A run reaching frame 11160 happened with no quick dump written, losing that
+whole session. So every 1800 frames (~30 s) the build appends one line to
+`tmc3ds.log`:
+
+```
+[tmc3ds] CADENCE f=N fps=X logic=X interval=Xms skips=N clamps=N
+         lostVblank=N/N over1=N over2=N xfer=X/Xms n=N
+```
+
+One SD write per 30 s is ~0.017 ms/frame amortised, three orders below the
+per-120-frame line it replaced (`frame_log`, now default off). Fetch
+`tmc3ds.log` over FTP; no L+R+A needed.
+
+## Emulator reference: the pacing machinery is sound
+
+Azahar 2126.0, `is_new_3ds=false`, current build, `compact_upload=1`:
+
+```
+CADENCE f=7200 fps=59.48 logic=59.55 interval=16.810ms skips=35 clamps=6
+        lostVblank=0/7199 over1=15 over2=9 xfer=0.029/0.029ms n=1201
+```
+
+Timings are NOT hardware-representative -- Azahar's GPU completes instantly, so
+`xfer=0.029ms` says nothing about the real synchronous transfer. What it does
+establish is structural:
+
+- **`skips=35` over 7200 frames (0.49%)** against hardware's 432/7244 (6.0%).
+  With no real overruns present the pacer barely skips, which supports the
+  corrected reading that most hardware skips are genuine frame overruns rather
+  than the phantom-debt bug (that was only ~70 of them).
+- **`lostVblank=0/7199`** -- the counter runs and reads zero when nothing is
+  missed, so a non-zero value on hardware means something real.
+- FPS converges upward, 59.17 -> 59.38 -> 59.48, interval closing on 16.7427 ms.
+
+So the pacing and skip machinery can deliver ~59.5+ when the CPU is not the
+constraint. Whether the ARM11 keeps frame work under the period often enough is
+the only remaining unknown.
+
+`compact_upload=1` is also **visually verified** here: both screens render
+correctly at 272/320 pitch over 577 bottom transfers, and a pitch mismatch would
+shear the image diagonally. It is safe to leave enabled.
+
 ## Next, ranked
 
 **1. Take one long dump.** Five changes are deployed and unmeasured, and the
