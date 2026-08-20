@@ -604,6 +604,19 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 TicksToMilliseconds(Platform3DS_PumpTicks()) /
                         (double)(sFrameNumber ? sFrameNumber : 1),
                 TicksToMilliseconds(Platform3DS_PumpMaxTicks()));
+        {
+            extern uint64_t Platform3DS_AptTicks(void);
+            extern uint64_t Platform3DS_AptMaxTicks(void);
+            extern uint64_t Platform3DS_AudioPumpTicks(void);
+            extern uint64_t Platform3DS_AudioPumpMaxTicks(void);
+            const double frames = (double)(sFrameNumber ? sFrameNumber : 1);
+            fprintf(info,
+                    "  pump split: aptMainLoop %.3f/%.3f ms, audio pump %.3f/%.3f ms (avg/max)\n",
+                    TicksToMilliseconds(Platform3DS_AptTicks()) / frames,
+                    TicksToMilliseconds(Platform3DS_AptMaxTicks()),
+                    TicksToMilliseconds(Platform3DS_AudioPumpTicks()) / frames,
+                    TicksToMilliseconds(Platform3DS_AudioPumpMaxTicks()));
+        }
         fprintf(info,
                 "Promote/input after wait: average %.3f ms, maximum %.3f ms\n",
                 TicksToMilliseconds(Platform3DS_PostWaitTicks()) /

@@ -389,15 +389,46 @@ void Platform3DS_EndFrameBoundary(void) {
     sFrameBoundaryEndTick = svcGetSystemTick();
 }
 
+/* The pump is two calls, and one dump measured it at 8.308 ms/frame average
+ * against 0.011 ms in three neighbouring runs -- a 750x swing that accounted
+ * for the whole frame deficit (interval 20.901 = vblank 3.040 + work 17.861,
+ * of which the pump was 8.308). The low VBlank wait in that run is the effect,
+ * not the cause: the pump overran the boundary, so the wait returned instantly.
+ *
+ * Which of the two calls blocks was not knowable from one counter, and two
+ * previous optimisations made on inference rather than measurement paid
+ * nothing. So time them separately. aptMainLoop can block on system events;
+ * Port_Audio_3DSPump takes a LightLock the audio worker also holds on core 1,
+ * which has no priority inheritance and shares that core with the bottom
+ * painter and GSP. */
+static uint64_t sAptTicks;
+static uint64_t sAptMaxTicks;
+static uint64_t sAudioPumpTicks;
+static uint64_t sAudioPumpMaxTicks;
+
 static bool PumpLifecycleAndAudio(void) {
     ++sAptChecks;
-    if (!sRunning || !aptMainLoop()) {
+    const uint64_t aptStart = svcGetSystemTick();
+    const bool alive = sRunning && aptMainLoop();
+    const uint64_t aptTicks = svcGetSystemTick() - aptStart;
+    sAptTicks += aptTicks;
+    if (aptTicks > sAptMaxTicks) sAptMaxTicks = aptTicks;
+    if (!alive) {
         sRunning = false;
         return false;
     }
+    const uint64_t audioStart = svcGetSystemTick();
     Port_Audio_3DSPump();
+    const uint64_t audioTicks = svcGetSystemTick() - audioStart;
+    sAudioPumpTicks += audioTicks;
+    if (audioTicks > sAudioPumpMaxTicks) sAudioPumpMaxTicks = audioTicks;
     return true;
 }
+
+uint64_t Platform3DS_AptTicks(void) { return sAptTicks; }
+uint64_t Platform3DS_AptMaxTicks(void) { return sAptMaxTicks; }
+uint64_t Platform3DS_AudioPumpTicks(void) { return sAudioPumpTicks; }
+uint64_t Platform3DS_AudioPumpMaxTicks(void) { return sAudioPumpMaxTicks; }
 
 void Platform3DS_PumpWithoutVBlank(void) {
     if (!PumpLifecycleAndAudio()) return;
