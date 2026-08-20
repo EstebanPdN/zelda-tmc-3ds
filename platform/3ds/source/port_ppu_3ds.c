@@ -665,7 +665,7 @@ void Port_PPU_3DS_WriteQuickDump(void) {
         fprintf(info, "GPU top/bottom transfers: %llu / %llu\n", (unsigned long long)gpuStats.topTransfers,
                 (unsigned long long)gpuStats.bottomTransfers);
         fprintf(info,
-                "  bottom sync transfer: %.3f ms average, %.3f ms maximum over %llu transfers\n",
+                "  bottom transfer queue-append: %.3f ms average, %.3f ms maximum over %llu (NOT the DMA)\n",
                 gpuStats.bottomTransfers
                         ? TicksToMilliseconds(gpuStats.bottomTransferTicks) /
                                   (double)gpuStats.bottomTransfers

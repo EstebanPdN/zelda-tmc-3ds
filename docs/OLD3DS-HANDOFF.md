@@ -252,6 +252,43 @@ the only remaining unknown.
 correctly at 272/320 pitch over 577 bottom transfers, and a pitch mismatch would
 shear the image diagonally. It is safe to leave enabled.
 
+## Falsified from source: the bottom transfer never blocked
+
+A count correlation -- 378 bottom display transfers against ~362 genuinely
+overrunning frames, near one-to-one -- made `C3D_SyncDisplayTransfer` look like
+the overrun mechanism, and `compact_upload` was enabled on that basis. citro3d
+source settles it (`source/renderqueue.c:417-430`):
+
+```c
+void C3D_SyncDisplayTransfer(...) {
+    if (inFrame) { C3D_FrameSplit(0); GX_DisplayTransfer(...); }  // queues, returns
+    else         { C3Di_SafeDisplayTransfer(...); gspWaitForPPF(); }  // blocks
+}
+```
+
+`PlatformGpu3DS_EndBottom` runs inside an active frame, so this **never blocked
+the CPU**. The correlation was coincidence.
+
+Two further consequences:
+
+- The emulator's `xfer=0.029 ms` was **correct, not an artifact**. It is the cost
+  of a queue append. It was wrongly dismissed as emulator noise; the dump line is
+  now labelled `bottom transfer queue-append ... (NOT the DMA)`.
+- **The real CPU block is `C3D_FrameBegin` -> `C3Di_WaitAndClearQueue(-1)`**,
+  waiting on the PREVIOUS frame's entire GPU workload. `C3D_FrameBegin` sits in
+  `PlatformGpu3DS_BeginCustomTop` (`platform_gpu_3ds.c:500`) on the PICA path, so
+  the block lands in either the PPU-render or the presentation span -- both are
+  now bucketed, so one run localises it.
+
+`compact_upload` is still worth keeping, but for a different reason than it was
+enabled for: it reduces GPU/GSP work, which shortens the *next* frame's
+`C3D_FrameBegin` wait. It does not shorten any CPU block at the transfer site.
+
+GX commands all funnel through one bound queue (`libctru/source/gpu/gx.c:24-33`,
+`gxCmdQueueAdd`), and GSP executes them in submission order, so an in-frame
+transfer is already correctly ordered before the draws that sample it. There is
+no async rewrite to do here -- it is already async.
+
 ## The whole goal reduces to two numbers: `over1` and `skips`
 
 The emulator reported `lostVblank=0/7199` with `interval=16.810 ms`. Together

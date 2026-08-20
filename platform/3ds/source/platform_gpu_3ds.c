@@ -554,15 +554,22 @@ void PlatformGpu3DS_BeginTop(const uint32_t* pixels, unsigned width) {
 bool PlatformGpu3DS_EndBottom(const uint32_t* pixels, bool changed) {
     if (!sFrameActive || !pixels) return false;
     if (changed) {
-        /* This is a *synchronous* GSP display transfer on the main thread, and
-         * GSP retires it on core 1 with the app's 20% quota. It is the prime
-         * suspect for the real frame overruns: a dump showed 378 of these
-         * against ~362 overrunning frames, near one-to-one -- but that is a
-         * count correlation, not a timing, so measure it rather than assume.
+        /* NOT a blocking transfer. citro3d source/renderqueue.c:417-430 shows
+         * C3D_SyncDisplayTransfer only blocks when called OUTSIDE a frame:
          *
-         * `compact_upload` cuts the payload 491520 -> 307200 bytes; these
-         * counters say whether that is enough to bring the frame back under
-         * the 16.7427 ms period. */
+         *   if (inFrame) { C3D_FrameSplit(0); GX_DisplayTransfer(...); }
+         *   else        { C3Di_SafeDisplayTransfer(...); gspWaitForPPF(); }
+         *
+         * This runs inside an active frame, so it queues and returns. The timer
+         * below therefore measures a queue append, not DMA -- which is why the
+         * emulator read 0.029 ms. That figure was correct, not an artifact.
+         *
+         * A count correlation (378 of these against ~362 overrunning frames)
+         * made this look like the overrun mechanism. It is not. The CPU block is
+         * C3D_FrameBegin -> C3Di_WaitAndClearQueue(-1), waiting on the PREVIOUS
+         * frame's whole GPU workload. Shrinking this payload still helps, but by
+         * reducing GPU work so that next wait is shorter -- not by shortening
+         * anything here. */
         const uint64_t transferStart = svcGetSystemTick();
         const size_t bottomFlushBytes =
             (size_t)sUploadLayout.bottomPitch * 240u * sizeof(uint32_t);
