@@ -16,8 +16,27 @@ class MP2KChnPSG : public MP2KChn
 public:
     MP2KChnPSG(MP2KContext &ctx, MP2KTrack *track, ADSR env, Note note, bool useStairstep = false);
     MP2KChnPSG(const MP2KChnPSG &) = delete;
+#if defined(__3DS__)
+protected:
+    /* Hardware channel this voice was handed to, or -1 while it is being
+     * synthesised in software (see ndsp_psg_offload). Lives in the base so the
+     * destructor above can reach it for every voice kind. */
+    int ndspSlot = -1;
+
+public:
+#endif
     MP2KChnPSG &operator=(const MP2KChnPSG &) = delete;
+#if defined(__3DS__)
+    /* Releases the hardware channel. A PSG voice can be destroyed without a
+     * final Process() -- the MONO_STRICT polyphony suppressor calls
+     * channels.clear() on essentially every repeated CGB note, and a context
+     * rebuild destroys all four lists -- and the DEAD check inside Process()
+     * is the only other release path. Without this the slot stays claimed and
+     * the DSP keeps looping the waveform at its last volume forever. */
+    virtual ~MP2KChnPSG();
+#else
     virtual ~MP2KChnPSG() = default;
+#endif
 
     virtual void Process(std::span<sample> buffer, MixingArgs &args) = 0;
     void SetVol(uint16_t vol, int16_t pan);

@@ -1,10 +1,25 @@
-; position is already clip-space; texcoord is normalized atlas UV
+; position arrives in clip space; texcoord is atlas UV in 1/4096 units
+; (PPU_GPU3DS_UV_SCALE), packed to int16 so a vertex is 16 bytes rather than 20.
+; Rescaling here is exact: 1/4096 is a power of two and every texel centre packs
+; to an exact integer, so the drawn result matches the old float attribute.
+;
+; uOffset is added to position so one emitted copy of a background's tiles can
+; be drawn at many scroll positions: per-tile geometry is emitted once in map
+; space and each band supplies its own scroll here. Emitters that already
+; produce final clip-space coordinates pass uOffset = 0, which leaves their
+; vertices bit-for-bit unchanged.
+.fvec uOffset
+.constf uvScale(0.000244140625, 0.000244140625, 0.0, 0.0)  ; 1/4096
+
 .out outpos position
 .out outtc0 texcoord0
 .alias inpos v0
 .alias intex v1
 .proc main
-    mov outpos, inpos
-    mov outtc0, intex
+    ; PICA allows a uniform only as the first source operand.
+    add r0, uOffset, inpos
+    mov outpos, r0
+    ; PICA allows a uniform/constant only as the first source operand.
+    mul outtc0, uvScale, intex
     end
 .end

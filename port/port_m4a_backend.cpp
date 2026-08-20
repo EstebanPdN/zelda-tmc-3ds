@@ -65,6 +65,7 @@ extern const MusicPlayer gMusicPlayers[];
 #include <fstream>
 #include <memory>
 #include <atomic>
+#include <chrono>
 #include <mutex>
 #include <span>
 #include <string>
@@ -626,6 +627,34 @@ static void PublishActivePlayerMaskLocked(void) {
     sActivePlayerMask.store(mask, std::memory_order_relaxed);
 }
 
+/* Portable: the 3DS supplies the system tick, other platforms fall back to
+ * the steady clock. Only the ratio of mix time to total audio time matters. */
+static std::atomic<uint64_t> sMixTicks{0};
+
+#if defined(__3DS__)
+/* Declared rather than including <3ds.h>, whose u32/s32 collide with the port's
+ * own types. */
+extern "C" unsigned long long svcGetSystemTick(void);
+#endif
+
+extern "C" uint64_t Port_M4A_Backend_TickNow(void) {
+#if defined(__3DS__)
+    return (uint64_t)svcGetSystemTick();
+#else
+    return (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(
+                   std::chrono::steady_clock::now().time_since_epoch())
+            .count();
+#endif
+}
+
+extern "C" void Port_M4A_Backend_AddMixTicks(uint64_t ticks) {
+    sMixTicks.fetch_add(ticks, std::memory_order_relaxed);
+}
+
+extern "C" uint64_t Port_M4A_Backend_MixTicks(void) {
+    return sMixTicks.load(std::memory_order_relaxed);
+}
+
 static void RenderChunkLocked(void) {
     const size_t sampleCount = sState.ctx->mixer.GetSamplesPerBuffer();
 
@@ -638,7 +667,15 @@ static void RenderChunkLocked(void) {
     }
 
     try {
+        /* Split the two halves of the audio cost. m4aSoundMain is the sequencer
+         * plus the software mix -- everything a DSP offload would replace. What
+         * follows is per-track gain/pan and the copy out, which would remain.
+         * Sizing the offload against a measurement beats sizing it against an
+         * estimate: 2100 lines of channel handling is a lot to write for a prize
+         * nobody has weighed. */
+        const uint64_t mixStart = Port_M4A_Backend_TickNow();
         sState.ctx->m4aSoundMain();
+        Port_M4A_Backend_AddMixTicks(Port_M4A_Backend_TickNow() - mixStart);
 
         // Track-outer / sample-inner: gain/pan are per-track invariants, so they
         // (and the muted/silent skip) are computed once per track instead of once

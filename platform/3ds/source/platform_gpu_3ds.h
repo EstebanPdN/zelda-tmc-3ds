@@ -43,6 +43,8 @@ uint32_t* PlatformGpu3DS_TopBuffer(void);
 uint32_t* PlatformGpu3DS_BottomBuffer(unsigned index);
 void PlatformGpu3DS_BeginTop(const uint32_t* pixels, unsigned width);
 bool PlatformGpu3DS_BeginCustomTop(void);
+/* Repaint the black borders around the game image on the next few frames. */
+void PlatformGpu3DS_InvalidateTopBorder(void);
 void PlatformGpu3DS_DrawTopTexture(void* texture, unsigned width);
 bool PlatformGpu3DS_QueueRgba5551Readback(void* texture, uint16_t* pixels);
 /* Returns true only when a Citro3D frame was active and submitted. */

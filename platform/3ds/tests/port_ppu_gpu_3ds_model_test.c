@@ -11,6 +11,22 @@
         }                                                                                           \
     } while (0)
 
+/* Backgrounds that share one map-space copy of their tiles emit into a fixed
+ * slice of the buffer, so the buffer counts no longer equal the geometry a
+ * frame produced. This is that geometry: every live map slice plus whatever
+ * the per-band emitters appended after them. */
+static size_t emitted_vertices(const PpuGpu3DSCommandBuffer* command) {
+    size_t total = command->vertexCount > command->dynamicFirstVertex
+                           ? command->vertexCount - command->dynamicFirstVertex
+                           : 0;
+    for (unsigned bg = 0; bg < 4u; ++bg) total += command->mapSliceVertices[bg];
+    return total;
+}
+
+static size_t emitted_indices(const PpuGpu3DSCommandBuffer* command) {
+    return emitted_vertices(command) / 4u * 6u;
+}
+
 static PpuGpu3DSTileKey cache_key(unsigned index) {
     return (PpuGpu3DSTileKey){
         .vramOffset = (index % (MODE1_VRAM_SIZE / 32u)) * 32u,
@@ -148,16 +164,17 @@ static bool affine_source_at(const PpuGpu3DSCommandBuffer* command,
             sampleY >= bottom)
             continue;
         const float t = (sampleX - left) / (right - left);
-        const float u = command->vertices[base].u +
-                        (command->vertices[base + 1u].u -
-                         command->vertices[base].u) *
+        const float u = PpuGpu3DS_UnpackUV(command->vertices[base].u) +
+                        (PpuGpu3DS_UnpackUV(command->vertices[base + 1u].u) -
+                         PpuGpu3DS_UnpackUV(command->vertices[base].u)) *
                                 t;
-        const float v = command->vertices[base].v +
-                        (command->vertices[base + 1u].v -
-                         command->vertices[base].v) *
+        const float v = PpuGpu3DS_UnpackUV(command->vertices[base].v) +
+                        (PpuGpu3DS_UnpackUV(command->vertices[base + 1u].v) -
+                         PpuGpu3DS_UnpackUV(command->vertices[base].v)) *
                                 t;
         const unsigned atlasX = (unsigned)(u * PPU_GPU3DS_ATLAS_SIDE);
-        const unsigned atlasY = (unsigned)(v * PPU_GPU3DS_ATLAS_SIDE);
+        const unsigned atlasY =
+                (unsigned)((1.0f - v) * PPU_GPU3DS_ATLAS_SIDE);
         const unsigned tilesPerRow =
                 PPU_GPU3DS_ATLAS_SIDE / PPU_GPU3DS_TILE_SIDE;
         const unsigned slot =
@@ -192,6 +209,26 @@ int main(void) {
         CHECK(PpuGpu3DS_ShouldUse(isNew3DS, initialized, disabled) ==
               (!isNew3DS && initialized && !disabled));
     }
+    /* The 16-byte vertex stores UV as a fixed-point multiple of
+     * 1/PPU_GPU3DS_UV_SCALE. That is only safe if it is lossless for every UV
+     * the emitters can produce, so prove it rather than assume it: each atlas
+     * texel centre is (2t+1)/(2*ATLAS_SIDE), and the tile-edge values the
+     * strip emitters use are t/ATLAS_SIDE. Both must survive a round trip
+     * exactly, in both orientations (v is stored flipped). */
+    CHECK(sizeof(PpuGpu3DSVertex) == 16u);
+    for (unsigned texel = 0; texel <= PPU_GPU3DS_ATLAS_SIDE; ++texel) {
+        const float edge = (float)texel / (float)PPU_GPU3DS_ATLAS_SIDE;
+        CHECK(PpuGpu3DS_UnpackUV(PpuGpu3DS_PackUV(edge)) == edge);
+        CHECK(PpuGpu3DS_UnpackUV(PpuGpu3DS_PackUV(1.0f - edge)) == 1.0f - edge);
+        if (texel < PPU_GPU3DS_ATLAS_SIDE) {
+            const float centre =
+                    ((float)texel + 0.5f) / (float)PPU_GPU3DS_ATLAS_SIDE;
+            CHECK(PpuGpu3DS_UnpackUV(PpuGpu3DS_PackUV(centre)) == centre);
+            CHECK(PpuGpu3DS_UnpackUV(PpuGpu3DS_PackUV(1.0f - centre)) ==
+                  1.0f - centre);
+        }
+    }
+
     CHECK(PpuGpu3DS_PackAbgr8888(0xff0000ffu) == 0xf801);
     CHECK(PpuGpu3DS_PackAbgr8888(0xff00ff00u) == 0x07c1);
     CHECK(PpuGpu3DS_PackAbgr8888(0xffff0000u) == 0x003f);
@@ -323,18 +360,26 @@ int main(void) {
                                                  .domain = PPU_GPU3DS_PALETTE_BG },
                               atlas, &slot0));
 
+    /* Slot placement follows the hash, so the residency contract is checked
+     * against the slots the cache actually handed out rather than assuming
+     * insertion order. */
+    static uint16_t slotOf[PPU_GPU3DS_SLOT_COUNT];
+    static bool slotTaken[PPU_GPU3DS_SLOT_COUNT];
     PpuGpu3DS_CacheInit(&cache);
     PpuGpu3DS_CacheBeginFrame(&cache, bg, obj, 7);
+    memset(slotTaken, 0, sizeof(slotTaken));
     for (unsigned i = 0; i < PPU_GPU3DS_SLOT_COUNT; ++i) {
         CHECK(PpuGpu3DS_CacheTile(&cache, vram, cache_key(i), atlas, &slot0));
-        CHECK(slot0 == i);
+        CHECK(slot0 < PPU_GPU3DS_SLOT_COUNT && !slotTaken[slot0]);
+        slotTaken[slot0] = true;
+        slotOf[i] = slot0;
     }
 
     PpuGpu3DS_CacheBeginFrame(&cache, bg, obj, 8);
     for (unsigned i = 0; i < PPU_GPU3DS_SLOT_COUNT; ++i) {
         if (i != 1) {
             CHECK(PpuGpu3DS_CacheTile(&cache, vram, cache_key(i), atlas, &slot0));
-            CHECK(slot0 == i);
+            CHECK(slot0 == slotOf[i]);
         }
     }
 
@@ -345,11 +390,12 @@ int main(void) {
                                                  .bpp8 = false,
                                                  .domain = PPU_GPU3DS_PALETTE_BG },
                               atlas, &slot0));
-    CHECK(slot0 == 1);
+    /* The only slot not touched last frame is the eviction victim. */
+    CHECK(slot0 == slotOf[1]);
     for (unsigned i = 0; i < PPU_GPU3DS_SLOT_COUNT; ++i) {
         if (i != 1) {
             CHECK(PpuGpu3DS_CacheTile(&cache, vram, cache_key(i), atlas, &slot1));
-            CHECK(slot1 == i);
+            CHECK(slot1 == slotOf[i]);
         }
     }
     CHECK(!PpuGpu3DS_CacheTile(&cache, vram,
@@ -470,6 +516,8 @@ int main(void) {
         static uint16_t renderOam[MODE1_OAM_HALFWORDS];
         static PpuGpu3DSVertex renderVertices[32768];
         static uint16_t renderIndices[49152];
+        /* Indices are static now: filled once, never written per frame. */
+        PpuGpu3DS_FillStaticIndices(renderIndices, 49152);
         static PpuGpu3DSBatch renderBatches[4096];
         PpuGpu3DSCommandBuffer renderCommand;
         PpuGpu3DSFrameView renderView = {
@@ -513,15 +561,16 @@ int main(void) {
               renderCommand.batches[1].lineCount == MODE1_GBA_HEIGHT);
         CHECK(renderVertices[0].u > renderVertices[1].u);
         CHECK(renderVertices[0].v == renderVertices[1].v);
-        CHECK(cache.entries[0].dirty);
-        for (unsigned slot = 0; slot < PPU_GPU3DS_SLOT_COUNT; ++slot) {
-            cache.entries[slot].dirty = false;
-        }
+        CHECK(renderVertices[0].v > renderVertices[3].v);
+        CHECK(cache.dirtyCount != 0);
+        CHECK(cache.entries[cache.dirtySlots[0]].dirty);
+        PpuGpu3DS_CacheClearDirty(&cache);
         PpuGpu3DS_CacheBeginFrame(&cache, renderBg, renderObj, 11);
         PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
                               renderBatches, 4096);
         CHECK(PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
-        CHECK(!cache.entries[0].dirty);
+        /* Every tile was already resident, so nothing needs re-uploading. */
+        CHECK(cache.dirtyCount == 0);
 
         renderView.frameDispcnt = MODE1_DISP_FORCED_BLANK;
         for (unsigned line = 0; line < MODE1_GBA_HEIGHT; ++line) {
@@ -531,8 +580,9 @@ int main(void) {
         PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
                               renderBatches, 4096);
         CHECK(PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
-        CHECK(renderCommand.batchCount == 1 && renderCommand.vertexCount == 0 &&
-              renderCommand.indexCount == 0);
+        CHECK(renderCommand.batchCount == 1 &&
+              emitted_vertices(&renderCommand) == 0 &&
+              emitted_indices(&renderCommand) == 0);
         CHECK(renderCommand.batches[0].layer == PPU_GPU3DS_BACKDROP);
         CHECK(renderCommand.batches[0].color == 0x7fff);
 
@@ -557,9 +607,10 @@ int main(void) {
         PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
                               renderBatches, 4096);
         CHECK(PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
-        CHECK(renderCommand.vertexCount == 16 && renderCommand.indexCount == 24);
+        CHECK(emitted_vertices(&renderCommand) == 16 &&
+              emitted_indices(&renderCommand) == 24);
         CHECK(renderCommand.batches[1].indexCount == 24);
-        CHECK(cache.entries[0].key.vramOffset == 5 * 32);
+        CHECK(bg_cache_contains(&cache, 5u * 32u, false));
 
         PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 16, renderIndices, 26,
                               renderBatches, 3);
@@ -620,7 +671,8 @@ int main(void) {
         PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
                               renderBatches, 4096);
         CHECK(PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
-        CHECK(renderCommand.vertexCount == 4 && renderCommand.indexCount == 6);
+        CHECK(emitted_vertices(&renderCommand) == 4 &&
+              emitted_indices(&renderCommand) == 6);
         write16(renderIo[0], MODE1_IO_BG0CNT, 0);
 
         renderView.height = 4;
@@ -763,13 +815,15 @@ int main(void) {
               vertex_screen_x(&renderVertices[flippedVertex], renderView.width) < 8.01f);
         CHECK(renderVertices[flippedVertex].u >
               renderVertices[flippedVertex + 1u].u);
-        CHECK(renderVertices[flippedVertex].v >
+        CHECK(renderVertices[flippedVertex].v <
               renderVertices[flippedVertex + 3u].v);
         const size_t otherObjectBatch =
                 find_batch(&renderCommand, PPU_GPU3DS_OBJ, 1);
         const uint16_t otherObjectVertex =
                 renderIndices[renderCommand.batches[otherObjectBatch].firstIndex];
-        CHECK(renderVertices[flippedVertex].z >
+        CHECK(renderVertices[flippedVertex].z <= 0.0f &&
+              renderVertices[flippedVertex].z >= -1.0f);
+        CHECK(renderVertices[flippedVertex].z <
               renderVertices[otherObjectVertex].z);
 
         const size_t affineBatch =
@@ -888,7 +942,8 @@ int main(void) {
         PpuGpu3DS_CommandInit(&renderCommand, renderVertices, 32768, renderIndices, 49152,
                               renderBatches, 4096);
         CHECK(PpuGpu3DS_BuildCommands(&renderView, &cache, atlas, &renderCommand));
-        CHECK(renderCommand.vertexCount == 48 && renderCommand.indexCount == 72);
+        CHECK(emitted_vertices(&renderCommand) == 48 &&
+              emitted_indices(&renderCommand) == 72);
         const size_t mosaicBatch =
                 find_batch(&renderCommand, PPU_GPU3DS_BG0, UINT8_MAX);
         CHECK(mosaicBatch != SIZE_MAX);

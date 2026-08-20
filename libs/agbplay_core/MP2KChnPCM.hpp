@@ -27,6 +27,9 @@ public:
     MP2KChnPCM(const MP2KChnPCM &) = delete;
     MP2KChnPCM &operator=(const MP2KChnPCM &) = delete;
 
+#if defined(__3DS__)
+    ~MP2KChnPCM() override;
+#endif
     void Process(std::span<sample> buffer, const MixingArgs &args);
     void SetVol(uint16_t vol, int16_t pan);
     void Release() noexcept override;
@@ -75,4 +78,9 @@ private:
     uint8_t leftVolPrev;
     uint8_t rightVolCur = 0;
     uint8_t rightVolPrev;
+#if defined(__3DS__)
+    /* Hardware channel this voice was handed to, or -1 while MP2K is mixing it
+     * in software (see ndsp_pcm_offload). */
+    int ndspSlot = -1;
+#endif
 };

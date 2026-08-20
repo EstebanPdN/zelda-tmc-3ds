@@ -49,6 +49,48 @@ static int sRandoTricks;
 static int sRandoAccessibility;
 static bool sConfigLoaded;
 static char sConfigPath[256] = "tmc3ds.ini";
+/* Lets a console session A/B the PICA200 renderer against the software
+ * rasterizer without a rebuild. */
+static bool sGpuRenderer = true;
+/* Whether the GPU frame waits for the previous one to retire before the
+ * builder rewrites the command buffers.
+ *
+ * Waiting is the correct thing in principle -- the GPU reads those buffers
+ * asynchronously -- but it is off by default because it coincided with a
+ * console showing a black top screen, and a renderer that draws is worth more
+ * than one that is theoretically race-free. `gpu_frame_sync=1` turns it back
+ * on for testing. The proper fix is double-buffered geometry, which needs the
+ * presentation measurement first; see docs/old3ds-pica200-parity-notes.md. */
+static bool sGpuFrameSync = false;
+/* Where the rendered frame sits in the 512x256 target. The viewport and the
+ * scissor are offset so scanline 0 lands in target row 0, which is where the
+ * presenter samples -- but hardware parity fails from exactly row 96 down
+ * (256 - 160, the offset itself), while an emulator passes, so the two
+ * disagree about this axis. `gpu_viewport_offset=0` draws at the bottom of
+ * the target instead, which is the other reading of the same convention. */
+static bool sGpuViewportOffset = true;
+/* How a batch's scanline range becomes a scissor rectangle.
+ *   0 = none      : no vertical clipping at all (tile rows overhang)
+ *   1 = flipped   : y measured from the bottom of the target (default)
+ *   2 = direct    : y measured from the top
+ * Hardware draws only the first band with the default while an emulator draws
+ * both, so the two disagree about this axis; the switch settles it. */
+static int sGpuScissorMode = 1;
+/* Window/blend masking uses the stencil buffer. Turning it off draws every
+ * batch unconditionally: windows and blending come out wrong, but if the
+ * missing band appears then the stencil is what was rejecting it. */
+static bool sGpuStencil = true;
+/* -1 keeps the built-in choice; 0 or 1 pins the audio worker for an A/B. */
+static int sAudioCore = -1;
+/* -1 keeps core 0; 1 moves the bottom-screen painter off the main thread's core. */
+static int sBottomCore = -1;
+/* Report and research items that measurement says are neutral or harmful by
+ * default. Present, switchable, and off unless asked for. */
+static bool sGpuStaticQuad = false;
+static bool sBottomRgb565 = false;
+static bool sGpuShortVertices = false;
+static bool sAudioDsp = false;
+static bool sAudioDspPcm = false;
 
 static bool ParseBool(const char* value) {
     return value != NULL && (value[0] == '1' || value[0] == 't' || value[0] == 'T' ||
@@ -163,6 +205,18 @@ void Port_Config_Load(const char* path) {
             char value[64];
             if (line[0] == '#' || sscanf(line, " %63[^=]=%63s", key, value) != 2) continue;
             if (strcmp(key, "show_fps") == 0) sShowFps = ParseBool(value);
+            else if (strcmp(key, "gpu_renderer") == 0) sGpuRenderer = ParseBool(value);
+            else if (strcmp(key, "gpu_frame_sync") == 0) sGpuFrameSync = ParseBool(value);
+            else if (strcmp(key, "gpu_viewport_offset") == 0) sGpuViewportOffset = ParseBool(value);
+            else if (strcmp(key, "gpu_scissor_mode") == 0) sGpuScissorMode = (int)strtol(value, NULL, 10);
+            else if (strcmp(key, "gpu_stencil") == 0) sGpuStencil = ParseBool(value);
+            else if (strcmp(key, "audio_core") == 0) sAudioCore = (int)strtol(value, NULL, 10);
+            else if (strcmp(key, "bottom_core") == 0) sBottomCore = (int)strtol(value, NULL, 10);
+            else if (strcmp(key, "gpu_static_quad") == 0) sGpuStaticQuad = ParseBool(value);
+            else if (strcmp(key, "bottom_rgb565") == 0) sBottomRgb565 = ParseBool(value);
+            else if (strcmp(key, "gpu_short_vertices") == 0) sGpuShortVertices = ParseBool(value);
+            else if (strcmp(key, "audio_dsp") == 0) sAudioDsp = ParseBool(value);
+            else if (strcmp(key, "audio_dsp_pcm") == 0) sAudioDspPcm = ParseBool(value);
             else if (strcmp(key, "follow_cam") == 0) sFollow = ParseBool(value);
             else if (strcmp(key, "windcrest_pins") == 0) sCrests = ParseBool(value);
             else if (strcmp(key, "floor_auto_return") == 0) sFloorReturn = ParseBool(value);
@@ -216,6 +270,18 @@ void Port_Config_Load(const char* path) {
     sConfigLoaded = true;
 }
 void Port_Config_SetActiveSaveProfile(const char* path) { (void)path; }
+bool Port_Config_GpuRenderer(void) { return sGpuRenderer; }
+bool Port_Config_GpuFrameSync(void) { return sGpuFrameSync; }
+bool Port_Config_GpuViewportOffset(void) { return sGpuViewportOffset; }
+int Port_Config_GpuScissorMode(void) { return sGpuScissorMode; }
+bool Port_Config_GpuStencil(void) { return sGpuStencil; }
+int Port_Config_AudioCore(void) { return sAudioCore; }
+int Port_Config_BottomCore(void) { return sBottomCore; }
+bool Port_Config_GpuStaticQuad(void) { return sGpuStaticQuad; }
+bool Port_Config_BottomRgb565(void) { return sBottomRgb565; }
+bool Port_Config_GpuShortVertices(void) { return sGpuShortVertices; }
+bool Port_Config_AudioDsp(void) { return sAudioDsp; }
+bool Port_Config_AudioDspPcm(void) { return sAudioDspPcm; }
 u8 Port_Config_WindowScale(void) { return 1; }
 const char* Port_Config_UpscaleMethod(void) { return "nearest"; }
 u64 Port_Config_FrameTimeNs(void) { return 16666667ULL; }

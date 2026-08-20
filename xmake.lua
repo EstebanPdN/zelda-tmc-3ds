@@ -1276,6 +1276,19 @@ target_end()
 -- 3DS ARM11 host-pointer regression test. This builds the TMC_3DS branch on
 -- the desktop with a mocked memory-map query.
 -- ====================
+-- ====================
+-- Nine-slice mapping regression test. DrawSliced carries sd/se/modulus
+-- incrementally instead of calling SliceMap (four software divides) per pixel;
+-- this proves the two agree for every pixel across the parameter space.
+-- ====================
+target("port_second_screen_slicemap_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_files("port/port_second_screen_slicemap_test.c")
+target_end()
+
+
 target("host_pointer_3ds_test")
     set_kind("binary")
     set_languages("c11")
@@ -1323,6 +1336,21 @@ target("platform_gpu_layout_3ds_test")
     set_targetdir("build/pc")
     add_includedirs("platform/3ds/source")
     add_files("platform/3ds/tests/platform_gpu_layout_3ds_test.c")
+target_end()
+
+
+target("port_ppu_gpu_3ds_bench")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_defines("MODE1_GBA_WIDTH=266", "PPU_GPU3DS_PROFILE", "_POSIX_C_SOURCE=200809L")
+    add_includedirs("platform/3ds/source", "port/ppu/include")
+    add_files("platform/3ds/source/port_ppu_gpu_3ds_model.c")
+    -- The software rasterizer is the oracle the GPU model must agree with;
+    -- comparing the two map-space paths against each other cannot catch a
+    -- fault they share.
+    add_files("port/ppu/src/*.c")
+    add_files("platform/3ds/tests/port_ppu_gpu_3ds_bench.c")
 target_end()
 
 

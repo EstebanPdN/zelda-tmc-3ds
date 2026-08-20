@@ -23,7 +23,16 @@ static bool sIsNew3DS;
 static unsigned sTurboMultiplier = 5;
 static bool sCore1Available;
 static unsigned sCore1TimeLimit;
-static bool sBottomWorkerAttempted;
+/* Retry budget for creating the painter thread. This was a plain bool, so a
+ * SINGLE transient threadCreate failure retired the worker permanently and
+ * every subsequent paint ran synchronously on the main thread -- 13 ms landing
+ * straight on the critical path, every sixth frame, for the rest of the
+ * session, with nothing in the logs to say why. Retry with a backoff instead:
+ * the failure is usually momentary resource pressure at startup. */
+static unsigned sBottomWorkerAttempts;
+static unsigned sBottomWorkerRetryIn;
+#define BOTTOM_WORKER_MAX_ATTEMPTS 16u
+#define BOTTOM_WORKER_RETRY_PAINTS 64u
 static bool sBottomWorkerRunning;
 static bool sBottomWorkerBusy;
 static bool sSpeedupRequested;
@@ -474,8 +483,13 @@ static void BottomWorkerMain(void* argument) {
 
 static bool EnsureBottomWorker(void) {
     if (sBottomWorkerThread) return true;
-    if (sBottomWorkerAttempted) return false;
-    sBottomWorkerAttempted = true;
+    if (sBottomWorkerAttempts >= BOTTOM_WORKER_MAX_ATTEMPTS) return false;
+    if (sBottomWorkerRetryIn != 0) {
+        --sBottomWorkerRetryIn;
+        return false;
+    }
+    ++sBottomWorkerAttempts;
+    sBottomWorkerRetryIn = BOTTOM_WORKER_RETRY_PAINTS;
 
     LightEvent_Init(&sBottomWorkerStart, RESET_ONESHOT);
     LightEvent_Init(&sBottomWorkerDone, RESET_ONESHOT);
@@ -483,9 +497,25 @@ static bool EnsureBottomWorker(void) {
     svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
     if (priority < 0x3e) priority += 2;
     sBottomWorkerRunning = true;
-    const int core = 0;
+    /* The painter has always shared core 0 with the main thread. It cannot
+     * preempt it (priority 50 against 48), but it does consume core 0 cycles,
+     * and its 83 ms spikes coincide with the frames that miss VBlank. Core 1
+     * carries audio and GSP but has idle time, and this thread is low priority
+     * so it would only take what is going spare. Switchable rather than
+     * assumed: moving audio to core 0 was tried before and made things worse. */
+    extern int Port_Config_BottomCore(void);
+    const int bottomOverride = Port_Config_BottomCore();
+    const int core = (bottomOverride == 0 || bottomOverride == 1) ? bottomOverride : 0;
     sBottomWorkerThread = threadCreate(BottomWorkerMain, NULL, 64u * 1024u, priority, core, false);
-    if (!sBottomWorkerThread) sBottomWorkerRunning = false;
+    if (!sBottomWorkerThread) {
+        sBottomWorkerRunning = false;
+        char line[128];
+        snprintf(line, sizeof(line),
+                 "[tmc3ds] bottom worker create failed (attempt %u/%u); retrying in %u paints\n",
+                 sBottomWorkerAttempts, BOTTOM_WORKER_MAX_ATTEMPTS,
+                 BOTTOM_WORKER_RETRY_PAINTS);
+        Platform3DS_Debug(line);
+    }
     return sBottomWorkerThread != NULL;
 }
 
@@ -513,7 +543,9 @@ void Platform3DS_ShutdownBottomWorker(void) {
     sBottomWorkerThread = NULL;
     sBottomWorkerRunning = false;
     sBottomWorkerBusy = false;
-    sBottomWorkerAttempted = false;
+    /* A deliberate shutdown is not a failure, so the retry budget resets. */
+    sBottomWorkerAttempts = 0;
+    sBottomWorkerRetryIn = 0;
 }
 
 static void PollInput(void) {
@@ -539,12 +571,109 @@ static void PollInput(void) {
     sQuickDumpComboWasHeld = quickDumpCombo;
 }
 
+/* The main thread can stop advancing while audio keeps playing -- both screens
+ * hold their last contents and no quick dump can be taken, because the dump
+ * runs on the main thread. These two let a thread that is still alive report
+ * where the main thread stopped. */
+static volatile uint32_t sMainStage;
+static volatile uint32_t sMainHeartbeat;
+
+void Platform3DS_SetStage(uint32_t stage) { sMainStage = stage; }
+void Platform3DS_Heartbeat(void) { ++sMainHeartbeat; }
+
+void Platform3DS_WatchdogPoll(void) {
+    static uint32_t lastHeartbeat;
+    static unsigned stalledPolls;
+    static bool reported;
+    const uint32_t beat = sMainHeartbeat;
+    if (beat != lastHeartbeat) {
+        lastHeartbeat = beat;
+        stalledPolls = 0;
+        reported = false;
+        return;
+    }
+    if (reported) return;
+    /* Audio wakes roughly every 16 ms, so a few hundred polls is several
+     * seconds of a genuinely stopped main thread rather than a slow frame. */
+    if (++stalledPolls < 240u) return;
+    reported = true;
+    char line[128];
+    snprintf(line, sizeof(line),
+             "[tmc3ds] WATCHDOG: main thread stopped at stage %lu, frame %lu\n",
+             (unsigned long)sMainStage, (unsigned long)beat);
+    Platform3DS_Debug(line);
+}
+
+/* GSPGPU_FlushDataCache is a round trip to the GSP sysmodule: the caller
+ * blocks, and GSP does the work on core 1 -- the same core the audio worker
+ * runs on, with only the app's quota share of it. svcStoreProcessDataCache
+ * cleans the same lines from this thread with no service call and no core-1
+ * wakeup. Whether it is permitted depends on how the title was launched, so it
+ * is probed once and the GSP path stays as the fallback. */
+static int sCacheCleanMode; /* 0 unprobed, 1 direct SVC, 2 GSP fallback */
+
+bool Platform3DS_CleanDataCache(const void* addr, size_t size) {
+    if (!addr || size == 0) return true;
+    if (sCacheCleanMode == 0) {
+        const Result probe = svcStoreProcessDataCache(
+                CUR_PROCESS_HANDLE, (u32)(uintptr_t)addr, (u32)size);
+        sCacheCleanMode = R_SUCCEEDED(probe) ? 1 : 2;
+        char line[96];
+        snprintf(line, sizeof(line),
+                 "[tmc3ds] cache clean: %s (probe 0x%08lx)\n",
+                 sCacheCleanMode == 1 ? "direct SVC" : "GSP fallback",
+                 (unsigned long)probe);
+        Platform3DS_Debug(line);
+        if (sCacheCleanMode == 1) return true;
+    }
+    if (sCacheCleanMode == 1) {
+        return R_SUCCEEDED(svcStoreProcessDataCache(
+                CUR_PROCESS_HANDLE, (u32)(uintptr_t)addr, (u32)size));
+    }
+    /* Fallback. GSPGPU_FlushDataCache is a synchronous service call: it blocks
+     * this thread until GSP has done the work. GX_FlushCacheRegions queues the
+     * same request onto the GX command queue instead, so the caller carries on.
+     * The work still runs on core 1 either way -- this buys main-thread time,
+     * not audio time. */
+    return R_SUCCEEDED(GX_FlushCacheRegions((u32*)(uintptr_t)addr, (u32)size,
+                                            NULL, 0, NULL, 0));
+}
+
+const char* Platform3DS_CacheCleanPath(void) {
+    return sCacheCleanMode == 1   ? "direct SVC (no GSP round trip)"
+           : sCacheCleanMode == 2 ? "GSP fallback"
+                                  : "unprobed";
+}
+
+void Platform3DS_RequestQuickDump(void) { sQuickDumpRequested = true; }
+
+/* Render and engine work together account for 12.7 ms of a 20.4 ms frame, and
+ * the VBlank wait is 7.7 ms where about 4 would be expected -- so a few
+ * milliseconds are spent somewhere neither counter watches. These cover the
+ * rest of this function: the lifecycle/audio pump before the wait, and the
+ * second-screen promotion and input scan after it. */
+static uint64_t sPumpTicks, sPostWaitTicks;
+static uint64_t sPumpMaxTicks, sPostWaitMaxTicks;
+
+uint64_t Platform3DS_PumpTicks(void) { return sPumpTicks; }
+uint64_t Platform3DS_PumpMaxTicks(void) { return sPumpMaxTicks; }
+uint64_t Platform3DS_PostWaitTicks(void) { return sPostWaitTicks; }
+uint64_t Platform3DS_PostWaitMaxTicks(void) { return sPostWaitMaxTicks; }
+
 void Platform3DS_WaitForVBlank(void) {
-    if (!PumpLifecycleAndAudio()) return;
+    Platform3DS_SetStage(11);
+    const uint64_t pumpStart = svcGetSystemTick();
+    const bool pumped = PumpLifecycleAndAudio();
+    const uint64_t pumpTicks = svcGetSystemTick() - pumpStart;
+    sPumpTicks += pumpTicks;
+    if (pumpTicks > sPumpMaxTicks) sPumpMaxTicks = pumpTicks;
+    if (!pumped) return;
     extern bool Port_PPU_3DS_UsesGpuPresenter(void);
     const uint64_t waitStart = svcGetSystemTick();
     if (Port_PPU_3DS_UsesGpuPresenter()) {
+        Platform3DS_SetStage(12);
         gspWaitForEvent(GSPGPU_EVENT_VBlank0, false);
+        Platform3DS_SetStage(13);
     } else {
         gfxFlushBuffers();
         gfxSwapBuffers();
@@ -556,6 +685,7 @@ void Platform3DS_WaitForVBlank(void) {
     /* EndBottom only marks a bottom generation submitted.  Promote it after
      * the display boundary and before this tick's HID scan, so touch never
      * targets a CPU-painted buffer that has not reached a presentation. */
+    const uint64_t postStart = svcGetSystemTick();
     Port_SecondScreen_3DS_PromoteSubmitted();
     if (sQuickDumpRequested) {
         extern void Port_PPU_3DS_WriteQuickDump(void);
@@ -563,6 +693,9 @@ void Platform3DS_WaitForVBlank(void) {
         Port_PPU_3DS_WriteQuickDump();
     }
     PollInput();
+    const uint64_t postTicks = svcGetSystemTick() - postStart;
+    sPostWaitTicks += postTicks;
+    if (postTicks > sPostWaitMaxTicks) sPostWaitMaxTicks = postTicks;
 }
 
 void Platform3DS_ShowFatal(const char* title, const char* message) {
