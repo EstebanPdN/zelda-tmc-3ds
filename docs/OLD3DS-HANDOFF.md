@@ -1,25 +1,44 @@
 # Old 3DS Performance — Handoff
 
 Branch `perf/old3ds-performance`, worktree `.worktrees/old3ds-performance`.
-Branch is unmerged; `main` has none of this. The code is one commit on base
-`3415b6235`: **`e753a32c5`** (25 modified files, 8 new sources, ~3600
-insertions), with this file and the parity notes committed on top. The five host
-gates below pass at `e753a32c5`, and every figure in this file was measured on
-that tree.
+Branch is unmerged; `main` has none of this. Two code commits on base
+`3415b6235`:
+
+- **`e753a32c5`** — the measured state (25 modified files, 8 new sources,
+  ~3600 insertions). Every figure in this file was measured on this tree.
+- **`fe4077478`** — MAP-tab repaint skipping, added after that dump.
+  Host-tested only; **not yet run on hardware**, so no figure here reflects it.
+
+All eight host gates pass at `fe4077478`. The 3DS link is unverified in this
+checkout: there is no devkitARM here (`/usr/bin/arm-none-eabi-gcc` is bare-metal
+with no libctru), so `platform/3ds/build.sh` cannot run and the two 3DS-only
+translation units changed by `fe4077478` — `port_ppu_3ds.c` and
+`port_second_screen_3ds.c` — have never been through a compiler. Build before
+trusting them.
 
 The detailed engineering log — every trap below with full derivations — is in
 `docs/old3ds-pica200-parity-notes.md`. This file is the summary.
 
 ## State
 
+From `dump-20260820-200845` (13,376 presented frames, ~244 s), the run that
+finally measured the core-1 painter move.
+
 | | value | from |
 |---|---|---|
-| Frame rate | **54.20 FPS** (busy scene 49.25) | was 49.10 |
-| Audio mix CPU | **0.377 ms/buffer** | was 1.785 (−79%) |
-| Underruns | **1 / 9902** | was 8 / 2422 |
-| Frames missing VBlank | **10.1% good / 21.4% busy** | the 60 Hz blocker |
-| Bottom paint | 13.2 ms avg, 77.6 ms max, 1370 paints | max was 88.8 |
-| Core split | core 0 ~8.5 ms, core 1 ~2.65 ms | 76 / 24 |
+| Frame rate | **54.89 FPS** | was 49.10 |
+| Average frame interval | **18.217 ms** vs 16.67 target | **the whole deficit is 1.55 ms/frame** |
+| Frames over 16.67 / 33.33 ms | 10270 (76.8%) / 135 (1.0%) | almost all frames are *slightly* over |
+| Audio mix CPU | **0.354 ms/buffer** | was 1.785 (−80%) |
+| Underruns | **2 / 15864** | was 8 / 2422 |
+| Audio deadline misses | 714 (5.3% of buffers) | steady ~5.5% in every dump |
+| Bottom paint | 11.679 ms avg, 85.079 max, **2230 paints, 0 skips** | was 13.2 avg |
+| Main-thread render max | 213.2 ms, of which **top presentation 197.6 ms** | the spike, now localised |
+| Debt clamps | 127 | was 81 |
+
+Scene-dependent good/busy splits are gone from this table: this dump is a
+single 4-minute run, so the numbers are one mixed average rather than two
+hand-picked scenes.
 
 **The measured numbers above are not what a default build does.** They come from
 a console config of `gpu_renderer=1 audio_dsp=1 audio_dsp_pcm=1 bottom_core=1`.
@@ -57,12 +76,13 @@ hypothesis. Two bugs shipped today specifically because changes were stacked
 without a measurement in between.
 
 - Build: `bash platform/3ds/build.sh` (devkitARM env; prints `Ready:`).
-- Host gates, all five green at `e753a32c5`: `port_ppu_gpu_3ds_model_test`,
-  `port_second_screen_slicemap_test` (7,274,904 pixel mappings identical),
-  `old3ds_frame_pacer_test`, `platform_gpu_layout_3ds_test`,
-  `mode1_native_fast_path_test` (4096 deterministic scenes). Plus
-  `port_ppu_gpu_3ds_bench <dump-dir>`, which needs a dump and reports timings
-  rather than passing.
+- Host gates, all eight green at `fe4077478`: `bottom_map_anim_3ds_test`,
+  `bottom_frame_state_3ds_test`, `bottom_idle_3ds_test`,
+  `port_ppu_gpu_3ds_model_test`, `port_second_screen_slicemap_test` (7,274,904
+  pixel mappings identical), `old3ds_frame_pacer_test`,
+  `platform_gpu_layout_3ds_test`, `mode1_native_fast_path_test` (4096
+  deterministic scenes). Plus `port_ppu_gpu_3ds_bench <dump-dir>`, which needs a
+  dump and reports timings rather than passing.
 - Two ways to get `error: invalid argument: <target>` and they look identical.
   Run from a worktree without `-P .` and xmake resolves the **main repo's**
   `xmake.lua`, where these targets do not exist. Pass more than one target to
@@ -73,46 +93,71 @@ without a measurement in between.
   truncates transfers and still reports success.
 - Dumps: `/3ds/The Minish Cap 3DS/dumps/<dump-*>/info.txt`. **Not** `/3ds/tmc3ds/`.
 
-## In flight — deployed, unmeasured
+## Measured: the painter move is falsified
 
-One run with an F8 dump settles all three.
+The three in-flight changes are now measured. The A/B is clean because the
+console config was rewritten at 20:03, so `dump-20260820-195959` is the last
+run without the painter move and `dump-20260820-200845` the run with it.
 
-1. **Bottom painter on core 1** (`bottom_core=0→1`). It cannot preempt the main
-   thread on core 0, so it only gets the 9.8 ms VBlank idle while needing
-   13.2 ms, and spills across the boundary. Core 1 is ~2.5% since audio left.
-   Busy scene should go 13.80 → 11.59 ms against a 16.67 ms budget. **This is
-   the direct test of the 60 FPS hypothesis.**
-2. **BlitMapRegion fixed-point** (`port_second_screen.c`). Removed a per-pixel
-   VFP add + float→int convert on the default MAP tab. Also a correctness fix:
-   over 3.5 M drawn pixels the new path matches an exact double mapping on 100%,
-   the float accumulation it replaced was wrong on 0.126%.
-3. **Painter thread creation retries** (`platform_3ds.c`). A latched bool meant
-   one transient `threadCreate` failure sent every paint to the synchronous
-   main-thread path permanently and silently.
+| | 195959 (`bottom_core=0`) | 200845 (`bottom_core=1`) |
+|---|---|---|
+| FPS | 54.99 | 54.89 |
+| Bottom paint avg | 11.690 ms | 11.679 ms |
+| Audio deadline misses | 657 / 11799 frames | 714 / 13376 frames |
 
-## The 60 Hz blocker is variance, not load
+**Moving the painter to core 1 changed nothing.** Not a small win — no win. The
+prediction in the previous revision of this file (13.80 → 11.59 ms, and 60 FPS
+following from it) was half right and wholly misleading: the painter *does* cost
+about what was predicted, and the frame rate did not move. So the painter was
+never blocking on core affinity. Do not re-litigate `bottom_core`; it is a
+neutral knob.
 
-| scene | work/frame | % of 16.67 ms | frames taking 2 periods |
-|---|---|---|---|
-| busy (49.25 FPS) | 11.59 ms | 70% | 21.4% |
-| good (54.20 FPS) | 8.52 ms | 51% | 10.1% |
+`BlitMapRegion` fixed-point and the thread-creation retry are both in and
+neither regressed anything. The slicemap fixed-point is visible and real: the
+`panel` paint phase went **6.871 → 3.504 ms average**, almost exactly halved.
 
-Even the worst scene measured leaves 30% headroom. An entire core is idle, the
-GPU never stalls the CPU (0 begin-failures / 8222 frames), and game logic is
-0.66–1.92 ms. The loss is the tail: main-thread render max **234.9 ms**, PPU
-render 86.5 ms, paint 77.6 ms — and 81 debt clamps mean that time is never
-repaid.
+## The 60 Hz blocker: 1.55 ms/frame, and a 197 ms spike in presentation
 
-Measured paint phases (instrumentation added this session, printed every dump):
-`panel 6.871/35.24`, `backdrop 3.892/6.34`, `tabbar 2.356/9.43`,
-`sidebar 1.901/25.25` (avg/max ms).
+The framing in earlier revisions — "variance, not load", scenes leaving 30%
+headroom — was built on scene-picked dumps and overstated the problem. The
+single-run number is simpler: **average frame interval 18.217 ms against a
+16.67 ms target.** 76.8% of frames are over budget but only 1.0% take two full
+periods. This is not a variance problem with a few catastrophic frames; it is a
+broad, shallow **1.55 ms/frame** overrun.
+
+That reframes the target. 1.55 ms is a small enough number that the bottom
+painter alone covers it: 2230 paints x 11.679 ms = 26.0 s over a 244 s run, or
+**1.95 ms per presented frame**, with **0 skips**. Hence the MAP-tab work below.
+
+Separately, the spike is now localised. In every dump, `Top presentation CPU
+work` maximum tracks `Main-thread render/presentation` maximum within 3–8%:
+
+| dump | main-thread render max | top presentation max |
+|---|---|---|
+| 174625 | 218.791 ms | 214.323 ms |
+| 185752 | 177.339 ms | 170.799 ms |
+| 195959 | 219.647 ms | 216.781 ms |
+| 200845 | 213.246 ms | 197.601 ms |
+
+So ~90–97% of the 200 ms stall is inside top presentation, not PPU render and
+not the painter. It is also reproducible across every run, including the old
+49 FPS ones. Instrument *inside* presentation next; the atlas flush (5284 calls,
+220 MB) and GSP contention are the candidates, but they are candidates, not
+findings.
+
+Paint phases from 200845 (avg/max ms): `backdrop 4.967/13.820`,
+`panel 3.504/34.721`, `tabbar 2.129/11.230`, `sidebar 1.869/10.471`. Backdrop is
+now the largest phase, and it went *up* (3.892 → 4.967) while panel halved.
 
 ## Traps
 
-- **The repaint tick is self-referential.** `sBottomWorkerTick = sBottomTick++`
-  is inside `if (schedulePaint)` (`port_ppu_3ds.c:1100`) and every MAP animation
-  derives from it. A skip signature quantising `tick` freezes the tick, so the
-  animation dies *permanently*. Drive from a free-running counter.
+- **The repaint tick was self-referential — now fixed, keep it that way.**
+  `sBottomWorkerTick = sBottomTick++` used to sit inside `if (schedulePaint)`
+  and every MAP animation derives from it, so any skip signature froze the tick
+  and killed the animation *permanently*. `port_ppu_3ds.c` now advances
+  `sBottomTick` on the cadence instead, whether or not a paint follows.
+  `bottom_map_anim_3ds_test` pins the hazard with a loop that never paints again
+  when fed a paint-gated tick.
 - **MP2K's PSG `freq` is the pattern-fetch rate, not the tone.** Multiplying by
   the period length played squares three octaves sharp, wave five.
 - **PSG voices leaked their hardware channel on destruction.**
@@ -131,20 +176,33 @@ Measured paint phases (instrumentation added this session, printed every dump):
 
 ## Next, ranked
 
-1. **Take one dump.** Blocks everything else.
-2. **Hunt the 234.9 ms render spike.** Unexplained; 14 lost frames each.
-   Instrument atlas flush (3934 calls, 187 MB), GSP contention, first-touch.
-3. **MAP-tab repaint skipping.** 1370 paints, zero skipped, ~12% of a core.
-   Design settled — quantised animation terms + snapshot memcmp + forced repaint
-   every N ticks. Prefer bounded staleness to a complete signature: 200 inputs
-   were enumerated, several are live engine globals, and a missed one freezes
-   the screen.
-4. **Region-zoom `calloc` inside a paint** — 256 KiB + 65536-px decode on tap.
-5. **Split the map build across cores** (~1.1 ms) only if the painter move is
-   insufficient. Structurally ready; the tile cache is the shared resource.
-   Pipelining moves ~3 ms but costs a frame of input latency.
+1. **Measure the MAP-tab skip on hardware.** Implemented this session and host-
+   tested, never run on a console — and this repo's own rule is that the host can
+   falsify but not confirm. Expect paints to drop from 2230 to roughly 420 on
+   overworld (5.33x) and 840 in dungeons (2.67x). What to check in `info.txt`:
+   `static skips` must stop being 0, `Bottom paint scheduling` should show the
+   drop, and the MAP screen must still animate — the player dot blink, the
+   dungeon room-palette rotation, and the region bracket retiring after a tap.
+   **A frozen bottom screen is the failure mode**; if it happens, the signature
+   missed an input and the first suspects are the three live engine globals named
+   in the parity notes.
+2. **Instrument inside top presentation.** The 200 ms spike is ~90–97% there and
+   reproduces in every dump. Atlas flush (5284 calls, 220 MB) and GSP contention
+   are candidates; nothing is confirmed. Worth ~14 lost frames per occurrence.
+3. **The backdrop is now the largest paint phase** at 4.967 ms and it grew from
+   3.892. Find out why it grew before optimising it — and note the standing trap
+   below that caching it is strictly worse.
+4. **Audio deadline misses: 714, a steady ~5.3–5.6% across every dump.** Only
+   2 underruns, so it is not yet audible, but `Audio render` averages 6.002 ms
+   while the mix is 0.354 ms — 5.6 ms per buffer is unaccounted for and nobody
+   has looked.
+5. **Region-zoom `calloc` inside a paint** — 256 KiB + 65536-px decode on tap.
+6. **Split the map build across cores** (~1.1 ms). Structurally ready; the tile
+   cache is the shared resource. Pipelining moves ~3 ms but costs a frame of
+   input latency.
 
-Deliberately skipped: deleting agbplay's mixer (recovers only 0.377 ms),
+Deliberately skipped: deleting agbplay's mixer (recovers only 0.354 ms),
 top-screen RGB565 and the VRAM present quad (report items written before
-hardware data; measurements do not support them), and the last 340 CGB
-rate-declines (uncorrectable without changing timbre, worth ~nothing).
+hardware data; measurements do not support them), the last 340 CGB
+rate-declines (uncorrectable without changing timbre, worth ~nothing), and
+`bottom_core` (measured neutral — see above).

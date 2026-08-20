@@ -1241,3 +1241,53 @@ silently, and the failure mode is a frozen screen. Prefer bounded staleness: the
 quantised animation terms above, plus the existing snapshot memcmp, plus a
 **forced repaint every N ticks** as a safety net. That way an unenumerated input
 costs at most N ticks of staleness instead of freezing forever.
+
+## MAP-tab repaint skipping, as implemented
+
+`bottom_map_anim_3ds.{c,h}` plus `bottom_map_anim_3ds_test`. The design is the
+one the section above settled on — quantised animation terms, snapshot memcmp,
+forced repaint every N ticks — with three things worth recording because they
+differ from the plan or were only settled by reading the code.
+
+**The tick fix is in the scheduler, not the signature.** `sBottomTick` now
+advances wherever `cadenceDue` is computed in `port_ppu_3ds.c`, not inside the
+`schedulePaint` branch. Advancing on the cadence rather than per paint is not a
+behaviour change in practice: the dump shows 2230 paints against 2229 periodic
+checks over 13376 frames at a 6-frame cadence (13376/6 = 2229), so paints
+already tracked the cadence 1:1 and the animation rate is preserved. Deriving
+the tick from `sFrameNumber / bottomInterval` instead — the other option the
+earlier section floated — was rejected because `bottomInterval` changes from 6
+to 30 when the developer overlay opens, which would make the tick jump
+*backwards* by 5x and corrupt every deadline compared against it.
+
+**The pulse term is quantised on the drawn integer, not the phase.** `u` is
+`min(w,h)/720`, so on the 320x240 bottom screen `u = 1/3` and
+`(int32_t)((6.5 + 1.5*sin(2*pi*(tick%32)/32)) * u)` takes exactly two values,
+1 and 2, switching at tick 18 and 31. Quantising the 32-tick phase instead
+would change every tick and save nothing. The test asserts the collapse to two
+values, so if the layout ever scales `u` up the test fails rather than the
+optimisation silently evaporating.
+
+**Two of the notes' inventory entries were wrong.** The `(tick & 8)` cursor and
+`sinf(tick % 48)` breath at `port_second_screen.c:1495`/`:1501` are in
+`PaintItemsPanel`, i.e. the ITEMS tab, which already forces a repaint
+unconditionally — they are not MAP terms and are not in the signature. The
+dungeon room-palette term is real and is the binding constraint: it lives in
+`port_second_screen_dungeonmap.c:424` as `8 + (((tick*3)>>3) & 7)`, changing 3
+times per 8 ticks, which caps the dungeon skip ratio at 2.67x against the
+overworld's 5.33x.
+
+Also folded in, because skipping paints would otherwise stall them: the region
+bracket (`port_second_screen.c:1201`) and the floor preview (`:1377`) are state
+machines that *retire inside the paint*. Both force a repaint while live rather
+than being encoded in the signature.
+
+What the test actually proves, beyond the counts: it compares the signature
+against independently re-derived reference expressions over all 256x256 tick
+pairs and asserts the signature partitions ticks *exactly* as the drawn picture
+does. That catches both a missed animation (stale screen) and a hash collision
+(skipped real change) — the latter being the failure the polynomial hash could
+otherwise hide. Measured on the host: overworld 768/4096 paints with a maximum
+gap of 8 ticks, dungeon 1536/4096 with a maximum gap of 3.
+
+Unverified on hardware. The host can falsify this but not confirm it.
