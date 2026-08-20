@@ -289,6 +289,36 @@ GX commands all funnel through one bound queue (`libctru/source/gpu/gx.c:24-33`,
 transfer is already correctly ordered before the draws that sample it. There is
 no async rewrite to do here -- it is already async.
 
+## Live hypothesis: GSP starvation on core 1
+
+`C3D_FrameBegin` -> `C3Di_WaitAndClearQueue(-1)` blocks on the previous frame's
+GPU workload. That workload is modest -- ~16.7K vertices, ~24 batches, and one
+307 KB display transfer on 5.5% of frames -- so a 196 ms block is not the GPU
+being slow. It is GSP being unable to run.
+
+GSP retires that queue on **core 1**, with only what
+`APT_SetAppCpuTimeLimit(80)` leaves it: 20%. Sharing core 1 with it are the PPU
+worker, the audio worker, and -- with `bottom_core=1` -- the bottom painter,
+whose measured maximum is **471.855 ms**. A painter run that long monopolises
+core 1 for long enough to stall the queue outright.
+
+This is the same conflict the audio findings hit from the other side: the app
+starves the sysmodule it then blocks on. Fixing `DSP_FlushDataCache` removed one
+victim; GSP is the other, and `C3D_FrameBegin` depends on it.
+
+Levers, all one-line ini edits, in order:
+
+1. **`bottom_core=0`** -- painter off core 1. Now cheap: MAP-skip cut paints from
+   2230 to 378, so the cost on core 0 is 4.1 s of a 128 s run (3.2% of a core).
+   It measured *neutral* at 2230 paints, which is not evidence about 378.
+2. **`app_cpu_limit=70`, then `50`** -- hand core-1 share back to GSP directly.
+   0 (default) keeps the built-in 80-first order.
+3. **`audio_core=0`** -- move the audio worker off core 1 as well.
+
+All three attack the same mechanism from different sides. Read the result in the
+`presentation`/`PPU render spans over 4/16/50 ms` buckets, not the averages:
+`bottom_core` is neutral for the average and the question is the tail.
+
 ## The whole goal reduces to two numbers: `over1` and `skips`
 
 The emulator reported `lostVblank=0/7199` with `interval=16.810 ms`. Together
