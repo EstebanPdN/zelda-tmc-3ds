@@ -369,7 +369,7 @@ void Port_PPU_3DS_WriteQuickDump(void) {
         fprintf(info, "Model: %s\n", Platform3DS_IsNew3DS() ? "New Nintendo 3DS" : "Old Nintendo 3DS");
         fprintf(info, "CPU profile requested: %s\n", runtimeStats.speedupRequested ? "804 MHz + L2" : "268 MHz");
         fprintf(info, "Runtime performance profile: %s\n",
-                runtimeStats.adaptiveFrameskipEnabled ? "Old 3DS (60 Hz logic target + adaptive presentation skip)"
+                runtimeStats.adaptiveFrameskipEnabled ? "Old 3DS (59.7275 Hz GBA logic target + adaptive presentation skip)"
                                                        : "New 3DS (full presentation path)");
         fprintf(info, "Post-boot stdio target: %s\n",
                 runtimeStats.gameplayDisplayActive ? "bottom framebuffer detached; stderr uses SVC"

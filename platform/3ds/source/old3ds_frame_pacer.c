@@ -4,7 +4,23 @@
 #include <string.h>
 
 enum {
-    OLD3DS_TARGET_HZ = 60,
+    /* The GBA draws a frame every 280896 cycles of a 16.777216 MHz clock,
+     * i.e. 59.7275 Hz / 16.7427 ms -- not 60 Hz / 16.6667 ms.
+     *
+     * Pacing to a nominal 60 gave a period shorter than anything real: the
+     * 3DS LCD delivers a frame every ~16.715 ms, so a perfectly on-time frame
+     * was booked as 0.048 ms late. Credit is capped at one period (see
+     * minimumDebt below) while debt is not, so that bias only accumulated --
+     * it reached the skip threshold about every 310 frames and forced a
+     * presentation skip for no reason. A dump showed 432 adaptive skips and
+     * 79 debt clamps with the loop otherwise healthy.
+     *
+     * Using the GBA's own period also makes the target correct rather than
+     * merely unbiased: the game's timing is what we are trying to reproduce,
+     * and 16.7427 ms is slightly longer than the display's 16.715 ms, so an
+     * on-time frame now books a small credit instead of a small debt. */
+    OLD3DS_GBA_FRAME_CYCLES = 280896,
+    OLD3DS_GBA_CLOCK_HZ = 16777216,
     OLD3DS_MAX_CONSECUTIVE_SKIPS = 3,
     OLD3DS_MAX_DEBT_PERIODS = 4,
 };
@@ -33,7 +49,9 @@ static bool ConsumeDiscontinuity(Old3DSFramePacer* pacer) {
 void Old3DSFramePacer_Init(Old3DSFramePacer* pacer, uint64_t ticksPerSecond) {
     if (!pacer) return;
     memset(pacer, 0, sizeof(*pacer));
-    pacer->framePeriodTicks = ticksPerSecond / OLD3DS_TARGET_HZ;
+    /* uint64 throughout: ticksPerSecond * 280896 is ~7.5e13 on hardware. */
+    pacer->framePeriodTicks =
+            ticksPerSecond * (uint64_t)OLD3DS_GBA_FRAME_CYCLES / (uint64_t)OLD3DS_GBA_CLOCK_HZ;
     if (pacer->framePeriodTicks == 0) pacer->framePeriodTicks = 1;
     /* A whole missed frame is presentation debt.  The small tolerance catches
      * a nominal two-VBlank frame despite timer quantization without turning a
@@ -120,9 +138,9 @@ bool Old3DSFramePacer_BeginTick(Old3DSFramePacer* pacer, uint64_t nowTick,
     }
 
     /* If the overrun is slightly under a full tick, sleep only the remainder.
-     * This prevents a skip from making the simulation run faster than 60 Hz.
+     * This prevents a skip from making the simulation run faster than the GBA rate.
      * BeginTick may reach this branch only at >=90% debt, so this compensation
-     * is bounded to <=10% of one period (~1.67 ms at the 60 Hz target). */
+     * is bounded to <=10% of one period (~1.67 ms). */
     if (pacer->presentationDebtTicks < (int64_t)pacer->framePeriodTicks) {
         const uint64_t sleepTicks =
             pacer->framePeriodTicks - (uint64_t)pacer->presentationDebtTicks;
