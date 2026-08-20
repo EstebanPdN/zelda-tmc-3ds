@@ -51,28 +51,21 @@ void SpeakerEq3DS_ApplyAll(void) {
     sActive = wanted;
 }
 
-/* DSP_GetHeadphoneStatus is a synchronous service IPC, and this runs from the
- * audio pump on the main thread. A dump measured that pump at 8.308 ms/frame
- * average against 0.011 ms in neighbouring runs, so putting a per-frame IPC on
- * that path is a risk taken for nothing: a jack does not need 60 Hz polling.
- * Every 32nd pump is roughly twice a second, which is imperceptible for
- * plugging in headphones and costs 1/32nd of the service traffic. */
-#define SPEAKER_EQ_POLL_INTERVAL 32u
-
+/*
+ * Headphone state comes from the shared config page, which is a plain memory
+ * read (os.h: OS_SharedConfig->headset_connected).
+ *
+ * It used to call DSP_GetHeadphoneStatus, which is IPC to the dsp sysmodule --
+ * the same starved-core-1 round trip that made the audio buffer flush cost
+ * ~330 us. Even throttled to every 32nd pump it showed up as 0.255 ms/frame
+ * average in the pump (0.011 ms before it existed), i.e. ~8.2 ms per call, and
+ * an 18.2 ms worst case. That was a quarter of the entire frame-rate deficit,
+ * spent asking whether a jack was plugged in.
+ *
+ * Cheap enough to check every pump, so the throttle is gone too.
+ */
 void SpeakerEq3DS_Poll(void) {
-    static unsigned sTick;
-    /* Always query on the very first call so init latches the real state. */
-    if (sHeadphonesKnown && (sTick++ % SPEAKER_EQ_POLL_INTERVAL) != 0u) {
-        return;
-    }
-    bool inserted = false;
-    /* DSP_GetHeadphoneStatus is the authoritative jack state; osIsHeadsetConnected
-     * reads the shared config page and does not track the plain audio jack on
-     * every system version. Treat a failed query as "unknown, assume speakers"
-     * so the correction still applies rather than silently disabling itself. */
-    if (R_FAILED(DSP_GetHeadphoneStatus(&inserted))) {
-        inserted = false;
-    }
+    const bool inserted = osIsHeadsetConnected();
     if (sHeadphonesKnown && inserted == sHeadphones) return;
     sHeadphones = inserted;
     sHeadphonesKnown = true;

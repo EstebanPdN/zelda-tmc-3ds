@@ -450,8 +450,8 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 TicksToMilliseconds(sPerfIntervalTicks) / intervalSampleCount,
                 TicksToMilliseconds(sPerfIntervalMinTicks == UINT64_MAX ? 0 : sPerfIntervalMinTicks),
                 TicksToMilliseconds(sPerfIntervalMaxTicks));
-        fprintf(info, "Frames over 16.67 ms / 33.33 ms: %llu / %llu\n", (unsigned long long)sPerfFramesOver16ms,
-                (unsigned long long)sPerfFramesOver33ms);
+        fprintf(info, "Frames over 1 / 2 GBA periods (16.743 / 33.485 ms): %llu / %llu\n",
+                (unsigned long long)sPerfFramesOver16ms, (unsigned long long)sPerfFramesOver33ms);
         fprintf(info, "Engine work between frame boundaries: last %.3f ms, average %.3f ms, maximum %.3f ms\n",
                 TicksToMilliseconds(runtimeStats.engineWorkLastTicks),
                 TicksToMilliseconds(runtimeStats.engineWorkTicks) / (double)engineSamples,
@@ -1191,9 +1191,15 @@ void Port_PPU_PresentFrame(void) {
                 sPerfIntervalMaxTicks = intervalTicks;
             const uint64_t ticksPerSecond = Platform3DS_TicksPerSecond();
             __atomic_store_n(&sCurrentFpsX100, (uint32_t)(ticksPerSecond * 100u / intervalTicks), __ATOMIC_RELAXED);
-            if (intervalTicks * 60u > ticksPerSecond)
+            /* Was `intervalTicks * 60 > ticksPerSecond`, i.e. "over 16.667 ms".
+             * The 3DS LCD period is 16.715 ms and the GBA target 16.743 ms, so
+             * every on-time frame counted as over and the figure read ~80%,
+             * measuring nothing. Compare against the period actually being
+             * paced to (GBA: 280896 cycles of a 16.777216 MHz clock). */
+            const uint64_t periodTicks = ticksPerSecond * 280896u / 16777216u;
+            if (intervalTicks > periodTicks)
                 ++sPerfFramesOver16ms;
-            if (intervalTicks * 30u > ticksPerSecond)
+            if (intervalTicks > periodTicks * 2u)
                 ++sPerfFramesOver33ms;
         }
         sPerfLastFrameTick = frameStartTick;
