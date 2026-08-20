@@ -77,6 +77,9 @@ static uint64_t sPerfTopOver50ms;
 static uint64_t sPerfTopOver4msTicks;
 static uint64_t sPerfTopOver16msTicks;
 static uint64_t sPerfTopOver50msTicks;
+static uint64_t sPerfRenderOver4ms;
+static uint64_t sPerfRenderOver16ms;
+static uint64_t sPerfRenderOver50ms;
 static uint64_t sPerfBottomMaxTicks;
 static uint64_t sPerfTotalMaxTicks;
 static uint64_t sPerfIntervalTicks;
@@ -489,6 +492,10 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 "  presentation spans over 4/16/50 ms: %llu / %llu / %llu of %llu\n",
                 (unsigned long long)sPerfTopOver4ms, (unsigned long long)sPerfTopOver16ms,
                 (unsigned long long)sPerfTopOver50ms, (unsigned long long)sPerfSamples);
+        fprintf(info,
+                "  PPU render spans over 4/16/50 ms: %llu / %llu / %llu of %llu\n",
+                (unsigned long long)sPerfRenderOver4ms, (unsigned long long)sPerfRenderOver16ms,
+                (unsigned long long)sPerfRenderOver50ms, (unsigned long long)sPerfSamples);
         fprintf(info, "Bottom-screen paint worker: average %.3f ms, maximum %.3f ms\n",
                 TicksToMilliseconds(sPerfBottomTicks) / bottomSampleCount, TicksToMilliseconds(sPerfBottomMaxTicks));
         fprintf(info, "Main-thread render/presentation CPU work: average %.3f ms, maximum %.3f ms\n",
@@ -869,6 +876,9 @@ void Port_PPU_Init(SDL_Window* window) {
     sPerfTopOver4ms = 0;
     sPerfTopOver16ms = 0;
     sPerfTopOver50ms = 0;
+    sPerfRenderOver4ms = 0;
+    sPerfRenderOver16ms = 0;
+    sPerfRenderOver50ms = 0;
     {
         const uint64_t hz = Platform3DS_TicksPerSecond();
         sPerfTopOver4msTicks = hz / 250u;  /* 4 ms */
@@ -1245,6 +1255,12 @@ void Port_PPU_PresentFrame(void) {
         if (topTicks > sPerfTopOver4msTicks) ++sPerfTopOver4ms;
         if (topTicks > sPerfTopOver16msTicks) ++sPerfTopOver16ms;
         if (topTicks > sPerfTopOver50msTicks) ++sPerfTopOver50ms;
+        /* Same blind spot on the other large span: PPU render has an 86.776 ms
+         * maximum and no frequency. Atlas tile decodes burst on area changes
+         * (475478 decodes across a run), which would show up here. */
+        if (renderTicks > sPerfTopOver4msTicks) ++sPerfRenderOver4ms;
+        if (renderTicks > sPerfTopOver16msTicks) ++sPerfRenderOver16ms;
+        if (renderTicks > sPerfTopOver50msTicks) ++sPerfRenderOver50ms;
         if (totalTicks > sPerfTotalMaxTicks)
             sPerfTotalMaxTicks = totalTicks;
         if (sPerfIntervalTicks != 0) {
