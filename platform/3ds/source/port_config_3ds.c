@@ -84,6 +84,12 @@ static bool sGpuStencil = true;
 static int sAudioCore = -1;
 /* -1 keeps core 0; 1 moves the bottom-screen painter off the main thread's core. */
 static int sBottomCore = -1;
+/* Skip a MAP-tab bottom-screen repaint when the quantised animation signature
+ * says the next tick draws the same picture. Defaults on: a dump measured 2230
+ * paints at 11.679 ms with 0 skips, ~1.95 ms per presented frame against a
+ * 1.55 ms/frame deficit. Turn it off to A/B, or if the bottom screen ever
+ * freezes -- that is the failure mode if the signature misses an input. */
+static bool sBottomMapSkip = true;
 /* Report and research items that measurement says are neutral or harmful by
  * default. Present, switchable, and off unless asked for. */
 static bool sGpuStaticQuad = false;
@@ -212,6 +218,7 @@ void Port_Config_Load(const char* path) {
             else if (strcmp(key, "gpu_stencil") == 0) sGpuStencil = ParseBool(value);
             else if (strcmp(key, "audio_core") == 0) sAudioCore = (int)strtol(value, NULL, 10);
             else if (strcmp(key, "bottom_core") == 0) sBottomCore = (int)strtol(value, NULL, 10);
+            else if (strcmp(key, "bottom_map_skip") == 0) sBottomMapSkip = ParseBool(value);
             else if (strcmp(key, "gpu_static_quad") == 0) sGpuStaticQuad = ParseBool(value);
             else if (strcmp(key, "bottom_rgb565") == 0) sBottomRgb565 = ParseBool(value);
             else if (strcmp(key, "gpu_short_vertices") == 0) sGpuShortVertices = ParseBool(value);
@@ -277,6 +284,7 @@ int Port_Config_GpuScissorMode(void) { return sGpuScissorMode; }
 bool Port_Config_GpuStencil(void) { return sGpuStencil; }
 int Port_Config_AudioCore(void) { return sAudioCore; }
 int Port_Config_BottomCore(void) { return sBottomCore; }
+bool Port_Config_BottomMapSkip(void) { return sBottomMapSkip; }
 bool Port_Config_GpuStaticQuad(void) { return sGpuStaticQuad; }
 bool Port_Config_BottomRgb565(void) { return sBottomRgb565; }
 bool Port_Config_GpuShortVertices(void) { return sGpuShortVertices; }

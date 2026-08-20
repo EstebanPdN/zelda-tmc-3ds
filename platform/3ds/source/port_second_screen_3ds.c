@@ -240,6 +240,9 @@ int Port_SecondScreen_3DS_NeedsPeriodicRefresh(const SecondScreenSnapshot* snap,
     UI_UNLOCK();
 
     if (tab == SS_TAB_MAP) {
+        if (!Port_Config_BottomMapSkip()) {
+            return 1; /* the old unconditional repaint, kept for the A/B */
+        }
         /* Two state machines retire inside the paint itself — the region
          * bracket at port_second_screen.c:1201 and the floor preview at
          * :1377 — so they must keep painting until they expire or they stall
