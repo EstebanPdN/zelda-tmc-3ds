@@ -80,6 +80,15 @@ static uint64_t sPerfTopOver50msTicks;
 static uint64_t sPerfRenderOver4ms;
 static uint64_t sPerfRenderOver16ms;
 static uint64_t sPerfRenderOver50ms;
+static uint64_t sFrameBeginTicks;
+static uint64_t sFrameBeginMaxTicks;
+static uint64_t sFrameBeginOver4ms;
+static uint64_t sFrameBeginOver16ms;
+static uint64_t sFrameBeginSamples;
+static uint64_t sPreflightTicks;
+static uint64_t sPreflightMaxTicks;
+static uint64_t sPreflightOver4ms;
+static uint64_t sPreflightOver16ms;
 static uint64_t sPerfBottomMaxTicks;
 static uint64_t sPerfTotalMaxTicks;
 static uint64_t sPerfIntervalTicks;
@@ -496,6 +505,22 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 "  PPU render spans over 4/16/50 ms: %llu / %llu / %llu of %llu\n",
                 (unsigned long long)sPerfRenderOver4ms, (unsigned long long)sPerfRenderOver16ms,
                 (unsigned long long)sPerfRenderOver50ms, (unsigned long long)sPerfSamples);
+        {
+            const double n = (double)(sFrameBeginSamples ? sFrameBeginSamples : 1);
+            fprintf(info,
+                    "    C3D_FrameBegin wait: %.3f avg / %.3f max ms, over 4/16 ms: %llu / %llu\n",
+                    TicksToMilliseconds(sFrameBeginTicks) / n,
+                    TicksToMilliseconds(sFrameBeginMaxTicks),
+                    (unsigned long long)sFrameBeginOver4ms,
+                    (unsigned long long)sFrameBeginOver16ms);
+            fprintf(info,
+                    "    PPU preflight:       %.3f avg / %.3f max ms, over 4/16 ms: %llu / %llu of %llu\n",
+                    TicksToMilliseconds(sPreflightTicks) / n,
+                    TicksToMilliseconds(sPreflightMaxTicks),
+                    (unsigned long long)sPreflightOver4ms,
+                    (unsigned long long)sPreflightOver16ms,
+                    (unsigned long long)sFrameBeginSamples);
+        }
         fprintf(info, "Bottom-screen paint worker: average %.3f ms, maximum %.3f ms\n",
                 TicksToMilliseconds(sPerfBottomTicks) / bottomSampleCount, TicksToMilliseconds(sPerfBottomMaxTicks));
         fprintf(info, "Main-thread render/presentation CPU work: average %.3f ms, maximum %.3f ms\n",
@@ -1002,11 +1027,32 @@ void Port_PPU_PresentFrame(void) {
          * C3D_FrameBegin waits on the GX queue with no timeout, so a command
          * list the GPU never retires stops the main thread here forever. Split
          * them so the watchdog names which. */
+        /* The PPU-render span is 4.249 ms average, of which preflight is 3.024
+         * and the builder 2.906 -- so on AVERAGE this is CPU builder work, not
+         * the GPU wait. But 89 of 1681 frames exceed 16 ms in this span and an
+         * average cannot say which half spikes. Split them: if the wait spikes
+         * it is GSP starvation (attack with app_cpu_limit / core placement); if
+         * preflight spikes it is the builder, most likely `maps` at 2.31 ms
+         * with atlas decode bursts on area change (111 decodes/frame average
+         * over 199496). The two fixes have nothing in common, so guessing here
+         * would waste a run. */
         Platform3DS_SetStage(20);
+        const uint64_t beginStart = Platform3DS_SystemTick();
         const bool frameBegun = PlatformGpu3DS_BeginCustomTop();
+        const uint64_t beginTicks = Platform3DS_SystemTick() - beginStart;
         Platform3DS_SetStage(21);
         gpuReady = frameBegun && PortPpuGpu3DS_Preflight(&frameView);
+        const uint64_t preflightTicks = Platform3DS_SystemTick() - beginStart - beginTicks;
         Platform3DS_SetStage(3);
+        sFrameBeginTicks += beginTicks;
+        sPreflightTicks += preflightTicks;
+        if (beginTicks > sFrameBeginMaxTicks) sFrameBeginMaxTicks = beginTicks;
+        if (preflightTicks > sPreflightMaxTicks) sPreflightMaxTicks = preflightTicks;
+        if (beginTicks > sPerfTopOver4msTicks) ++sFrameBeginOver4ms;
+        if (beginTicks > sPerfTopOver16msTicks) ++sFrameBeginOver16ms;
+        if (preflightTicks > sPerfTopOver4msTicks) ++sPreflightOver4ms;
+        if (preflightTicks > sPerfTopOver16msTicks) ++sPreflightOver16ms;
+        ++sFrameBeginSamples;
         if (!gpuReady) {
             port_hdma_vblank_reset();
             if (parityFrame) PortPpuGpu3DS_DeferParityCheck();
