@@ -226,14 +226,36 @@ The accounting, measured baseline plus estimates:
 | - periodic SD log (`frame_log` off) | ~16.659 | ~60.03 |
 | **GBA target** | **16.7427** | **59.73** |
 
-Only the first row is observed. The GBA-period pacer fix is on top of this and
-independently targets the 432 adaptive skips, which cost 3.4 FPS on their own.
+Only the first row is observed; the rest are derived.
 
-What the dump decides: `Measured engine logic cadence` (55.81 -> needs ~59.7),
-`Measured cadence`, `adaptive-skipped presentations` and `debt clamps` (432 / 79
--> should collapse), and `presentation spans over 4/16/50 ms` -- the first
-frequency data on the 196 ms maximum. If `over 50 ms` is now near zero, the SD
-log was the spike.
+**The pacer fix is worth far less than first claimed.** An earlier revision said
+the 432 adaptive skips "cost 3.4 FPS on their own", which assumed all of them
+were phantom. They were not. Phantom debt accrued 0.0484 ms/frame against a
+15.068 ms skip threshold, so it took ~311 frames to force a skip: over 7244
+frames that is ~23 bursts of at most 3 consecutive skips, i.e. **~70 phantom
+skips, and ~362 caused by genuine frame overruns**. The pacer fix alone is worth
+about **+0.5 FPS**, not 3.4.
+
+That makes presented FPS depend on how many real overruns the 1.07 ms/frame of
+work removal eliminates:
+
+| real overruns remaining | presented FPS |
+|---|---|
+| all 362 | ~57.0 |
+| half | ~58.5 |
+| none | ~60.0 |
+
+**Reaching 59.73 needs the real overruns cut by ~85%.** Logic cadence should
+reach ~60 Hz regardless; presented cadence is the one at risk, and the gap
+between the two is exactly `adaptive-skipped presentations`.
+
+What the dump decides: `waits exceeding 1 / 2 GBA periods` (is the residual gap
+missed vblanks at all -- the interval counters and the wait arithmetic currently
+disagree), `Measured engine logic cadence` (55.81 -> needs ~59.7),
+`adaptive-skipped presentations` and `debt clamps`, and the `presentation` and
+`PPU render spans over 4/16/50 ms` buckets -- the first frequency data on the
+196 ms and 86.8 ms maxima. If `over 50 ms` is near zero, the SD log was the
+spike.
 
 **2. If the spike survives:** `C3D_FrameBegin(0)` blocks on the GX queue with no
 timeout (`platform_gpu_3ds.c:479`) and GSP retires that queue on core 1 with the
