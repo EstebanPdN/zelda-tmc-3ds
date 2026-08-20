@@ -459,7 +459,7 @@ static void DrawTopTexture(C3D_Tex* texture, unsigned width, bool configureAbgr)
 static void DrawTopImage(const uint32_t* pixels, unsigned width) {
     const size_t topFlushBytes =
         (size_t)sUploadLayout.topPitch * 160u * sizeof(uint32_t);
-    GSPGPU_FlushDataCache(pixels, topFlushBytes);
+    Platform3DS_CleanDataCache(pixels, topFlushBytes);
     C3D_SyncDisplayTransfer((u32*)pixels,
                             GX_BUFFER_DIM(sUploadLayout.topPitch, sUploadLayout.topRows),
                             (u32*)sTopTexture.data,
@@ -553,7 +553,7 @@ bool PlatformGpu3DS_EndBottom(const uint32_t* pixels, bool changed) {
     if (changed) {
         const size_t bottomFlushBytes =
             (size_t)sUploadLayout.bottomPitch * 240u * sizeof(uint32_t);
-        GSPGPU_FlushDataCache(pixels, bottomFlushBytes);
+        Platform3DS_CleanDataCache(pixels, bottomFlushBytes);
         C3D_SyncDisplayTransfer((u32*)pixels,
                                 GX_BUFFER_DIM(sUploadLayout.bottomPitch, sUploadLayout.bottomRows),
                                 (u32*)sBottomTexture.data, GX_BUFFER_DIM(512, 256),
@@ -585,7 +585,12 @@ bool PlatformGpu3DS_EndBottom(const uint32_t* pixels, bool changed) {
     }
     C2D_Flush();
     if (sC2dFlushBase && sC2dFlushSize) {
-        GSPGPU_FlushDataCache(sC2dFlushBase, sC2dFlushSize);
+        /* One GSP round trip per presented frame: the dump's own counters show
+         * 876609536 bytes / 65536 per call = 13375 calls against 13376 frames.
+         * At the ~330 us platform_3ds.c:638 measured for this IPC that is
+         * ~0.33 ms/frame, spent cleaning 64 KiB that svcStoreProcessDataCache
+         * cleans locally in microseconds without waking core 1. */
+        Platform3DS_CleanDataCache(sC2dFlushBase, sC2dFlushSize);
         sStats.boundedFlushBytes += sC2dFlushSize;
     }
     C3D_FrameEnd(GX_CMDLIST_FLUSH);
@@ -618,7 +623,8 @@ void PlatformGpu3DS_ShowDumpSavedOverlay(void) {
     C2D_DrawImage(bottomImage, &bottomParams, NULL);
     ConfigureAbgrTextureEnv();
     C2D_Flush();
-    if (sC2dFlushBase && sC2dFlushSize) GSPGPU_FlushDataCache(sC2dFlushBase, sC2dFlushSize);
+    /* Bottom-only presentation path: same per-frame GSP round trip as above. */
+    if (sC2dFlushBase && sC2dFlushSize) Platform3DS_CleanDataCache(sC2dFlushBase, sC2dFlushSize);
     C3D_FrameEnd(GX_CMDLIST_FLUSH);
     sFrameActive = false;
     gspWaitForEvent(GSPGPU_EVENT_VBlank0, false);
