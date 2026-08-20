@@ -252,12 +252,12 @@ the only remaining unknown.
 correctly at 272/320 pitch over 577 bottom transfers, and a pitch mismatch would
 shear the image diagonally. It is safe to leave enabled.
 
-## The whole goal reduces to one number: lostVblank
+## The whole goal reduces to two numbers: `over1` and `skips`
 
-The emulator run reported `lostVblank=0/7199` with `interval=16.810 ms`. Those
-two together mean the loop is vblank-locked: when it misses nothing, its
-interval *is* the display period. Azahar emulates ~59.49 Hz, which is exactly
-why `logic=59.55` there -- not a code shortfall.
+The emulator reported `lostVblank=0/7199` with `interval=16.810 ms`. Together
+those mean the loop is vblank-locked: when it misses nothing, its interval *is*
+the display period. Azahar emulates ~59.49 Hz, which is exactly why
+`logic=59.55` there -- an emulator property, not a code shortfall.
 
 Apply that to real hardware:
 
@@ -267,19 +267,29 @@ Apply that to real hardware:
 | GBA logic target | 16.7427 ms | 59.73 Hz |
 
 **The display is faster than the target.** A vblank-locked loop that misses
-nothing presents at 59.83 Hz, which exceeds 59.73. The pacer then only needs to
-skip ~0.16% of frames to hold logic at the GBA rate.
+nothing presents at 59.83 Hz, above 59.73. The pacer then only needs to skip
+~0.16% of frames to hold logic at the GBA rate.
 
 So success is not "shave N ms of work" -- work is already 7.8 ms of a 16.74 ms
-period. Success is:
+period. It is:
 
-- **`lostVblank` ~= 0** (hardware baseline: inferred ~13% of iterations, though
-  the interval counters said 2.83% and the two disagreed -- which is why the
-  counter exists)
+- **`over1` small** -- presented intervals exceeding one GBA period
 - **`skips` ~= 0.2%** (hardware baseline: 432/7244 = 6.0%)
 
+**Do not use `lostVblank` as the criterion.** With `vblank_phase_lock=0` the
+wait is `gspWaitForEvent(VBlank0, nextEvent=false)`, and `false` means an
+already-pending VBlank satisfies it immediately. So a frame whose work crosses a
+boundary makes the *next* wait return in ~0 ms rather than blocking for another
+period: waits are either ~0 or ~(period - work) and essentially never exceed one
+period. `lostVblank` therefore reads ~0 whether or not frames are being lost,
+and the emulator's `0/7199` would look identical on an unhealthy loop. It is
+still worth emitting -- a non-zero value means a genuine pathology -- but it
+cannot confirm health. `over1` is the counter that measures the failure, and it
+only became trustworthy once its threshold was corrected from 16.667 ms to the
+real GBA period.
+
 Every remaining lever -- `compact_upload`, `bottom_core=0`, the async bottom
-transfer -- is aimed at the same thing: stop individual frames overrunning the
+transfer -- aims at the same thing: stop individual frames overrunning the
 period. Nothing else moves the number.
 
 ## Next, ranked
