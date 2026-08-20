@@ -127,6 +127,10 @@ static bool sFrameLog = false;
  * display-transfer dimensions must agree, and if they do not the bottom screen
  * is visibly garbage. Flip it, look at the screen, then keep or drop it. */
 static bool sCompactUpload = false;
+/* Cap on the app's core-1 share. 0 keeps the built-in preference order (80 first).
+ * Lower values hand core 1 back to the sysmodules -- GSP above all, which retires
+ * the queue C3D_FrameBegin waits on. See Platform3DS_Init. */
+static int sAppCpuLimit = 0;
 /* Report and research items that measurement says are neutral or harmful by
  * default. Present, switchable, and off unless asked for. */
 static bool sGpuStaticQuad = false;
@@ -233,6 +237,7 @@ static void SaveConfig(void) {
     fprintf(file, "speaker_eq_hz=%.1f\n", (double)sSpeakerEqHz);
     fprintf(file, "frame_log=%u\n", sFrameLog ? 1u : 0u);
     fprintf(file, "compact_upload=%u\n", sCompactUpload ? 1u : 0u);
+    fprintf(file, "app_cpu_limit=%d\n", sAppCpuLimit);
     fprintf(file, "gpu_static_quad=%u\n", sGpuStaticQuad ? 1u : 0u);
     fprintf(file, "bottom_rgb565=%u\n", sBottomRgb565 ? 1u : 0u);
     fprintf(file, "gpu_short_vertices=%u\n", sGpuShortVertices ? 1u : 0u);
@@ -290,6 +295,7 @@ void Port_Config_Load(const char* path) {
             else if (strcmp(key, "speaker_eq_hz") == 0) sSpeakerEqHz = strtof(value, NULL);
             else if (strcmp(key, "frame_log") == 0) sFrameLog = ParseBool(value);
             else if (strcmp(key, "compact_upload") == 0) sCompactUpload = ParseBool(value);
+            else if (strcmp(key, "app_cpu_limit") == 0) sAppCpuLimit = (int)strtol(value, NULL, 10);
             else if (strcmp(key, "gpu_static_quad") == 0) sGpuStaticQuad = ParseBool(value);
             else if (strcmp(key, "bottom_rgb565") == 0) sBottomRgb565 = ParseBool(value);
             else if (strcmp(key, "gpu_short_vertices") == 0) sGpuShortVertices = ParseBool(value);
@@ -362,6 +368,7 @@ bool Port_Config_SpeakerEq(void) { return sSpeakerEq; }
 float Port_Config_SpeakerEqHz(void) { return sSpeakerEqHz; }
 bool Port_Config_FrameLog(void) { return sFrameLog; }
 bool Port_Config_CompactUpload(void) { return sCompactUpload; }
+int Port_Config_AppCpuLimit(void) { return sAppCpuLimit; }
 bool Port_Config_GpuStaticQuad(void) { return sGpuStaticQuad; }
 bool Port_Config_BottomRgb565(void) { return sBottomRgb565; }
 bool Port_Config_GpuShortVertices(void) { return sGpuShortVertices; }

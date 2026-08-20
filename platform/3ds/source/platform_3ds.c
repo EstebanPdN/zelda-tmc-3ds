@@ -149,8 +149,21 @@ int Platform3DS_Init(void) {
         sSpeedupRequested = true;
     }
 
+    /* Core 1 share for the app; the remainder goes to the sysmodules, and the
+     * one that matters here is GSP, which retires the GX queue that
+     * C3D_FrameBegin blocks on. At 80 the sysmodules get 20%, and a starved GSP
+     * is the leading explanation for the ~196 ms C3D_FrameBegin waits
+     * (citro3d C3Di_WaitAndClearQueue) that coincide with the real frame
+     * overruns. Lowering this trades core-1 time away from the PPU worker in
+     * exchange for GSP responsiveness; which way that nets out is a hardware
+     * question, so it is a knob rather than a new default.
+     *
+     * `app_cpu_limit=0` (default) keeps the original preference order. */
+    extern int Port_Config_AppCpuLimit(void);
+    const int limitCap = Port_Config_AppCpuLimit();
     static const u32 core1Candidates[] = { 80, 70, 50, 30 };
     for (size_t i = 0; i < sizeof(core1Candidates) / sizeof(core1Candidates[0]); ++i) {
+        if (limitCap > 0 && core1Candidates[i] > (u32)limitCap) continue;
         if (R_FAILED(APT_SetAppCpuTimeLimit(core1Candidates[i]))) continue;
         u32 actual = 0;
         if (R_SUCCEEDED(APT_GetAppCpuTimeLimit(&actual)) && actual > 0) {
