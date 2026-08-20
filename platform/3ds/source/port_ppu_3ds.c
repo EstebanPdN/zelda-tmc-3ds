@@ -813,7 +813,9 @@ static void RecordBottomWorkerTiming(void) {
 void Port_PPU_Init(SDL_Window* window) {
     (void)window;
     const bool old3dsProfile = !Platform3DS_IsNew3DS();
-    const PlatformGpu3DSUploadLayout uploadLayout = PlatformGpu3DS_GetUploadLayout(old3dsProfile);
+    /* MUST match the expression in PlatformGpu3DS_Init exactly. */
+    const PlatformGpu3DSUploadLayout uploadLayout =
+            PlatformGpu3DS_GetUploadLayout(old3dsProfile && Port_Config_CompactUpload());
     sTopUploadPitch = uploadLayout.topPitch;
     sBottomUploadPitch = uploadLayout.bottomPitch;
     VirtuaPPUMode1GbaMemory memory = { gIoMem, gVram, gBgPltt, gObjPltt, gOamMem };

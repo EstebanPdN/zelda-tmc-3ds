@@ -112,6 +112,10 @@ bool Port_Config_AudioDspInterpLinear(void);
 /* 3DS: `frame_log=1` re-enables the per-120-frame SD diagnostic line. Off by
  * default; it costs main-thread SD I/O inside the presentation span. */
 bool Port_Config_FrameLog(void);
+/* 3DS: `compact_upload=1` uses 272x160 / 320x240 upload surfaces instead of
+ * 512x256. Every caller of PlatformGpu3DS_GetUploadLayout must gate on this
+ * identically or the painter stride and the display transfer disagree. */
+bool Port_Config_CompactUpload(void);
 bool Port_Config_GpuStaticQuad(void);
 bool Port_Config_BottomRgb565(void);
 bool Port_Config_GpuShortVertices(void);

@@ -25,6 +25,7 @@ static unsigned sPresentQuadWidth;
 /* Declared locally: port_runtime_config.h pulls in port_types.h, whose
  * u32/s32 collide with libctru's. */
 bool Port_Config_GpuStaticQuad(void);
+bool Port_Config_CompactUpload(void);
 bool Port_Config_BottomRgb565(void);
 
 static bool sLastFrameUsedGpu;
@@ -186,7 +187,9 @@ static void ConfigureAbgrTextureEnv(void) {
 bool PlatformGpu3DS_Init(bool old3dsProfile) {
     memset(&sStats, 0, sizeof(sStats));
     sOld3DSProfile = old3dsProfile;
-    sUploadLayout = PlatformGpu3DS_GetUploadLayout(old3dsProfile);
+    /* MUST match the expression in Port_PPU_Init exactly: that one gives the
+     * pitch to the painter, this one sizes the allocation and the transfer. */
+    sUploadLayout = PlatformGpu3DS_GetUploadLayout(old3dsProfile && Port_Config_CompactUpload());
     const size_t topBytes =
         (size_t)sUploadLayout.topPitch * sUploadLayout.topRows * sizeof(uint32_t);
     const size_t bottomBytes =

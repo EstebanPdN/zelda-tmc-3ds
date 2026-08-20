@@ -120,6 +120,13 @@ static float sSpeakerEqHz = 280.0f;
  * quick dump already reports every counter it contains; turn this on only when
  * a hang needs forensics that survive the crash. */
 static bool sFrameLog = false;
+/* Compact Old 3DS upload surfaces (272x160 top, 320x240 bottom RGBA8 instead of
+ * 512x256). Cuts the bottom clean-and-transfer from 491520 to 307200 bytes, and
+ * that transfer is synchronous, so it shortens a recurring main-thread block on
+ * GSP rather than just saving memory. Off by default: the painter stride and the
+ * display-transfer dimensions must agree, and if they do not the bottom screen
+ * is visibly garbage. Flip it, look at the screen, then keep or drop it. */
+static bool sCompactUpload = false;
 /* Report and research items that measurement says are neutral or harmful by
  * default. Present, switchable, and off unless asked for. */
 static bool sGpuStaticQuad = false;
@@ -225,6 +232,7 @@ static void SaveConfig(void) {
     fprintf(file, "speaker_eq=%u\n", sSpeakerEq ? 1u : 0u);
     fprintf(file, "speaker_eq_hz=%.1f\n", (double)sSpeakerEqHz);
     fprintf(file, "frame_log=%u\n", sFrameLog ? 1u : 0u);
+    fprintf(file, "compact_upload=%u\n", sCompactUpload ? 1u : 0u);
     fprintf(file, "gpu_static_quad=%u\n", sGpuStaticQuad ? 1u : 0u);
     fprintf(file, "bottom_rgb565=%u\n", sBottomRgb565 ? 1u : 0u);
     fprintf(file, "gpu_short_vertices=%u\n", sGpuShortVertices ? 1u : 0u);
@@ -281,6 +289,7 @@ void Port_Config_Load(const char* path) {
             else if (strcmp(key, "speaker_eq") == 0) sSpeakerEq = ParseBool(value);
             else if (strcmp(key, "speaker_eq_hz") == 0) sSpeakerEqHz = strtof(value, NULL);
             else if (strcmp(key, "frame_log") == 0) sFrameLog = ParseBool(value);
+            else if (strcmp(key, "compact_upload") == 0) sCompactUpload = ParseBool(value);
             else if (strcmp(key, "gpu_static_quad") == 0) sGpuStaticQuad = ParseBool(value);
             else if (strcmp(key, "bottom_rgb565") == 0) sBottomRgb565 = ParseBool(value);
             else if (strcmp(key, "gpu_short_vertices") == 0) sGpuShortVertices = ParseBool(value);
@@ -352,6 +361,7 @@ bool Port_Config_AudioDspInterpLinear(void) { return sAudioDspInterpLinear; }
 bool Port_Config_SpeakerEq(void) { return sSpeakerEq; }
 float Port_Config_SpeakerEqHz(void) { return sSpeakerEqHz; }
 bool Port_Config_FrameLog(void) { return sFrameLog; }
+bool Port_Config_CompactUpload(void) { return sCompactUpload; }
 bool Port_Config_GpuStaticQuad(void) { return sGpuStaticQuad; }
 bool Port_Config_BottomRgb565(void) { return sBottomRgb565; }
 bool Port_Config_GpuShortVertices(void) { return sGpuShortVertices; }

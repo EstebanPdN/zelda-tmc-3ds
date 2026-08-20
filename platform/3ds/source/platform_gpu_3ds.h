@@ -12,8 +12,29 @@ typedef struct PlatformGpu3DSUploadLayout {
     unsigned bottomRows;
 } PlatformGpu3DSUploadLayout;
 
-static inline PlatformGpu3DSUploadLayout PlatformGpu3DS_GetUploadLayout(bool old3dsProfile) {
-    (void)old3dsProfile;
+/*
+ * Upload surface geometry, in RGBA8 pixels.
+ *
+ * The full 512x256 surface is 524288 bytes for each screen, but only 240x160 of
+ * the top and 320x240 of the bottom is ever visible. The oversize surface costs
+ * on every bottom change: PlatformGpu3DS_EndBottom cleans the span and then
+ * issues a *synchronous* C3D_SyncDisplayTransfer, so the main thread blocks on
+ * GSP -- which retires that queue on core 1 with the app's 20% quota -- for
+ * 491520 bytes when 307200 would do.
+ *
+ * `compact` is passed by the caller, not derived here, and EVERY caller must
+ * pass the same value: platform_gpu_3ds.c sizes the allocation and the transfer
+ * from this, while port_ppu_3ds.c hands the pitch to the painter and to
+ * VirtuaPPU. Disagreement means the painter strides differently from the
+ * transfer and the screen is garbage.
+ *
+ * 272 rather than 266 for the top: the widescreen capacity is 266 and a display
+ * transfer wants an 8-aligned width. 320 is the bottom screen exactly.
+ */
+static inline PlatformGpu3DSUploadLayout PlatformGpu3DS_GetUploadLayout(bool compact) {
+    if (compact) {
+        return (PlatformGpu3DSUploadLayout){ 272u, 160u, 320u, 240u };
+    }
     return (PlatformGpu3DSUploadLayout){ 512u, 256u, 512u, 256u };
 }
 
