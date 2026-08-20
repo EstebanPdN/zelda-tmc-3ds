@@ -109,6 +109,9 @@ bool Port_Config_VblankPhaseLock(void);
 /* 3DS: interpolation for offloaded NDSP voices. Default 1 (linear) matches the
  * software mix on channel 0; 0 selects NDSP_INTERP_NONE. */
 bool Port_Config_AudioDspInterpLinear(void);
+/* 3DS: `frame_log=1` re-enables the per-120-frame SD diagnostic line. Off by
+ * default; it costs main-thread SD I/O inside the presentation span. */
+bool Port_Config_FrameLog(void);
 bool Port_Config_GpuStaticQuad(void);
 bool Port_Config_BottomRgb565(void);
 bool Port_Config_GpuShortVertices(void);

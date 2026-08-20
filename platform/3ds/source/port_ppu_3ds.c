@@ -1057,7 +1057,17 @@ void Port_PPU_PresentFrame(void) {
                  Port_Config_GpuScissorMode());
         Platform3DS_Debug(config);
     }
-    if (sFrameNumber <= 8u || (sFrameNumber % 120u) == 0u) {
+    /* Platform3DS_Debug does fopen/fwrite/fclose per call, so this is a full SD
+     * open-write-close on the main thread, inside the timed presentation span.
+     * FS is a core-1 sysmodule holding the app's 20% quota, so the cycle costs
+     * tens of milliseconds: amortised over 120 frames that is a few tenths of a
+     * millisecond per frame, and the stall itself lands in the presentation
+     * span, which is where the unexplained ~196 ms maximum shows up.
+     *
+     * The first frames stay unconditional -- they are boot forensics and cost
+     * eight writes once. The periodic line is redundant with the quick dump,
+     * which reports every one of these counters, so it is opt-in. */
+    if (sFrameNumber <= 8u || (Port_Config_FrameLog() && (sFrameNumber % 120u) == 0u)) {
         PlatformGpu3DSStats presenter;
         PortPpuGpu3DSStats gpu;
         PlatformGpu3DS_GetStats(&presenter);
