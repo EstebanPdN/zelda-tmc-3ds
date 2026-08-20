@@ -796,6 +796,7 @@ target("tmc_pc")
     -- the engine's already-loaded ROM buffer.
     add_files("tools/src/assets_extractor/assets_extractor_api.cpp")
     add_files("port/port_m4a_backend.cpp")
+    add_files("port/port_m4a_mixdown.c")
     add_files("port/generated_sounds_embed.cpp")  -- compile-time sounds.json fallback
     add_files("port/port_ppu.cpp")      -- PPU bridge (C++ → ViruaPPU)
     add_files("port/port_gpu_renderer.cpp")  -- SDL_GPU presentation (Stage 1: scaffold; gated on --gpu_renderer=y)
@@ -1340,6 +1341,19 @@ target("bottom_map_anim_3ds_test")
     add_syslinks("m")
 target_end()
 
+
+-- ====================
+-- MP2K track mixdown bit-exactness regression test.
+-- ====================
+target("port_m4a_mixdown_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs("port")
+    add_files("port/port_m4a_mixdown.c")
+    add_files("port/port_m4a_mixdown_test.c")
+    add_syslinks("m")
+target_end()
 -- ====================
 -- Old/New 3DS GPU upload layout regression test.
 -- ====================

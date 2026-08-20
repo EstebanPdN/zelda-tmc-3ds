@@ -63,7 +63,7 @@ set(TMC_PORT_SOURCES
     port/port_filter.c port/port_animation.c port/port_math.c
     port/port_text_render.c port/port_gameplay_stubs.c port/port_m4a_stubs.c
     port/port_room_funcs.c port/port_script_funcs.c port/port_analog_movement.c
-    port/port_m4a_backend.cpp port/generated_sounds_embed.cpp
+    port/port_m4a_backend.cpp port/port_m4a_mixdown.c port/generated_sounds_embed.cpp
     port/ppu/src/virtuappu.c port/ppu/src/mode1.c
     port/rando/rando.cpp port/rando/rando_logic.cpp
     port/rando/rando_save.c port/rando/rando_runtime.c
@@ -144,6 +144,10 @@ set_source_files_properties(
 )
 set_source_files_properties(
     "${TMC_ROOT}/port/port_m4a_backend.cpp"
+    # The mixdown was carved out of port_m4a_backend.cpp, so it must keep that
+    # file's flags. Compiled without -ffast-math it would differ from the code
+    # it replaced in both rounding and speed.
+    "${TMC_ROOT}/port/port_m4a_mixdown.c"
     ${AGBPLAY_SOURCES}
     PROPERTIES COMPILE_OPTIONS "-flto;-fno-semantic-interposition;-ffast-math"
 )
