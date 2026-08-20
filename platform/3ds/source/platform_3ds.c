@@ -669,10 +669,24 @@ void Platform3DS_WaitForVBlank(void) {
     if (pumpTicks > sPumpMaxTicks) sPumpMaxTicks = pumpTicks;
     if (!pumped) return;
     extern bool Port_PPU_3DS_UsesGpuPresenter(void);
+    extern bool Port_Config_VblankPhaseLock(void);
     const uint64_t waitStart = svcGetSystemTick();
     if (Port_PPU_3DS_UsesGpuPresenter()) {
         Platform3DS_SetStage(12);
-        gspWaitForEvent(GSPGPU_EVENT_VBlank0, false);
+        /* nextEvent=false does not discard an already-pending VBlank, so a
+         * frame whose work crossed one returns from here immediately, presents
+         * mid-scanout, and the loop drifts out of phase with the display. That
+         * matches the measured shape: 79.8% of intervals exceed 16.67 ms while
+         * only 1.07% exceed 33.33 ms, and a phase-locked loop can only emit
+         * multiples of 16.71 ms. Real work is 7.8 ms of the 16.71 ms period, so
+         * the deficit is phase, not throughput.
+         *
+         * nextEvent=true phase-locks to the next VBlank. The risk is the
+         * mirror image: any frame that genuinely overruns a period then always
+         * waits a full extra one, which can pin a heavy scene to 30 FPS. That
+         * trade is what the frame pacer arbitrates, so this is a switch to be
+         * A/B'd against it on hardware, not a fix to assume. */
+        gspWaitForEvent(GSPGPU_EVENT_VBlank0, Port_Config_VblankPhaseLock());
         Platform3DS_SetStage(13);
     } else {
         gfxFlushBuffers();

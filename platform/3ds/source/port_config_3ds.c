@@ -90,6 +90,10 @@ static int sBottomCore = -1;
  * 1.55 ms/frame deficit. Turn it off to A/B, or if the bottom screen ever
  * freezes -- that is the failure mode if the signature misses an input. */
 static bool sBottomMapSkip = true;
+/* Phase-lock the presentation wait to the next VBlank instead of accepting an
+ * already-pending one. Off by default: unproven, and the failure mode is a
+ * heavy scene pinned to 30 FPS. See Platform3DS_WaitForVBlank. */
+static bool sVblankPhaseLock = false;
 /* Report and research items that measurement says are neutral or harmful by
  * default. Present, switchable, and off unless asked for. */
 static bool sGpuStaticQuad = false;
@@ -190,6 +194,7 @@ static void SaveConfig(void) {
     fprintf(file, "audio_core=%d\n", sAudioCore);
     fprintf(file, "bottom_core=%d\n", sBottomCore);
     fprintf(file, "bottom_map_skip=%u\n", sBottomMapSkip ? 1u : 0u);
+    fprintf(file, "vblank_phase_lock=%u\n", sVblankPhaseLock ? 1u : 0u);
     fprintf(file, "gpu_static_quad=%u\n", sGpuStaticQuad ? 1u : 0u);
     fprintf(file, "bottom_rgb565=%u\n", sBottomRgb565 ? 1u : 0u);
     fprintf(file, "gpu_short_vertices=%u\n", sGpuShortVertices ? 1u : 0u);
@@ -240,6 +245,7 @@ void Port_Config_Load(const char* path) {
             else if (strcmp(key, "audio_core") == 0) sAudioCore = (int)strtol(value, NULL, 10);
             else if (strcmp(key, "bottom_core") == 0) sBottomCore = (int)strtol(value, NULL, 10);
             else if (strcmp(key, "bottom_map_skip") == 0) sBottomMapSkip = ParseBool(value);
+            else if (strcmp(key, "vblank_phase_lock") == 0) sVblankPhaseLock = ParseBool(value);
             else if (strcmp(key, "gpu_static_quad") == 0) sGpuStaticQuad = ParseBool(value);
             else if (strcmp(key, "bottom_rgb565") == 0) sBottomRgb565 = ParseBool(value);
             else if (strcmp(key, "gpu_short_vertices") == 0) sGpuShortVertices = ParseBool(value);
@@ -306,6 +312,7 @@ bool Port_Config_GpuStencil(void) { return sGpuStencil; }
 int Port_Config_AudioCore(void) { return sAudioCore; }
 int Port_Config_BottomCore(void) { return sBottomCore; }
 bool Port_Config_BottomMapSkip(void) { return sBottomMapSkip; }
+bool Port_Config_VblankPhaseLock(void) { return sVblankPhaseLock; }
 bool Port_Config_GpuStaticQuad(void) { return sGpuStaticQuad; }
 bool Port_Config_BottomRgb565(void) { return sBottomRgb565; }
 bool Port_Config_GpuShortVertices(void) { return sGpuShortVertices; }

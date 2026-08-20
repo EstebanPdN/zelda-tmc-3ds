@@ -103,6 +103,9 @@ int Port_Config_AudioCore(void);
 int Port_Config_BottomCore(void);
 /* 3DS: `bottom_map_skip=0` restores an unconditional MAP-tab repaint. */
 bool Port_Config_BottomMapSkip(void);
+/* 3DS: `vblank_phase_lock=1` waits for the next VBlank instead of accepting an
+ * already-pending one. Experiment; see Platform3DS_WaitForVBlank. */
+bool Port_Config_VblankPhaseLock(void);
 bool Port_Config_GpuStaticQuad(void);
 bool Port_Config_BottomRgb565(void);
 bool Port_Config_GpuShortVertices(void);
