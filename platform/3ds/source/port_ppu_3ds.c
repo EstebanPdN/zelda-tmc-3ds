@@ -991,10 +991,14 @@ void Port_PPU_PresentFrame(void) {
             &virtuappu_registers, sGpuIoPerLine[0], sGpuDispcntPerLine,
             sGpuAffRefX, sGpuAffRefY, &frameView.frameDispcnt);
         /* Claim the GPU frame first: preflight writes the vertex, index and
-         * atlas buffers the previous frame may still be drawing from. */
-        /* Claim the GPU frame first: preflight writes the vertex, index and
-         * atlas buffers the previous frame may still be drawing from. */
-        /* Stage 2 covered both the frame-begin wait and the whole of preflight.
+         * atlas buffers the previous frame may still be drawing from, so this
+         * wait is a correctness barrier, not incidental ordering. It cannot be
+         * moved later or dropped to shorten the block -- doing so overwrites
+         * geometry still being drawn, which an emulator hides because its GPU
+         * completes instantly. Removing the block properly means double
+         * buffering those buffers so preflight can write B while the GPU reads A.
+         *
+         * Stage 2 covered both the frame-begin wait and the whole of preflight.
          * C3D_FrameBegin waits on the GX queue with no timeout, so a command
          * list the GPU never retires stops the main thread here forever. Split
          * them so the watchdog names which. */

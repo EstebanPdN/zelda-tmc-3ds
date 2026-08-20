@@ -319,6 +319,23 @@ All three attack the same mechanism from different sides. Read the result in the
 `presentation`/`PPU render spans over 4/16/50 ms` buckets, not the averages:
 `bottom_core` is neutral for the average and the question is the tail.
 
+### Why the FrameBegin wait cannot just be moved
+
+The obvious idea -- call `C3D_FrameBegin` later so the GPU gets more slack -- is
+wrong. `port_ppu_3ds.c:993` states why: **preflight writes the vertex, index and
+atlas buffers the previous frame may still be drawing from.** The wait is a
+correctness barrier. Move it later or drop it and geometry still being drawn gets
+overwritten -- which an emulator hides completely, because its GPU finishes
+instantly.
+
+So the config levers above (core placement, `app_cpu_limit`) are the cheap
+attack, and the *structural* fix is to **double buffer the vertex/index/atlas
+buffers** so preflight writes B while the GPU reads A, removing the need to wait
+before preflight at all. Peak was 45824 vertices at 20 bytes (~916 KB) plus
+indices and atlas; linear memory free was ~11 MB, so it is probably affordable.
+That is a real architectural change and should not be attempted before the
+config levers have been measured -- they may make it unnecessary.
+
 ## The whole goal reduces to two numbers: `over1` and `skips`
 
 The emulator reported `lostVblank=0/7199` with `interval=16.810 ms`. Together
