@@ -1120,6 +1120,50 @@ void Port_PPU_PresentFrame(void) {
                  (unsigned long long)gpu.fallbackFrames, dispcnt);
         Platform3DS_Debug(line);
     }
+
+    /* Cadence summary in the log, so a run reports itself without a quick dump.
+     *
+     * The quick dump has all of this and more, but it needs L+R+A at the end of
+     * a session -- and a run reaching frame 11160 has already happened with no
+     * dump written, which cost that whole session's data. One SD write every
+     * 1800 frames is ~30 s apart: even at 30 ms per open-write-close that is
+     * 0.017 ms/frame, three orders below the per-120-frame line this replaces.
+     *
+     * Deliberately after frame 1800 only, so the numbers exclude warm-up. */
+    if (sFrameNumber >= 1800u && (sFrameNumber % 1800u) == 0u && sPerfIntervalSamples > 0u &&
+        sPerfSamples > 0u) {
+        PlatformGpu3DSStats gpuCadence;
+        PlatformGpu3DS_GetStats(&gpuCadence);
+        Platform3DSRuntimeStats rt;
+        Platform3DS_GetRuntimeStats(&rt);
+        extern uint64_t Platform3DS_VblankWaitSamples(void);
+        extern uint64_t Platform3DS_VblankWaitOverOnePeriod(void);
+        const uint64_t waits = Platform3DS_VblankWaitSamples();
+        const uint64_t over1 = Platform3DS_VblankWaitOverOnePeriod();
+        char cadence[352];
+        snprintf(cadence, sizeof(cadence),
+                 "[tmc3ds] CADENCE f=%lu fps=%.2f logic=%.2f interval=%.3fms "
+                 "skips=%llu clamps=%llu lostVblank=%llu/%llu over1=%llu over2=%llu "
+                 "xfer=%.3f/%.3fms n=%llu\n",
+                 (unsigned long)sFrameNumber,
+                 (double)__atomic_load_n(&sAverageFpsX100, __ATOMIC_RELAXED) / 100.0,
+                 rt.logicElapsedTicks
+                         ? (double)rt.logicFrames * (double)Platform3DS_TicksPerSecond() /
+                                   (double)rt.logicElapsedTicks
+                         : 0.0,
+                 TicksToMilliseconds(sPerfIntervalTicks) / (double)sPerfIntervalSamples,
+                 (unsigned long long)rt.old3dsSkippedPresentations,
+                 (unsigned long long)rt.old3dsDebtClampEvents, (unsigned long long)over1,
+                 (unsigned long long)waits, (unsigned long long)sPerfFramesOver16ms,
+                 (unsigned long long)sPerfFramesOver33ms,
+                 gpuCadence.bottomTransfers
+                         ? TicksToMilliseconds(gpuCadence.bottomTransferTicks) /
+                                   (double)gpuCadence.bottomTransfers
+                         : 0.0,
+                 TicksToMilliseconds(gpuCadence.bottomTransferMaxTicks),
+                 (unsigned long long)gpuCadence.bottomTransfers);
+        Platform3DS_Debug(cadence);
+    }
     const uint64_t topEndTick = Platform3DS_SystemTick();
 #ifdef TMC_3DS_DIAGNOSTICS
     const uint64_t topEnd = Platform3DS_Milliseconds();
