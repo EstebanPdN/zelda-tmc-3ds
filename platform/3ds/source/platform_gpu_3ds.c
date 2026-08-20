@@ -554,6 +554,16 @@ void PlatformGpu3DS_BeginTop(const uint32_t* pixels, unsigned width) {
 bool PlatformGpu3DS_EndBottom(const uint32_t* pixels, bool changed) {
     if (!sFrameActive || !pixels) return false;
     if (changed) {
+        /* This is a *synchronous* GSP display transfer on the main thread, and
+         * GSP retires it on core 1 with the app's 20% quota. It is the prime
+         * suspect for the real frame overruns: a dump showed 378 of these
+         * against ~362 overrunning frames, near one-to-one -- but that is a
+         * count correlation, not a timing, so measure it rather than assume.
+         *
+         * `compact_upload` cuts the payload 491520 -> 307200 bytes; these
+         * counters say whether that is enough to bring the frame back under
+         * the 16.7427 ms period. */
+        const uint64_t transferStart = svcGetSystemTick();
         const size_t bottomFlushBytes =
             (size_t)sUploadLayout.bottomPitch * 240u * sizeof(uint32_t);
         Platform3DS_CleanDataCache(pixels, bottomFlushBytes);
@@ -561,6 +571,10 @@ bool PlatformGpu3DS_EndBottom(const uint32_t* pixels, bool changed) {
                                 GX_BUFFER_DIM(sUploadLayout.bottomPitch, sUploadLayout.bottomRows),
                                 (u32*)sBottomTexture.data, GX_BUFFER_DIM(512, 256),
                                 BottomTextureTransfer());
+        const uint64_t transferTicks = svcGetSystemTick() - transferStart;
+        sStats.bottomTransferTicks += transferTicks;
+        if (transferTicks > sStats.bottomTransferMaxTicks)
+            sStats.bottomTransferMaxTicks = transferTicks;
         ++sStats.bottomTransfers;
     }
     if (!sOld3DSProfile || changed || !sBottomTargetValid) {

@@ -664,6 +664,14 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 (unsigned long long)gpuStats.frameBeginFailures);
         fprintf(info, "GPU top/bottom transfers: %llu / %llu\n", (unsigned long long)gpuStats.topTransfers,
                 (unsigned long long)gpuStats.bottomTransfers);
+        fprintf(info,
+                "  bottom sync transfer: %.3f ms average, %.3f ms maximum over %llu transfers\n",
+                gpuStats.bottomTransfers
+                        ? TicksToMilliseconds(gpuStats.bottomTransferTicks) /
+                                  (double)gpuStats.bottomTransfers
+                        : 0.0,
+                TicksToMilliseconds(gpuStats.bottomTransferMaxTicks),
+                (unsigned long long)gpuStats.bottomTransfers);
         fprintf(info, "GPU upload pitch/bytes top: %lu / %lu; bottom: %lu / %lu\n",
                 (unsigned long)gpuStats.topUploadPitch, (unsigned long)gpuStats.topUploadBytes,
                 (unsigned long)gpuStats.bottomUploadPitch, (unsigned long)gpuStats.bottomUploadBytes);

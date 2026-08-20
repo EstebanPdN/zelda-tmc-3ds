@@ -43,6 +43,8 @@ typedef struct PlatformGpu3DSStats {
     uint64_t frameBeginFailures;
     uint64_t topTransfers;
     uint64_t bottomTransfers;
+    uint64_t bottomTransferTicks;
+    uint64_t bottomTransferMaxTicks;
     uint64_t bottomTargetDraws;
     uint64_t bottomTargetReuseSkips;
     uint64_t boundedFlushBytes;
