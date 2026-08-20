@@ -1,53 +1,53 @@
 # Old 3DS Performance — Handoff
 
 Branch `perf/old3ds-performance`, worktree `.worktrees/old3ds-performance`.
-Branch is unmerged; `main` has none of this. Two code commits on base
-`3415b6235`:
+Branch is unmerged; `main` has none of this. Base `3415b6235`, then 34 commits.
+`e753a32c5` is the tree the early figures were measured on; everything after it
+is this session.
 
-- **`e753a32c5`** — the measured state (25 modified files, 8 new sources,
-  ~3600 insertions). Every figure in this file was measured on this tree.
-- **`fe4077478`** — MAP-tab repaint skipping, added after that dump.
-  Host-tested only; **not yet run on hardware**, so no figure here reflects it.
+**devkitARM is installed at `/home/sian/devkitpro-root/opt/devkitpro`** (not
+`/opt/devkitpro`; a previous session used `/tmp/dkp-root`, which `/tmp` cleanup
+then deleted). Build with:
 
-All eight host gates pass at `fe4077478`. The 3DS link is unverified in this
-checkout: there is no devkitARM here (`/usr/bin/arm-none-eabi-gcc` is bare-metal
-with no libctru), so `platform/3ds/build.sh` cannot run and the two 3DS-only
-translation units changed by `fe4077478` — `port_ppu_3ds.c` and
-`port_second_screen_3ds.c` — have never been through a compiler. Build before
-trusting them.
+```sh
+DEVKITPRO=/home/sian/devkitpro-root/opt/devkitpro bash platform/3ds/build.sh
+```
+
+gcc 16.1.0. `makerom`/`bannertool` are absent so no CIA is produced; the 3DSX is
+what the console boots. Two non-obvious packages: `devkitarm-crtls` ships
+`3dsx.specs` without which cmake's compiler probe fails, and `citro3d`/`citro2d`
+are separate.
 
 The detailed engineering log — every trap below with full derivations — is in
 `docs/old3ds-pica200-parity-notes.md`. This file is the summary.
 
 ## State
 
-From `dump-20260820-200845` (13,376 presented frames, ~244 s), the run that
-finally measured the core-1 painter move.
+Last long run: `dump-20260820-222226`, 6812 presented frames, ~128 s. It carries
+the audio cache fix but **not** the four frame-path fixes that followed it.
 
-| | value | from |
+| | value | note |
 |---|---|---|
-| Frame rate | **54.89 FPS** | was 49.10 |
-| Average frame interval | **18.217 ms** vs 16.67 target | **the whole deficit is 1.55 ms/frame** |
-| Frames over 16.67 / 33.33 ms | 10270 (76.8%) / 135 (1.0%) | almost all frames are *slightly* over |
-| Audio mix CPU | **0.354 ms/buffer** | was 1.785 (−80%) |
-| Underruns | **2 / 15864** | was 8 / 2422 |
-| Audio deadline misses | 714 (5.3% of buffers) | steady ~5.5% in every dump |
-| Bottom paint | 11.679 ms avg, 85.079 max, **2230 paints, 0 skips** | was 13.2 avg |
-| Main-thread render max | 213.2 ms, of which **top presentation 197.6 ms** | the spike, now localised |
-| Debt clamps | 127 | was 81 |
+| Frame rate | **53.03 FPS** | target 59.73 (GBA); 59.83 is the LCD ceiling |
+| Frame interval | 18.858 ms | per *logic* iteration 17.733 ms vs 16.7427 target |
+| Engine logic cadence | **55.81 ticks/s** | the loop itself, not just presentation |
+| Adaptive skips / debt clamps | 432 / 79 | caused by the 60 Hz pacer bug, now fixed |
+| Audio render | **0.841 ms/buffer** = 5.4% of a core | was 5.367 ms = 34.3% |
+| Underruns / deadline misses | **0** / 26 | was 2 / 241 |
+| Pump (aptMainLoop + audio) | 0.255 ms avg, 18.2 ms max | `aptMainLoop` is 0.003 of it |
+| Bottom paint | 377 paints, **758 static skips** | MAP-skip working; irrelevant to FPS |
+| Top presentation | 2.033 ms avg, **196.0 ms max** | frequency unknown until next dump |
 
-Scene-dependent good/busy splits are gone from this table: this dump is a
-single 4-minute run, so the numbers are one mixed average rather than two
-hand-picked scenes.
+`vblank_phase_lock` is 0: it lost its A/B (54.61 -> 53.03 FPS, frames over two
+periods 1.07% -> 2.83%).
 
-**The measured numbers above are not what a default build does.** They come from
-a console config of `gpu_renderer=1 audio_dsp=1 audio_dsp_pcm=1 bottom_core=1`.
-In `port_config_3ds.c` only `gpu_renderer` defaults on; `audio_dsp`,
-`audio_dsp_pcm`, `gpu_static_quad`, `bottom_rgb565` and `gpu_short_vertices`
-default **off** and `bottom_core` defaults to `-1` (core 0). Build, run without
-that file, and you measure the software audio path on core 0 — a different
-system from the one this table describes. Check the flags in `info.txt` before
-comparing any dump against these figures.
+**These numbers are not what a default build does.** The console config is
+`gpu_renderer=1 audio_dsp=1 audio_dsp_pcm=1 bottom_core=1 bottom_map_skip=1
+audio_dsp_interp_linear=1 speaker_eq=1 speaker_eq_hz=280.0 gpu_static_quad=1`.
+In `port_config_3ds.c` most of those default off. `SaveConfig` now round-trips
+all of them — it used to parse but not write them, so any settings change or
+exit silently erased the config of the run being measured. Check the flags in
+`info.txt`, not the ini, before comparing any dump against this table.
 
 ## Which docs to trust
 
@@ -116,38 +116,72 @@ neutral knob.
 neither regressed anything. The slicemap fixed-point is visible and real: the
 `panel` paint phase went **6.871 → 3.504 ms average**, almost exactly halved.
 
-## The 60 Hz blocker: 1.55 ms/frame, and a 197 ms spike in presentation
+## The target is 59.7275 Hz, not 60 -- and the pacer was wrong
 
-The framing in earlier revisions — "variance, not load", scenes leaving 30%
-headroom — was built on scene-picked dumps and overstated the problem. The
-single-run number is simpler: **average frame interval 18.217 ms against a
-16.67 ms target.** 76.8% of frames are over budget but only 1.0% take two full
-periods. This is not a variance problem with a few catastrophic frames; it is a
-broad, shallow **1.55 ms/frame** overrun.
+The GBA draws a frame every 280896 cycles of a 16.777216 MHz clock: **59.7275 Hz
+/ 16.7427 ms**. The 3DS LCD delivers ~59.83 Hz / 16.7151 ms. Nothing runs at 60.
 
-That reframes the target. 1.55 ms is a small enough number that the bottom
-painter alone covers it: 2230 paints x 11.679 ms = 26.0 s over a 244 s run, or
-**1.95 ms per presented frame**, with **0 skips**. Hence the MAP-tab work below.
+`old3ds_frame_pacer.c` had `OLD3DS_TARGET_HZ = 60`, a 16.6667 ms period shorter
+than *both*. So a perfectly on-time frame was booked as 0.048 ms late, and the
+bias is one-directional by construction: credit is capped at one period while
+debt accumulates to four. It reached the skip threshold roughly every 310 frames
+and forced a presentation skip for no reason -- 432 adaptive skips and 79 debt
+clamps on an otherwise healthy loop. The period is now derived from the GBA's
+own timing; the bias flips to -0.0276 ms/frame of (clamped) credit.
 
-Separately, the spike is now localised. In every dump, `Top presentation CPU
-work` maximum tracks `Main-thread render/presentation` maximum within 3–8%:
+**Ceiling is 59.7 FPS. 59.83 is the hard LCD limit.**
 
-| dump | main-thread render max | top presentation max |
-|---|---|---|
-| 174625 | 218.791 ms | 214.323 ms |
-| 185752 | 177.339 ms | 170.799 ms |
-| 195959 | 219.647 ms | 216.781 ms |
-| 200845 | 213.246 ms | 197.601 ms |
+## No service IPC on the frame or audio path
 
-So ~90–97% of the 200 ms stall is inside top presentation, not PPU render and
-not the painter. It is also reproducible across every run, including the old
-49 FPS ones. Instrument *inside* presentation next; the atlas flush (5284 calls,
-220 MB) and GSP contention are the candidates, but they are candidates, not
-findings.
+Four instances of one defect were found in a single session, each a blocking
+sysmodule round trip on a hot path, and in every case a local alternative
+already existed in-tree. `APT_SetAppCpuTimeLimit(80)` amplifies all of them by
+starving the very sysmodule being waited on.
 
-Paint phases from 200845 (avg/max ms): `backdrop 4.967/13.820`,
-`panel 3.504/34.721`, `tabbar 2.129/11.230`, `sidebar 1.869/10.471`. Backdrop is
-now the largest phase, and it went *up* (3.892 → 4.967) while panel halved.
+| call | where | cost | replaced with |
+|---|---|---|---|
+| `DSP_FlushDataCache` | once per audio buffer | audio **34.3% -> 5.4%** of a core; underruns 2 -> 0; deadline misses 241 -> 26 | `Platform3DS_CleanDataCache` (`svcStoreProcessDataCache`) |
+| `GSPGPU_FlushDataCache` | once per presented frame (bounded C2D flush) | ~0.33 ms/frame | same helper |
+| `DSP_GetHeadphoneStatus` | once per frame (speaker EQ) | 0.244 ms/frame; ~8.2 ms per call | `osIsHeadsetConnected()` (shared-config read) |
+| `fopen`/`fwrite`/`fclose` | per 120 frames, *inside* the presentation span | est. 0.17-0.42 ms/frame, and the likely source of the ~196 ms presentation maximum | gated behind `frame_log`, default off |
+
+`platform_3ds.c:638` had measured the GSP round trip at ~330 us and documented
+the fix years before three of these four were found. Grep for service calls
+before adding anything to the frame path.
+
+## Statistics that measured nothing
+
+Three separate figures were quoted as evidence and none of them meant what they
+said. Check the derivation before trusting a counter here.
+
+- **`Frames over 16.67 ms`** used `intervalTicks * 60 > ticksPerSecond`. The LCD
+  period is 16.7151 ms, so *every on-time frame counted as over* and the figure
+  read ~80%. Now compared against the real GBA period and relabelled
+  `Frames over 1 / 2 GBA periods`.
+- **`platform_gpu_layout_3ds_test: PASS`** asserts 512x256 for *both* profiles,
+  because `PlatformGpu3DS_GetUploadLayout` is a stub with `(void)old3dsProfile`.
+  The compact Old 3DS upload surface from the 2026-08-17 plan was never
+  implemented. Worth ~0.05 ms/frame; carries bottom-screen corruption risk.
+- **`Promote/input after wait`** average is polluted in any second-of-pair dump:
+  the *first* dump's quick-dump SD write costs ~17.7 s, which amortises to
+  ~2.6 ms/frame and looks like a per-frame cost. It is not.
+
+## Falsified this session
+
+Kept because re-deriving them costs another hardware run each.
+
+- **Bottom painter is not the limiter.** Three independent interventions --
+  core migration, 2.58x fewer paints via MAP-skip, and the mixdown rewrite --
+  each moved the frame rate by exactly 0.00.
+- **`vblank_phase_lock`** (waiting for the next VBlank rather than accepting a
+  pending one): 54.61 -> 53.03 FPS, and frames over two periods went 1.07% ->
+  2.83%. Reverted to 0.
+- **The audio post-mix arithmetic was not the cost.** A bit-exact rewrite of the
+  gain/pan/quantise stage produced no measurable change, because the ~5 ms was
+  the per-buffer `DSP_FlushDataCache` IPC, not arithmetic. Real compute is
+  ~0.75 ms/buffer.
+- **The 196 ms presentation spike is not a quick-dump artifact.** `205654`
+  reports `quick dump 0` and already shows a 171.6 ms maximum.
 
 ## Traps
 
@@ -176,33 +210,56 @@ now the largest phase, and it went *up* (3.892 → 4.967) while panel halved.
 
 ## Next, ranked
 
-1. **Measure the MAP-tab skip on hardware.** Implemented this session and host-
-   tested, never run on a console — and this repo's own rule is that the host can
-   falsify but not confirm. Expect paints to drop from 2230 to roughly 420 on
-   overworld (5.33x) and 840 in dungeons (2.67x). What to check in `info.txt`:
-   `static skips` must stop being 0, `Bottom paint scheduling` should show the
-   drop, and the MAP screen must still animate — the player dot blink, the
-   dungeon room-palette rotation, and the region bracket retiring after a tap.
-   **A frozen bottom screen is the failure mode**; if it happens, the signature
-   missed an input and the first suspects are the three live engine globals named
-   in the parity notes.
-2. **Instrument inside top presentation.** The 200 ms spike is ~90–97% there and
-   reproduces in every dump. Atlas flush (5284 calls, 220 MB) and GSP contention
-   are candidates; nothing is confirmed. Worth ~14 lost frames per occurrence.
-3. **The backdrop is now the largest paint phase** at 4.967 ms and it grew from
-   3.892. Find out why it grew before optimising it — and note the standing trap
-   below that caching it is strictly worse.
-4. **Audio deadline misses: 714, a steady ~5.3–5.6% across every dump.** Only
-   2 underruns, so it is not yet audible, but `Audio render` averages 6.002 ms
-   while the mix is 0.354 ms — 5.6 ms per buffer is unaccounted for and nobody
-   has looked.
-5. **Region-zoom `calloc` inside a paint** — 256 KiB + 65536-px decode on tap.
-6. **Split the map build across cores** (~1.1 ms). Structurally ready; the tile
-   cache is the shared resource. Pipelining moves ~3 ms but costs a frame of
-   input latency.
+**1. Take one long dump.** Five changes are deployed and unmeasured, and the
+whole path to 59.7 rests on estimates below the first row. Play ~4 minutes, then
+dump twice -- a 1800-frame run is warm-up noise (`engine work` reads 1.70 ms in
+short runs against 0.588 ms in long ones).
 
-Deliberately skipped: deleting agbplay's mixer (recovers only 0.354 ms),
-top-screen RGB565 and the VRAM present quad (report items written before
-hardware data; measurements do not support them), the last 340 CGB
-rate-declines (uncorrectable without changing timbre, worth ~nothing), and
-`bottom_core` (measured neutral — see above).
+The accounting, measured baseline plus estimates:
+
+| step | ms/iter | Hz |
+|---|---|---|
+| measured baseline (`dump-20260820-222226`) | 17.733 | 56.39 |
+| - headphone IPC | 17.489 | 57.18 |
+| - per-frame C2D GSP flush | 17.159 | 58.28 |
+| - static quad presenter (`gpu_static_quad=1`) | ~16.909 | ~59.14 |
+| - periodic SD log (`frame_log` off) | ~16.659 | ~60.03 |
+| **GBA target** | **16.7427** | **59.73** |
+
+Only the first row is observed. The GBA-period pacer fix is on top of this and
+independently targets the 432 adaptive skips, which cost 3.4 FPS on their own.
+
+What the dump decides: `Measured engine logic cadence` (55.81 -> needs ~59.7),
+`Measured cadence`, `adaptive-skipped presentations` and `debt clamps` (432 / 79
+-> should collapse), and `presentation spans over 4/16/50 ms` -- the first
+frequency data on the 196 ms maximum. If `over 50 ms` is now near zero, the SD
+log was the spike.
+
+**2. If the spike survives:** `C3D_FrameBegin(0)` blocks on the GX queue with no
+timeout (`platform_gpu_3ds.c:479`) and GSP retires that queue on core 1 with the
+app's 20% quota. Test by moving the painter off core 1 and watching the *spike
+count*, not the average -- `bottom_core` is neutral for the average, which is a
+different question.
+
+**3. Residual audio-pump tail.** Average is fixed (8.308 -> 0.255 ms) but the
+maximum is still ~18 ms. `pump split` already attributes it to the audio pump,
+not `aptMainLoop` (0.003 ms).
+
+**4. NDSP buffer geometry.** 8 x 256-frame wavebufs with 4.9% queue-recovery
+churn. RetroArch uses a single 2048-frame looping wavebuf with zero requeues,
+mGBA 1280x4. Fewer, larger buffers means fewer flushes and fewer wakeups.
+
+**5. PPU `maps` build, 2.2 ms of a 2.9 ms frame build.** Largest remaining
+per-frame CPU item, but the loop is not work-bound (~7 ms of a 16.74 ms period),
+so this buys headroom rather than frame rate.
+
+**6. Compact Old 3DS upload surface.** Never implemented; the contract is a stub
+and its test asserts the stub. ~0.05 ms/frame, with bottom-screen corruption
+risk if the pitch and the painter disagree.
+
+Deliberately skipped: deleting agbplay's mixer (~0.31 ms/buffer and it is the
+parity reference), top-screen RGB565 (falsified -- painter writes ABGR and the
+TEV reads alpha as red), the last 340 CGB rate-declines (uncorrectable without
+changing timbre), `bottom_core` (measured neutral), and Thumb compilation
+(ARMv6K predates ARMv6T2, so `-mthumb` is Thumb-1 with no conditional
+execution -- verified against the local toolchain).
