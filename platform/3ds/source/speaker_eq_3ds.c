@@ -51,7 +51,20 @@ void SpeakerEq3DS_ApplyAll(void) {
     sActive = wanted;
 }
 
+/* DSP_GetHeadphoneStatus is a synchronous service IPC, and this runs from the
+ * audio pump on the main thread. A dump measured that pump at 8.308 ms/frame
+ * average against 0.011 ms in neighbouring runs, so putting a per-frame IPC on
+ * that path is a risk taken for nothing: a jack does not need 60 Hz polling.
+ * Every 32nd pump is roughly twice a second, which is imperceptible for
+ * plugging in headphones and costs 1/32nd of the service traffic. */
+#define SPEAKER_EQ_POLL_INTERVAL 32u
+
 void SpeakerEq3DS_Poll(void) {
+    static unsigned sTick;
+    /* Always query on the very first call so init latches the real state. */
+    if (sHeadphonesKnown && (sTick++ % SPEAKER_EQ_POLL_INTERVAL) != 0u) {
+        return;
+    }
     bool inserted = false;
     /* DSP_GetHeadphoneStatus is the authoritative jack state; osIsHeadsetConnected
      * reads the shared config page and does not track the plain audio jack on
