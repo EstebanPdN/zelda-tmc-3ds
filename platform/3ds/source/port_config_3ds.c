@@ -175,6 +175,27 @@ static void SaveConfig(void) {
     fprintf(file, "rando_tricks=%d\n", sRandoTricks);
     fprintf(file, "rando_accessibility=%d\n", sRandoAccessibility);
 
+    /* Round-trip the performance/research switches. SaveConfig parses these
+     * but used to omit them, so any Settings change -- or any exit that saves
+     * -- silently erased every hand-set flag from tmc3ds.ini and the next run
+     * quietly reverted to compiled defaults. That destroyed the config of the
+     * very run being measured; `dump-20260820-205902` was diagnosed only by
+     * reading the offload counters back out of info.txt. Whatever is parsed
+     * must be written. */
+    fprintf(file, "gpu_renderer=%u\n", sGpuRenderer ? 1u : 0u);
+    fprintf(file, "gpu_frame_sync=%u\n", sGpuFrameSync ? 1u : 0u);
+    fprintf(file, "gpu_viewport_offset=%u\n", sGpuViewportOffset ? 1u : 0u);
+    fprintf(file, "gpu_scissor_mode=%d\n", sGpuScissorMode);
+    fprintf(file, "gpu_stencil=%u\n", sGpuStencil ? 1u : 0u);
+    fprintf(file, "audio_core=%d\n", sAudioCore);
+    fprintf(file, "bottom_core=%d\n", sBottomCore);
+    fprintf(file, "bottom_map_skip=%u\n", sBottomMapSkip ? 1u : 0u);
+    fprintf(file, "gpu_static_quad=%u\n", sGpuStaticQuad ? 1u : 0u);
+    fprintf(file, "bottom_rgb565=%u\n", sBottomRgb565 ? 1u : 0u);
+    fprintf(file, "gpu_short_vertices=%u\n", sGpuShortVertices ? 1u : 0u);
+    fprintf(file, "audio_dsp=%u\n", sAudioDsp ? 1u : 0u);
+    fprintf(file, "audio_dsp_pcm=%u\n", sAudioDspPcm ? 1u : 0u);
+
     /* A synchronous SD flush can stall the 3DS main thread for seconds on
      * every Settings change. The temporary file plus close/rename/backup
      * sequence still protects this recoverable preferences file. */
