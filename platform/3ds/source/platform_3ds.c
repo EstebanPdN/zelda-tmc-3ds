@@ -48,6 +48,9 @@ static uint64_t sEngineWorkMaxTicks;
 static uint64_t sVblankWaitTicks;
 static uint64_t sVblankWaitLastTicks;
 static uint64_t sVblankWaitMaxTicks;
+static uint64_t sVblankWaitSamples;
+static uint64_t sVblankWaitOverOnePeriod;
+static uint64_t sVblankWaitOverTwoPeriods;
 static uint64_t sAptChecks;
 static uint64_t sFrameBoundaryEndTick;
 static Old3DSFramePacer sOld3DSFramePacer;
@@ -429,6 +432,9 @@ uint64_t Platform3DS_AptTicks(void) { return sAptTicks; }
 uint64_t Platform3DS_AptMaxTicks(void) { return sAptMaxTicks; }
 uint64_t Platform3DS_AudioPumpTicks(void) { return sAudioPumpTicks; }
 uint64_t Platform3DS_AudioPumpMaxTicks(void) { return sAudioPumpMaxTicks; }
+uint64_t Platform3DS_VblankWaitSamples(void) { return sVblankWaitSamples; }
+uint64_t Platform3DS_VblankWaitOverOnePeriod(void) { return sVblankWaitOverOnePeriod; }
+uint64_t Platform3DS_VblankWaitOverTwoPeriods(void) { return sVblankWaitOverTwoPeriods; }
 
 void Platform3DS_PumpWithoutVBlank(void) {
     if (!PumpLifecycleAndAudio()) return;
@@ -727,6 +733,24 @@ void Platform3DS_WaitForVBlank(void) {
     sVblankWaitLastTicks = svcGetSystemTick() - waitStart;
     sVblankWaitTicks += sVblankWaitLastTicks;
     if (sVblankWaitLastTicks > sVblankWaitMaxTicks) sVblankWaitMaxTicks = sVblankWaitLastTicks;
+    /* Directly count lost display periods instead of inferring them.
+     *
+     * The whole residual deficit is that the loop waits ~2.1 ms/frame longer
+     * than geometry predicts: work is 7.8 ms of a 16.74 ms period, so the wait
+     * should be ~8.9 ms and measures ~11.0 ms. 2.1 / 16.7 = ~13%, which reads
+     * as "13% of iterations lose a full period" -- but that was deduced from
+     * interval arithmetic, and the interval counters disagree with it (only
+     * 2.83% of intervals exceed two periods). One of the two is wrong.
+     *
+     * A wait longer than one period is unambiguous: with 7.8 ms of work the
+     * next VBlank is always less than a period away, so exceeding one period
+     * means the boundary was missed and the loop caught a later one. */
+    ++sVblankWaitSamples;
+    {
+        const uint64_t period = Platform3DS_TicksPerSecond() * 280896u / 16777216u;
+        if (sVblankWaitLastTicks > period) ++sVblankWaitOverOnePeriod;
+        if (sVblankWaitLastTicks > period * 2u) ++sVblankWaitOverTwoPeriods;
+    }
     /* EndBottom only marks a bottom generation submitted.  Promote it after
      * the display boundary and before this tick's HID scan, so touch never
      * targets a CPU-painted buffer that has not reached a presentation. */

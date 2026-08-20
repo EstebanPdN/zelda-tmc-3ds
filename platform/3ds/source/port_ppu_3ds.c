@@ -460,6 +460,19 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 TicksToMilliseconds(runtimeStats.vblankWaitLastTicks),
                 TicksToMilliseconds(runtimeStats.vblankWaitTicks) / (double)vblankSamples,
                 TicksToMilliseconds(runtimeStats.vblankWaitMaxTicks));
+        {
+            extern uint64_t Platform3DS_VblankWaitSamples(void);
+            extern uint64_t Platform3DS_VblankWaitOverOnePeriod(void);
+            extern uint64_t Platform3DS_VblankWaitOverTwoPeriods(void);
+            const uint64_t waits = Platform3DS_VblankWaitSamples();
+            const uint64_t over1 = Platform3DS_VblankWaitOverOnePeriod();
+            const uint64_t over2 = Platform3DS_VblankWaitOverTwoPeriods();
+            fprintf(info,
+                    "  waits exceeding 1 / 2 GBA periods: %llu (%.2f%%) / %llu of %llu\n",
+                    (unsigned long long)over1,
+                    waits ? 100.0 * (double)over1 / (double)waits : 0.0,
+                    (unsigned long long)over2, (unsigned long long)waits);
+        }
 
         fprintf(info, "\n[Renderer]\n");
         fprintf(info, "PPU render: average %.3f ms, maximum %.3f ms\n",
