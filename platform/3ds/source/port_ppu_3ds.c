@@ -69,6 +69,14 @@ static uint64_t sPerfSamples;
 static uint64_t sPerfBottomSamples;
 static uint64_t sPerfRenderMaxTicks;
 static uint64_t sPerfTopMaxTicks;
+/* Frequency buckets for the presentation span; thresholds are derived from the
+ * tick rate once, in Port_PPU_Init. */
+static uint64_t sPerfTopOver4ms;
+static uint64_t sPerfTopOver16ms;
+static uint64_t sPerfTopOver50ms;
+static uint64_t sPerfTopOver4msTicks;
+static uint64_t sPerfTopOver16msTicks;
+static uint64_t sPerfTopOver50msTicks;
 static uint64_t sPerfBottomMaxTicks;
 static uint64_t sPerfTotalMaxTicks;
 static uint64_t sPerfIntervalTicks;
@@ -464,6 +472,10 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                         (double)(sFrameNumber ? sFrameNumber : 1));
         fprintf(info, "Top presentation CPU work: average %.3f ms, maximum %.3f ms\n",
                 TicksToMilliseconds(sPerfTopTicks) / sampleCount, TicksToMilliseconds(sPerfTopMaxTicks));
+        fprintf(info,
+                "  presentation spans over 4/16/50 ms: %llu / %llu / %llu of %llu\n",
+                (unsigned long long)sPerfTopOver4ms, (unsigned long long)sPerfTopOver16ms,
+                (unsigned long long)sPerfTopOver50ms, (unsigned long long)sPerfSamples);
         fprintf(info, "Bottom-screen paint worker: average %.3f ms, maximum %.3f ms\n",
                 TicksToMilliseconds(sPerfBottomTicks) / bottomSampleCount, TicksToMilliseconds(sPerfBottomMaxTicks));
         fprintf(info, "Main-thread render/presentation CPU work: average %.3f ms, maximum %.3f ms\n",
@@ -839,6 +851,15 @@ void Port_PPU_Init(SDL_Window* window) {
     sPerfBottomSamples = 0;
     sPerfRenderMaxTicks = 0;
     sPerfTopMaxTicks = 0;
+    sPerfTopOver4ms = 0;
+    sPerfTopOver16ms = 0;
+    sPerfTopOver50ms = 0;
+    {
+        const uint64_t hz = Platform3DS_TicksPerSecond();
+        sPerfTopOver4msTicks = hz / 250u;  /* 4 ms */
+        sPerfTopOver16msTicks = hz / 60u;  /* one frame period */
+        sPerfTopOver50msTicks = hz / 20u;  /* 50 ms: unambiguously a stall */
+    }
     sPerfBottomMaxTicks = 0;
     sPerfTotalMaxTicks = 0;
     sPerfIntervalTicks = 0;
@@ -1184,6 +1205,15 @@ void Port_PPU_PresentFrame(void) {
             sPerfRenderMaxTicks = renderTicks;
         if (topTicks > sPerfTopMaxTicks)
             sPerfTopMaxTicks = topTicks;
+        /* A maximum says nothing about frequency, and the 170-216 ms
+         * presentation outlier has been treated as a recurring cost across
+         * seven dumps without anyone knowing whether it happens once a run or
+         * fifty times. One outlier is irrelevant; fifty cost several FPS.
+         * C3D_FrameBegin blocks on the GX queue with no timeout and GSP retires
+         * that queue on core 1 with the app's 20% quota, so bucket the span. */
+        if (topTicks > sPerfTopOver4msTicks) ++sPerfTopOver4ms;
+        if (topTicks > sPerfTopOver16msTicks) ++sPerfTopOver16ms;
+        if (topTicks > sPerfTopOver50msTicks) ++sPerfTopOver50ms;
         if (totalTicks > sPerfTotalMaxTicks)
             sPerfTotalMaxTicks = totalTicks;
         if (sPerfIntervalTicks != 0) {
