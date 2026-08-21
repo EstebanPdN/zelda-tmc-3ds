@@ -124,9 +124,13 @@ typedef struct PpuGpu3DSCache {
     bool exhausted;
     PpuGpu3DSRetainedMap retained[MODE1_GBA_BG_COUNT];
     uint32_t retainedVertices, retainedIndices;
-    /* Snapshots of those ranges. A layer whose tiles outgrow this keeps
-     * rebuilding every frame rather than risking a stale reuse. */
-    uint8_t retainedTiles[MODE1_GBA_BG_COUNT][PPU_GPU3DS_MAP_TILE_SNAPSHOT];
+    /* A 64-bit digest of those ranges rather than a copy of them. The compare
+     * then reads VRAM only -- half the traffic of matching two buffers -- and
+     * the 96 KiB of snapshots this replaced is 96 KiB no longer competing for
+     * a 32 KiB L1 with no L2 behind it. A layer whose tiles outgrow
+     * PPU_GPU3DS_MAP_TILE_SNAPSHOT still keeps rebuilding every frame, so the
+     * retention decision is unchanged; only how it is checked. */
+    uint64_t retainedTileDigest[MODE1_GBA_BG_COUNT];
     bool retainedValid;
 } PpuGpu3DSCache;
 

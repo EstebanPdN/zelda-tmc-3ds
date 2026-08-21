@@ -2113,56 +2113,65 @@ static uint32_t retain_tile_bytes(const PpuGpu3DSRetainedMap* retained) {
     return bytes <= PPU_GPU3DS_MAP_TILE_SNAPSHOT ? bytes : 0;
 }
 
+/* Digest of a character range. Reading VRAM once and comparing 8 bytes is half
+ * the memory traffic of matching VRAM against a full copy, and it removes the
+ * copy itself -- an up-to-24 KB Arm11FastMemcpy that used to run on every
+ * rebuild.
+ *
+ * An Old 3DS has 32 KiB of L1 and **no L2**, so every line this touches is a
+ * direct FCRAM stall of 100-200 cycles. Four independent FNV lanes keep four
+ * loads in flight where one dependent multiply per word would serialise them,
+ * and a PLD a few lines ahead covers the rest. Cache lines are 32 bytes.
+ *
+ * Strength: a lane only sees every fourth word, so a single-word change lands
+ * in exactly one lane and the FNV half alone would be 32-bit strong. The word
+ * sum carries the other 32 bits and is near-independent of it, so a change has
+ * to collide in both. That is the same bet map_signature already makes on the
+ * tilemap, taken at 64 bits instead of 32. */
+static uint64_t retain_digest(const uint8_t* data, uint32_t n) {
+    uint32_t lane[4] = { 2166136261u, 0x9e3779b9u, 0x85ebca6bu, 0xc2b2ae35u };
+    uint32_t sum = n;
+    const uint8_t* p = data;
+    uint32_t offset = 0;
+    for (; offset + 15u < n; offset += 16u, p += 16) {
+        __builtin_prefetch(p + 96, 0, 0);
+        uint32_t word[4];
+        memcpy(word, p, sizeof(word));
+        lane[0] = (lane[0] ^ word[0]) * 16777619u;
+        lane[1] = (lane[1] ^ word[1]) * 16777619u;
+        lane[2] = (lane[2] ^ word[2]) * 16777619u;
+        lane[3] = (lane[3] ^ word[3]) * 16777619u;
+        sum += word[0] + word[1] * 3u + word[2] * 5u + word[3] * 7u;
+    }
+    for (; offset + 3u < n; offset += 4u, p += 4) {
+        uint32_t word;
+        memcpy(&word, p, sizeof(word));
+        lane[0] = (lane[0] ^ word) * 16777619u;
+        sum += word * 11u;
+    }
+    for (; offset < n; ++offset, ++p) {
+        lane[1] = (lane[1] ^ *p) * 16777619u;
+        sum += (uint32_t)*p * 13u;
+    }
+    uint32_t hash = lane[0];
+    for (unsigned i = 1; i < 4u; ++i) hash = (hash ^ lane[i]) * 16777619u;
+    const uint64_t digest = ((uint64_t)hash << 32) | sum;
+    /* 0 marks "no digest", so never return it for real data. */
+    return digest != 0 ? digest : 1u;
+}
+
 static void retain_snapshot(PpuGpu3DSCache* cache, unsigned bg,
                             const PpuGpu3DSFrameView* frame) {
     const uint32_t bytes = retain_tile_bytes(&cache->retained[bg]);
     if (bytes == 0) {
         cache->retained[bg].tileLast = cache->retained[bg].tileFirst;
+        cache->retainedTileDigest[bg] = 0;
         return;
     }
-    /* Up to 24 KB, and the largest single copy the builder makes. */
-    Arm11FastMemcpy(cache->retainedTiles[bg],
-                    frame->memory.vram + cache->retained[bg].tileFirst, bytes);
+    cache->retainedTileDigest[bg] =
+            retain_digest(frame->memory.vram + cache->retained[bg].tileFirst,
+                          bytes);
 }
-
-/* The retained snapshot compare walks tens of kilobytes of VRAM every frame.
- * An Old 3DS has 32 KiB of L1 and **no L2**, so every line this touches is a
- * direct FCRAM stall of 100-200 cycles, and newlib's memcmp is a plain word
- * loop with no prefetching -- it eats that latency line by line. Issuing PLD a
- * few lines ahead lets the loads overlap the stalls. Cache lines are 32 bytes.
- * On any other target the library routine is better than anything written here.
- */
-#if defined(__3DS__) && defined(__ARM_ARCH_6__)
-static bool retain_bytes_equal(const uint8_t* a, const uint8_t* b, uint32_t n) {
-    const uint32_t* wa = (const uint32_t*)(const void*)a;
-    const uint32_t* wb = (const uint32_t*)(const void*)b;
-    uint32_t words = n >> 2u;
-    while (words >= 8u) {
-        __builtin_prefetch(wa + 24, 0, 0);
-        __builtin_prefetch(wb + 24, 0, 0);
-        if (wa[0] != wb[0] || wa[1] != wb[1] || wa[2] != wb[2] ||
-            wa[3] != wb[3] || wa[4] != wb[4] || wa[5] != wb[5] ||
-            wa[6] != wb[6] || wa[7] != wb[7])
-            return false;
-        wa += 8;
-        wb += 8;
-        words -= 8u;
-    }
-    while (words--) {
-        if (*wa++ != *wb++) return false;
-    }
-    const uint8_t* ta = (const uint8_t*)wa;
-    const uint8_t* tb = (const uint8_t*)wb;
-    for (uint32_t i = 0; i < (n & 3u); ++i) {
-        if (ta[i] != tb[i]) return false;
-    }
-    return true;
-}
-#else
-static bool retain_bytes_equal(const uint8_t* a, const uint8_t* b, uint32_t n) {
-    return memcmp(a, b, n) == 0;
-}
-#endif
 
 static bool retain_tiles_current(PpuGpu3DSCache* cache, unsigned bg,
                                  const PpuGpu3DSFrameView* frame) {
@@ -2193,8 +2202,9 @@ static bool retain_tiles_current(PpuGpu3DSCache* cache, unsigned bg,
             last <= cache->verifiedLast[index])
             return true;
     }
-    if (!retain_bytes_equal(cache->retainedTiles[bg],
-                            frame->memory.vram + first, bytes))
+    if (cache->retainedTileDigest[bg] == 0 ||
+        retain_digest(frame->memory.vram + first, bytes) !=
+                cache->retainedTileDigest[bg])
         return false;
     if (cache->verifiedCount < MODE1_GBA_BG_COUNT) {
         cache->verifiedFirst[cache->verifiedCount] = first;
