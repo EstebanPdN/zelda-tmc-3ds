@@ -788,7 +788,7 @@ int main(int argc, char** argv) {
 #ifdef PPU_GPU3DS_PROFILE
     {
         static const char* names[PPU_GPU3DS_PHASE_COUNT] = {
-            "bands", "merge", "maps", "scene",
+            "bands", "merge", "maps", "mapsig", "mapretain", "scene",
             "  objwin", "regions", "bg", "obj"
         };
         printf("  phases (ms/frame):");

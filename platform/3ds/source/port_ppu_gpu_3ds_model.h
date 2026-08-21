@@ -265,6 +265,11 @@ typedef enum PpuGpu3DSPhase {
      * re-emitting the quads, so this being the bulk of MAPS would mean the
      * reuse test costs more than the work it avoids. */
     PPU_GPU3DS_PHASE_MAPSIG,
+    /* Inside MAPS: the tile-pixel snapshot compare that confirms a retained
+     * layer's atlas contents are still current. This reads the layer's whole
+     * char range out of VRAM and again out of the snapshot every frame, on the
+     * path that is supposed to be the cheap one. */
+    PPU_GPU3DS_PHASE_MAPRETAIN,
     PPU_GPU3DS_PHASE_SCENE,
     PPU_GPU3DS_PHASE_OBJWIN,
     PPU_GPU3DS_PHASE_REGIONS,

@@ -613,7 +613,7 @@ void Port_PPU_3DS_WriteQuickDump(void) {
 #ifdef PPU_GPU3DS_PROFILE
         {
             static const char* phaseNames[PPU_GPU3DS_PHASE_COUNT] = {
-                "bands", "merge", "maps", "mapsig", "scene",
+                "bands", "merge", "maps", "mapsig", "mapretain", "scene",
                 "objwin", "regions", "bg", "obj"
             };
             const unsigned long long attempts =
