@@ -2284,22 +2284,32 @@ static uint32_t layer_palette_generation(const PpuGpu3DSCache* cache,
     return generation;
 }
 
-/* Re-decodes just the slots a retained layer samples whose palette moved on,
+/* Re-decodes just the slots a retained layer samples that have gone stale,
  * leaving the geometry alone.
  *
- * This is the whole point of splitting palette out of the signature. When only
- * the palette changed, the tilemap, the tiles and the window are all still
- * identical, so a rebuild re-emits quads that come out byte-for-byte the same
- * -- measured as the largest single cost in the frame. The atlas genuinely
- * does need re-decoding, but the slots are pinned and reused, so decoding in
- * place keeps every UV valid.
+ * Geometry depends on the tilemap, the window, and which tiles are named. It
+ * never depends on what those tiles or their palettes *contain*. So whenever
+ * the map signature still matches, a rebuild re-emits quads that come out
+ * byte-for-byte identical -- measured as the largest single cost in the frame.
+ * The atlas does genuinely need re-decoding, but the slots are pinned and
+ * reused, so decoding in place keeps every UV valid.
+ *
+ * Both stale sources are handled here because both are content, not layout:
+ * an animated palette (the intro's stained glass) and animated tile pixels
+ * DMAed into character space (water and grass in the overworld). Measured on
+ * the emulator, those were 868 and 2811 rebuilds against 0 for scrolling.
+ *
+ * `sourcesChanged` reports whether any tile bytes moved, so the caller knows
+ * to re-take the digest that detects the next change.
  *
  * Returns false if anything looks unexpected, in which case the caller falls
  * back to the full rebuild rather than trusting a half-refreshed layer. */
-static bool retain_refresh_palette(PpuGpu3DSCache* cache, const uint8_t* vram,
-                                   unsigned bg, uint16_t* atlas) {
+static bool retain_refresh(PpuGpu3DSCache* cache, const uint8_t* vram,
+                           unsigned bg, uint16_t* atlas,
+                           bool* sourcesChanged) {
     PpuGpu3DSRetainedMap* retained = &cache->retained[bg];
     if (retained->slotCount == 0) return false;
+    *sourcesChanged = false;
     for (unsigned index = 0; index < retained->slotCount; ++index) {
         const uint16_t slot = retained->slots[index];
         if (slot >= PPU_GPU3DS_SLOT_COUNT) return false;
@@ -2308,11 +2318,17 @@ static bool retain_refresh_palette(PpuGpu3DSCache* cache, const uint8_t* vram,
         const PpuGpu3DSTileKey key = entry->key;
         const size_t tileBytes = key.bpp8 ? 64u : 32u;
         if (key.vramOffset > MODE1_VRAM_SIZE - tileBytes) return false;
+        const uint8_t* const source = vram + key.vramOffset;
         const uint32_t needed = tile_palette_generation(cache, key);
+        const bool stalePalette = entry->paletteGeneration != needed;
+        /* Only consulted when the palette is current, so the common all-clean
+         * slot costs one compare of 32 or 64 bytes that the digest just read. */
+        const bool staleSource =
+                memcmp(cache->sources[slot], source, tileBytes) != 0;
+        if (staleSource) *sourcesChanged = true;
         /* slots[] can name one tile twice; the second visit is already current. */
-        if (entry->paletteGeneration == needed) continue;
-        cache_decode_slot(cache, vram + key.vramOffset, tileBytes, key, slot,
-                          atlas, needed);
+        if (!stalePalette && !staleSource) continue;
+        cache_decode_slot(cache, source, tileBytes, key, slot, atlas, needed);
     }
     return true;
 }
@@ -2434,26 +2450,34 @@ static bool build_bg_map(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
         bool matched = false;
         PpuGpu3DSMapRebuild why =
                 retain_state(cache, bg, signature, paletteGeneration, &matched);
-        /* A palette-only miss still has an identical tilemap, tiles and window,
-         * so the quads would be re-emitted unchanged. Verify the tiles, then
-         * refresh the atlas in place and keep the geometry. */
-        const bool paletteOnly = why == PPU_GPU3DS_MAP_REBUILD_PALETTE;
-        if (matched || paletteOnly) {
+        /* The signature covers the tilemap, the window and which tiles are
+         * named -- everything the quads encode. So once it matches, stale
+         * content can be repaired in the atlas and the geometry kept. */
+        if (why != PPU_GPU3DS_MAP_REBUILD_NEW &&
+            why != PPU_GPU3DS_MAP_REBUILD_TILEMAP) {
             PROFILE_BEGIN(PPU_GPU3DS_PHASE_MAPRETAIN);
             const bool tilesCurrent = retain_tiles_current(cache, bg, frame);
             PROFILE_END(PPU_GPU3DS_PHASE_MAPRETAIN);
-            if (!tilesCurrent) {
-                matched = false;
-                why = PPU_GPU3DS_MAP_REBUILD_TILES;
-            } else if (paletteOnly) {
+            if (!matched || !tilesCurrent) {
                 const PpuGpu3DSRetainedMap* retained = &cache->retained[bg];
-                if (retained->rows == rows && retained->cols == cols &&
-                    retained->rowLo == rowLo && retained->colLo == colLo &&
-                    retain_refresh_palette(cache, frame->memory.vram, bg,
-                                           atlas)) {
+                const bool windowMatches =
+                        retained->rows == rows && retained->cols == cols &&
+                        retained->rowLo == rowLo && retained->colLo == colLo;
+                bool sourcesChanged = false;
+                if (windowMatches &&
+                    retain_refresh(cache, frame->memory.vram, bg, atlas,
+                                   &sourcesChanged)) {
                     cache->retained[bg].paletteSignature = paletteGeneration;
+                    /* The digest has to describe VRAM as it is now, or the next
+                     * frame re-detects this same change. */
+                    if (sourcesChanged) retain_snapshot(cache, bg, frame);
                     cmd->mapRefresh += 1u;
                     matched = true;
+                } else {
+                    matched = false;
+                    why = !windowMatches ? PPU_GPU3DS_MAP_REBUILD_WINDOW
+                          : tilesCurrent ? why
+                                         : PPU_GPU3DS_MAP_REBUILD_TILES;
                 }
             }
         }
@@ -2664,23 +2688,29 @@ static bool build_affine_map(const PpuGpu3DSFrameView* frame,
         bool matched = false;
         PpuGpu3DSMapRebuild why =
                 retain_state(cache, 2u, signature, paletteGeneration, &matched);
-        const bool paletteOnly = why == PPU_GPU3DS_MAP_REBUILD_PALETTE;
-        if (matched || paletteOnly) {
+        if (why != PPU_GPU3DS_MAP_REBUILD_NEW &&
+            why != PPU_GPU3DS_MAP_REBUILD_TILEMAP) {
             PROFILE_BEGIN(PPU_GPU3DS_PHASE_MAPRETAIN);
             const bool tilesCurrent = retain_tiles_current(cache, 2u, frame);
             PROFILE_END(PPU_GPU3DS_PHASE_MAPRETAIN);
-            if (!tilesCurrent) {
-                matched = false;
-                why = PPU_GPU3DS_MAP_REBUILD_TILES;
-            } else if (paletteOnly) {
+            if (!matched || !tilesCurrent) {
                 const PpuGpu3DSRetainedMap* retained = &cache->retained[2];
-                if (retained->rows == rows && retained->cols == cols &&
-                    retained->rowLo == rowLo && retained->colLo == colLo &&
-                    retain_refresh_palette(cache, frame->memory.vram, 2u,
-                                           atlas)) {
+                const bool windowMatches =
+                        retained->rows == rows && retained->cols == cols &&
+                        retained->rowLo == rowLo && retained->colLo == colLo;
+                bool sourcesChanged = false;
+                if (windowMatches &&
+                    retain_refresh(cache, frame->memory.vram, 2u, atlas,
+                                   &sourcesChanged)) {
                     cache->retained[2].paletteSignature = paletteGeneration;
+                    if (sourcesChanged) retain_snapshot(cache, 2u, frame);
                     cmd->mapRefresh += 1u;
                     matched = true;
+                } else {
+                    matched = false;
+                    why = !windowMatches ? PPU_GPU3DS_MAP_REBUILD_WINDOW
+                          : tilesCurrent ? why
+                                         : PPU_GPU3DS_MAP_REBUILD_TILES;
                 }
             }
         }
