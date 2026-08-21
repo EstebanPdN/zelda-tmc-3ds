@@ -18,6 +18,13 @@
 #include "asm.h"
 #include "map.h"
 
+#if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
+#include "port_widescreen.h"
+#define ENEMY64_VIEW_HEIGHT ((u32)Port_Widescreen_GameplayViewHeight())
+#else
+#define ENEMY64_VIEW_HEIGHT ((u32)DISPLAY_HEIGHT)
+#endif
+
 typedef struct {
     /*0x00*/ Entity base;
     /*0x68*/ #if defined(PC_PORT) && (__SIZEOF_POINTER__ == 8)
@@ -93,7 +100,8 @@ void Enemy64(Enemy64Entity* this) {
     super->animationState = -(this->unk_78 >> 8);
     sub_080499F0(this);
     this->unk_7d = super->spriteSettings.draw;
-    if (((super->spriteSettings.draw == 1) && (0x100 < (super->y.HALF.HI - gRoomControls.scroll_y) + 0x30U))) {
+    if (super->spriteSettings.draw == 1 &&
+        (u32)(super->y.HALF.HI - gRoomControls.scroll_y + 0x30) > ENEMY64_VIEW_HEIGHT + 0x60u) {
         super->spriteSettings.draw = 0;
     }
 }

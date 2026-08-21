@@ -14,6 +14,8 @@
 #include "color.h"
 
 #ifdef PC_PORT
+#include "port_rom.h"
+
 /*
  * On 64-bit, Enemy::child (Entity*, 8 bytes) overlaps more GenericEntity extra-area
  * bytes than on GBA (4 bytes).  Enemies that never create FX but use the overlapping
@@ -101,6 +103,17 @@ bool32 EnemyInit(Enemy* this) {
             COLLISION_ON(super);
         }
         super->spriteIndex = definition->spriteIndex;
+#ifdef PC_PORT
+        /* The fat binary's Moblin form tables are compiled from the USA
+         * Sprites enum, while Entity.spriteIndex and all downstream sprite
+         * APIs use active-ROM-native indices.  EU omits enum entry 288, so
+         * only these demonstrably USA-enum-backed definitions need the
+         * one-time conversion here.  Do not remap ordinary EU object/NPC
+         * definitions: those tables already contain native indices. */
+        if (super->id == SPEAR_MOBLIN || super->id == BOW_MOBLIN) {
+            super->spriteIndex = Port_RemapSpriteIndex(super->spriteIndex);
+        }
+#endif
         if (super->spriteSettings.draw == 0) {
             super->spriteSettings.draw = definition->spriteFlags.draw;
         }

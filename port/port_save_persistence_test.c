@@ -176,6 +176,9 @@ static void RemoveTestDirectory(const char* directory, const char* oldDirectory)
 int main(void) {
     static const char usaSignature[0x21] = "AGBZELDA:THE MINISH CAP:ZELDA 5";
     static const char euSignature[0x21] = "AGBZELDA:THE MINISH CAP:ZELDA 3";
+    const int testEu = getenv("TMC_SAVE_TEST_EU") != NULL;
+    const char* activeSignature = testEu ? euSignature : usaSignature;
+    const char* otherRegionSignature = testEu ? usaSignature : euSignature;
     char oldDirectory[1024];
     char tempTemplate[] = "/tmp/tmc-save-persistence-XXXXXX";
     char* tempDirectory;
@@ -184,6 +187,7 @@ int main(void) {
     u16 block[4] = { 0x1234, 0x5678, 0x9ABC, 0xDEF0 };
     const u8 shortFile[] = { 0x12, 0x34, 0x56 };
 
+    gActiveRegion = testEu ? TMC_REGION_EU : TMC_REGION_USA;
     CHECK(getcwd(oldDirectory, sizeof(oldDirectory)) != NULL, "current directory is available");
     tempDirectory = mkdtemp(tempTemplate);
     CHECK(tempDirectory != NULL, "private temporary test directory is created");
@@ -199,7 +203,7 @@ int main(void) {
     Port_Save_BeginTransaction();
     CHECK(!Port_Save_EndTransaction(), "blocked short save cannot report a successful transaction");
 
-    BuildDiskImage(image, usaSignature, 0x91);
+    BuildDiskImage(image, activeSignature, 0x91);
     CHECK(WriteBytes("tmc_long.sav", image, sizeof(image)) && AppendByte("tmc_long.sav", 0x5A),
           "long-file fixture is written");
     CHECK(Port_Save_SetActivePath("tmc_long.sav"), "long-file profile path is selected");
@@ -214,7 +218,7 @@ int main(void) {
               "long existing save keeps its original length");
     }
 
-    BuildDiskImage(image, euSignature, 0xE1);
+    BuildDiskImage(image, otherRegionSignature, 0xE1);
     CHECK(WriteBytes("tmc_wrong_region.sav", image, sizeof(image)), "wrong-region fixture is written");
     Port_Save_SetActivePath("tmc_wrong_region.sav");
     EEPROMConfigure(0x40);
@@ -223,9 +227,9 @@ int main(void) {
               memcmp(compare, image, sizeof(image)) == 0,
           "wrong-region profile remains byte-for-byte intact");
 
-    BuildDiskImage(image, usaSignature, 0xA0);
+    BuildDiskImage(image, activeSignature, 0xA0);
     ReverseBlocks(image);
-    memcpy(image + 0x1000, euSignature, 0x20);
+    memcpy(image + 0x1000, otherRegionSignature, 0x20);
     ReverseBlocks(image);
     CHECK(WriteBytes("tmc_mixed_region.sav", image, sizeof(image)), "mixed-signature fixture is written");
     Port_Save_SetActivePath("tmc_mixed_region.sav");
@@ -235,7 +239,7 @@ int main(void) {
               memcmp(compare, image, sizeof(image)) == 0,
           "mixed-signature profile remains byte-for-byte intact");
 
-    BuildDiskImage(image, usaSignature, 0xA2);
+    BuildDiskImage(image, activeSignature, 0xA2);
     ReverseBlocks(image);
     image[0x80] ^= 0x01; /* invalidate the only usable slot-0 MCZ3 copy */
     ReverseBlocks(image);
@@ -247,7 +251,7 @@ int main(void) {
               memcmp(compare, image, sizeof(image)) == 0,
           "loading a partially corrupt profile does not rewrite it");
 
-    BuildDiskImage(image, usaSignature, 0xA4);
+    BuildDiskImage(image, activeSignature, 0xA4);
     CorruptEveryStatusRecord(image);
     CHECK(WriteBytes("tmc_no_semantics.sav", image, sizeof(image)), "signature-only fixture is written");
     CHECK(Port_Save_SetActivePath("tmc_no_semantics.sav"), "signature-only profile path is selected");
@@ -257,7 +261,7 @@ int main(void) {
               memcmp(compare, image, sizeof(image)) == 0,
           "signature-only profile remains byte-for-byte intact");
 
-    BuildDiskImage(image, usaSignature, 0xA1);
+    BuildDiskImage(image, activeSignature, 0xA1);
     CHECK(WriteBytes("tmc_backup.sav", image, sizeof(image)), "migration-backup fixture is written");
     Port_Save_SetActivePath("tmc_backup.sav");
     EEPROMConfigure(0x40);
@@ -269,7 +273,62 @@ int main(void) {
     CHECK(FileExistsForTest("tmc_backup.sav.pre-migration.001.bak"),
           "second backup is unique and does not overwrite the first");
 
-    BuildDiskImage(image, usaSignature, 0xA3);
+    BuildDiskImage(image, activeSignature, 0xA5);
+    CHECK(WriteBytes("tmc_fuser_backup.sav", image, sizeof(image)), "fuser-repair backup fixture is written");
+    CHECK(Port_Save_SetActivePath("tmc_fuser_backup.sav"), "fuser-repair backup profile is selected");
+    EEPROMConfigure(0x40);
+    Port_Save_BeginTransaction();
+    CHECK(EEPROMWrite0_8k_Check(900, block) == 0, "transactional fuser fixture has a pending EEPROM block");
+    CHECK(!Port_Save_PreserveBeforeFuserRepair(), "fuser repair refuses a mid-transaction snapshot");
+    CHECK(!FileExistsForTest("tmc_fuser_backup.sav.pre-fuser-repair.bak"),
+          "refused mid-transaction repair creates no stale backup");
+    CHECK(Port_Save_EndTransaction(), "fuser fixture transaction becomes durable");
+
+    CHECK(chmod(tempDirectory, 0500) == 0, "fuser fixture directory becomes temporarily unwritable");
+    CHECK(EEPROMWrite0_8k_Check(901, block) == 0, "latest fuser fixture write remains pending in memory");
+    CHECK(!Port_Save_PreserveBeforeFuserRepair(), "fuser repair aborts when latest raw image cannot flush");
+    CHECK(!FileExistsForTest("tmc_fuser_backup.sav.pre-fuser-repair.bak"),
+          "failed latest-image flush creates no stale backup");
+    CHECK(chmod(tempDirectory, 0700) == 0, "fuser fixture write permission is restored");
+    CHECK(Port_Save_PreserveBeforeFuserRepair(), "first permanent pre-fuser-repair backup succeeds");
+    CHECK(FileExistsForTest("tmc_fuser_backup.sav.pre-fuser-repair.bak"),
+          "fuser repair has a stable permanent backup");
+    CHECK(FilesEqualForTest("tmc_fuser_backup.sav", "tmc_fuser_backup.sav.pre-fuser-repair.bak"),
+          "fuser-repair backup contains the latest raw 8 KiB byte-for-byte");
+    CHECK(ReadBytes("tmc_fuser_backup.sav", compare, sizeof(compare)) == sizeof(compare) &&
+              memcmp(compare, image, sizeof(image)) != 0,
+          "latest dirty EEPROM blocks reached disk before the backup was accepted");
+    CHECK(Port_Save_PreserveBeforeFuserRepair(), "later repairs reuse the verified profile backup");
+    CHECK(!FileExistsForTest("tmc_fuser_backup.sav.pre-fuser-repair.001.bak"),
+          "one contaminated profile does not create a backup per fuser");
+
+    BuildDiskImage(compare, activeSignature, 0xB5);
+    CHECK(WriteBytes("tmc_fuser_other.sav", compare, sizeof(compare)),
+          "alternate fuser profile fixture is written");
+    CHECK(Port_Save_SetActivePath("tmc_fuser_other.sav"),
+          "switching away from a preserved fuser profile succeeds");
+    EEPROMConfigure(0x40);
+    BuildDiskImage(image, activeSignature, 0xA6);
+    CHECK(WriteBytes("tmc_fuser_backup.sav", image, sizeof(image)),
+          "inactive preserved profile can be replaced with a new raw image");
+    CHECK(Port_Save_SetActivePath("tmc_fuser_backup.sav"),
+          "switching back to the replaced fuser profile succeeds");
+    EEPROMConfigure(0x40);
+    CHECK(Port_Save_PreserveBeforeFuserRepair(),
+          "replaced profile receives a fresh pre-fuser-repair backup");
+    CHECK(FileExistsForTest("tmc_fuser_backup.sav.pre-fuser-repair.001.bak"),
+          "A-to-B-to-A replacement creates the next unique backup");
+    CHECK(FilesEqualForTest("tmc_fuser_backup.sav", "tmc_fuser_backup.sav.pre-fuser-repair.001.bak"),
+          "replacement backup preserves the new raw 8 KiB byte-for-byte");
+    CHECK(!FilesEqualForTest("tmc_fuser_backup.sav.pre-fuser-repair.bak",
+                             "tmc_fuser_backup.sav.pre-fuser-repair.001.bak"),
+          "replacement backup is not the stale raw image from the first activation");
+    CHECK(Port_Save_PreserveBeforeFuserRepair(),
+          "later repairs still reuse the backup within the replacement activation");
+    CHECK(!FileExistsForTest("tmc_fuser_backup.sav.pre-fuser-repair.002.bak"),
+          "replacement activation does not create a backup per fuser");
+
+    BuildDiskImage(image, activeSignature, 0xA3);
     CHECK(WriteBytes("tmc_switch.sav", image, sizeof(image)), "pending-profile-switch fixture is written");
     Port_Save_SetActivePath("tmc_switch.sav");
     EEPROMConfigure(0x40);
@@ -302,7 +361,7 @@ int main(void) {
     }
 
     CHECK(WriteBytes("tmc_recover.sav", shortFile, sizeof(shortFile)), "interrupted current fixture is written");
-    BuildDiskImage(image, usaSignature, 0xB1);
+    BuildDiskImage(image, activeSignature, 0xB1);
     CHECK(WriteBytes("tmc_recover.sav.rollback", image, sizeof(image)), "valid rollback fixture is written");
     Port_Save_SetActivePath("tmc_recover.sav");
     EEPROMConfigure(0x40);
@@ -314,7 +373,7 @@ int main(void) {
 
     memset(compare, 0xFF, sizeof(compare));
     CHECK(WriteBytes("tmc_blank_current.sav", compare, sizeof(compare)), "blank current fixture is written");
-    BuildDiskImage(image, usaSignature, 0xB2);
+    BuildDiskImage(image, activeSignature, 0xB2);
     CHECK(WriteBytes("tmc_blank_current.sav.rollback", image, sizeof(image)),
           "active rollback beside blank current is written");
     CHECK(Port_Save_SetActivePath("tmc_blank_current.sav"), "blank-current recovery profile path is selected");
@@ -330,7 +389,7 @@ int main(void) {
 
     CHECK(WriteBytes("tmc_active_plus_blank.sav", shortFile, sizeof(shortFile)),
           "active-plus-blank malformed current is written");
-    BuildDiskImage(image, usaSignature, 0xB3);
+    BuildDiskImage(image, activeSignature, 0xB3);
     CHECK(WriteBytes("tmc_active_plus_blank.sav.rollback", image, sizeof(image)),
           "active candidate beside blank candidate is written");
     memset(compare, 0xFF, sizeof(compare));
@@ -343,10 +402,10 @@ int main(void) {
           "one active candidate wins over a blank candidate");
     CHECK(FileExistsForTest("tmc_active_plus_blank.sav.tmp"), "blank candidate is retained rather than consumed");
 
-    BuildDiskImage(image, usaSignature, 0xB5);
+    BuildDiskImage(image, activeSignature, 0xB5);
     CHECK(WriteBytes("tmc_absent_dual.sav.rollback", image, sizeof(image)),
           "old rollback for absent-current crash fixture is written");
-    BuildDiskImage(compare, usaSignature, 0xB6);
+    BuildDiskImage(compare, activeSignature, 0xB6);
     CHECK(WriteBytes("tmc_absent_dual.sav.tmp", compare, sizeof(compare)),
           "new temp for absent-current crash fixture is written");
     CHECK(Port_Save_SetActivePath("tmc_absent_dual.sav"), "absent-current crash profile path is selected");
@@ -360,7 +419,7 @@ int main(void) {
 
     CHECK(WriteBytes("tmc_corrupt_candidate.sav", shortFile, sizeof(shortFile)),
           "corrupt-candidate current fixture is written");
-    BuildDiskImage(image, usaSignature, 0xB4);
+    BuildDiskImage(image, activeSignature, 0xB4);
     CorruptEveryStatusRecord(image);
     CHECK(WriteBytes("tmc_corrupt_candidate.sav.rollback", image, sizeof(image)),
           "signature-only recovery candidate is written");
@@ -373,11 +432,11 @@ int main(void) {
     CHECK(FileExistsForTest("tmc_corrupt_candidate.sav.rollback"),
           "signature-only recovery candidate remains available for manual inspection");
 
-    BuildDiskImage(image, usaSignature, 0xB7);
+    BuildDiskImage(image, activeSignature, 0xB7);
     LeaveOnlyHeaderStatusValid(image);
     CHECK(WriteBytes("tmc_partial_current.sav", image, sizeof(image)),
           "one-of-five current recovery fixture is written");
-    BuildDiskImage(compare, usaSignature, 0xB8);
+    BuildDiskImage(compare, activeSignature, 0xB8);
     CHECK(WriteBytes("tmc_partial_current.sav.rollback", compare, sizeof(compare)),
           "full rollback beside partial current is written");
     CHECK(Port_Save_SetActivePath("tmc_partial_current.sav"), "partial-current profile path is selected");
@@ -390,9 +449,9 @@ int main(void) {
     CHECK(FileExistsForTest("tmc_partial_current.sav.rollback"), "full rollback beside partial current is retained");
 
     CHECK(WriteBytes("tmc_ambiguous.sav", shortFile, sizeof(shortFile)), "ambiguous current fixture is written");
-    BuildDiskImage(image, usaSignature, 0xC1);
+    BuildDiskImage(image, activeSignature, 0xC1);
     CHECK(WriteBytes("tmc_ambiguous.sav.rollback", image, sizeof(image)), "ambiguous rollback fixture is written");
-    BuildDiskImage(compare, usaSignature, 0xC2);
+    BuildDiskImage(compare, activeSignature, 0xC2);
     CHECK(WriteBytes("tmc_ambiguous.sav.tmp", compare, sizeof(compare)), "ambiguous temp fixture is written");
     Port_Save_SetActivePath("tmc_ambiguous.sav");
     EEPROMConfigure(0x40);
@@ -405,7 +464,7 @@ int main(void) {
 
     CHECK(WriteBytes("tmc_recovery_fault.sav", shortFile, sizeof(shortFile)),
           "recovery-install fault current fixture is written");
-    BuildDiskImage(image, usaSignature, 0xD1);
+    BuildDiskImage(image, activeSignature, 0xD1);
     CHECK(WriteBytes("tmc_recovery_fault.sav.rollback", image, sizeof(image)),
           "recovery-install fault rollback fixture is written");
     Port_Save_TestFailNextRecoveryInstall();
@@ -424,7 +483,7 @@ int main(void) {
         };
         static const u8 orphanBytes[] = { 0xBA, 0xAD, 0xF0, 0x0D };
 
-        BuildDiskImage(image, usaSignature, 0xE1);
+        BuildDiskImage(image, activeSignature, 0xE1);
         CHECK(WriteBytes("tmc_profile_source.sav", image, sizeof(image)),
               "profile-operation source save is written");
         CHECK(WriteBytes("tmc_profile_source.randomizer", sidecarBytes, sizeof(sidecarBytes)),

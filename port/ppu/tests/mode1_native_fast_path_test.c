@@ -26,6 +26,15 @@ static uint32_t sNewFast[MODE1_GBA_WIDTH * MODE1_GBA_HEIGHT];
 static uint32_t sReference[MODE1_GBA_WIDTH * MODE1_GBA_HEIGHT];
 static uint32_t sRandom = 0x6D2B79F5u;
 
+_Static_assert(MODE1_WS_SHADOW_WIDE_COLS == 7,
+               "E2 normal-Wide shadow stride must remain seven columns");
+_Static_assert(MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_WIDE_COLS == 224,
+               "E2 normal-Wide shadow footprint must remain 224 cells per BG");
+
+#ifndef MODE1_TEST_SCENES
+#define MODE1_TEST_SCENES 4096
+#endif
+
 typedef enum ScanlineProfile {
     SCANLINE_NONE = 0,
     SCANLINE_DARKNESS,
@@ -36,6 +45,10 @@ typedef enum ScanlineProfile {
 } ScanlineProfile;
 
 static ScanlineProfile sScanlineProfile;
+#if MODE1_GBA_WIDTH >= 400 && MODE1_GBA_HEIGHT >= 240
+static unsigned sCenteredOverlayCallbackCount;
+static int sCenteredOverlayCallbackLines[MODE1_GBA_NATIVE_HEIGHT];
+#endif
 
 static uint32_t NextRandom(void) {
     uint32_t x = sRandom;
@@ -47,6 +60,54 @@ static uint32_t NextRandom(void) {
 }
 
 static void WriteIo16(unsigned offset, uint16_t value);
+
+#if MODE1_GBA_WIDTH >= 400 && MODE1_GBA_HEIGHT >= 240
+static void ApplyCenteredOverlayProfile(int sourceLine) {
+    if (sCenteredOverlayCallbackCount < MODE1_GBA_NATIVE_HEIGHT) {
+        sCenteredOverlayCallbackLines[sCenteredOverlayCallbackCount] = sourceLine;
+    }
+    ++sCenteredOverlayCallbackCount;
+    WriteIo16(MODE1_IO_BG3HOFS, (uint16_t)(sourceLine & 7));
+}
+#endif
+
+static int CheckSignedOamY(PPUMemory* ppu) {
+#if MODE1_GBA_HEIGHT >= 240
+    uint32_t lineBuffer[MODE1_GBA_WIDTH];
+    uint8_t priorityBuffer[MODE1_GBA_WIDTH];
+    memset(sIo, 0, sizeof(sIo));
+    memset(sVram, 0, sizeof(sVram));
+    memset(sOam, 0, sizeof(sOam));
+    for (int i = 0; i < MODE1_GBA_OAM_COUNT; ++i) sOam[i * 4] = 0x0200u;
+    memset(sVram + 0x10000u, 0x11, 0x800u);
+    sOam[0] = 200u;            /* Ambiguous: +200 or signed -56. */
+    sOam[1] = (3u << 14u);     /* 64x64 at x=0. */
+    sOam[2] = 0u;
+    virtuappu_mode1_set_frame_geometry(ppu);
+
+    memset(virtuappu_mode1_obj_y_negative, 0, MODE1_GBA_OAM_COUNT);
+    memset(lineBuffer, 0, sizeof(lineBuffer));
+    memset(priorityBuffer, 0xff, sizeof(priorityBuffer));
+    virtuappu_mode1_render_obj_line(0, true, lineBuffer, priorityBuffer);
+    if (priorityBuffer[0] != 0xffu) {
+        fprintf(stderr, "mode1_native_fast_path_test: unsigned OAM Y=200 leaked onto line 0\n");
+        return 0;
+    }
+
+    virtuappu_mode1_obj_y_negative[0] = 1u;
+    memset(lineBuffer, 0, sizeof(lineBuffer));
+    memset(priorityBuffer, 0xff, sizeof(priorityBuffer));
+    virtuappu_mode1_render_obj_line(0, true, lineBuffer, priorityBuffer);
+    if (priorityBuffer[0] != 0u) {
+        fprintf(stderr, "mode1_native_fast_path_test: signed OAM Y=-56 missing on line 0\n");
+        return 0;
+    }
+    virtuappu_mode1_obj_y_negative[0] = 0u;
+#else
+    (void)ppu;
+#endif
+    return 1;
+}
 
 /* The enter-room banner occupies complete BG0 rows but is not a gMessage
  * textbox.  At 266px the HUD right-anchor alone suppresses x=176..201 — the
@@ -65,6 +126,9 @@ static int CheckEnterRoomBannerBand(void) {
     uint8_t bannerPriority[MODE1_GBA_WIDTH];
 
     memset(sIo, 0, sizeof(sIo));
+    memset(virtuappu_mode1_obj_y_negative, 0, MODE1_GBA_OAM_COUNT);
+    memset(virtuappu_mode1_obj_clip_mark, 0, MODE1_GBA_OAM_COUNT);
+    virtuappu_mode1_obj_clip_enable = 0;
     memset(sVram, 0, sizeof(sVram));
     memset(sBgPalette, 0, sizeof(sBgPalette));
     /* BG0: 4bpp, char base 0, screen base 31, 32x32 tiles. */
@@ -87,6 +151,8 @@ static int CheckEnterRoomBannerBand(void) {
 
     virtuappu_mode1_ws_shadow[0] = NULL;
     virtuappu_mode1_ws_hud_right_anchor = 0;
+    virtuappu_mode1_ws_full_view = 0;
+    virtuappu_mode1_bg3_hdma_native_bounds = false;
     virtuappu_mode1_ws_msg_shift = 0;
     memset(nativeLine, 0, sizeof(nativeLine));
     memset(nativePriority, 0xff, sizeof(nativePriority));
@@ -118,6 +184,347 @@ static int CheckEnterRoomBannerBand(void) {
             return 0;
         }
     }
+    return 1;
+}
+
+#if MODE1_GBA_WIDTH >= 266
+static void FillSolid4bppTile(unsigned tile, uint8_t color) {
+    memset(sVram + tile * 32u, (int)(color | (uint8_t)(color << 4u)), 32u);
+}
+#endif
+
+static int CheckCompactWideShadowFootprint(const PPUMemory* fullPpu) {
+#if MODE1_GBA_WIDTH >= 266
+    enum { SCREEN_BASE = 31, WIDE_WIDTH = 266 };
+    PPUMemory widePpu = *fullPpu;
+    widePpu.frame_width = WIDE_WIDTH;
+    widePpu.frame_height = MODE1_GBA_NATIVE_HEIGHT;
+    widePpu.frame_pitch = WIDE_WIDTH;
+
+    memset(sIo, 0, sizeof(sIo));
+    memset(sVram, 0, sizeof(sVram));
+    memset(sBgPalette, 0, sizeof(sBgPalette));
+    memset(sObjPalette, 0, sizeof(sObjPalette));
+    for (int i = 0; i < MODE1_GBA_OAM_COUNT; ++i) sOam[i * 4] = 0x0200u;
+    for (int color = 1; color < 16; ++color) {
+        sBgPalette[color] = (uint16_t)(color | (color << 5u) | (color << 10u));
+        FillSolid4bppTile((unsigned)color, (uint8_t)color);
+    }
+    for (int row = 0; row < 32; ++row) {
+        for (int col = 0; col < 32; ++col) {
+            const size_t map = (size_t)SCREEN_BASE * 0x800u +
+                               (size_t)(row * 32 + col) * 2u;
+            sVram[map] = 1u;
+            sVram[map + 1u] = 0u;
+        }
+    }
+
+    memset(sShadow[0], 0xff, sizeof(sShadow[0]));
+    for (int row = 0; row < MODE1_WS_SHADOW_ROWS; ++row) {
+        for (int col = 0; col < MODE1_WS_SHADOW_WIDE_COLS; ++col) {
+            sShadow[0][row * MODE1_WS_SHADOW_WIDE_COLS + col] =
+                (uint16_t)(1 + (row * MODE1_WS_SHADOW_WIDE_COLS + col) % 15);
+        }
+    }
+    for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
+        virtuappu_mode1_ws_shadow[bg] = NULL;
+        virtuappu_mode1_ws_shadow_cols[bg] = MODE1_WS_SHADOW_WIDE_COLS;
+        virtuappu_mode1_ws_shadow_stride[bg] = MODE1_WS_SHADOW_WIDE_COLS;
+    }
+    virtuappu_mode1_ws_shadow[0] = sShadow[0];
+    virtuappu_mode1_ws_shadow_base_tile[0] = 30;
+    virtuappu_mode1_ws_full_view = 0;
+    virtuappu_mode1_bg3_hdma_native_bounds = false;
+    virtuappu_mode1_ws_hud_right_anchor = 0;
+    virtuappu_mode1_ws_msg_shift = 0;
+    virtuappu_mode1_pre_line_callback = NULL;
+    WriteIo16(MODE1_IO_DISPCNT, MODE1_DISP_BG0_ON);
+    WriteIo16(MODE1_IO_BG0CNT, (uint16_t)(SCREEN_BASE << 8u));
+    WriteIo16(MODE1_IO_BG0HOFS, 0u);
+    WriteIo16(MODE1_IO_BG0VOFS, 0u);
+    WriteIo16(MODE1_IO_BLDCNT, 0u);
+    virtuappu_mode1_set_color_correction(false);
+    virtuappu_mode1_set_old3ds_profile(false);
+
+    virtuappu_mode1_set_native_fast_paths_enabled(true);
+    virtuappu_mode1_render_frame(&widePpu);
+    memcpy(sFast, virtuappu_frame_buffer,
+           (size_t)WIDE_WIDTH * MODE1_GBA_NATIVE_HEIGHT * sizeof(*sFast));
+    virtuappu_mode1_set_native_fast_paths_enabled(false);
+    virtuappu_mode1_render_frame(&widePpu);
+    memcpy(sReference, virtuappu_frame_buffer,
+           (size_t)WIDE_WIDTH * MODE1_GBA_NATIVE_HEIGHT * sizeof(*sReference));
+
+    for (size_t pixel = 0;
+         pixel < (size_t)WIDE_WIDTH * MODE1_GBA_NATIVE_HEIGHT; ++pixel) {
+        if (sFast[pixel] == sReference[pixel]) continue;
+        fprintf(stderr,
+                "mode1_native_fast_path_test: compact Wide stride parity pixel (%zu,%zu): fast=%08x reference=%08x\n",
+                pixel % WIDE_WIDTH, pixel / WIDE_WIDTH, sFast[pixel], sReference[pixel]);
+        return 0;
+    }
+    for (int x = MODE1_GBA_BG_CLIP_X; x < WIDE_WIDTH; ++x) {
+        const int shadowCol = (x - MODE1_GBA_BG_CLIP_X) >> 3;
+        const uint16_t tile =
+            (uint16_t)(1 + (MODE1_WS_SHADOW_WIDE_COLS + shadowCol) % 15);
+        const uint32_t expected = virtuappu_mode1_rgb555_to_abgr8888(sBgPalette[tile]);
+        const uint32_t actual = sReference[8u * WIDE_WIDTH + (size_t)x];
+        if (actual == expected) continue;
+        fprintf(stderr,
+                "mode1_native_fast_path_test: compact Wide row1 x=%d used wrong stride: got=%08x expected=%08x\n",
+                x, actual, expected);
+        return 0;
+    }
+    if (virtuappu_mode1_ws_shadow_cols[0] != MODE1_WS_SHADOW_WIDE_COLS ||
+        virtuappu_mode1_ws_shadow_stride[0] != MODE1_WS_SHADOW_WIDE_COLS) {
+        fprintf(stderr, "mode1_native_fast_path_test: normal Wide did not retain packed 7-column geometry\n");
+        return 0;
+    }
+#else
+    (void)fullPpu;
+#endif
+    return 1;
+}
+
+#if MODE1_GBA_WIDTH >= 400 && MODE1_GBA_HEIGHT >= 240
+static uint8_t FullViewPatternColor(unsigned tile, unsigned pixelY, unsigned pixelX) {
+    return (uint8_t)(1u + ((tile * 5u + pixelY * 3u + pixelX * 7u) % 15u));
+}
+#endif
+
+static int CheckFullViewShakeAlignment(PPUMemory* ppu) {
+#if MODE1_GBA_WIDTH >= 400 && MODE1_GBA_HEIGHT >= 240
+    enum { SCREEN_BASE = 31, XDIFF = 20, YDIFF = 20 };
+    static const int shakes[] = { -2, -1, 1, 2 };
+    memset(sIo, 0, sizeof(sIo));
+    memset(sVram, 0, sizeof(sVram));
+    memset(sBgPalette, 0, sizeof(sBgPalette));
+    memset(sObjPalette, 0, sizeof(sObjPalette));
+    for (int i = 0; i < MODE1_GBA_OAM_COUNT; ++i) sOam[i * 4] = 0x0200u;
+    for (int color = 1; color < 16; ++color) {
+        sBgPalette[color] = (uint16_t)(color | (color << 5u) | (color << 10u));
+    }
+    for (unsigned tile = 0; tile < 1024u; ++tile) {
+        for (unsigned py = 0; py < 8u; ++py) {
+            for (unsigned px = 0; px < 8u; ++px) {
+                const uint8_t color = FullViewPatternColor(tile, py, px);
+                uint8_t* packed = &sVram[tile * 32u + py * 4u + px / 2u];
+                if ((px & 1u) != 0u)
+                    *packed = (uint8_t)((*packed & 0x0fu) | (uint8_t)(color << 4u));
+                else
+                    *packed = (uint8_t)((*packed & 0xf0u) | color);
+            }
+        }
+    }
+
+    for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
+        virtuappu_mode1_ws_shadow[bg] = NULL;
+        virtuappu_mode1_ws_shadow_cols[bg] = MODE1_WS_SHADOW_FULL_VIEW_COLS;
+        virtuappu_mode1_ws_shadow_stride[bg] = MODE1_WS_SHADOW_FULL_VIEW_COLS;
+    }
+    virtuappu_mode1_ws_shadow[0] = sShadow[0];
+    virtuappu_mode1_ws_shadow_base_tile[0] = 0;
+    virtuappu_mode1_ws_full_view = 1;
+    virtuappu_mode1_bg3_hdma_native_bounds = false;
+    virtuappu_mode1_ws_hud_right_anchor = 0;
+    virtuappu_mode1_ws_msg_shift = 0;
+    virtuappu_mode1_pre_line_callback = NULL;
+    WriteIo16(MODE1_IO_DISPCNT, MODE1_DISP_BG0_ON);
+    WriteIo16(MODE1_IO_BG0CNT, (uint16_t)(SCREEN_BASE << 8u));
+    WriteIo16(MODE1_IO_BLDCNT, 0u);
+    virtuappu_mode1_set_color_correction(false);
+    virtuappu_mode1_set_old3ds_profile(false);
+
+    for (size_t sy = 0; sy < sizeof(shakes) / sizeof(shakes[0]); ++sy) {
+        for (size_t sx = 0; sx < sizeof(shakes) / sizeof(shakes[0]); ++sx) {
+            const int shakeX = shakes[sx];
+            const int shakeY = shakes[sy];
+            const int bgOffsetX = (XDIFF & 15) + shakeX;
+            const int bgOffsetY = (YDIFF & 15) + 8 + shakeY;
+            const int firstWorldCol = (XDIFF + shakeX) >> 3;
+            const int firstWorldRow = (YDIFF + shakeY) >> 3;
+            const int firstScreenRow = ((bgOffsetY & 0xff) >> 3) & 31;
+            memset(sShadow[0], 0, sizeof(sShadow[0]));
+            for (int row = 0; row < MODE1_WS_SHADOW_ROWS; ++row) {
+                const int shadowRow = (firstScreenRow + row) & 31;
+                const int worldRow = firstWorldRow + row;
+                for (int col = 0; col < MODE1_WS_SHADOW_FULL_VIEW_COLS; ++col) {
+                    const int worldCol = firstWorldCol + col;
+                    sShadow[0][shadowRow * MODE1_WS_SHADOW_FULL_VIEW_COLS + col] =
+                        (uint16_t)(((worldRow & 31) * 32) + (worldCol & 31));
+                }
+            }
+            WriteIo16(MODE1_IO_BG0HOFS, (uint16_t)bgOffsetX);
+            WriteIo16(MODE1_IO_BG0VOFS, (uint16_t)bgOffsetY);
+
+            virtuappu_mode1_set_native_fast_paths_enabled(true);
+            virtuappu_mode1_render_frame(ppu);
+            memcpy(sFast, virtuappu_frame_buffer, sizeof(sFast));
+            virtuappu_mode1_set_native_fast_paths_enabled(false);
+            virtuappu_mode1_render_frame(ppu);
+            memcpy(sReference, virtuappu_frame_buffer, sizeof(sReference));
+
+            for (int y = 0; y < MODE1_GBA_HEIGHT; ++y) {
+                for (int x = 0; x < MODE1_GBA_WIDTH; ++x) {
+                    const size_t pixel = (size_t)y * MODE1_GBA_WIDTH + (size_t)x;
+                    const int worldX = XDIFF + shakeX + x;
+                    const int worldY = YDIFF + shakeY + y;
+                    const unsigned tile =
+                        (unsigned)(((worldY >> 3) & 31) * 32 + ((worldX >> 3) & 31));
+                    const uint8_t color =
+                        FullViewPatternColor(tile, (unsigned)worldY & 7u,
+                                             (unsigned)worldX & 7u);
+                    const uint32_t expected =
+                        virtuappu_mode1_rgb555_to_abgr8888(sBgPalette[color]);
+                    if (sFast[pixel] != sReference[pixel] || sReference[pixel] != expected) {
+                        fprintf(stderr,
+                                "mode1_native_fast_path_test: Full View shake (%d,%d) pixel (%d,%d): fast=%08x reference=%08x expected=%08x\n",
+                                shakeX, shakeY, x, y, sFast[pixel], sReference[pixel], expected);
+                        return 0;
+                    }
+                }
+            }
+        }
+    }
+#else
+    (void)ppu;
+#endif
+    return 1;
+}
+
+static int CheckFullViewBg3Geometry(PPUMemory* ppu) {
+#if MODE1_GBA_WIDTH >= 400 && MODE1_GBA_HEIGHT >= 240
+    enum { SCREEN_BASE = 31, NATIVE_LEFT = 80, NATIVE_TOP = 40 };
+    const uint32_t black = virtuappu_mode1_rgb555_to_abgr8888(0u);
+    memset(sIo, 0, sizeof(sIo));
+    memset(sVram, 0, sizeof(sVram));
+    memset(sBgPalette, 0, sizeof(sBgPalette));
+    memset(sObjPalette, 0, sizeof(sObjPalette));
+    for (int i = 0; i < MODE1_GBA_OAM_COUNT; ++i) sOam[i * 4] = 0x0200u;
+    for (int index = 1; index < MODE1_PALETTE_COLORS; ++index) {
+        sBgPalette[index] = (uint16_t)(((index * 3) & 31) |
+                                       (((index * 5) & 31) << 5u) |
+                                       (((index * 7) & 31) << 10u));
+    }
+    for (int py = 0; py < 8; ++py) {
+        const uint8_t color = (uint8_t)(1 + py);
+        for (int px = 0; px < 8; px += 2) {
+            sVram[32u + (size_t)py * 4u + (size_t)px / 2u] =
+                (uint8_t)(color | (uint8_t)(color << 4u));
+        }
+    }
+    for (int row = 0; row < 32; ++row) {
+        for (int col = 0; col < 32; ++col) {
+            const uint16_t entry =
+                (uint16_t)(1u | (uint16_t)(((row * 3 + col) & 15) << 12u));
+            const size_t map = (size_t)SCREEN_BASE * 0x800u +
+                               (size_t)(row * 32 + col) * 2u;
+            sVram[map] = (uint8_t)entry;
+            sVram[map + 1u] = (uint8_t)(entry >> 8u);
+        }
+    }
+    for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
+        virtuappu_mode1_ws_shadow[bg] = NULL;
+        virtuappu_mode1_ws_shadow_cols[bg] = MODE1_WS_SHADOW_WIDE_COLS;
+        virtuappu_mode1_ws_shadow_stride[bg] = MODE1_WS_SHADOW_WIDE_COLS;
+    }
+    virtuappu_mode1_ws_full_view = 1;
+    virtuappu_mode1_bg3_hdma_native_bounds = true;
+    virtuappu_mode1_ws_hud_right_anchor = 0;
+    virtuappu_mode1_ws_msg_shift = 0;
+    WriteIo16(MODE1_IO_DISPCNT, MODE1_DISP_BG3_ON);
+    WriteIo16(MODE1_IO_BG3CNT, (uint16_t)(SCREEN_BASE << 8u));
+    WriteIo16(MODE1_IO_BG3HOFS, 0u);
+    WriteIo16(MODE1_IO_BG3VOFS, 0u);
+    /* A no-target brightness mode rejects the direct path without changing
+     * pixels, forcing the production compact-token renderer. */
+    WriteIo16(MODE1_IO_BLDCNT, (uint16_t)(2u << 6u));
+    virtuappu_mode1_set_color_correction(false);
+
+    sCenteredOverlayCallbackCount = 0;
+    virtuappu_mode1_pre_line_callback = ApplyCenteredOverlayProfile;
+    virtuappu_mode1_set_old3ds_profile(true);
+    virtuappu_mode1_set_native_fast_paths_enabled(true);
+    virtuappu_mode1_render_frame(ppu);
+    memcpy(sFast, virtuappu_frame_buffer, sizeof(sFast));
+    if (sCenteredOverlayCallbackCount != MODE1_GBA_NATIVE_HEIGHT) {
+        fprintf(stderr,
+                "mode1_native_fast_path_test: centered BG3 callback count=%u expected=%u\n",
+                sCenteredOverlayCallbackCount, MODE1_GBA_NATIVE_HEIGHT);
+        return 0;
+    }
+    for (int line = 0; line < MODE1_GBA_NATIVE_HEIGHT; ++line) {
+        if (sCenteredOverlayCallbackLines[line] == line) continue;
+        fprintf(stderr,
+                "mode1_native_fast_path_test: centered BG3 callback %d received source line %d\n",
+                line, sCenteredOverlayCallbackLines[line]);
+        return 0;
+    }
+
+    sCenteredOverlayCallbackCount = 0;
+    WriteIo16(MODE1_IO_BG3HOFS, 0u);
+    virtuappu_mode1_set_old3ds_profile(false);
+    virtuappu_mode1_set_native_fast_paths_enabled(false);
+    virtuappu_mode1_render_frame(ppu);
+    memcpy(sReference, virtuappu_frame_buffer, sizeof(sReference));
+    if (sCenteredOverlayCallbackCount != MODE1_GBA_NATIVE_HEIGHT) {
+        fprintf(stderr,
+                "mode1_native_fast_path_test: generic centered BG3 callback count=%u expected=%u\n",
+                sCenteredOverlayCallbackCount, MODE1_GBA_NATIVE_HEIGHT);
+        return 0;
+    }
+
+    for (int y = 0; y < MODE1_GBA_HEIGHT; ++y) {
+        for (int x = 0; x < MODE1_GBA_WIDTH; ++x) {
+            const size_t pixel = (size_t)y * MODE1_GBA_WIDTH + (size_t)x;
+            uint32_t expected = black;
+            if (x >= NATIVE_LEFT && x < NATIVE_LEFT + MODE1_GBA_BG_CLIP_X &&
+                y >= NATIVE_TOP && y < NATIVE_TOP + MODE1_GBA_NATIVE_HEIGHT) {
+                const int sourceY = y - NATIVE_TOP;
+                const int sourceX = x - NATIVE_LEFT + (sourceY & 7);
+                const int tileRow = (sourceY >> 3) & 31;
+                const int tileCol = (sourceX >> 3) & 31;
+                const int paletteBank = (tileRow * 3 + tileCol) & 15;
+                const int color = 1 + (sourceY & 7);
+                expected = virtuappu_mode1_rgb555_to_abgr8888(
+                    sBgPalette[paletteBank * 16 + color]);
+            }
+            if (sFast[pixel] == sReference[pixel] && sReference[pixel] == expected) continue;
+            fprintf(stderr,
+                    "mode1_native_fast_path_test: centered BG3 pixel (%d,%d): compact=%08x generic=%08x expected=%08x\n",
+                    x, y, sFast[pixel], sReference[pixel], expected);
+            return 0;
+        }
+    }
+
+    /* Non-HDMA BG3 is a repeating full-frame fog/overlay, not a 240x160
+     * canvas. Verify the actual fast/generic frame routes cover x=399,y=239. */
+    virtuappu_mode1_pre_line_callback = NULL;
+    virtuappu_mode1_bg3_hdma_native_bounds = false;
+    WriteIo16(MODE1_IO_BG3HOFS, 0u);
+    WriteIo16(MODE1_IO_BLDCNT, 0u);
+    virtuappu_mode1_set_native_fast_paths_enabled(true);
+    virtuappu_mode1_render_frame(ppu);
+    memcpy(sFast, virtuappu_frame_buffer, sizeof(sFast));
+    virtuappu_mode1_set_native_fast_paths_enabled(false);
+    virtuappu_mode1_render_frame(ppu);
+    memcpy(sReference, virtuappu_frame_buffer, sizeof(sReference));
+    for (size_t pixel = 0; pixel < MODE1_GBA_WIDTH * MODE1_GBA_HEIGHT; ++pixel) {
+        if (sFast[pixel] == sReference[pixel]) continue;
+        fprintf(stderr,
+                "mode1_native_fast_path_test: repeated BG3 parity pixel (%zu,%zu): fast=%08x generic=%08x\n",
+                pixel % MODE1_GBA_WIDTH, pixel / MODE1_GBA_WIDTH,
+                sFast[pixel], sReference[pixel]);
+        return 0;
+    }
+    if (sReference[399u] == black ||
+        sReference[239u * MODE1_GBA_WIDTH + 399u] == black) {
+        fprintf(stderr, "mode1_native_fast_path_test: repeated BG3 did not cover the 400x240 frame\n");
+        return 0;
+    }
+#else
+    (void)ppu;
+#endif
     return 1;
 }
 
@@ -209,10 +616,15 @@ static void BuildState(unsigned scene) {
         sObjPalette[i] = (uint16_t)(NextRandom() & 0x7FFFu);
     }
     memset(sIo, 0, sizeof(sIo));
+    memset(virtuappu_mode1_obj_y_negative, 0, MODE1_GBA_OAM_COUNT);
+    memset(virtuappu_mode1_obj_clip_mark, 0, MODE1_GBA_OAM_COUNT);
+    virtuappu_mode1_obj_clip_enable = 0;
     for (int i = 0; i < MODE1_GBA_OAM_COUNT; ++i) sOam[i * 4] = 0x0200u;
     for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
         virtuappu_mode1_ws_shadow[bg] = NULL;
         virtuappu_mode1_ws_shadow_base_tile[bg] = 0;
+        virtuappu_mode1_ws_shadow_cols[bg] = MODE1_WS_SHADOW_WIDE_COLS;
+        virtuappu_mode1_ws_shadow_stride[bg] = MODE1_WS_SHADOW_WIDE_COLS;
         for (size_t i = 0; i < MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_COLS; ++i) {
             sShadow[bg][i] = (uint16_t)NextRandom();
         }
@@ -223,6 +635,8 @@ static void BuildState(unsigned scene) {
     virtuappu_mode1_ws_msg_x1 = 0;
     virtuappu_mode1_ws_msg_y0 = 0;
     virtuappu_mode1_ws_msg_y1 = 0;
+    virtuappu_mode1_ws_full_view = 0;
+    virtuappu_mode1_bg3_hdma_native_bounds = false;
 
     uint16_t dispcnt = MODE1_DISP_OBJ_1D;
     for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
@@ -393,7 +807,92 @@ static void BuildState(unsigned scene) {
         virtuappu_mode1_ws_msg_y0 = 20;
         virtuappu_mode1_ws_msg_y1 = 140;
     }
+#if MODE1_GBA_WIDTH >= 400 && MODE1_GBA_HEIGHT >= 240
+    /* The 400x240 build exercises the real Full View tile-shadow selection,
+     * including x<240 and scanlines 160..239. Rays/steam deliberately bound
+     * BG3 to the GBA-native region while the world BGs remain full-frame. */
+    virtuappu_mode1_ws_full_view = 1;
+    for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
+        virtuappu_mode1_ws_shadow_cols[bg] = MODE1_WS_SHADOW_FULL_VIEW_COLS;
+        virtuappu_mode1_ws_shadow_stride[bg] = MODE1_WS_SHADOW_FULL_VIEW_COLS;
+    }
+    virtuappu_mode1_bg3_hdma_native_bounds =
+        sScanlineProfile == SCANLINE_MINISH_RAYS || sScanlineProfile == SCANLINE_STEAM;
+#endif
 }
+
+#if MODE1_GBA_WIDTH >= 400 && MODE1_GBA_HEIGHT >= 240
+static int CheckInteriorViewportParity(PPUMemory* ppu) {
+    enum {
+        INTERIOR_WIDTH = 200,
+        INTERIOR_HEIGHT = 120,
+        INTERIOR_SCENES = 256,
+    };
+    const uint32_t sentinel = 0xA5C39E71u;
+    PPUMemory interior = *ppu;
+    interior.frame_width = INTERIOR_WIDTH;
+    interior.frame_height = INTERIOR_HEIGHT;
+    interior.frame_pitch = MODE1_GBA_WIDTH;
+
+    for (unsigned scene = 0; scene < INTERIOR_SCENES; ++scene) {
+        BuildState(scene + MODE1_TEST_SCENES);
+        /* Production keeps normal packed E2 shadows registered in interiors,
+         * but a 200px viewport never consumes reveal columns x>=240. */
+        virtuappu_mode1_ws_full_view = 0;
+        virtuappu_mode1_bg3_hdma_native_bounds = false;
+        for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
+            virtuappu_mode1_ws_shadow_cols[bg] = MODE1_WS_SHADOW_WIDE_COLS;
+            virtuappu_mode1_ws_shadow_stride[bg] = MODE1_WS_SHADOW_WIDE_COLS;
+        }
+
+        for (size_t i = 0; i < MODE1_GBA_WIDTH * MODE1_GBA_HEIGHT; ++i) {
+            virtuappu_frame_buffer[i] = sentinel;
+        }
+        virtuappu_mode1_set_old3ds_profile(true);
+        virtuappu_mode1_set_native_fast_paths_enabled(true);
+        virtuappu_mode1_render_frame(&interior);
+        memcpy(sFast, virtuappu_frame_buffer, sizeof(sFast));
+
+        for (size_t i = 0; i < MODE1_GBA_WIDTH * MODE1_GBA_HEIGHT; ++i) {
+            virtuappu_frame_buffer[i] = sentinel;
+        }
+        virtuappu_mode1_set_old3ds_profile(false);
+        virtuappu_mode1_set_native_fast_paths_enabled(true);
+        virtuappu_mode1_render_frame(&interior);
+        memcpy(sNewFast, virtuappu_frame_buffer, sizeof(sNewFast));
+
+        for (size_t i = 0; i < MODE1_GBA_WIDTH * MODE1_GBA_HEIGHT; ++i) {
+            virtuappu_frame_buffer[i] = sentinel;
+        }
+        virtuappu_mode1_set_native_fast_paths_enabled(false);
+        virtuappu_mode1_render_frame(&interior);
+        memcpy(sReference, virtuappu_frame_buffer, sizeof(sReference));
+
+        for (int y = 0; y < MODE1_GBA_HEIGHT; ++y) {
+            for (int x = 0; x < MODE1_GBA_WIDTH; ++x) {
+                const size_t pixel = (size_t)y * MODE1_GBA_WIDTH + (size_t)x;
+                const bool inside = x < INTERIOR_WIDTH && y < INTERIOR_HEIGHT;
+                if (!inside && (sFast[pixel] != sentinel || sNewFast[pixel] != sentinel ||
+                                sReference[pixel] != sentinel)) {
+                    fprintf(stderr,
+                            "mode1_native_fast_path_test: interior scene %u wrote padding (%d,%d)\n",
+                            scene, x, y);
+                    return 0;
+                }
+                if (sFast[pixel] != sReference[pixel] ||
+                    sNewFast[pixel] != sReference[pixel]) {
+                    fprintf(stderr,
+                            "mode1_native_fast_path_test: interior scene %u pixel (%d,%d): "
+                            "old=%08x new=%08x reference=%08x\n",
+                            scene, x, y, sFast[pixel], sNewFast[pixel], sReference[pixel]);
+                    return 0;
+                }
+            }
+        }
+    }
+    return 1;
+}
+#endif
 
 int main(void) {
     const VirtuaPPUMode1GbaMemory memory = { sIo, sVram, sBgPalette, sObjPalette, sOam };
@@ -401,15 +900,38 @@ int main(void) {
     memset(&ppu, 0, sizeof(ppu));
     ppu.mode = 1;
     ppu.frame_width = MODE1_GBA_WIDTH;
+    ppu.frame_height = MODE1_GBA_HEIGHT;
     ppu.frame_pitch = MODE1_GBA_WIDTH;
     virtuappu_mode1_bind_gba_memory(&memory);
     virtuappu_mode1_pre_line_callback = NULL;
+
+    if (!CheckSignedOamY(&ppu)) {
+        return 1;
+    }
 
     if (!CheckEnterRoomBannerBand()) {
         return 1;
     }
 
-    enum { SCENES = 4096 };
+    if (!CheckCompactWideShadowFootprint(&ppu)) {
+        return 1;
+    }
+
+    if (!CheckFullViewShakeAlignment(&ppu)) {
+        return 1;
+    }
+
+    if (!CheckFullViewBg3Geometry(&ppu)) {
+        return 1;
+    }
+
+#if MODE1_GBA_WIDTH >= 400 && MODE1_GBA_HEIGHT >= 240
+    if (!CheckInteriorViewportParity(&ppu)) {
+        return 1;
+    }
+#endif
+
+    enum { SCENES = MODE1_TEST_SCENES };
     bool blendPairCoverage[17][17] = { { false } };
     for (unsigned scene = 0; scene < SCENES; ++scene) {
         BuildState(scene);

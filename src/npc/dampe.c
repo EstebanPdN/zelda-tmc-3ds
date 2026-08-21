@@ -14,6 +14,9 @@
 #include "room.h"
 #include "tiles.h"
 #include "script.h"
+#if defined(PC_PORT) && defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
+#include "port_widescreen.h"
+#endif
 #include "physics.h"
 
 typedef struct {
@@ -115,9 +118,16 @@ void sub_0806BEFC(void) {
 }
 
 void sub_0806BF44(Entity* this, ScriptExecutionContext* context) {
+#if defined(PC_PORT) && defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
+    const u32 viewWidth = (u32)Port_Widescreen_GameplayViewWidth();
+    const u32 viewHeight = (u32)Port_Widescreen_GameplayViewHeight();
+#else
+    const u32 viewWidth = DISPLAY_WIDTH;
+    const u32 viewHeight = DISPLAY_HEIGHT;
+#endif
     context->condition = 0;
-    if (((this->x.HALF.HI - gRoomControls.scroll_x) + 0x10U < 0x110) &&
-        ((this->y.HALF.HI - gRoomControls.scroll_y) + 0x18U < 0xD0)) {
+    if (((this->x.HALF.HI - gRoomControls.scroll_x) + 0x10U < viewWidth + 0x20u) &&
+        ((this->y.HALF.HI - gRoomControls.scroll_y) + 0x18U < viewHeight + 0x30u)) {
         context->condition = 1;
     }
 }

@@ -116,6 +116,11 @@ extern void CreateUIElement(u32, u32);
 extern void sub_0801C2F0(u32, u32);
 extern void sub_0801C25C(void);
 extern void DrawUI(void);
+#ifdef PC_PORT
+/* Re-anchor the already-updated HUD after a manager changes the target
+ * viewport late in the gameplay tick. Does not advance UI animations. */
+extern void Port_UI_PrepareGameplayGeometry(void);
+#endif
 extern void InitUI(bool32);
 extern void RefreshUI(void);
 extern void RecoverUI(u32 bottomPt, u32 topPt);

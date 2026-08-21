@@ -2,6 +2,7 @@
 
 #include "port_gba_mem.h"
 #include "port_config.h"
+#include "port_collision_diagnostics.h"
 #include "port_hdma.h"
 #include "port_runtime_config.h"
 #include "port_audio_3ds.h"
@@ -12,6 +13,7 @@
 #include "port_widescreen.h"
 #include "platform_3ds.h"
 #include "platform_gpu_3ds.h"
+#include "top_view_3ds.h"
 
 #include "virtuappu.h"
 #include "cpu/mode1.h"
@@ -20,6 +22,7 @@
 #include "menu.h"
 #include "player.h"
 #include "room.h"
+#include "save.h"
 #include "tileMap.h"
 #include "vram.h"
 
@@ -33,6 +36,7 @@
 
 #define GBA_NATIVE_W 240
 #define GBA_H 160
+#define E2_WIDE_MAX 266
 #define TOP_PITCH 512
 
 static uint32_t* sBottomUploads[2];
@@ -80,15 +84,93 @@ static uint64_t sPerfFramesOver33ms;
 static volatile uint32_t sCurrentFpsX100;
 static volatile uint32_t sAverageFpsX100;
 static int sTopPresentWidth = GBA_NATIVE_W;
+static int sTopPresentHeight = GBA_H;
+static int sTopValidSourceWidth = GBA_NATIVE_W;
+static int sTopValidSourceHeight = GBA_H;
+static Port3DSFullViewMode sTopPresentMode = PORT_3DS_FULL_VIEW_FALLBACK;
+static Port3DSFullViewFallbackReason sTopFallbackReason = PORT_3DS_FULL_VIEW_REASON_COMBO_DISABLED;
+static int sTopCropX;
+static int sTopCropY;
 
-static int TopFrameWidth(void) {
+typedef struct TopFrameState {
+    int width;
+    int height;
+    int validSourceWidth;
+    int validSourceHeight;
+    Port3DSFullViewMode mode;
+    Port3DSFullViewFallbackReason fallbackReason;
+    int cropX;
+    int cropY;
+} TopFrameState;
+
+static int ExistingTopFrameWidth(void) {
     Port_Widescreen_SetWindowPixels(400, 240);
     if (Port_Widescreen_IsActive() && Port_Widescreen_ShadowsLive()) {
         int width = Port_Widescreen_EffectiveViewWidth();
         if (width > MODE1_GBA_WIDTH) width = MODE1_GBA_WIDTH;
+        /* The experimental 400-wide camera is selected separately below.
+         * Every fallback/interior render keeps E2's established 240/266 path. */
+        if (width > E2_WIDE_MAX) width = E2_WIDE_MAX;
         if (width > GBA_NATIVE_W) return width;
     }
     return GBA_NATIVE_W;
+}
+
+static TopFrameState NativeTopFrame(Port3DSFullViewFallbackReason reason) {
+    TopFrameState state = {
+        .width = GBA_NATIVE_W,
+        .height = GBA_H,
+        .validSourceWidth = GBA_NATIVE_W,
+        .validSourceHeight = GBA_H,
+        .mode = PORT_3DS_FULL_VIEW_FALLBACK,
+        .fallbackReason = reason,
+    };
+    return state;
+}
+
+static TopFrameState SelectTopFrame(void) {
+    TopFrameState state = {
+        .width = GBA_NATIVE_W,
+        .height = GBA_H,
+        .validSourceWidth = GBA_NATIVE_W,
+        .validSourceHeight = GBA_H,
+        .mode = PORT_3DS_FULL_VIEW_FALLBACK,
+        .fallbackReason = Port_Widescreen_3DSFallbackReason(),
+    };
+    const Port3DSFullViewMode requested = Port_Widescreen_3DSViewMode();
+    if (requested == PORT_3DS_FULL_VIEW_OUTDOOR_1X &&
+        MODE1_GBA_WIDTH >= 400 && MODE1_GBA_HEIGHT >= 240 &&
+        Port_Widescreen_ShadowsLive()) {
+        state.width = 400;
+        state.height = 240;
+        state.validSourceWidth = 400;
+        state.validSourceHeight = 240;
+        state.mode = requested;
+        state.fallbackReason = PORT_3DS_FULL_VIEW_REASON_NONE;
+        return state;
+    }
+
+    if (requested == PORT_3DS_FULL_VIEW_INTERIOR_2X &&
+        Port_Widescreen_ShadowsLive()) {
+        /* Interior zoom is a real logical viewport. Rendering 200x120 keeps
+         * BG0/OAM composition coherent; cropping a finished E2 frame would
+         * remove hearts, keys, rupees and dialogue pixels. */
+        state.width = 200;
+        state.height = 120;
+        state.validSourceWidth = 200;
+        state.validSourceHeight = 120;
+        state.mode = requested;
+        state.fallbackReason = PORT_3DS_FULL_VIEW_REASON_NONE;
+        return state;
+    }
+
+    state.width = ExistingTopFrameWidth();
+    state.validSourceWidth = state.width;
+    state.validSourceHeight = state.height;
+    if (requested != PORT_3DS_FULL_VIEW_FALLBACK) {
+        state.fallbackReason = PORT_3DS_FULL_VIEW_REASON_PRESENTATION_BOUNDS;
+    }
+    return state;
 }
 
 #ifdef TMC_3DS_DIAGNOSTICS
@@ -219,6 +301,8 @@ void Port_PPU_3DS_WriteQuickDump(void) {
     WriteBlob(path, gBG2Buffer, sizeof(gBG2Buffer));
     snprintf(path, sizeof(path), "%s/bg3-buffer.bin", dir);
     WriteBlob(path, gBG3Buffer, sizeof(gBG3Buffer));
+    snprintf(path, sizeof(path), "%s/save-state.bin", dir);
+    WriteBlob(path, &gSave, sizeof(gSave));
 
     snprintf(path, sizeof(path), "%s/info.txt", dir);
     FILE* info = fopen(path, "wb");
@@ -238,12 +322,14 @@ void Port_PPU_3DS_WriteQuickDump(void) {
         BottomFrameState3DSStats bottomFrameStats;
         PortAudio3DSStats audioStats;
         PortSaveStats saveStats;
+        PortPlayerDamageDiagnostic damageDiagnostic;
         VirtuaPPUMode13DSStats workerStats;
         Platform3DS_GetRuntimeStats(&runtimeStats);
         PlatformGpu3DS_GetStats(&gpuStats);
         Port_SecondScreen_3DS_GetFrameStats(&bottomFrameStats);
         Port_Audio_3DSGetStats(&audioStats);
         Port_Save_GetStats(&saveStats);
+        Port_Collision_GetLastPlayerDamage(&damageDiagnostic);
         virtuappu_mode1_get_3ds_stats(&workerStats);
         const uint64_t engineSamples = runtimeStats.logicFrames > 1 ? runtimeStats.logicFrames - 1u : 1u;
         const uint64_t vblankSamples = runtimeStats.presentedFrames ? runtimeStats.presentedFrames : 1u;
@@ -497,6 +583,49 @@ void Port_PPU_3DS_WriteQuickDump(void) {
         fprintf(info, "Player control/framestate/layer/draw/flags: %u/%u/%u/%u/0x%02X\n",
                 gPlayerState.controlMode, gPlayerState.framestate, gPlayerEntity.base.collisionLayer,
                 gPlayerEntity.base.spriteSettings.draw, gPlayerEntity.base.flags);
+        fprintf(info, "\n[Last player collision damage]\n");
+        if (!damageDiagnostic.valid) {
+            fprintf(info, "Recorded: no\n");
+        } else {
+            const u16 damageAge = (u16)(gMain.ticks - damageDiagnostic.gameTick);
+            fprintf(info, "Recorded: yes; sequence/tick/age: %lu/%lu/%lu\n",
+                    (unsigned long)damageDiagnostic.sequence, (unsigned long)damageDiagnostic.gameTick,
+                    (unsigned long)damageAge);
+            fprintf(info, "Room/damage/health: 0x%02X/0x%02X, %u, %u -> %ld\n",
+                    damageDiagnostic.area, damageDiagnostic.room, damageDiagnostic.effectiveDamage,
+                    damageDiagnostic.healthBefore, (long)damageDiagnostic.healthAfter);
+            fprintf(info,
+                    "Source kind/id/type/type2/action/subaction: %u/0x%02X/%u/%u/%u/%u; "
+                    "hit/hurt=0x%02X/0x%02X\n",
+                    damageDiagnostic.sourceKind, damageDiagnostic.sourceId, damageDiagnostic.sourceType,
+                    damageDiagnostic.sourceType2, damageDiagnostic.sourceAction, damageDiagnostic.sourceSubAction,
+                    damageDiagnostic.sourceHitType, damageDiagnostic.sourceHurtType);
+            fprintf(info,
+                    "Source position/sprite offset/draw/frame/affine: %d,%d,%d / %d,%d / %u/%u/%u:%u; "
+                    "layer/flags/mask/entity-flags=%u/0x%02X/0x%02X/0x%02X\n",
+                    damageDiagnostic.sourceX, damageDiagnostic.sourceY, damageDiagnostic.sourceZ,
+                    damageDiagnostic.sourceSpriteOffsetX, damageDiagnostic.sourceSpriteOffsetY,
+                    damageDiagnostic.sourceDraw, damageDiagnostic.sourceFrameIndex,
+                    damageDiagnostic.sourceAffineIndex, damageDiagnostic.sourceAffineMode,
+                    damageDiagnostic.sourceCollisionLayer, damageDiagnostic.sourceCollisionFlags,
+                    damageDiagnostic.sourceCollisionMask, damageDiagnostic.sourceFlags);
+            if (damageDiagnostic.sourceHasHitbox) {
+                fprintf(info, "Source hitbox offset/half-size: %d,%d / %u,%u; player position: %d,%d,%d\n",
+                        damageDiagnostic.sourceHitboxOffsetX, damageDiagnostic.sourceHitboxOffsetY,
+                        damageDiagnostic.sourceHitboxWidth, damageDiagnostic.sourceHitboxHeight,
+                        damageDiagnostic.playerX, damageDiagnostic.playerY, damageDiagnostic.playerZ);
+            } else {
+                fprintf(info, "Source hitbox: none; player position: %d,%d,%d\n",
+                        damageDiagnostic.playerX, damageDiagnostic.playerY, damageDiagnostic.playerZ);
+            }
+            if (damageDiagnostic.playerHasHitbox) {
+                fprintf(info, "Player hitbox offset/half-size: %d,%d / %u,%u\n",
+                        damageDiagnostic.playerHitboxOffsetX, damageDiagnostic.playerHitboxOffsetY,
+                        damageDiagnostic.playerHitboxWidth, damageDiagnostic.playerHitboxHeight);
+            } else {
+                fprintf(info, "Player hitbox: unavailable\n");
+            }
+        }
         fprintf(info, "Camera target/player pointers: 0x%08lX / 0x%08lX\n",
                 (unsigned long)(uintptr_t)gRoomControls.camera_target,
                 (unsigned long)(uintptr_t)&gPlayerEntity.base);
@@ -507,16 +636,27 @@ void Port_PPU_3DS_WriteQuickDump(void) {
         fprintf(info, "Map BG controls: bottom=0x%04X top=0x%04X\n",
                 gMapBottom.bgSettings ? gMapBottom.bgSettings->control : 0,
                 gMapTop.bgSettings ? gMapTop.bgSettings->control : 0);
-        fprintf(info, "Top rendered width: %d pixels (capacity %d; widescreen %s)\n",
-                sTopPresentWidth, MODE1_GBA_WIDTH,
-                Port_Config_WidescreenEnabled() ? "enabled" : "disabled");
+        fprintf(info, "Full View combo configured: %s\n",
+                Port_Config_3DSFullViewComboEnabled() ? "yes" : "no");
+        fprintf(info, "Full View active/mode: %s / %s\n",
+                sTopPresentMode != PORT_3DS_FULL_VIEW_FALLBACK ? "yes" : "no",
+                sTopPresentMode == PORT_3DS_FULL_VIEW_OUTDOOR_1X ? "outdoor-400x240-1x"
+                : sTopPresentMode == PORT_3DS_FULL_VIEW_INTERIOR_2X ? "interior-200x120-nearest-2x"
+                                                                  : "E2-fallback");
+        fprintf(info, "Top render geometry/capacity: %dx%d / %dx%d; crop origin: %d,%d\n",
+                sTopPresentWidth, sTopPresentHeight, MODE1_GBA_WIDTH, MODE1_GBA_HEIGHT,
+                sTopCropX, sTopCropY);
+        fprintf(info, "Full View fallback reason: %s\n",
+                Port3DSFullViewPolicy_FallbackReasonName(sTopFallbackReason));
+        fprintf(info, "BG3 native HDMA bounds: %s\n",
+                virtuappu_mode1_bg3_hdma_native_bounds ? "enabled" : "disabled");
 
         fprintf(info, "\n[Files]\n");
         fprintf(info, "top-screen.bmp, bottom-screen.bmp, top-screen.raw, bottom-screen.raw\n");
         fprintf(info, "ewram.bin, iwram.bin, vram.bin, io-registers.bin, palettes.bin, oam.bin, main-state.bin\n");
         fprintf(info, "room-controls.bin, map-bottom-layer.bin, map-top-layer.bin\n");
         fprintf(info, "map-bottom-special.bin, map-top-special.bin, bg0-buffer.bin, bg1-buffer.bin, "
-                      "bg2-buffer.bin, bg3-buffer.bin\n");
+                      "bg2-buffer.bin, bg3-buffer.bin, save-state.bin (active SaveFile, 0x500 bytes)\n");
         fprintf(info, "Trigger: L + R + A\n");
         fclose(info);
     }
@@ -552,6 +692,7 @@ void Port_PPU_Init(SDL_Window* window) {
     virtuappu_mode1_set_color_correction(sColorCorrection);
     Port_Widescreen_SetWindowPixels(400, 240);
     virtuappu_registers.frame_width = GBA_NATIVE_W;
+    virtuappu_registers.frame_height = GBA_H;
     virtuappu_registers.frame_pitch = TOP_PITCH;
     virtuappu_registers.mode = 1;
     Port_SecondScreen_Init();
@@ -592,6 +733,14 @@ void Port_PPU_Init(SDL_Window* window) {
     sPerfFramesOver33ms = 0;
     sCurrentFpsX100 = 0;
     sAverageFpsX100 = 0;
+    sTopPresentWidth = GBA_NATIVE_W;
+    sTopPresentHeight = GBA_H;
+    sTopPresentMode = PORT_3DS_FULL_VIEW_FALLBACK;
+    sTopFallbackReason = PORT_3DS_FULL_VIEW_REASON_COMBO_DISABLED;
+    sTopCropX = 0;
+    sTopCropY = 0;
+    sTopValidSourceWidth = GBA_NATIVE_W;
+    sTopValidSourceHeight = GBA_H;
     sGpuPresenterReady = PlatformGpu3DS_Init(!Platform3DS_IsNew3DS());
     sTopUpload = PlatformGpu3DS_TopBuffer();
     sBottomUploads[0] = PlatformGpu3DS_BottomBuffer(0);
@@ -610,13 +759,35 @@ void Port_PPU_PresentFrame(void) {
 #endif
     const uint16_t dispcnt = (uint16_t)(gIoMem[0] | (gIoMem[1] << 8));
     const uint8_t mode = (uint8_t)(dispcnt & 7);
+    TopFrameState topFrame = SelectTopFrame();
+    const TopView3DSPpuCoherence coherence = TopView3DS_ResolvePpuCoherence(
+        topFrame.mode, virtuappu_mode1_ws_full_view != 0);
+    if (coherence.forceNativeFrame) {
+        /* Presentation is sampled before UpdateDisplayControls publishes the
+         * next shadow generation. Never reinterpret stride-54 Full View data
+         * as E2 stride-7 data (or the reverse) for that transition frame. */
+        topFrame = NativeTopFrame(PORT_3DS_FULL_VIEW_REASON_LATCH_MISMATCH);
+        if (coherence.clearFullViewProducer) {
+            virtuappu_mode1_ws_full_view = 0;
+        }
+    }
     virtuappu_registers.mode = (mode == 1 || mode == 2) ? 2 : 1;
-    sTopPresentWidth = TopFrameWidth();
+    sTopPresentWidth = topFrame.width;
+    sTopPresentHeight = topFrame.height;
+    sTopPresentMode = topFrame.mode;
+    sTopFallbackReason = topFrame.fallbackReason;
+    sTopCropX = topFrame.cropX;
+    sTopCropY = topFrame.cropY;
+    sTopValidSourceWidth = topFrame.validSourceWidth;
+    sTopValidSourceHeight = topFrame.validSourceHeight;
     virtuappu_registers.frame_width = sTopPresentWidth;
+    virtuappu_registers.frame_height = sTopPresentHeight;
     virtuappu_registers.frame_pitch = TOP_PITCH;
     virtuappu_mode1_pre_line_callback = port_hdma_has_active_channels() ? port_hdma_step_line : NULL;
     virtuappu_mode1_bg2x_hdma_strobe = port_hdma_dest_overlaps(gIoMem + 0x28, gIoMem + 0x2c) != 0;
     virtuappu_mode1_bg2y_hdma_strobe = port_hdma_dest_overlaps(gIoMem + 0x2c, gIoMem + 0x30) != 0;
+    virtuappu_mode1_bg3_hdma_native_bounds =
+        port_hdma_dest_overlaps(gIoMem + MODE1_IO_BG3HOFS, gIoMem + MODE1_IO_BG3VOFS + 2) != 0;
 
     virtuappu_render_frame();
     const uint64_t renderEndTick = Platform3DS_SystemTick();
@@ -638,7 +809,11 @@ void Port_PPU_PresentFrame(void) {
     if (diagnosticFrame == 60) DumpPpuSnapshot("tmc3ds-frame60.ppu1");
 #endif
 
-    PlatformGpu3DS_BeginTop(sTopUpload, (unsigned)sTopPresentWidth);
+    PlatformGpu3DS_BeginTop(sTopUpload, (unsigned)sTopPresentWidth,
+                            (unsigned)sTopPresentHeight,
+                            (unsigned)sTopValidSourceWidth,
+                            (unsigned)sTopValidSourceHeight, sTopPresentMode,
+                            sTopCropX, sTopCropY);
     const uint64_t topEndTick = Platform3DS_SystemTick();
 #ifdef TMC_3DS_DIAGNOSTICS
     const uint64_t topEnd = Platform3DS_Milliseconds();

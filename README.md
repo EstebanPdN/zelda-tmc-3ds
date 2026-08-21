@@ -28,6 +28,9 @@ https://discord.gg/SMW49UMkw
 * Bottom-screen interface with live map, dungeon information, quest status, touch item controls, and settings.
 * New 3DS enhancements including 804 MHz mode, L2 cache, multi-core rendering, and optional 2x–5x turbo using the C-Stick.
 * Multiple display styles including Pixel Perfect, Scaled, and Blur.
+* On New Nintendo 3DS, the existing Wide + Pixel Perfect combination enables
+  experimental Full View: compatible outdoor rooms render at 400x240, while
+  supported interiors use a centered 200x120 view scaled exactly 2x.
 * Built-in Project Picori Randomizer support with separate normal and randomized save data.
 * Native stereo audio, persistent settings, reliable save handling, FPS tools, and diagnostic dumps for bug reports.
 
@@ -46,7 +49,7 @@ The bottom-screen worker avoids redundant static redraws while keeping touch inp
 1. Install the CIA with FBI, or use the 3DSX build with the Homebrew Launcher.
 
 ```text
-tmc-3ds-v1.2-E2.cia
+tmc-3ds-v1.2-E3.cia
 ```
 
 2. Create this folder on your SD card:
@@ -141,8 +144,8 @@ chmod +x platform/3ds/build.sh
 Builds are generated under:
 
 ```text
-build-3ds/game/tmc-3ds-v1.2-E2.cia
-build-3ds/game/tmc-3ds-v1.2-E2.3dsx
+build-3ds/game/tmc-3ds-v1.2-E3.cia
+build-3ds/game/tmc-3ds-v1.2-E3.3dsx
 ```
 
 The build does not include or embed a ROM.

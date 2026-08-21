@@ -17,6 +17,9 @@
 #include "script.h"
 #include "save.h"
 #include "message.h"
+#ifdef PC_PORT
+#include "port_widescreen.h"
+#endif
 
 typedef struct {
     /*0x00*/ Entity base;
@@ -289,13 +292,20 @@ void CheckLastSwordMove(Entity* this, ScriptExecutionContext* context) {
 }
 
 u32 sub_080644C8(GuardWithSpearEntity* this) {
+#if defined(PC_PORT) && MODE1_GBA_WIDTH > 240
+    const s32 viewWidth = Port_Widescreen_GameplayViewWidth();
+    const s32 viewHeight = Port_Widescreen_GameplayViewHeight();
+#else
+    const s32 viewWidth = DISPLAY_WIDTH;
+    const s32 viewHeight = DISPLAY_HEIGHT;
+#endif
     if (super->x.HALF.HI - gRoomControls.scroll_x + 8 < 0)
         return 0;
-    if (super->x.HALF.HI - gRoomControls.scroll_x - 8 > DISPLAY_WIDTH)
+    if (super->x.HALF.HI - gRoomControls.scroll_x - 8 > viewWidth)
         return 0;
     if (super->y.HALF.HI - gRoomControls.scroll_y < 0)
         return 0;
-    if (super->y.HALF.HI - gRoomControls.scroll_y - 0x18 > DISPLAY_HEIGHT)
+    if (super->y.HALF.HI - gRoomControls.scroll_y - 0x18 > viewHeight)
         return 0;
     return 1;
 }

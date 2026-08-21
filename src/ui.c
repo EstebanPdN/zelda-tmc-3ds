@@ -66,20 +66,108 @@ static s16 HudButtonTargetX(u32 type) {
     s16 x = (s16)gHUD.buttonX[type];
 #ifdef PC_PORT
 #if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
-    if (Port_Widescreen_HudRightAnchor() && x >= 0 && x < 240) {
-        /* Right-anchor to the LIVE view width (window-aspect driven), not
-         * the framebuffer capacity. */
-        x += Port_Widescreen_EffectiveViewWidth() - 240;
+    const int targetViewWidth = Port_Widescreen_HudTargetViewWidth();
+    if (gHUD.hideFlags == HUD_HIDE_NONE && targetViewWidth != 240 && x >= 0 && x < 240) {
+        /* Prepare experimental positions before their first published frame;
+         * otherwise use the same live-width anchor as established Wide. */
+        x += targetViewWidth - 240;
     }
 #endif
 #endif
     return x;
 }
 
+#ifdef PC_PORT
+static u8 HudButtonGeometryId(void) {
+#if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
+    const u8 hidden = gHUD.hideFlags == HUD_HIDE_NONE ? 0 : 4;
+    switch (Port_Widescreen_HudTargetViewWidth()) {
+        case 200:
+            return hidden | 1;
+        case 400:
+            return hidden | 2;
+        case 240:
+            return hidden;
+        default:
+            return hidden | 3;
+    }
+#else
+    return 0;
+#endif
+}
+
+static u8 sHudButtonGeometry = 0xff;
+
+void Port_UI_PrepareGameplayGeometry(void) {
+    u32 index;
+    UIElement* element;
+    const u8 buttonGeometry = HudButtonGeometryId();
+    if (buttonGeometry == sHudButtonGeometry) {
+        return;
+    }
+    sHudButtonGeometry = buttonGeometry;
+
+    /* Buttons are the anchors for item sprites and action text. Move those
+     * anchors first, then move their already-updated dependants without
+     * invoking an update function a second time this tick. */
+    for (index = 0; index < MAX_UI_ELEMENTS; index++) {
+        element = &gHUD.elements[index];
+        if (element->used != 0 && element->type <= UI_ELEMENT_BUTTON_R) {
+            element->x = HudButtonTargetX(element->type);
+        }
+    }
+    for (index = 0; index < MAX_UI_ELEMENTS; index++) {
+        UIElement* anchor;
+        element = &gHUD.elements[index];
+        if (element->used == 0) {
+            continue;
+        }
+        if (element->type == UI_ELEMENT_ITEM_A || element->type == UI_ELEMENT_ITEM_B ||
+            element->type == UI_ELEMENT_TEXT_R || element->type == UI_ELEMENT_TEXT_A ||
+            element->type == UI_ELEMENT_TEXT_B) {
+            anchor = FindUIElement(element->buttonElementId);
+            if (anchor != NULL) {
+                element->x = anchor->x;
+                element->y = anchor->y;
+            }
+        } else if (element->type == UI_ELEMENT_EZLONAGSTART ||
+                   element->type == UI_ELEMENT_EZLONAGACTIVE) {
+            element->y = Port_Widescreen_HudTargetViewHeight() - 0x10;
+        }
+    }
+
+    /* These widgets live in BG0 rather than OAM. Their draw routines erase
+     * the previous tilemap footprint before repainting at the new offset. */
+    DrawRupees();
+    DrawKeys();
+}
+#endif
+
+static s32 HudBottomTilemapOffset(void) {
+#ifdef PC_PORT
+#if defined(MODE1_GBA_HEIGHT) && (MODE1_GBA_HEIGHT > 160)
+    const int viewWidth = Port_Widescreen_HudTargetViewWidth();
+    const int viewHeight = Port_Widescreen_HudTargetViewHeight();
+    /* Full View 400x240 only moves the bottom HUD rows vertically; its PPU
+     * right-anchor remaps columns 176..239. Interior 200x120 has no reveal
+     * columns, so move the right widgets five tile columns left as well as
+     * five rows up. This keeps keys/rupees inside the real logical viewport. */
+    return (s32)Port3DSFullViewPolicy_HudTilemapOffset(viewWidth, viewHeight);
+#endif
+#endif
+    return 0;
+}
+
 void UpdateUIElements(void) {
     u32 index;
     UIElement* element;
     const UIElementDefinition* definition;
+#ifdef PC_PORT
+    /* Geometry can become available one VBlank after room initialization.
+     * Snap A/B/R before updating dependent item/text elements, so the first
+     * 400x240 or 200x120 frame cannot show a 10-40 frame horizontal slide. */
+    Port_UI_PrepareGameplayGeometry();
+#endif
     for (index = 0; index < MAX_UI_ELEMENTS; index++) {
         element = &gHUD.elements[index];
         if (element->used != 0) {
@@ -286,17 +374,27 @@ void DrawRupees(void) {
     u32 temp2;
     u16* row1;
     u16* row2;
+    static s32 sTilemapOffset;
+    s32 tilemapOffset = HudBottomTilemapOffset();
+
+    if (tilemapOffset != sTilemapOffset) {
+        MemClear(&gBG0Buffer[0x258 + sTilemapOffset], 5 * sizeof(u16));
+        MemClear(&gBG0Buffer[0x278 + sTilemapOffset], 5 * sizeof(u16));
+        sTilemapOffset = tilemapOffset;
+        gHUD.unk_a = 0;
+        gScreen.bg0.updated = 1;
+    }
 
     if (gHUD.hideFlags & HUD_HIDE_RUPEES) {
         if (gHUD.unk_a != 0) {
             gHUD.unk_a = 0;
-            row1 = &gBG0Buffer[0x258];
+            row1 = &gBG0Buffer[0x258 + tilemapOffset];
             row1[0] = 0;
             row1[1] = 0;
             row1[2] = 0;
             row1[3] = 0;
             row1[4] = 0;
-            row2 = &gBG0Buffer[0x278];
+            row2 = &gBG0Buffer[0x278 + tilemapOffset];
             row2[0] = 0;
             row2[1] = 0;
             row2[2] = 0;
@@ -307,8 +405,8 @@ void DrawRupees(void) {
     } else {
         if (gHUD.unk_a == 0) {
             gHUD.unk_a = 2;
-            row1 = &gBG0Buffer[0x258];
-            row2 = &gBG0Buffer[0x278];
+            row1 = &gBG0Buffer[0x258 + tilemapOffset];
+            row2 = &gBG0Buffer[0x278 + tilemapOffset];
             row1[0] = temp2 = gWalletSizes[gSave.stats.walletType].iconStartTile;
             row1[1] = temp2 + 1;
             row2[0] = temp2 + 2;
@@ -622,11 +720,21 @@ void DrawKeys(void) {
     u16* row1;
     u16* row2;
     u32 temp;
+    static s32 sTilemapOffset;
+    s32 tilemapOffset = HudBottomTilemapOffset();
+
+    if (tilemapOffset != sTilemapOffset) {
+        MemClear(&gBG0Buffer[0x219 + sTilemapOffset], 4 * sizeof(u16));
+        MemClear(&gBG0Buffer[0x239 + sTilemapOffset], 4 * sizeof(u16));
+        sTilemapOffset = tilemapOffset;
+        gHUD.unk_10 = 0;
+        gScreen.bg0.updated = 1;
+    }
 
     if (!(((gHUD.hideFlags & HUD_HIDE_KEYS) == 0) && (AreaHasKeys()))) {
         if (gHUD.unk_10 != 0) {
             gHUD.unk_10 = 0;
-            row1 = &gBG0Buffer[0x219];
+            row1 = &gBG0Buffer[0x219 + tilemapOffset];
             row1[0] = 0;
             row1[1] = 0;
             row1[2] = 0;
@@ -639,8 +747,8 @@ void DrawKeys(void) {
         }
     } else {
         if (gHUD.unk_10 == 0) {
-            row1 = &gBG0Buffer[0x219];
-            row2 = &gBG0Buffer[0x239];
+            row1 = &gBG0Buffer[0x219 + tilemapOffset];
+            row2 = &gBG0Buffer[0x239 + tilemapOffset];
             temp = 0xf01c;
             row1[0] = temp;
             row1[1] = temp + 1;
@@ -953,6 +1061,11 @@ void HeartUIElement(UIElement* element) {
 }
 
 void EzloNagUIElement(UIElement* element) {
+#ifdef PC_PORT
+    if (element->action != 0) {
+        element->y = Port_Widescreen_HudTargetViewHeight() - 0x10;
+    }
+#endif
     EzloNagUIElement_Actions[element->action](element);
 }
 
@@ -960,7 +1073,11 @@ void EzloNagUIElement_Action0(UIElement* element) {
     if (gHUD.ezloNagFuncIndex == 1) {
         gHUD.ezloNagFuncIndex = 2;
         element->x = 0x10;
+#ifdef PC_PORT
+        element->y = Port_Widescreen_HudTargetViewHeight() - 0x10;
+#else
         element->y = 0x90;
+#endif
         element->unk_6 = 0;
         element->type = UI_ELEMENT_EZLONAGSTART;
         element->action = 1;

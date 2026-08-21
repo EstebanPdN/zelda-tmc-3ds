@@ -39,12 +39,16 @@
 #define MODE1_GBA_WIDTH 240
 #endif
 
-/* Rendered viewport, in screen pixels. Height is intentionally NOT
- * widened: the engine's main loop assumes 160-line frames for timing and
- * BG preload (see docs/widescreen-phase2-design.md, Step C-3), so only
- * the horizontal extent generalises. */
+#include "port_3ds_full_view_policy.h"
+
+/* Compile-time render capacity. Runtime gameplay remains 160 lines except
+ * for the latched New 3DS outdoor 1:1 view. */
 #define PORT_VIEW_WIDTH (MODE1_GBA_WIDTH)
+#ifdef MODE1_GBA_HEIGHT
+#define PORT_VIEW_HEIGHT (MODE1_GBA_HEIGHT)
+#else
 #define PORT_VIEW_HEIGHT 160
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -64,7 +68,22 @@ extern "C" {
 int Port_Widescreen_FallbackNative(void);
 int Port_Widescreen_IsActive(void);
 int Port_Widescreen_EffectiveViewWidth(void);
+int Port_Widescreen_EffectiveViewHeight(void);
+/* World simulation keeps the last safe experimental geometry while a
+ * dialogue/native mask temporarily uses the E2 presentation. */
+int Port_Widescreen_GameplayViewWidth(void);
+int Port_Widescreen_GameplayViewHeight(void);
+/* Geometry the next BG/OAM producer tick must prepare. During a one-frame
+ * activation stage it is experimental even though presentation remains E2. */
+int Port_Widescreen_ProducerViewWidth(void);
+int Port_Widescreen_ProducerViewHeight(void);
+Port3DSFullViewMode Port_Widescreen_3DSViewMode(void);
+Port3DSFullViewFallbackReason Port_Widescreen_3DSFallbackReason(void);
 int Port_Widescreen_HudRightAnchor(void);
+/* UI simulation can prepare button positions one frame before an experimental
+ * geometry is published, keeping BG/OAM coherent on its first visible frame. */
+int Port_Widescreen_HudTargetViewWidth(void);
+int Port_Widescreen_HudTargetViewHeight(void);
 /* True while the map BGs are what the PPU renders (>=1 shadow registered);
  * overlay screens (storybook, pause) drop this to 0 -> present native 240. */
 int Port_Widescreen_ShadowsLive(void);
@@ -101,6 +120,12 @@ int Port_Widescreen_TargetViewWidth(void);
  * Reduces to the GBA `x - 120` clamped to [origin, origin+width-240] at an
  * effective view width of 240. */
 int Port_Widescreen_CameraRestX(int target_x);
+int Port_Widescreen_CameraRestY(int target_y);
+/* Called before Scroll1 so a native-canvas overlay can atomically re-clamp
+ * an experimental camera before BG/OAM for that fallback frame are built. */
+/* Re-clamp the camera when the desired geometry has fallen back since the
+ * first scroll pass. Returns nonzero only when it changed camera geometry. */
+int Port_Widescreen_PrepareGameplayCamera(void);
 
 #ifdef __cplusplus
 }

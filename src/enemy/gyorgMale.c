@@ -14,6 +14,13 @@
 #include "player.h"
 #include "asm.h"
 
+#if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
+#include "port_widescreen.h"
+#define GYORG_VIEW_HEIGHT ((u32)Port_Widescreen_GameplayViewHeight())
+#else
+#define GYORG_VIEW_HEIGHT ((u32)DISPLAY_HEIGHT)
+#endif
+
 // todo: wrong types
 extern void sub_080A1D70(Entity*, u32);
 
@@ -111,7 +118,8 @@ void GyorgMale(GyorgMaleEntity* this) {
     super->animationState = -(this->unk_78 >> 8);
     sub_08048004(this);
     this->unk_7d = super->spriteSettings.draw;
-    if (super->spriteSettings.draw == 1 && (super->y.HALF.HI - gRoomControls.scroll_y + 0x30) > 0x100u) {
+    if (super->spriteSettings.draw == 1 &&
+        (u32)(super->y.HALF.HI - gRoomControls.scroll_y + 0x30) > GYORG_VIEW_HEIGHT + 0x60u) {
         super->spriteSettings.draw = 0;
     }
     this->unk_84 = gPlayerEntity.base.x.HALF.HI;

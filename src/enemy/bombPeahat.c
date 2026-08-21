@@ -16,8 +16,8 @@
 /* Widescreen (PC): re-enter from the live right edge, not GBA 240's.
  * 0x100 = 240 + 0x10 — collapses to the original at native width / GBA. */
 #if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
-extern int Port_Widescreen_EffectiveViewWidth(void);
-#define WS_VIEW_W ((s32)Port_Widescreen_EffectiveViewWidth())
+extern int Port_Widescreen_GameplayViewWidth(void);
+#define WS_VIEW_W ((s32)Port_Widescreen_GameplayViewWidth())
 #else
 #define WS_VIEW_W 240
 #endif
@@ -442,7 +442,10 @@ void sub_0802ACDC(BombPeahatEntity* this, u32 param_2) {
     if (this->unk_80) {
         x = sub_080045B4(super, gRoomControls.scroll_x + 0x20, gRoomControls.scroll_y + 0x60);
     } else {
-        x = sub_080045B4(super, gRoomControls.scroll_x + 0xd0, gRoomControls.scroll_y + 0x60);
+        /* Retail targets 32 px from either horizontal edge (32 / 240-32).
+         * Preserve that symmetry in a wider gameplay viewport. */
+        x = sub_080045B4(super, gRoomControls.scroll_x + WS_VIEW_W - 0x20,
+                        gRoomControls.scroll_y + 0x60);
     }
     sub_08004596(super, x);
     super->subtimer = param_2;

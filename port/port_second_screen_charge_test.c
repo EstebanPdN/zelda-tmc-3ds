@@ -1,9 +1,13 @@
-#include "port_second_screen_state.h"
+#include "port_second_screen.h"
+#include "port_second_screen_theme.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
 static int sFailures;
+static uint32_t sGlyphPixels[SST_COUNT][8 * 8];
+static SecondScreenThemeSprite sGlyphs[SST_COUNT];
 
 #define CHECK_EQ(actual, expected, message)                                                \
     do {                                                                                   \
@@ -15,9 +19,51 @@ static int sFailures;
         }                                                                                  \
     } while (0)
 
+const SecondScreenThemeSprite* Port_SecondScreenTheme_Get(int id) {
+    if (id < 0 || id >= SST_COUNT) {
+        return NULL;
+    }
+    return &sGlyphs[id];
+}
+
+static uint32_t GlyphColor(int id) {
+    return 0xFF000000u | (uint32_t)(id + 1);
+}
+
+static void InitGlyphOracle(void) {
+    int id;
+    int pixel;
+    for (id = 0; id < SST_COUNT; id++) {
+        for (pixel = 0; pixel < 8 * 8; pixel++) {
+            sGlyphPixels[id][pixel] = GlyphColor(id);
+        }
+        sGlyphs[id].px = sGlyphPixels[id];
+        sGlyphs[id].w = 8;
+        sGlyphs[id].h = 8;
+    }
+}
+
+static void CheckSolidRect(const uint32_t* pixels, int stride, int x0, int y0, int w, int h,
+                           uint32_t expected, const char* message) {
+    int x;
+    int y;
+    for (y = y0; y < y0 + h; y++) {
+        for (x = x0; x < x0 + w; x++) {
+            if (pixels[y * stride + x] != expected) {
+                fprintf(stderr, "FAIL: %s: pixel (%d,%d) got 0x%08X expected 0x%08X\n", message,
+                        x, y, pixels[y * stride + x], expected);
+                sFailures++;
+                return;
+            }
+        }
+    }
+}
+
 int main(void) {
     SecondScreenSnapshot snapshot;
+    uint32_t pixels[40 * 8];
     memset(&snapshot, 0, sizeof(snapshot));
+    InitGlyphOracle();
 
     CHECK_EQ(Port_SecondScreenChargeVisible(&snapshot), 0, "inactive charge is hidden");
     snapshot.chargeAction = 1;
@@ -49,6 +95,52 @@ int main(void) {
     CHECK_EQ(Port_SecondScreenChargeSteps(&snapshot), 0, "released sword suppresses bottom progress");
     CHECK_EQ(Port_SecondScreenChargeVisible(NULL), 0, "null snapshot is hidden safely");
     CHECK_EQ(Port_SecondScreenChargeSteps(NULL), 0, "null snapshot has no progress");
+
+    snapshot.bombCount = 0;
+    snapshot.arrowCount = 73;
+    CHECK_EQ(Port_SecondScreenItemAmmo(&snapshot, 0x07), 0, "empty bombs still publish a 00 counter");
+    CHECK_EQ(Port_SecondScreenItemAmmo(&snapshot, 0x08), 0, "remote bombs share bomb ammo");
+    CHECK_EQ(Port_SecondScreenItemAmmo(&snapshot, 0x09), 73, "bow publishes arrow ammo");
+    CHECK_EQ(Port_SecondScreenItemAmmo(&snapshot, 0x0A), 73, "light arrows share arrow ammo");
+    CHECK_EQ(Port_SecondScreenItemAmmo(&snapshot, 0x01), (unsigned)-1,
+             "ordinary equipped items have no counter");
+    CHECK_EQ(Port_SecondScreenItemAmmo(NULL, 0x07), (unsigned)-1,
+             "null snapshots have no counter");
+
+    /* Production pixel path: equipped A is empty bombs (must still paint
+     * 00), equipped B is the bow with 73 arrows.  The synthetic theme makes
+     * every selected native glyph a byte-exact solid-color oracle. */
+    memset(pixels, 0, sizeof(pixels));
+    snapshot.equippedA = 0x07;
+    snapshot.equippedB = 0x09;
+    CHECK_EQ(Port_SecondScreen_TestPaintEquippedAmmo(pixels, 40, 8, 40, &snapshot, 1), 2,
+             "A/B production compositor paints both supported counters");
+    CheckSolidRect(pixels, 40, 0, 0, 8, 8, GlyphColor(SST_SMALL_TENS_0), "bomb 00 tens glyph");
+    CheckSolidRect(pixels, 40, 8, 0, 8, 8, GlyphColor(SST_SMALL_ONES_0), "bomb 00 ones glyph");
+    CheckSolidRect(pixels, 40, 20, 0, 8, 8, GlyphColor(SST_SMALL_TENS_0 + 7),
+                   "bow 73 tens glyph");
+    CheckSolidRect(pixels, 40, 28, 0, 8, 8, GlyphColor(SST_SMALL_ONES_0 + 3),
+                   "bow 73 ones glyph");
+    CHECK_EQ(pixels[16], 0, "A/B glyph groups retain the four-pixel gap");
+    CHECK_EQ(pixels[39], 0, "paint stays inside the two 16-pixel counters");
+
+    /* Variants share the same snapshot counts and exact paint path. */
+    memset(pixels, 0, sizeof(pixels));
+    snapshot.equippedA = 0x08;
+    snapshot.equippedB = 0x0A;
+    CHECK_EQ(Port_SecondScreen_TestPaintEquippedAmmo(pixels, 40, 8, 40, &snapshot, 1), 2,
+             "remote bombs/light arrows paint through the production path");
+    CheckSolidRect(pixels, 40, 0, 0, 8, 8, GlyphColor(SST_SMALL_TENS_0),
+                   "remote-bomb 00 tens glyph");
+    CheckSolidRect(pixels, 40, 28, 0, 8, 8, GlyphColor(SST_SMALL_ONES_0 + 3),
+                   "light-arrow 73 ones glyph");
+
+    memset(pixels, 0, sizeof(pixels));
+    snapshot.equippedA = 0x01;
+    snapshot.equippedB = 0;
+    CHECK_EQ(Port_SecondScreen_TestPaintEquippedAmmo(pixels, 40, 8, 40, &snapshot, 1), 0,
+             "ordinary A/B items do not paint an ammo counter");
+    CHECK_EQ(pixels[0], 0, "ordinary items leave the target pixels untouched");
 
     if (sFailures != 0) {
         return 1;

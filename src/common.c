@@ -9,6 +9,7 @@
 #include "port_fusion_marker.h"
 #include "port_gfx_group_dma.h"
 #include "port_rom.h"
+#include "port_save.h"
 #include "port_hdma.h"
 #endif
 #include "area.h"
@@ -779,6 +780,11 @@ void DispReset(bool32 refresh) {
     gScreen.vBlankDMA.ready = FALSE;
     DmaStop(0);
 #ifdef PC_PORT
+    /* DmaStop(0) is intentionally a no-op in the host GBA macro layer.  The
+     * real hardware stops DMA0 here, after a room-exit fade has finished.
+     * Mirror that timing so affine HDMA survives visible transition frames
+     * without leaking into the newly initialized room. */
+    port_hdma_unregister(0);
     gba_write16(REG_ADDR_DISPCNT, 0);
 #else
     REG_DISPCNT = 0;
@@ -1646,12 +1652,55 @@ KinstoneId GetFusionToOffer(Entity* entity) {
     offeredFusion = gSave.kinstones.fuserOffers[fuserId];
     fuserProgress = gSave.kinstones.fuserProgress[fuserId];
 #ifdef PC_PORT
+    extern const u8 SharedFusions[];
+    extern bool Port_Config_GetRandoEnabled(void);
     if (!Port_IsFuserSaveStateValid(fuserData, fuserProgress, offeredFusion)) {
         fprintf(stderr,
-                "[KINSTONE] Refusing invalid saved fuser state (id=%u progress=%u offer=0x%02X); save left "
-                "untouched.\n",
+                "[KINSTONE] Refusing structurally invalid saved fuser state (id=%u progress=%u "
+                "offer=0x%02X); save left untouched.\n",
                 fuserId, fuserProgress, offeredFusion);
         return KINSTONE_NONE;
+    }
+    if (!Port_IsFuserSaveStateSemanticallyValid(
+            fuserData, fuserProgress, offeredFusion, gSave.kinstones.fusedKinstones,
+            sizeof(gSave.kinstones.fusedKinstones), SharedFusions, 18u)) {
+        const bool randomizerEnabled = Port_Config_GetRandoEnabled();
+        const u8* e1FuserData = NULL;
+        if (REGION_IS_EU && !randomizerEnabled) {
+            e1FuserData = Port_ResolveFuserDataFromRom(gRomData, gRomSize, PORT_FUSER_FUSION_PTRS_USA,
+                                                       fuserId, PORT_FUSER_FUSION_RECORD_BYTES);
+        }
+        if (!Port_ShouldRepairE1EuFuserSaveState(
+                REGION_IS_EU, randomizerEnabled, fuserId, fuserData, e1FuserData, fuserProgress,
+                offeredFusion, gSave.kinstones.fusedKinstones, sizeof(gSave.kinstones.fusedKinstones),
+                SharedFusions, 18u)) {
+            fprintf(stderr,
+                    "[KINSTONE] Refusing unproven saved fuser mismatch (id=%u progress=%u offer=0x%02X "
+                    "region=%s randomizer=%u); save left untouched.\n",
+                    fuserId, fuserProgress, offeredFusion,
+                    REGION_IS_EU ? "EU" : (REGION_IS_JP ? "JP" : "USA"), randomizerEnabled ? 1u : 0u);
+            return KINSTONE_NONE;
+        }
+        /* E1's EU fuser-table base was 42 entries early.  Its saved offers are
+         * ordinary ids, so the old range-only guard accepted them forever
+         * against E2's corrected retail list.  Preserve the complete raw
+         * profile before changing anything; if durability is unavailable,
+         * fail closed and leave the player's state byte-for-byte untouched. */
+        if (!Port_Save_PreserveBeforeFuserRepair()) {
+            fprintf(stderr,
+                    "[KINSTONE] Refusing fuser repair without a durable backup (id=%u progress=%u "
+                    "offer=0x%02X).\n",
+                    fuserId, fuserProgress, offeredFusion);
+            return KINSTONE_NONE;
+        }
+        fprintf(stderr,
+                "[KINSTONE] Repairing impossible saved fuser state (id=%u progress=%u offer=0x%02X); "
+                "retail state machine will rebuild it from fused bits.\n",
+                fuserId, fuserProgress, offeredFusion);
+        offeredFusion = KINSTONE_NONE;
+        fuserProgress = 0;
+        gSave.kinstones.fuserOffers[fuserId] = offeredFusion;
+        gSave.kinstones.fuserProgress[fuserId] = fuserProgress;
     }
 #endif
     fuserFusionData = fuserData + fuserProgress;

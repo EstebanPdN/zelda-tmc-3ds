@@ -438,3 +438,12 @@ void Port_Config_Cycle3DSDisplayStyle(void) {
     sDisplayStyle = (Port3DSDisplayStyle)((sDisplayStyle + 1) % PORT_3DS_DISPLAY_COUNT);
     SaveConfig();
 }
+bool Port_Config_3DSFullViewComboEnabled(void) {
+    /* Load each atomic once so a bottom-screen option tap can only select one
+     * complete policy on this call. A mixed/transient value fails closed on
+     * the following scene latch before any 400x240 geometry is published. */
+    const Port3DSAspectRatio aspect = sAspectRatio;
+    const Port3DSDisplayStyle style = sDisplayStyle;
+    return Platform3DS_IsNew3DS() && aspect == PORT_3DS_ASPECT_WIDE &&
+           style == PORT_3DS_DISPLAY_PIXEL_PERFECT;
+}

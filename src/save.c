@@ -28,6 +28,18 @@ static SaveResult HandleSaveInit(u32);
 static SaveResult HandleSaveInProgress(u32);
 static SaveResult HandleSaveDone(u32);
 
+#ifdef PC_PORT
+/* The retail return value below deliberately accepts either valid duplicate.
+ * Keep the stronger durability result separately so migrations never report
+ * full redundancy after a partial write. */
+static bool32 sLastDoubleWriteFullyRedundant;
+#ifdef PORT_SAVE_TEST
+bool32 Port_Save_TestLastDoubleWriteFullyRedundant(void) {
+    return sLastDoubleWriteFullyRedundant;
+}
+#endif
+#endif
+
 const SaveFileEEPROMAddresses* GetSaveFileEEPROMAddresses(u32);
 u32 DataDoubleReadWithStatus(u32, void* data);
 u32 DataDoubleWriteWithStatus(u32, const void* data);
@@ -212,19 +224,28 @@ s32 ReadSaveFile(u32 index, SaveFile* saveFile) {
                 fprintf(stderr,
                         "[SAVE] Refused legacy-layout migration for slot %u because the permanent backup failed.\n",
                         index);
-            } else if (DataDoubleWriteWithStatus(index, saveFile) == 1) {
-                fprintf(stderr,
-                        "[SAVE] Migrated legacy save slot %u to the canonical EEPROM layout and persisted both "
-                        "copies.\n",
-                        index);
             } else {
-                /* The pre-migration image is permanent and the port EEPROM
-                 * remains dirty for retry. Keep canonical state in memory so
-                 * this session never replays shifted story flags. */
-                fprintf(stderr,
-                        "[SAVE] Legacy save slot %u was normalized in memory, but durable persistence failed; "
-                        "the original backup was retained.\n",
-                        index);
+                const u32 writeResult = DataDoubleWriteWithStatus(index, saveFile);
+
+                if (writeResult == 1 && sLastDoubleWriteFullyRedundant) {
+                    fprintf(stderr,
+                            "[SAVE] Migrated legacy save slot %u to the canonical EEPROM layout and persisted "
+                            "both copies.\n",
+                            index);
+                } else if (writeResult == 1) {
+                    fprintf(stderr,
+                            "[SAVE] Migrated legacy save slot %u with at least one valid canonical copy; the "
+                            "permanent backup was retained and full redundancy is pending a normal save.\n",
+                            index);
+                } else {
+                    /* The pre-migration image is permanent and the port EEPROM
+                     * remains dirty for retry. Keep canonical state in memory so
+                     * this session never replays shifted story flags. */
+                    fprintf(stderr,
+                            "[SAVE] Legacy save slot %u was normalized in memory, but durable persistence "
+                            "failed; the original backup was retained.\n",
+                            index);
+                }
             }
         }
     }
@@ -269,6 +290,7 @@ u32 DataDoubleWriteWithStatus(u32 index, const void* data) {
 #ifdef PC_PORT
     /* One save = ~324 EEPROM block writes; flush the backing file once at
      * the end of the burst instead of per block (port_save.c, #19). */
+    sLastDoubleWriteFullyRedundant = FALSE;
     Port_Save_BeginTransaction();
 #endif
 
@@ -297,6 +319,8 @@ u32 DataDoubleWriteWithStatus(u32 index, const void* data) {
      * to SAVE_ERROR in the HandleSave UI instead of lying (#20). */
     if (!Port_Save_EndTransaction()) {
         ret = 0;
+    } else {
+        sLastDoubleWriteFullyRedundant = write1success && write2success;
     }
 #endif
     return ret;
@@ -350,7 +374,7 @@ u32 VerifyChecksum(SaveFileStatus* fileStatus, u16* data, u32 size) {
     checksum += CalculateChecksum(data, size);
 
     if ((fileStatus->checksum1 != checksum) ||
-        (temp = fileStatus->checksum1 << 0x10, fileStatus->checksum2 != (-temp >> 0x10)) ||
+        (temp = (u32)fileStatus->checksum1 << 0x10, fileStatus->checksum2 != (-temp >> 0x10)) ||
         (fileStatus->status != 'MCZ3')) {
         return 0;
     } else

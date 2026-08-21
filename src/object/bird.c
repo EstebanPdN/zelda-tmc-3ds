@@ -23,6 +23,7 @@
 #include "port_scripts.h"
 #ifdef PC_PORT
 #include "rando/rando_keymap.h"
+#include "port_widescreen.h"
 extern bool Rando_OverrideLocationKey(u32 location_key, u8* type, u8* subtype);
 #endif
 
@@ -346,7 +347,11 @@ void Bird_Type9(BirdEntity* this) {
             child->spriteOrientation.flipY = super->spriteOrientation.flipY;
         }
         PausePlayer();
+#ifdef PC_PORT
+        if (gRoomControls.scroll_x + Port_Widescreen_GameplayViewWidth() / 2 < super->x.HALF.HI) {
+#else
         if (gRoomControls.scroll_x + 0x78 < super->x.HALF.HI) {
+#endif
             super->action++;
             super->spritePriority.b1 = 1;
             if (child != NULL) {

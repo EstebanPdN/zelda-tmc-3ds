@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "port_3ds_full_view_policy.h"
+
 typedef struct PlatformGpu3DSStats {
     uint64_t frames;
     uint64_t frameBeginFailures;
@@ -24,7 +26,9 @@ typedef struct PlatformGpu3DSStats {
 bool PlatformGpu3DS_Init(bool old3dsProfile);
 uint32_t* PlatformGpu3DS_TopBuffer(void);
 uint32_t* PlatformGpu3DS_BottomBuffer(unsigned index);
-void PlatformGpu3DS_BeginTop(const uint32_t* pixels, unsigned width);
+void PlatformGpu3DS_BeginTop(const uint32_t* pixels, unsigned width, unsigned height,
+                             unsigned validSourceWidth, unsigned validSourceHeight,
+                             Port3DSFullViewMode mode, int cropX, int cropY);
 /* Returns true only when a Citro3D frame was active and submitted. */
 bool PlatformGpu3DS_EndBottom(const uint32_t* pixels, bool changed);
 void PlatformGpu3DS_ShowDumpSavedOverlay(void);

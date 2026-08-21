@@ -1,4 +1,5 @@
 #include "platform_gpu_3ds.h"
+#include "top_view_3ds.h"
 
 #include <3ds.h>
 #include <citro2d.h>
@@ -22,6 +23,12 @@ static bool sOld3DSProfile;
 static bool sBottomTargetValid;
 static PlatformGpu3DSStats sStats;
 static unsigned sTopPresentWidth = 240;
+static unsigned sTopPresentHeight = 160;
+static unsigned sTopValidSourceWidth = 240;
+static unsigned sTopValidSourceHeight = 160;
+static Port3DSFullViewMode sTopPresentMode = PORT_3DS_FULL_VIEW_FALLBACK;
+static int sTopCropX;
+static int sTopCropY;
 
 enum {
     TOP_TEXTURE_WIDTH = 512,
@@ -33,19 +40,8 @@ extern u32 __ctru_linear_heap_size;
 extern bool Port_Config_GetShowFps(void);
 extern int Port_Config_Get3DSAspectRatio(void);
 extern int Port_Config_Get3DSDisplayStyle(void);
+extern bool Port_Config_3DSFullViewComboEnabled(void);
 extern double Port_PPU_3DS_CurrentFps(void);
-
-enum {
-    TOP_ASPECT_WIDE = 0,
-    TOP_ASPECT_ORIGINAL,
-    TOP_ASPECT_STRETCH,
-};
-
-enum {
-    TOP_DISPLAY_PIXEL_PERFECT = 0,
-    TOP_DISPLAY_SCALED,
-    TOP_DISPLAY_BLUR,
-};
 
 static const uint8_t* StatusGlyph(char c) {
     static const uint8_t digits[10][7] = {
@@ -217,12 +213,29 @@ uint32_t* PlatformGpu3DS_BottomBuffer(unsigned index) {
     return index < 2 ? sBottomUploads[index] : NULL;
 }
 
-static void DrawTopImage(const uint32_t* pixels, unsigned width) {
-    if (width < 240u) width = 240u;
-    if (width > 266u) width = 266u;
-    sTopPresentWidth = width;
+static void DrawTopImage(const uint32_t* pixels, unsigned width, unsigned height,
+                         unsigned validSourceWidth, unsigned validSourceHeight,
+                         Port3DSFullViewMode requestedMode, int cropX, int cropY) {
+    const int style = Port_Config_Get3DSDisplayStyle();
+    TopView3DSPlan plan;
+    /* `requestedMode` is latched with the IO/OAM generation. A settings
+     * change can occur after that generation was produced; do not reinterpret
+     * its final experimental frame through the new live combo state. */
+    TopView3DS_BuildPlan(sOld3DSProfile,
+                         requestedMode != PORT_3DS_FULL_VIEW_FALLBACK,
+                         Port_Config_Get3DSAspectRatio(), style, requestedMode,
+                         (int)width, (int)height, (int)validSourceWidth,
+                         (int)validSourceHeight, cropX, cropY, &plan);
+    const Port3DSFullViewPresentation* presentation = &plan.source;
+    sTopPresentWidth = (unsigned)presentation->renderWidth;
+    sTopPresentHeight = (unsigned)presentation->renderHeight;
+    sTopValidSourceWidth = validSourceWidth;
+    sTopValidSourceHeight = validSourceHeight;
+    sTopPresentMode = plan.mode;
+    sTopCropX = presentation->sourceX;
+    sTopCropY = presentation->sourceY;
 
-    GSPGPU_FlushDataCache(pixels, TOP_TEXTURE_WIDTH * 160u * sizeof(uint32_t));
+    GSPGPU_FlushDataCache(pixels, TOP_TEXTURE_WIDTH * sTopPresentHeight * sizeof(uint32_t));
     /* Old 3DS only: the CPU renderer publishes 160 rows. Describe that exact
      * source rectangle so the display engine does not read another 96 unused
      * RGBA rows. New 3DS retains the established transfer dimensions. */
@@ -231,31 +244,20 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width) {
                             (u32*)sTopTexture.data, GX_BUFFER_DIM(TOP_TEXTURE_WIDTH, TOP_TEXTURE_HEIGHT),
                             TextureTransfer());
     sTopSubtexture = (Tex3DS_SubTexture){
-        .width = (u16)width, .height = 160, .left = 0.0f, .top = 1.0f,
-        .right = (float)width / TOP_TEXTURE_WIDTH, .bottom = 1.0f - 160.0f / TOP_TEXTURE_HEIGHT,
+        .width = (u16)presentation->sourceWidth,
+        .height = (u16)presentation->sourceHeight,
+        .left = (float)presentation->sourceX / TOP_TEXTURE_WIDTH,
+        .top = 1.0f - (float)presentation->sourceY / TOP_TEXTURE_HEIGHT,
+        .right = (float)(presentation->sourceX + presentation->sourceWidth) / TOP_TEXTURE_WIDTH,
+        .bottom = 1.0f - (float)(presentation->sourceY + presentation->sourceHeight) / TOP_TEXTURE_HEIGHT,
     };
     const C2D_Image image = { .tex = &sTopTexture, .subtex = &sTopSubtexture };
-    const int style = Port_Config_Get3DSDisplayStyle();
-    C3D_TexSetFilter(&sTopTexture, style == TOP_DISPLAY_BLUR ? GPU_LINEAR : GPU_NEAREST,
-                     style == TOP_DISPLAY_BLUR ? GPU_LINEAR : GPU_NEAREST);
+    const GPU_TEXTURE_FILTER_PARAM filter = plan.linearFilter ? GPU_LINEAR : GPU_NEAREST;
+    C3D_TexSetFilter(&sTopTexture, filter, filter);
 
-    float drawW;
-    float drawH;
-    if (style == TOP_DISPLAY_PIXEL_PERFECT) {
-        drawW = (float)width;
-        drawH = 160.0f;
-    } else {
-        drawH = 240.0f;
-        switch (Port_Config_Get3DSAspectRatio()) {
-            case TOP_ASPECT_STRETCH: drawW = 400.0f; break;
-            case TOP_ASPECT_ORIGINAL: drawW = 360.0f; break;
-            case TOP_ASPECT_WIDE:
-            default: drawW = width >= 266u ? 400.0f : 360.0f; break;
-        }
-    }
     const C2D_DrawParams params = {
-        .pos = { .x = (400.0f - drawW) * 0.5f, .y = (240.0f - drawH) * 0.5f,
-                 .w = drawW, .h = drawH },
+        .pos = { .x = (float)plan.drawX, .y = (float)plan.drawY,
+                 .w = (float)plan.drawWidth, .h = (float)plan.drawHeight },
         .center = { 0.0f, 0.0f }, .depth = 0.0f, .angle = 0.0f,
     };
     C2D_TargetClear(sTopTarget, C2D_Color32(0, 0, 0, 255));
@@ -273,14 +275,17 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width) {
     }
 }
 
-void PlatformGpu3DS_BeginTop(const uint32_t* pixels, unsigned width) {
+void PlatformGpu3DS_BeginTop(const uint32_t* pixels, unsigned width, unsigned height,
+                             unsigned validSourceWidth, unsigned validSourceHeight,
+                             Port3DSFullViewMode mode, int cropX, int cropY) {
     if (!sReady || !pixels) return;
     if (!C3D_FrameBegin(0)) {
         ++sStats.frameBeginFailures;
         return;
     }
     sFrameActive = true;
-    DrawTopImage(pixels, width);
+    DrawTopImage(pixels, width, height, validSourceWidth, validSourceHeight,
+                 mode, cropX, cropY);
     ++sStats.topTransfers;
 }
 
@@ -332,7 +337,9 @@ bool PlatformGpu3DS_EndBottom(const uint32_t* pixels, bool changed) {
 void PlatformGpu3DS_ShowDumpSavedOverlay(void) {
     if (!sReady || !sTopUpload || !sBottomUploads[0] || !C3D_FrameBegin(0)) return;
     sFrameActive = true;
-    DrawTopImage(sTopUpload, sTopPresentWidth);
+    DrawTopImage(sTopUpload, sTopPresentWidth, sTopPresentHeight,
+                 sTopValidSourceWidth, sTopValidSourceHeight,
+                 sTopPresentMode, sTopCropX, sTopCropY);
     C2D_DrawRectSolid(132.0f, 12.0f, 0.7f, 136.0f, 24.0f, C2D_Color32(0, 0, 0, 220));
     DrawStatusText(141.0f, 17.0f, 2.0f, "DUMP SAVED");
 
@@ -365,6 +372,13 @@ void PlatformGpu3DS_InvalidateBottomTarget(void) {
      * Force one opaque redraw after APT resumes before Old 3DS starts reusing
      * the unchanged target again. */
     sBottomTargetValid = false;
+    sTopPresentWidth = 240;
+    sTopPresentHeight = 160;
+    sTopValidSourceWidth = 240;
+    sTopValidSourceHeight = 160;
+    sTopPresentMode = PORT_3DS_FULL_VIEW_FALLBACK;
+    sTopCropX = 0;
+    sTopCropY = 0;
 }
 
 void PlatformGpu3DS_Shutdown(void) {

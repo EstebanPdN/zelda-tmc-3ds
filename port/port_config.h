@@ -58,13 +58,37 @@ static inline u32 Port_ShouldUseAreaAssetCacheForRegion(RomRegion region) {
 #define PORT_FUSER_FUSION_PTRS_USA 0x00001DCCu
 #define PORT_FUSER_FUSION_PTRS_EU 0x00001E74u
 
-/* Fixed UI definitions are compiled from the USA baseline in the fat binary.
- * EU removes one sprite-table entry before both the shared item sheet and the
- * HUD button sheet. Gameplay entity indices remain active-ROM-native and
- * must not pass through this helper. */
-static inline u16 Port_RemapFixedUiSpriteIndexForRegion(RomRegion region, u16 spriteIndex) {
-    if (region == ROM_REGION_EU && (spriteIndex == 322u || spriteIndex == 505u)) {
-        return spriteIndex - 1u;
+/* The fat binary is compiled with the USA Sprites enum.  Retail EU omits
+ * SPRITE_OBJECTB4_1 (USA index 288) from *all three* index-addressed sprite
+ * tables: gSpritePtrs, gFrameObjLists and gExtraFrameOffsets.  The original
+ * EU build accounts for that with `#if !defined(EU)` in definitions.h, so
+ * every compiled enum value after the hole is one lower.
+ *
+ * Most runtime entities already carry active-ROM-native indices: the object
+ * and NPC loaders select their EU-native definition tables, and several UI
+ * paths select a native index explicitly.  Use this helper only where a
+ * value demonstrably comes from the fat binary's USA enum (for example the
+ * Arrow/SpikedRoller projectile definitions and alternate Moblin forms),
+ * before storing/passing that value to the normal raw-index sprite APIs.
+ *
+ * Returning UINT16_MAX for the USA-only entry is deliberate: silently
+ * aliasing it to EU's SPRITE_FAN would render unrelated geometry and can make
+ * an otherwise harmless unsupported entity cover much of the screen. */
+#define PORT_EU_OMITTED_SPRITE_INDEX 288u
+#define PORT_INVALID_SPRITE_INDEX UINT16_MAX
+#define PORT_USA_SPRITE_PTR_COUNT 329u
+#define PORT_EU_SPRITE_PTR_COUNT 328u
+#define PORT_USA_FRAME_OBJ_COUNT 512u
+#define PORT_EU_FRAME_OBJ_COUNT 511u
+
+static inline u16 Port_RemapLogicalSpriteIndexForRegion(RomRegion region, u16 spriteIndex) {
+    if (region == ROM_REGION_EU) {
+        if (spriteIndex == PORT_EU_OMITTED_SPRITE_INDEX) {
+            return PORT_INVALID_SPRITE_INDEX;
+        }
+        if (spriteIndex > PORT_EU_OMITTED_SPRITE_INDEX) {
+            return spriteIndex - 1u;
+        }
     }
     return spriteIndex;
 }

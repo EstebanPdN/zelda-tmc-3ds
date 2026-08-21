@@ -710,6 +710,39 @@ static void DrawAmmoCount(const SSurf* s, int32_t x, int32_t y, int32_t scale, u
     BlitSprite(s, ones, x + 8 * scale, y, scale);
 }
 
+/* One production path for both item-grid and equipped-ring counters.  The
+ * return value is intentionally observable by the host compositor test so
+ * a genuine zero-ammo badge cannot be confused with an unsupported item. */
+static int DrawItemAmmoCount(const SSurf* s, const SecondScreenSnapshot* snap, uint8_t itemId,
+                             int32_t x, int32_t y, int32_t scale) {
+    int16_t ammo = Port_SecondScreenItemAmmo(snap, itemId);
+    if (ammo < 0) {
+        return 0;
+    }
+    DrawAmmoCount(s, x, y, scale, (uint32_t)ammo);
+    return 1;
+}
+
+#ifdef PORT_SECOND_SCREEN_TEST
+int Port_SecondScreen_TestPaintEquippedAmmo(uint32_t* pixels, int32_t width, int32_t height,
+                                            int32_t stride, const SecondScreenSnapshot* snap,
+                                            int32_t scale) {
+    SSurf s;
+    int painted;
+
+    if (pixels == NULL || snap == NULL || width <= 0 || height <= 0 || stride < width || scale < 1) {
+        return 0;
+    }
+    s.px = pixels;
+    s.w = width;
+    s.h = height;
+    s.stride = stride;
+    painted = DrawItemAmmoCount(&s, snap, snap->equippedA, 0, 0, scale);
+    painted += DrawItemAmmoCount(&s, snap, snap->equippedB, 20 * scale, 0, scale);
+    return painted;
+}
+#endif
+
 /* ------------------------------------------------------------------ */
 /*  Menu button (tab bar + R glyph plate)                              */
 /* ------------------------------------------------------------------ */
@@ -1502,13 +1535,8 @@ static void PaintItemsPanel(const SSurf* s, const SecondScreenSnapshot* snap, Ta
         Port_SecondScreenRender_DrawItemIcon(s->px, s->w, s->h, s->stride, iconX, iconY, iconScale, iconId);
 
         /* Ammo under bombs/bow — the HUD's own tiny digit pair. */
-        if (itemId == ITEMID_BOMBS || itemId == ITEMID_REMOTE_BOMBS) {
-            int32_t ss = (iconScale + 1) / 2;
-            DrawAmmoCount(s, iconX, cy1 - seam - 8 * ss, ss, snap->bombCount);
-        } else if (itemId == ITEMID_BOW || itemId == ITEMID_LIGHT_ARROW) {
-            int32_t ss = (iconScale + 1) / 2;
-            DrawAmmoCount(s, iconX, cy1 - seam - 8 * ss, ss, snap->arrowCount);
-        }
+        int32_t ss = (iconScale + 1) / 2;
+        DrawItemAmmoCount(s, snap, itemId, iconX, cy1 - seam - 8 * ss, ss);
 
         if (slot == snap->equippedSlotA || slot == snap->equippedSlotB) {
             bool isA = slot == snap->equippedSlotA;
@@ -2218,6 +2246,18 @@ static void DrawItemRing(const SSurf* s, const SecondScreenSnapshot* snap, Targe
     FillRing(s, (int32_t)cx, (int32_t)cy, (int32_t)r, (int32_t)(r - 1.5f * u), ink);
     FillRing(s, (int32_t)cx, (int32_t)cy, (int32_t)(r - 3 * u), (int32_t)(r - 4.5f * u), goldDim);
     FillRing(s, (int32_t)cx, (int32_t)cy, (int32_t)(r - 4.5f * u), (int32_t)(r - 6 * u), gold);
+
+    /* Keep the native HUD's bomb/arrow count attached to the equipped A/B
+     * item as well as to its item-grid cell.  At the 3DS' 320x240 layout a
+     * ring is only about forty pixels across, so the authentic 16x8 pair
+     * sits on the lower shoulder just as it overlays the top-HUD icon. */
+    {
+        int32_t ammoScale = (int32_t)(r / 24.0f);
+        if (ammoScale < 1) ammoScale = 1;
+        if (ammoScale > 4) ammoScale = 4;
+        DrawItemAmmoCount(s, snap, itemId, (int32_t)(cx - 8 * ammoScale),
+                          (int32_t)(cy + r - 8 * ammoScale - 2 * u), ammoScale);
+    }
 
     /* Button badge on the ring's top-right shoulder, sized to sit ON the
      * band rather than reach into the icon's space. */

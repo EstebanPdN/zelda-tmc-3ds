@@ -26,6 +26,7 @@
 
 #include "port_widescreen.h"
 #include "port_rom.h"
+#include "cpu/mode1.h"
 
 #include <setjmp.h>
 #include <stdio.h>
@@ -415,13 +416,11 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
      * drops those entries' pixels at scanline >= waterline, so the line rises
      * feet->head smoothly as the sink timer climbs. Reset once per frame (the
      * first emitted sprite has updated==0, since FlushSprites zeroes it). */
-    extern u8 virtuappu_mode1_obj_clip_mark[128];
-    extern int virtuappu_mode1_obj_clip_y;
-    extern int virtuappu_mode1_obj_clip_enable;
     extern PlayerEntity gPlayerEntity;
     if (updated == 0) {
-        memset(virtuappu_mode1_obj_clip_mark, 0, 128);
-        virtuappu_mode1_obj_clip_enable = 0;
+        memset(virtuappu_mode1_obj_clip_mark_staged, 0, MODE1_GBA_OAM_COUNT);
+        memset(virtuappu_mode1_obj_y_negative_staged, 0, MODE1_GBA_OAM_COUNT);
+        virtuappu_mode1_obj_clip_enable_staged = 0;
     }
     int sSwampClipActive = (sRenderingPlayer && gPlayerState.floor_type == SURFACE_SWAMP &&
                             gPlayerState.jump_status == 0 && gPlayerEntity.base.z.HALF.HI <= 0);
@@ -431,8 +430,8 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
         s32 sub = 2 + ((s32)gPlayerState.surfaceTimer / 48); /* slow, shallow climb */
         if (sub > 8)
             sub = 8; /* keep him ~knee/waist deep at most — never head-only */
-        virtuappu_mode1_obj_clip_y = (int)baseY - sub;
-        virtuappu_mode1_obj_clip_enable = 1;
+        virtuappu_mode1_obj_clip_y_staged = (int)baseY - sub;
+        virtuappu_mode1_obj_clip_enable_staged = 1;
     }
     /* OAM entries start at offset 0x20 in OAMControls, each 8 bytes */
     u8* oamBase = (u8*)&gOAMControls.oam[0];
@@ -473,7 +472,7 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
 
         /* Clipping */
         y -= (s32)se[1]; /* subtract y anchor */
-        if (y >= 160) {
+        if (y >= Port_Widescreen_ProducerViewHeight()) {
             continue;
         }
         if (y + (s32)se[3] <= 0) {
@@ -481,7 +480,7 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
         }
 
         x -= (s32)se[0]; /* subtract x anchor */
-        if (x >= Port_Widescreen_EffectiveViewWidth()) {
+        if (x >= Port_Widescreen_ProducerViewWidth()) {
             continue;
         }
         if (x + (s32)se[2] <= 0) {
@@ -496,6 +495,7 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
          *   bits 25-29: attr1.matrixNum/flip (from 'flags')
          *   bits 30-31: attr1.size
          */
+        virtuappu_mode1_obj_y_negative_staged[updated] = y < 0;
         u32 oamWord = (u32)(y & 0xFF);            /* y position */
         oamWord |= (u32)((x & 0x1FF)) << 16;      /* x position */
         oamWord |= flags;                         /* base flags */
@@ -518,7 +518,7 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
         /* Swamp sink: mark this player OAM entry for the per-pixel waterline
          * clip in ViruaPPU (see RenderSpritePieces top + port_gba_mem). */
         if (sSwampClipActive)
-            virtuappu_mode1_obj_clip_mark[updated & 0x7F] = 1;
+            virtuappu_mode1_obj_clip_mark_staged[updated & 0x7F] = 1;
 
         updated++;
     }
@@ -639,13 +639,13 @@ u32 CheckOnScreen(Entity* entity) {
     x += 0x3F;
     /* Runtime-gated widescreen: the right edge only widens while the WIP
      * option is enabled and the current room can fill the wider viewport. */
-    if ((u32)x >= (u32)Port_Widescreen_EffectiveViewWidth() + 0x7E)
+    if ((u32)x >= (u32)Port_Widescreen_GameplayViewWidth() + 0x7E)
         return 0;
 
     s32 y = (s32)entity->y.HALF.HI - (s32)gRoomControls.scroll_y;
     y += (s32)entity->z.HALF.HI;
     y += 0x3F;
-    if ((u32)y >= 0x11E)
+    if ((u32)y >= (u32)Port_Widescreen_GameplayViewHeight() + 0x7E)
         return 0;
 
     return 1;

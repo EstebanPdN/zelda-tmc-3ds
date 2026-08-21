@@ -18,26 +18,23 @@
 #include "asm.h"
 #include "fade.h"
 
+#ifdef PORT_ROLLING_BARREL_TRANSITION_TEST
+/* Keep the room-entry callback linked in the host lifecycle test without
+ * replacing the production implementations pulled in with DispReset. */
+void PortRollingBarrelTest_LoadPaletteGroup(u32 group);
+void PortRollingBarrelTest_LoadGfxGroup(u32 group);
+void PortRollingBarrelTest_MemCopy(const void* src, void* dest, u32 size);
+#define LoadPaletteGroup PortRollingBarrelTest_LoadPaletteGroup
+#define LoadGfxGroup PortRollingBarrelTest_LoadGfxGroup
+#define MemCopy PortRollingBarrelTest_MemCopy
+#endif
+
 extern u16 MAY_ALIAS gUnk_02017AA0[];
 extern struct BgAffineDstData gUnk_02017BA0[];
 extern u8 gUpdateVisibleTiles;
 extern u32 gUsedPalettes;
 
 void RollingBarrelManager_OnEnterRoom(void);
-#ifdef PC_PORT
-extern void DisableVBlankDMA(void);
-static void RollingBarrelManager_OnExitRoom(void* this) {
-    /* Pairs with the per-frame SetVBlankDMA at line ~47 that writes
-     * BG2PA per-HBlank.  The manager registers no exit handler in
-     * vanilla, so on leaving Deepwood Shrine's rolling-barrel room
-     * the HDMA keeps firing into BG2PA in the next room — visible
-     * BG2 affine glitch when entering subsequent areas without a
-     * pause-menu open in between (which would mask the issue by
-     * overwriting the DMA src/dest).  Same fix class as #103. */
-    (void)this;
-    DisableVBlankDMA();
-}
-#endif
 void sub_08058BC8(RollingBarrelManager*);
 void sub_08058CB0(RollingBarrelManager*);
 void sub_08058CFC(void);
@@ -67,11 +64,10 @@ void RollingBarrelManager_Init(RollingBarrelManager* this) {
     this->unk_28 = 0x1234;
     super->timer = CheckLocalFlagsB(0x15, 0x2) != 0;
     sub_08058CB0(this);
-#ifdef PC_PORT
-    RegisterTransitionHandler(this, RollingBarrelManager_OnEnterRoom, RollingBarrelManager_OnExitRoom);
-#else
+    /* RoomExitCallback runs at the start of the door fade, while the old room
+     * is still visible.  Match retail: keep the barrel's affine HDMA alive
+     * through those frames; DispReset stops DMA0 once the fade is complete. */
     RegisterTransitionHandler(this, RollingBarrelManager_OnEnterRoom, NULL);
-#endif
 }
 
 void RollingBarrelManager_Action1(RollingBarrelManager* this) {

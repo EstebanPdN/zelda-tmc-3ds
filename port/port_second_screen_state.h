@@ -188,6 +188,23 @@ static inline uint8_t Port_SecondScreenChargeSteps(const SecondScreenSnapshot* s
     return (uint8_t)(steps > 40u ? 40u : steps);
 }
 
+/* Match ItemUIElement's native HUD rule: only the two bomb variants and
+ * the two bow variants carry an ammo counter.  Returning -1 distinguishes
+ * an item with no counter from a real zero-ammo value, so the bottom HUD
+ * still shows "00" when an equipped weapon is empty. */
+static inline int16_t Port_SecondScreenItemAmmo(const SecondScreenSnapshot* snapshot, uint8_t itemId) {
+    if (snapshot == NULL) {
+        return -1;
+    }
+    if (itemId == 0x07 || itemId == 0x08) {
+        return snapshot->bombCount;
+    }
+    if (itemId == 0x09 || itemId == 0x0A) {
+        return snapshot->arrowCount;
+    }
+    return -1;
+}
+
 /* Called once per game tick from the main loop (src/main.c). Builds a fresh
  * snapshot from gRoomControls/gPlayerEntity/gSave/gArea, applies any
  * pending equip request, and swaps the snapshot in under a short-held

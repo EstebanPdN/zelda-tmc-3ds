@@ -18,8 +18,8 @@
 /* Widescreen (PC): re-enter from the live right edge, not GBA 240's.
  * 0x110 = 240 + 0x20 — collapses to the original at native width / GBA. */
 #if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
-extern int Port_Widescreen_EffectiveViewWidth(void);
-#define WS_VIEW_W ((s32)Port_Widescreen_EffectiveViewWidth())
+extern int Port_Widescreen_GameplayViewWidth(void);
+#define WS_VIEW_W ((s32)Port_Widescreen_GameplayViewWidth())
 #else
 #define WS_VIEW_W 240
 #endif

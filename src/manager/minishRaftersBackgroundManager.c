@@ -10,6 +10,10 @@
 #include "game.h"
 #include "vram.h"
 
+#if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
+#include "port_widescreen.h"
+#endif
+
 void MinishRaftersBackgroundManager_OnEnterRoom(MinishRaftersBackgroundManager*);
 void sub_08058210(MinishRaftersBackgroundManager*);
 u32 sub_08058244(int);
@@ -44,13 +48,21 @@ void sub_08058210(MinishRaftersBackgroundManager* this) {
 u32 sub_08058244(int i) {
     static const u16 gUnk_081081EC[] = { 0x30, 0x30, 0x30, 0x38 };
     u32 tmp;
-    s32 tmp2;
-    u32 tmp3;
-    s32 tmp4;
-    tmp = ((gRoomControls.scroll_y - gRoomControls.origin_y) * 0x20) / (gRoomControls.height - DISPLAY_HEIGHT);
+#if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
+    const int viewWidth = Port_Widescreen_GameplayViewWidth();
+    const int viewHeight = Port_Widescreen_GameplayViewHeight();
+    tmp = (u32)Port3DSFullViewPolicy_ParallaxOffset(gRoomControls.scroll_y - gRoomControls.origin_y,
+                                                    gRoomControls.height, viewHeight, 0x20);
+    gScreen.bg1.yOffset = gRoomControls.origin_y + tmp;
+    tmp = (u32)Port3DSFullViewPolicy_ParallaxOffset(gRoomControls.scroll_x - gRoomControls.origin_x,
+                                                    gRoomControls.width, viewWidth, gUnk_081081EC[i]);
+#else
+    tmp = ((gRoomControls.scroll_y - gRoomControls.origin_y) * 0x20) /
+          (gRoomControls.height - DISPLAY_HEIGHT);
     gScreen.bg1.yOffset = gRoomControls.origin_y + tmp;
     tmp = (((gRoomControls.scroll_x - gRoomControls.origin_x) * gUnk_081081EC[i]) /
            (gRoomControls.width - DISPLAY_WIDTH));
+#endif
     gScreen.bg1.xOffset = tmp & 0xf;
     return tmp;
 }

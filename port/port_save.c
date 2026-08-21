@@ -77,11 +77,35 @@ static int sEepromInited = 0;
  * user can still explicitly clear/switch the profile through the existing UI. */
 static int sEepromWriteBlocked = 0;
 static char sActivePath[SAVE_FILENAME_MAX] = DEFAULT_SAVE_FILENAME;
+/* The first semantic fuser repair preserves the complete profile (all three
+ * slots and duplicate records). Further contaminated fusers from that same
+ * E1 image must not create a new 8 KiB backup on every NPC update. */
+static char sFuserRepairPreservedPath[SAVE_FILENAME_MAX];
 static PortSaveStats sSaveStats;
 /* 1 once the user has explicitly chosen a named profile (config.json), so the
  * per-region default below must NOT override their choice. 0 in the default
  * case, where the multi-region build isolates each region into its own file. */
 static int sExplicitProfile = 0;
+
+#ifdef PORT_SAVE_TEST
+static int sTestFailNextPreserve;
+static int sTestFailNextAtomicWrite;
+static int sTestFailEepromBlockArmed;
+static u16 sTestFailEepromBlock;
+
+void Port_Save_TestFailNextPreserve(void) {
+    sTestFailNextPreserve = 1;
+}
+
+void Port_Save_TestFailNextAtomicWrite(void) {
+    sTestFailNextAtomicWrite = 1;
+}
+
+void Port_Save_TestFailNextEepromWriteAtBlock(uint16_t block) {
+    sTestFailEepromBlock = block;
+    sTestFailEepromBlockArmed = 1;
+}
+#endif
 
 /* ---- On-disk byte order -------------------------------------------------- */
 
@@ -425,6 +449,13 @@ static int PreserveFileUnique(const char* path, const char* tag) {
     unsigned sequence;
     int ok = 1;
 
+#ifdef PORT_SAVE_TEST
+    if (sTestFailNextPreserve) {
+        sTestFailNextPreserve = 0;
+        errno = EIO;
+        return 0;
+    }
+#endif
     if (!FileHasExactSize(path)) return 0;
     for (sequence = 0; sequence < 1000; ++sequence) {
         int length = sequence == 0 ? snprintf(backup, sizeof(backup), "%s.%s.bak", path, tag)
@@ -692,6 +723,13 @@ static int WriteEepromAtomic(const char* path) {
     PathState tmpState;
     MakeAuxiliaryPaths(path, tmp, rollback);
     ++sSaveStats.flushAttempts;
+#ifdef PORT_SAVE_TEST
+    if (sTestFailNextAtomicWrite) {
+        sTestFailNextAtomicWrite = 0;
+        RecordSaveFailure(PORT_SAVE_STAGE_OPEN_TEMP, EIO);
+        return 0;
+    }
+#endif
     BuildEepromDiskImage();
 
     if (strlen(path) + sizeof(".rollback") > sizeof(rollback)) {
@@ -1009,6 +1047,23 @@ int Port_Save_PreserveBeforeMigration(void) {
     return PreserveFileUnique(sActivePath, "pre-migration");
 }
 
+int Port_Save_PreserveBeforeFuserRepair(void) {
+    if (!sEepromInited || sEepromWriteBlocked) return 0;
+    if (strcmp(sFuserRepairPreservedPath, sActivePath) == 0) return 1;
+    /* A repair can be requested while EEPROM writes are still pending after
+     * an I/O failure. Back up the latest in-memory raw image, never the older
+     * file which merely happened to be durable before that failure. Never
+     * flush through the middle of a game save transaction. */
+    if (sSaveTxnDepth != 0) return 0;
+    if (sEepromDirty) {
+        FlushEepromFile();
+        if (sEepromDirty) return 0;
+    }
+    if (!PreserveFileUnique(sActivePath, "pre-fuser-repair")) return 0;
+    snprintf(sFuserRepairPreservedPath, sizeof(sFuserRepairPreservedPath), "%s", sActivePath);
+    return 1;
+}
+
 void Port_Save_GetStats(PortSaveStats* stats) {
     if (!stats) return;
     *stats = sSaveStats;
@@ -1070,6 +1125,12 @@ u16 EEPROMWrite0_8k_Check(u16 block, const u16* src) {
         return 0x80FF; /* EEPROM_OUT_OF_RANGE */
     if (sEepromWriteBlocked)
         return 0x8000; /* preserve malformed/wrong-region backing file */
+#ifdef PORT_SAVE_TEST
+    if (sTestFailEepromBlockArmed && block == sTestFailEepromBlock) {
+        sTestFailEepromBlockArmed = 0;
+        return 0x8000;
+    }
+#endif
 
     memcpy(&sEeprom[block * EEPROM_BLOCK], src, EEPROM_BLOCK);
     sEepromDirty = 1;
@@ -1140,10 +1201,13 @@ int Port_Save_SetActivePath(const char* path) {
      * (ResolveRegionDefaultPath) must not override it. */
     sExplicitProfile = (strcmp(path, DEFAULT_SAVE_FILENAME) != 0);
     /* Force a reload on next access so any read after this point hits
-     * the new file. */
+     * the new file. A profile may have been replaced while it was inactive,
+     * so its previous fuser-repair preservation cannot be reused after a
+     * switch away and back. */
     sEepromInited = 0;
     sEepromDirty = 0;
     sEepromWriteBlocked = 0;
+    sFuserRepairPreservedPath[0] = '\0';
     return 1;
 }
 
@@ -1163,8 +1227,8 @@ int Port_Save_ClearActiveProfileData(void) {
     char rollback[SAVE_AUX_PATH_MAX];
     char backup[SAVE_AUX_PATH_MAX];
     char sidecar[SAVE_AUX_PATH_MAX];
-    char sidecarTemp[SAVE_AUX_PATH_MAX];
-    char sidecarBackup[SAVE_AUX_PATH_MAX];
+    char sidecarTemp[SAVE_AUX_PATH_MAX + sizeof(".tmp")];
+    char sidecarBackup[SAVE_AUX_PATH_MAX + sizeof(".bak")];
     MakeAuxiliaryPaths(sActivePath, temp, rollback);
     snprintf(backup, sizeof(backup), "%s.bak", sActivePath);
     if (!BuildSidecarPathForSave(sActivePath, sidecar, sizeof(sidecar))) return 0;
@@ -1185,6 +1249,12 @@ int Port_Save_ClearActiveProfileData(void) {
     sEepromWriteBlocked = 0;
     sSaveTxnDepth = 0;
     sFlushFailedLast = 0;
+    sFuserRepairPreservedPath[0] = '\0';
+#ifdef PORT_SAVE_TEST
+    sTestFailNextPreserve = 0;
+    sTestFailNextAtomicWrite = 0;
+    sTestFailEepromBlockArmed = 0;
+#endif
     return ok;
 }
 

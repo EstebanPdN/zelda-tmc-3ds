@@ -193,7 +193,12 @@ static inline const u8* Port_ResolvePackedRomDataPtrFromRom(const u8* romData, u
     if (entryOffset > romSize || sizeof(u32) > romSize - entryOffset) {
         return NULL;
     }
-    gbaAddress = Port_ReadU32(romData + entryOffset) & ~1u;
+    /* This helper resolves packed data-pointer tables.  Unlike Thumb function
+     * pointers, ROM data may be byte-aligned: 63 of the 120 retail EU fuser
+     * records deliberately have an odd address.  Clearing bit zero moves
+     * those records one byte backwards and changes their progress gate and
+     * offered-fusion list. */
+    gbaAddress = Port_ReadU32(romData + entryOffset);
     if (gbaAddress < 0x08000000u) {
         return NULL;
     }
@@ -273,6 +278,73 @@ static inline int Port_IsFuserSaveStateValid(const u8* fuserData, u32 progress, 
      * that would step beyond the validated record. */
     if (offer == 0xF2 && progress == listLength) return 0;
     return 1;
+}
+
+/* A v1.2-E1 EU build read the USA pointer-table base (0x1DCC) from an EU ROM.
+ * The bases differ by 0xA8 bytes, so an E1 offer for fuser N can actually be
+ * the perfectly in-range offer of EU fuser N-42.  The structural validator
+ * above cannot distinguish that contamination from a retail state.
+ *
+ * Check only states whose meaning can be proved without guessing.  Concrete
+ * offers must match the fixed offer at the saved cursor, or (for a 0xFF
+ * RANDOM cursor) be one of the retail shared offers.  A concrete offer which
+ * is already fused is also not a stable state: NotifyFusersOnFusionDone turns
+ * it into NEEDS_REPLACEMENT/JUST_FUSED before the game can save again.
+ * Special state values remain untouched; some scripts deliberately use them
+ * and the normal retail state machine can advance them safely. */
+static inline int Port_IsFuserSaveStateSemanticallyValid(const u8* fuserData, u32 progress, u32 offer,
+                                                         const u8* fusedBits, u32 fusedBytes,
+                                                         const u8* sharedOffers, u32 sharedOfferCount) {
+    u32 cursorOffer;
+    u32 i;
+
+    if (!Port_IsFuserSaveStateValid(fuserData, progress, offer)) return 0;
+
+    /* Fresh save: every fuser starts at cursor zero with no selected offer. */
+    if (offer == 0u) return progress == 0u;
+
+    /* Preserve retail/script sentinels conservatively.  The structural check
+     * has already rejected JUST_FUSED at the terminator. */
+    if (offer == 0xF1u || offer == 0xF2u || offer == 0xF3u || offer == 0xFFu) return 1;
+
+    /* The only remaining structurally valid values are concrete fusion ids. */
+    cursorOffer = fuserData[5u + progress];
+    if (cursorOffer == 0u) return 0;
+    if (fusedBits == NULL || offer / 8u >= fusedBytes || ((fusedBits[offer / 8u] >> (offer % 8u)) & 1u) != 0u) {
+        return 0;
+    }
+    if (cursorOffer != 0xFFu) return offer == cursorOffer;
+
+    if (sharedOffers == NULL) return 0;
+    for (i = 0; i < sharedOfferCount; ++i) {
+        if (sharedOffers[i] == offer) return 1;
+    }
+    return 0;
+}
+
+#define PORT_FUSER_E1_EU_TABLE_DISPLACEMENT \
+    ((PORT_FUSER_FUSION_PTRS_EU - PORT_FUSER_FUSION_PTRS_USA) / sizeof(u32))
+
+/* Automatic mutation is intentionally narrower than semantic validation.
+ * Only an EU vanilla state which is impossible against the corrected table
+ * but valid against E1's exactly-42-entries-early table has enough provenance
+ * to repair without guessing. USA, JP, randomizer, the non-displaced EU ids,
+ * malformed cursors, and every other mismatch fail closed at the caller. */
+static inline int Port_ShouldRepairE1EuFuserSaveState(
+    int activeRegionIsEu, int randomizerEnabled, u32 fuserId, const u8* correctedFuserData,
+    const u8* e1FuserData, u32 progress, u32 offer, const u8* fusedBits, u32 fusedBytes,
+    const u8* sharedOffers, u32 sharedOfferCount) {
+    if (!activeRegionIsEu || randomizerEnabled || fuserId < PORT_FUSER_E1_EU_TABLE_DISPLACEMENT ||
+        fuserId >= PORT_FUSER_TABLE_COUNT || e1FuserData == NULL ||
+        !Port_IsFuserSaveStateValid(correctedFuserData, progress, offer)) {
+        return 0;
+    }
+    if (Port_IsFuserSaveStateSemanticallyValid(correctedFuserData, progress, offer, fusedBits, fusedBytes,
+                                               sharedOffers, sharedOfferCount)) {
+        return 0;
+    }
+    return Port_IsFuserSaveStateSemanticallyValid(e1FuserData, progress, offer, fusedBits, fusedBytes,
+                                                  sharedOffers, sharedOfferCount);
 }
 
 static inline const u8* Port_ResolveFusionTextDataFromRom(const u8* romData, u32 romSize, u32 tableOffset,
@@ -409,12 +481,9 @@ static inline bool Port_IsFontGBAEncoded(const void* data) {
  */
 const SpritePtr* Port_GetSpritePtr(u16 sprite_idx);
 
-/*
- * Remap a sprite index used by fixed UI/menu tables for EU ROM layout quirks.
- * EU item sprite 322 is shifted to 321 and HUD-button sprite 505 to 504,
- * while gameplay sprite indices remain active-ROM-native. Only call this from
- * fixed item/HUD/menu paths.
- */
+/* Convert one value known to come from the fat binary's USA Sprites enum to
+ * the active ROM's native table index.  Normal entity/draw/animation APIs
+ * consume native indices and intentionally do not remap internally. */
 u16 Port_RemapSpriteIndex(u16 sprite_idx);
 
 /* Resolve one 16x16 pixel-level collision mask through the active ROM's own

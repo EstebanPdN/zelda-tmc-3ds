@@ -230,6 +230,9 @@ void Port_Config_Cycle3DSAspectRatio(void);
 int Port_Config_Get3DSDisplayStyle(void);
 const char* Port_Config_Get3DSDisplayStyleName(void);
 void Port_Config_Cycle3DSDisplayStyle(void);
+/* Experimental presentation gate only. It does not add a persisted enum or
+ * INI key: New 3DS + the existing Wide + Pixel Perfect selections opt in. */
+bool Port_Config_3DSFullViewComboEnabled(void);
 
 /* New 3DS C-stick turbo multiplier. The device supports 2x through 5x and
  * applies changes immediately to the frame-boundary scheduler. */

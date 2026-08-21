@@ -21,6 +21,10 @@
 #include "fade.h"
 #include "area.h"
 
+#if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
+#include "port_widescreen.h"
+#endif
+
 struct GyorgChildSpawns {
     s16 offsetX;
     s16 offsetY;
@@ -479,6 +483,13 @@ void GyorgBossObject_SpawnChildren(u32 unk0, bool32 fromBlue, u32 animationState
     u32 i = 0;
     struct GyorgChildSpawns* p;
     u32 x, y;
+#if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
+    const s16 viewWidth = (s16)Port_Widescreen_GameplayViewWidth();
+    const s16 viewHeight = (s16)Port_Widescreen_GameplayViewHeight();
+#else
+    const s16 viewWidth = DISPLAY_WIDTH;
+    const s16 viewHeight = DISPLAY_HEIGHT;
+#endif
     x = gUnk_08124EF8[animationState * 2] + gRoomControls.origin_x;
     y = gUnk_08124EF8[animationState * 2 + 1] + gRoomControls.origin_y;
     p = (struct GyorgChildSpawns*)gUnk_08124FF0[unk0];
@@ -497,12 +508,12 @@ void GyorgBossObject_SpawnChildren(u32 unk0, bool32 fromBlue, u32 animationState
                     tmp->attackOffsetY = -p->offsetY;
                     break;
                 case 1:
-                    tmp->attackOffsetX = p->offsetY + DISPLAY_WIDTH;
+                    tmp->attackOffsetX = p->offsetY + viewWidth;
                     tmp->attackOffsetY = p->offsetX;
                     break;
                 case 2:
                     tmp->attackOffsetX = p->offsetX;
-                    tmp->attackOffsetY = p->offsetY + DISPLAY_HEIGHT;
+                    tmp->attackOffsetY = p->offsetY + viewHeight;
                     break;
                 case 3:
                     tmp->attackOffsetX = -p->offsetY;

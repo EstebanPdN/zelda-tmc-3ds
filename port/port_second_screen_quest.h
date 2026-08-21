@@ -27,6 +27,17 @@ typedef struct {
     int32_t x, y, w, h;
 } SecondScreenQuestRect;
 
+/* DrawDirect(0, 3), used for every loose Kinstone piece, is one 32x32 OBJ
+ * centred on gOamCmd.{x,y}.  Keep that hardware footprint when the bottom
+ * screen scales the art: trimming it to the non-transparent pixels makes
+ * differently shaped halves grow to different sizes (and turns the retail
+ * one-pixel black outline into a conspicuous block). */
+static inline SecondScreenQuestRect Port_SecondScreenQuest_KinstoneFrameRect(int32_t commandX,
+                                                                              int32_t commandY) {
+    SecondScreenQuestRect rect = { commandX - 16, commandY - 16, 32, 32 };
+    return rect;
+}
+
 /* The wells on the main screen that open a list of their own, reported so
  * the compositor can hang tap targets on them without duplicating the
  * layout. The pause menu opens the same two with A on the same two slots. */
@@ -63,6 +74,13 @@ int Port_SecondScreenQuest_DrawKinstones(uint32_t* pixels, int32_t bufW, int32_t
 int Port_SecondScreenQuest_DrawTechniques(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
                                           int32_t dstX, int32_t dstY, int32_t dstW, int32_t dstH,
                                           const SecondScreenSnapshot* snap);
+
+#ifdef PORT_SECOND_SCREEN_QUEST_TEST
+/* Direct host entry into the production list-cell renderer. */
+void Port_SecondScreenQuest_TestDrawKinstoneListCell(
+    uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t idx, int32_t cx,
+    int32_t cy, int32_t side, int32_t scale, const SecondScreenSnapshot* snap);
+#endif
 
 #ifdef __cplusplus
 }
