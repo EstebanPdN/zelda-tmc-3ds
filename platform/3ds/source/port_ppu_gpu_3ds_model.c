@@ -2230,6 +2230,37 @@ static void retain_store(PpuGpu3DSCache* cache, unsigned bg, uint32_t signature,
     retained->valid = map->valid;
 }
 
+/* The palette generations a layer's geometry actually depends on.
+ *
+ * PpuGpu3DS_CacheTile decides a slot is stale from `bpp8 ? bg256Generation :
+ * bgBankGeneration[bank]` -- one bank, or the 256-colour generation, never
+ * both and never all sixteen. Retention used to mix all seventeen values
+ * together, so an 8bpp layer was rebuilt whenever any 4bpp bank moved and a
+ * 4bpp layer whenever the 256-colour palette moved, neither of which it
+ * samples. Measured on the emulator: 868 of 873 rebuilds were attributed to
+ * palette, against 2 for the tilemap and 0 for tiles and scrolling.
+ *
+ * A tile changing bank rewrites its tilemap entry, which map_signature already
+ * covers, so the mask cannot silently go stale under us. */
+static uint32_t layer_palette_generation(const PpuGpu3DSCache* cache,
+                                         bool bpp8, uint16_t bankMask) {
+    if (bpp8) return cache->bg256Generation * 31u + 1u;
+    uint32_t generation = 2166136261u;
+    if (bankMask == 0) {
+        /* Nothing built yet, so the dependency is unknown: stay conservative
+         * and depend on every palette, exactly as before. */
+        generation = cache->bg256Generation;
+        for (unsigned bank = 0; bank < 16u; ++bank)
+            generation = generation * 31u + cache->bgBankGeneration[bank];
+        return generation;
+    }
+    for (unsigned bank = 0; bank < 16u; ++bank) {
+        if ((bankMask & (uint16_t)(1u << bank)) == 0) continue;
+        generation = generation * 31u + cache->bgBankGeneration[bank];
+    }
+    return generation;
+}
+
 /* Splits the old single test so the caller can attribute the miss. Order is
  * cheapest-first: both compares are two loads, but the tile digest behind
  * them reads kilobytes, so it must not run when this already failed. */
@@ -2335,9 +2366,10 @@ static bool build_bg_map(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
         const unsigned mapSize = (bgcnt >> 14u) & 3u;
         const uint32_t screenBytes =
                 ((mapSize & 1u) ? 64u : 32u) * ((mapSize & 2u) ? 64u : 32u) * 2u;
-        uint32_t paletteGeneration = cache->bg256Generation;
-        for (unsigned bank = 0; bank < 16u; ++bank)
-            paletteGeneration = paletteGeneration * 31u + cache->bgBankGeneration[bank];
+        /* Judged against what last build sampled: that is what the retained
+         * geometry depends on. */
+        const uint32_t paletteGeneration = layer_palette_generation(
+                cache, ((bgcnt >> 7u) & 1u) != 0, cache->retained[bg].bankMask);
         PROFILE_BEGIN(PPU_GPU3DS_PHASE_MAPSIG);
         const uint32_t signature = map_signature(
                 frame, bgcnt, ((bgcnt >> 8u) & 0x1fu) * 0x800u, screenBytes,
@@ -2374,7 +2406,9 @@ static bool build_bg_map(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
         cmd->mapRebuild[why] += 1u;
         retain_release(cache, bg);
         cache->retained[bg].signature = signature;
-        cache->retained[bg].paletteSignature = paletteGeneration;
+        /* Rebuilt from scratch, so the sampled banks are re-learned below and
+         * the stored generation is recomputed from them once they are known. */
+        cache->retained[bg].bankMask = 0;
     }
     *vertexCursor = (size_t)bg * PPU_GPU3DS_MAP_SLICE_VERTICES;
     *indexCursor = (size_t)bg * PPU_GPU3DS_MAP_SLICE_INDICES;
@@ -2410,6 +2444,8 @@ static bool build_bg_map(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
             const uint32_t tileOffset =
                     charBase + (uint32_t)(entry & 0x03ffu) * tileBytes;
             if (tileOffset > MODE1_VRAM_SIZE - tileBytes) return false;
+            cache->retained[bg].bankMask |=
+                    (uint16_t)(1u << (unsigned)(entry >> 12u));
             if (!quad_room(cmd, vertexCursor, indexCursor)) return false;
 
             uint16_t slot;
@@ -2472,8 +2508,12 @@ static bool build_bg_map(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
     cmd->mapLayerMask |= (uint8_t)(1u << bg);
     cmd->mapSliceVertices[bg] =
             (uint32_t)(*vertexCursor - (size_t)bg * PPU_GPU3DS_MAP_SLICE_VERTICES);
+    /* bankMask is now what this build actually sampled, so the generation
+     * stored beside it must be derived from that same mask. */
     retain_store(cache, bg, cache->retained[bg].signature,
-                 cache->retained[bg].paletteSignature, map);
+                 layer_palette_generation(cache, bpp8,
+                                          cache->retained[bg].bankMask),
+                 map);
     retain_snapshot(cache, bg, frame);
     return true;
 }
@@ -2542,9 +2582,10 @@ static bool build_affine_map(const PpuGpu3DSFrameView* frame,
         return true;
     }
     {
-        uint32_t paletteGeneration = cache->bg256Generation;
-        for (unsigned bank = 0; bank < 16u; ++bank)
-            paletteGeneration = paletteGeneration * 31u + cache->bgBankGeneration[bank];
+        /* Affine tiles are emitted with bpp8 = true and bank 0, so this layer
+         * depends on the 256-colour generation and nothing else. */
+        const uint32_t paletteGeneration =
+                layer_palette_generation(cache, true, 0);
         PROFILE_BEGIN(PPU_GPU3DS_PHASE_MAPSIG);
         const uint32_t signature = map_signature(
                 frame, bgcnt, screenBase, (uint32_t)(mapTiles * mapTiles),
@@ -2655,7 +2696,7 @@ static bool build_affine_map(const PpuGpu3DSFrameView* frame,
     cmd->mapSliceVertices[2] =
             (uint32_t)(*vertexCursor - 2u * PPU_GPU3DS_MAP_SLICE_VERTICES);
     retain_store(cache, 2u, cache->retained[2].signature,
-                 cache->retained[2].paletteSignature, map);
+                 layer_palette_generation(cache, true, 0), map);
     retain_snapshot(cache, 2u, frame);
     return true;
 }

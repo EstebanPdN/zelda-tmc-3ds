@@ -86,6 +86,12 @@ typedef struct PpuGpu3DSRetainedMap {
     uint16_t bgcnt;
     uint16_t slotCount;
     uint16_t slots[PPU_GPU3DS_MAP_MAX_QUADS];
+    /* Which 4bpp palette banks these quads actually sample, one bit per bank.
+     * PpuGpu3DS_CacheTile makes a tile depend on exactly one bank generation
+     * (or, at 8bpp, on the 256-colour generation alone), so a layer depends on
+     * the union over its tiles and nothing more. 0 means not yet known, which
+     * falls back to depending on everything. */
+    uint16_t bankMask;
     /* Byte range of the character data these quads sample. A 64-bit digest of
      * it lives in the cache: reading VRAM once beats matching it against a
      * full copy, and far beats checking each tile against its scattered
