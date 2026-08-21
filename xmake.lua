@@ -1453,6 +1453,32 @@ target_end()
 
 
 -- ====================
+-- Cloud Tops EU/JP fight flag parity regression test.
+-- ====================
+target("cloud_tops_fight_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "TMC_3DS", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections")
+    if has_config("pc_sanitize") then
+        add_cflags("-fsanitize=address,undefined", "-fno-omit-frame-pointer", "-fno-sanitize-recover=all")
+        add_ldflags("-fsanitize=address,undefined", {force = true})
+    end
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/port_cloud_tops_fight_test.c")
+    add_files("port/port_cloud_tops_fight.c")
+target_end()
+
+
+-- ====================
 -- Spiked-roller signed-range trajectory regression test.
 -- ====================
 target("spiked_rollers_motion_test")

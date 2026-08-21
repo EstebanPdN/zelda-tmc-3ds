@@ -34,6 +34,7 @@
 
 #ifdef PC_PORT
 #include "port_config.h"
+#include "port_cloud_tops_fight.h"
 #include "port_rom.h"
 #include "port_gba_mem.h"
 #include "port_story_guard.h"
@@ -2159,12 +2160,28 @@ void sub_StateChange_CloudTops_Bottom(void) {
     if (CheckLocalFlagB(KUMOUE_02_00)) {
         sub_0809F814(0xe0);
     } else {
+#ifdef PC_PORT
+        EntityData topFight[PORT_CLOUD_TOPS_FIGHT_ENTITY_COUNT];
+        /* gUnk_080DD7E0 is compiled USA data, while the hidden whirlwind
+         * script is read directly from the active ROM.  Patch the two linked
+         * local-flag fields before instantiating this particular callback
+         * list, so EU/JP cannot remove the cloud under a still-hidden exit. */
+        Port_CloudTopsPrepareTopFightEntities(topFight, &gUnk_080DD7E0);
+        LoadRoomEntityList(topFight);
+#else
         LoadRoomEntityList(&gUnk_080DD7E0);
+#endif
     }
     if (CheckLocalFlagB(KUMOUE_02_02)) {
         sub_0809F814(0xba3);
     } else {
+#ifdef PC_PORT
+        EntityData bottomFight[PORT_CLOUD_TOPS_FIGHT_ENTITY_COUNT];
+        Port_CloudTopsPrepareBottomFightEntities(bottomFight, &gUnk_080DD840);
+        LoadRoomEntityList(bottomFight);
+#else
         LoadRoomEntityList(&gUnk_080DD840);
+#endif
     }
 }
 
