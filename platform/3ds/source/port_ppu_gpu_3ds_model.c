@@ -2312,10 +2312,12 @@ static bool build_bg_map(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
         uint32_t paletteGeneration = cache->bg256Generation;
         for (unsigned bank = 0; bank < 16u; ++bank)
             paletteGeneration = paletteGeneration * 31u + cache->bgBankGeneration[bank];
+        PROFILE_BEGIN(PPU_GPU3DS_PHASE_MAPSIG);
         const uint32_t signature = map_signature(
                 frame, bgcnt, ((bgcnt >> 8u) & 0x1fu) * 0x800u, screenBytes,
                 ((bgcnt >> 2u) & 3u) * 0x4000u, rowLo, colLo, rows, cols,
                 paletteGeneration);
+        PROFILE_END(PPU_GPU3DS_PHASE_MAPSIG);
         if (retain_matches(cache, bg, signature) &&
             retain_tiles_current(cache, bg, frame)) {
             const PpuGpu3DSRetainedMap* retained = &cache->retained[bg];
@@ -2503,9 +2505,11 @@ static bool build_affine_map(const PpuGpu3DSFrameView* frame,
         uint32_t paletteGeneration = cache->bg256Generation;
         for (unsigned bank = 0; bank < 16u; ++bank)
             paletteGeneration = paletteGeneration * 31u + cache->bgBankGeneration[bank];
+        PROFILE_BEGIN(PPU_GPU3DS_PHASE_MAPSIG);
         const uint32_t signature = map_signature(
                 frame, bgcnt, screenBase, (uint32_t)(mapTiles * mapTiles),
                 charBase, rowLo, colLo, rows, cols, paletteGeneration);
+        PROFILE_END(PPU_GPU3DS_PHASE_MAPSIG);
         if (retain_matches(cache, 2u, signature) &&
             retain_tiles_current(cache, 2u, frame)) {
             const PpuGpu3DSRetainedMap* retained = &cache->retained[2];

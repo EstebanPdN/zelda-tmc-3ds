@@ -301,6 +301,12 @@ bool PortPpuGpu3DS_Preflight(const PpuGpu3DSFrameView* frame) {
     for (unsigned bg = 0; bg < 4u; ++bg) {
         if ((sCommands.mapLayerMask & (1u << bg)) != 0) ++sStats.mapLayers;
     }
+    /* mapDirtyMask is the subset that had to re-emit quads. Against mapLayers
+     * this gives the reuse hit rate, which is what decides whether the
+     * per-frame signature walk is earning its cost. */
+    for (unsigned bg = 0; bg < 4u; ++bg) {
+        if ((sCommands.mapDirtyMask & (1u << bg)) != 0) ++sStats.mapRebuilds;
+    }
     if (sCommands.mapLargestQuads > sStats.mapLargestQuads)
         sStats.mapLargestQuads = sCommands.mapLargestQuads;
     if (sCommands.bandCount > sStats.maxBands)

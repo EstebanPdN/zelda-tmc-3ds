@@ -260,6 +260,11 @@ typedef enum PpuGpu3DSPhase {
     PPU_GPU3DS_PHASE_BANDS,
     PPU_GPU3DS_PHASE_MERGE,
     PPU_GPU3DS_PHASE_MAPS,
+    /* Inside MAPS: the tilemap digest that decides whether a layer can keep
+     * last frame's geometry. Walking the map is meant to be far cheaper than
+     * re-emitting the quads, so this being the bulk of MAPS would mean the
+     * reuse test costs more than the work it avoids. */
+    PPU_GPU3DS_PHASE_MAPSIG,
     PPU_GPU3DS_PHASE_SCENE,
     PPU_GPU3DS_PHASE_OBJWIN,
     PPU_GPU3DS_PHASE_REGIONS,

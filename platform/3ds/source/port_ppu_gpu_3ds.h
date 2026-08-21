@@ -17,7 +17,7 @@ typedef struct PortPpuGpu3DSStats {
      * close a rendered frame came to the command-buffer limits. */
     uint64_t buildFailures[PPU_GPU3DS_BUILD_REASON_COUNT];
     uint32_t maxBands, maxVertices, maxBatches, maxRequiredVertices;
-    uint64_t mapLayers, mapRejects[PPU_GPU3DS_MAP_REJECT_COUNT];
+    uint64_t mapLayers, mapRebuilds, mapRejects[PPU_GPU3DS_MAP_REJECT_COUNT];
     uint32_t mapLargestQuads;
     /* The frame the quick dump captured, so a host replay is comparable. */
     uint64_t lastBuildTicks;

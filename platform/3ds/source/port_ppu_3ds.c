@@ -592,10 +592,11 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 (unsigned long)ppuGpuStats.firstDiffX,
                 (unsigned long)ppuGpuStats.firstDiffY);
         fprintf(info,
-                "PICA200 PPU map layers used: %llu; rejects "
+                "PICA200 PPU map layers used: %llu (rebuilt %llu); rejects "
                 "(affine/control/screen-space/off/too-large/coverage): "
                 "%llu/%llu/%llu/%llu/%llu/%llu; largest window %lu quads\n",
                 (unsigned long long)ppuGpuStats.mapLayers,
+                (unsigned long long)ppuGpuStats.mapRebuilds,
                 (unsigned long long)ppuGpuStats.mapRejects[PPU_GPU3DS_MAP_REJECT_AFFINE],
                 (unsigned long long)ppuGpuStats.mapRejects[PPU_GPU3DS_MAP_REJECT_CONTROL],
                 (unsigned long long)ppuGpuStats.mapRejects[PPU_GPU3DS_MAP_REJECT_SCREEN_SPACE],
@@ -612,7 +613,7 @@ void Port_PPU_3DS_WriteQuickDump(void) {
 #ifdef PPU_GPU3DS_PROFILE
         {
             static const char* phaseNames[PPU_GPU3DS_PHASE_COUNT] = {
-                "bands", "merge", "maps", "scene",
+                "bands", "merge", "maps", "mapsig", "scene",
                 "objwin", "regions", "bg", "obj"
             };
             const unsigned long long attempts =
