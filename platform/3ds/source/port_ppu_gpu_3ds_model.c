@@ -946,12 +946,13 @@ typedef struct PpuGpu3DSTextSample {
 static uint32_t map_signature(const PpuGpu3DSFrameView* frame, uint16_t bgcnt,
                               uint32_t screenBase, uint32_t screenBytes,
                               uint32_t charBase, unsigned rowLo, unsigned colLo,
-                              unsigned rows, unsigned cols,
-                              uint32_t paletteGeneration) {
+                              unsigned rows, unsigned cols) {
     uint32_t hash = 2166136261u;
-    const uint32_t header[8] = { bgcnt,     screenBase, charBase, rowLo,
-                                 colLo,     rows,       cols,     paletteGeneration };
-    for (unsigned i = 0; i < 8u; ++i) {
+    /* Palette generation is deliberately absent: it is compared separately so
+     * a palette-driven rebuild is distinguishable from a tilemap edit. */
+    const uint32_t header[7] = { bgcnt, screenBase, charBase, rowLo,
+                                 colLo, rows,      cols };
+    for (unsigned i = 0; i < 7u; ++i) {
         hash = (hash ^ header[i]) * 16777619u;
     }
     if (screenBase + screenBytes > MODE1_VRAM_SIZE) return 0;
@@ -2215,9 +2216,11 @@ static bool retain_tiles_current(PpuGpu3DSCache* cache, unsigned bg,
 }
 
 static void retain_store(PpuGpu3DSCache* cache, unsigned bg, uint32_t signature,
+                         uint32_t paletteSignature,
                          const PpuGpu3DSBgMap* map) {
     PpuGpu3DSRetainedMap* retained = &cache->retained[bg];
     retained->signature = signature;
+    retained->paletteSignature = paletteSignature;
     retained->firstIndex = map->firstIndex;
     retained->rowLo = map->rowLo;
     retained->colLo = map->colLo;
@@ -2227,10 +2230,23 @@ static void retain_store(PpuGpu3DSCache* cache, unsigned bg, uint32_t signature,
     retained->valid = map->valid;
 }
 
-static bool retain_matches(const PpuGpu3DSCache* cache, unsigned bg,
-                           uint32_t signature) {
+/* Splits the old single test so the caller can attribute the miss. Order is
+ * cheapest-first: both compares are two loads, but the tile digest behind
+ * them reads kilobytes, so it must not run when this already failed. */
+static PpuGpu3DSMapRebuild retain_state(const PpuGpu3DSCache* cache,
+                                        unsigned bg, uint32_t signature,
+                                        uint32_t paletteSignature,
+                                        bool* matched) {
     const PpuGpu3DSRetainedMap* retained = &cache->retained[bg];
-    return retained->valid && signature != 0 && retained->signature == signature;
+    *matched = false;
+    if (!retained->valid || signature == 0)
+        return PPU_GPU3DS_MAP_REBUILD_NEW;
+    if (retained->signature != signature)
+        return PPU_GPU3DS_MAP_REBUILD_TILEMAP;
+    if (retained->paletteSignature != paletteSignature)
+        return PPU_GPU3DS_MAP_REBUILD_PALETTE;
+    *matched = true;
+    return PPU_GPU3DS_MAP_REBUILD_COUNT;
 }
 
 static bool bg_map_uses_screen_space(const PpuGpu3DSFrameView* frame,
@@ -2325,14 +2341,21 @@ static bool build_bg_map(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
         PROFILE_BEGIN(PPU_GPU3DS_PHASE_MAPSIG);
         const uint32_t signature = map_signature(
                 frame, bgcnt, ((bgcnt >> 8u) & 0x1fu) * 0x800u, screenBytes,
-                ((bgcnt >> 2u) & 3u) * 0x4000u, rowLo, colLo, rows, cols,
-                paletteGeneration);
+                ((bgcnt >> 2u) & 3u) * 0x4000u, rowLo, colLo, rows, cols);
         PROFILE_END(PPU_GPU3DS_PHASE_MAPSIG);
-        PROFILE_BEGIN(PPU_GPU3DS_PHASE_MAPRETAIN);
-        const bool retainCurrent = retain_matches(cache, bg, signature) &&
-                                   retain_tiles_current(cache, bg, frame);
-        PROFILE_END(PPU_GPU3DS_PHASE_MAPRETAIN);
-        if (retainCurrent) {
+        bool matched = false;
+        PpuGpu3DSMapRebuild why =
+                retain_state(cache, bg, signature, paletteGeneration, &matched);
+        if (matched) {
+            PROFILE_BEGIN(PPU_GPU3DS_PHASE_MAPRETAIN);
+            const bool tilesCurrent = retain_tiles_current(cache, bg, frame);
+            PROFILE_END(PPU_GPU3DS_PHASE_MAPRETAIN);
+            if (!tilesCurrent) {
+                matched = false;
+                why = PPU_GPU3DS_MAP_REBUILD_TILES;
+            }
+        }
+        if (matched) {
             const PpuGpu3DSRetainedMap* retained = &cache->retained[bg];
             if (retained->rows == rows && retained->cols == cols &&
                 retained->rowLo == rowLo && retained->colLo == colLo) {
@@ -2346,9 +2369,12 @@ static bool build_bg_map(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
                 cmd->mapLayerMask |= (uint8_t)(1u << bg);
                 return true;
             }
+            why = PPU_GPU3DS_MAP_REBUILD_WINDOW;
         }
+        cmd->mapRebuild[why] += 1u;
         retain_release(cache, bg);
         cache->retained[bg].signature = signature;
+        cache->retained[bg].paletteSignature = paletteGeneration;
     }
     *vertexCursor = (size_t)bg * PPU_GPU3DS_MAP_SLICE_VERTICES;
     *indexCursor = (size_t)bg * PPU_GPU3DS_MAP_SLICE_INDICES;
@@ -2446,7 +2472,8 @@ static bool build_bg_map(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
     cmd->mapLayerMask |= (uint8_t)(1u << bg);
     cmd->mapSliceVertices[bg] =
             (uint32_t)(*vertexCursor - (size_t)bg * PPU_GPU3DS_MAP_SLICE_VERTICES);
-    retain_store(cache, bg, cache->retained[bg].signature, map);
+    retain_store(cache, bg, cache->retained[bg].signature,
+                 cache->retained[bg].paletteSignature, map);
     retain_snapshot(cache, bg, frame);
     return true;
 }
@@ -2521,13 +2548,21 @@ static bool build_affine_map(const PpuGpu3DSFrameView* frame,
         PROFILE_BEGIN(PPU_GPU3DS_PHASE_MAPSIG);
         const uint32_t signature = map_signature(
                 frame, bgcnt, screenBase, (uint32_t)(mapTiles * mapTiles),
-                charBase, rowLo, colLo, rows, cols, paletteGeneration);
+                charBase, rowLo, colLo, rows, cols);
         PROFILE_END(PPU_GPU3DS_PHASE_MAPSIG);
-        PROFILE_BEGIN(PPU_GPU3DS_PHASE_MAPRETAIN);
-        const bool retainCurrent = retain_matches(cache, 2u, signature) &&
-                                   retain_tiles_current(cache, 2u, frame);
-        PROFILE_END(PPU_GPU3DS_PHASE_MAPRETAIN);
-        if (retainCurrent) {
+        bool matched = false;
+        PpuGpu3DSMapRebuild why =
+                retain_state(cache, 2u, signature, paletteGeneration, &matched);
+        if (matched) {
+            PROFILE_BEGIN(PPU_GPU3DS_PHASE_MAPRETAIN);
+            const bool tilesCurrent = retain_tiles_current(cache, 2u, frame);
+            PROFILE_END(PPU_GPU3DS_PHASE_MAPRETAIN);
+            if (!tilesCurrent) {
+                matched = false;
+                why = PPU_GPU3DS_MAP_REBUILD_TILES;
+            }
+        }
+        if (matched) {
             const PpuGpu3DSRetainedMap* retained = &cache->retained[2];
             if (retained->rows == rows && retained->cols == cols &&
                 retained->rowLo == rowLo && retained->colLo == colLo) {
@@ -2541,9 +2576,12 @@ static bool build_affine_map(const PpuGpu3DSFrameView* frame,
                 cmd->mapLayerMask |= (uint8_t)(1u << 2u);
                 return true;
             }
+            why = PPU_GPU3DS_MAP_REBUILD_WINDOW;
         }
+        cmd->mapRebuild[why] += 1u;
         retain_release(cache, 2u);
         cache->retained[2].signature = signature;
+        cache->retained[2].paletteSignature = paletteGeneration;
     }
     *vertexCursor = 2u * PPU_GPU3DS_MAP_SLICE_VERTICES;
     *indexCursor = 2u * PPU_GPU3DS_MAP_SLICE_INDICES;
@@ -2616,7 +2654,8 @@ static bool build_affine_map(const PpuGpu3DSFrameView* frame,
     cmd->mapLayerMask |= (uint8_t)(1u << 2u);
     cmd->mapSliceVertices[2] =
             (uint32_t)(*vertexCursor - 2u * PPU_GPU3DS_MAP_SLICE_VERTICES);
-    retain_store(cache, 2u, cache->retained[2].signature, map);
+    retain_store(cache, 2u, cache->retained[2].signature,
+                 cache->retained[2].paletteSignature, map);
     retain_snapshot(cache, 2u, frame);
     return true;
 }
@@ -2990,6 +3029,7 @@ bool PpuGpu3DS_BuildCommands(const PpuGpu3DSFrameView* frame,
     cmd->dynamicFirstIndex = 0;
     memset(cmd->mapSliceVertices, 0, sizeof(cmd->mapSliceVertices));
     memset(cmd->mapReject, 0, sizeof(cmd->mapReject));
+    memset(cmd->mapRebuild, 0, sizeof(cmd->mapRebuild));
     if (startBatch >= cmd->batchCapacity || startVertex > (size_t)UINT16_MAX) {
         cmd->failReason = PPU_GPU3DS_BUILD_CAPACITY;
         return false;

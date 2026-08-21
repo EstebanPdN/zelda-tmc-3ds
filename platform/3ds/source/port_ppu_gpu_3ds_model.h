@@ -75,16 +75,21 @@ typedef struct PpuGpu3DSCacheEntry {
 /* A background's map-space geometry, kept across frames while the tilemap,
  * the tiles it names and the palette all stay put. */
 typedef struct PpuGpu3DSRetainedMap {
+    /* Tilemap-and-geometry digest, and the palette generation, kept apart so a
+     * rebuild can say which one moved. They were one value; any palette bank
+     * changing then invalidated every layer indiscriminately, and that could
+     * not be told apart from a real tilemap edit. */
     uint32_t signature;
+    uint32_t paletteSignature;
     uint32_t firstIndex;
     uint16_t rowLo, colLo, rows, cols;
     uint16_t bgcnt;
     uint16_t slotCount;
     uint16_t slots[PPU_GPU3DS_MAP_MAX_QUADS];
-    /* Byte range of the character data these quads sample, plus a copy of it
-     * taken when they were built. Comparing against the copy is exact and a
-     * straight sequential compare -- cheaper than digesting the range, and far
-     * cheaper than checking each tile against its scattered cache entry. */
+    /* Byte range of the character data these quads sample. A 64-bit digest of
+     * it lives in the cache: reading VRAM once beats matching it against a
+     * full copy, and far beats checking each tile against its scattered
+     * cache entry. */
     uint32_t tileFirst, tileLast;
     bool valid;
 } PpuGpu3DSRetainedMap;
@@ -232,6 +237,19 @@ typedef enum PpuGpu3DSMapReject {
     PPU_GPU3DS_MAP_REJECT_COUNT
 } PpuGpu3DSMapReject;
 
+/* Why a retained layer had to re-emit its quads. Attribution matters because
+ * the remedies are unrelated: a palette-driven rebuild is over-invalidation to
+ * be narrowed, a window-driven one is scrolling and inherent, and a tile or
+ * tilemap one is the game genuinely changing what is drawn. */
+typedef enum PpuGpu3DSMapRebuild {
+    PPU_GPU3DS_MAP_REBUILD_NEW,
+    PPU_GPU3DS_MAP_REBUILD_TILEMAP,
+    PPU_GPU3DS_MAP_REBUILD_PALETTE,
+    PPU_GPU3DS_MAP_REBUILD_TILES,
+    PPU_GPU3DS_MAP_REBUILD_WINDOW,
+    PPU_GPU3DS_MAP_REBUILD_COUNT
+} PpuGpu3DSMapRebuild;
+
 typedef struct PpuGpu3DSCommandBuffer {
     PpuGpu3DSVertex* vertices;
     uint16_t* indices;
@@ -254,6 +272,7 @@ typedef struct PpuGpu3DSCommandBuffer {
 
     uint32_t mapLargestQuads;
     uint32_t mapReject[PPU_GPU3DS_MAP_REJECT_COUNT];
+    uint32_t mapRebuild[PPU_GPU3DS_MAP_REBUILD_COUNT];
     uint16_t bandCount;
     /* What the frame asked for, which on overflow exceeds the capacities. */
     uint32_t requiredVertices, requiredBatches;

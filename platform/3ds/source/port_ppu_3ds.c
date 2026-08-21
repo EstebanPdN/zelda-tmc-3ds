@@ -605,6 +605,14 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 (unsigned long long)ppuGpuStats.mapRejects[PPU_GPU3DS_MAP_REJECT_COVERAGE],
                 (unsigned long)ppuGpuStats.mapLargestQuads);
         fprintf(info,
+                "PICA200 PPU map rebuilds (new/tilemap/palette/tiles/window): "
+                "%llu/%llu/%llu/%llu/%llu\n",
+                (unsigned long long)ppuGpuStats.mapRebuildReason[PPU_GPU3DS_MAP_REBUILD_NEW],
+                (unsigned long long)ppuGpuStats.mapRebuildReason[PPU_GPU3DS_MAP_REBUILD_TILEMAP],
+                (unsigned long long)ppuGpuStats.mapRebuildReason[PPU_GPU3DS_MAP_REBUILD_PALETTE],
+                (unsigned long long)ppuGpuStats.mapRebuildReason[PPU_GPU3DS_MAP_REBUILD_TILES],
+                (unsigned long long)ppuGpuStats.mapRebuildReason[PPU_GPU3DS_MAP_REBUILD_WINDOW]);
+        fprintf(info,
                 "PICA200 PPU captured frame: %.3f ms build, %lu bands, %lu vertices, map mask 0x%02x\n",
                 TicksToMilliseconds(ppuGpuStats.lastBuildTicks),
                 (unsigned long)ppuGpuStats.lastBands,
