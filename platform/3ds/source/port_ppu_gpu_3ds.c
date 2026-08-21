@@ -300,6 +300,7 @@ bool PortPpuGpu3DS_Preflight(const PpuGpu3DSFrameView* frame) {
         sStats.mapRejects[reason] += sCommands.mapReject[reason];
     for (unsigned reason = 0; reason < PPU_GPU3DS_MAP_REBUILD_COUNT; ++reason)
         sStats.mapRebuildReason[reason] += sCommands.mapRebuild[reason];
+    sStats.mapRefreshes += sCommands.mapRefresh;
     for (unsigned bg = 0; bg < 4u; ++bg) {
         if ((sCommands.mapLayerMask & (1u << bg)) != 0) ++sStats.mapLayers;
     }

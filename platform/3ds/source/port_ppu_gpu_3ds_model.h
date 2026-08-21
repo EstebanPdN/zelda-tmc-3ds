@@ -275,9 +275,12 @@ typedef struct PpuGpu3DSCommandBuffer {
     uint8_t mapDirtyMask;
     uint32_t mapSliceVertices[4];
     uint32_t dynamicFirstVertex, dynamicFirstIndex;
-
     uint32_t mapLargestQuads;
     uint32_t mapReject[PPU_GPU3DS_MAP_REJECT_COUNT];
+    /* Layers kept by refreshing the atlas in place instead of re-emitting
+     * identical quads. Against mapRebuild[PALETTE] this says how often the
+     * shortcut applied. */
+    uint32_t mapRefresh;
     uint32_t mapRebuild[PPU_GPU3DS_MAP_REBUILD_COUNT];
     uint16_t bandCount;
     /* What the frame asked for, which on overflow exceeds the capacities. */
@@ -304,6 +307,12 @@ typedef enum PpuGpu3DSPhase {
     PPU_GPU3DS_PHASE_REGIONS,
     PPU_GPU3DS_PHASE_BG,
     PPU_GPU3DS_PHASE_OBJ,
+    /* Tile decode, wherever it is reached from -- it is nested inside the
+     * phase that triggered it. Palette churn forces map rebuilds whose
+     * geometry comes out byte-identical, so whether that waste is the
+     * re-emitted quads or the re-decoded tiles decides which fix is worth
+     * making. */
+    PPU_GPU3DS_PHASE_DECODE,
     PPU_GPU3DS_PHASE_COUNT
 } PpuGpu3DSPhase;
 #ifdef PPU_GPU3DS_PROFILE

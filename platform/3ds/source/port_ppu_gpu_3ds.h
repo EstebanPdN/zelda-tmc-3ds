@@ -19,6 +19,7 @@ typedef struct PortPpuGpu3DSStats {
     uint32_t maxBands, maxVertices, maxBatches, maxRequiredVertices;
     uint64_t mapLayers, mapRebuilds, mapRejects[PPU_GPU3DS_MAP_REJECT_COUNT];
     uint64_t mapRebuildReason[PPU_GPU3DS_MAP_REBUILD_COUNT];
+    uint64_t mapRefreshes;
     uint32_t mapLargestQuads;
     /* The frame the quick dump captured, so a host replay is comparable. */
     uint64_t lastBuildTicks;

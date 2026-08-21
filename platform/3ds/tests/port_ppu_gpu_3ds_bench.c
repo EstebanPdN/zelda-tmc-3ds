@@ -789,7 +789,7 @@ int main(int argc, char** argv) {
     {
         static const char* names[PPU_GPU3DS_PHASE_COUNT] = {
             "bands", "merge", "maps", "mapsig", "mapretain", "scene",
-            "  objwin", "regions", "bg", "obj"
+            "  objwin", "regions", "bg", "obj", "decode"
         };
         printf("  phases (ms/frame):");
         for (unsigned phase = 0; phase < PPU_GPU3DS_PHASE_COUNT; ++phase)

@@ -176,6 +176,84 @@ void PpuGpu3DS_CacheBeginFrame(PpuGpu3DSCache* cache, const uint16_t* bgPalette,
     cache->frame = frame;
 }
 
+/* The palette generation a tile's decode depends on: one 4bpp bank, or the
+ * 256-colour generation. Nothing else affects it. */
+static uint32_t tile_palette_generation(const PpuGpu3DSCache* cache,
+                                        PpuGpu3DSTileKey key) {
+    const uint32_t* bankGenerations = key.domain == PPU_GPU3DS_PALETTE_BG
+                                              ? cache->bgBankGeneration
+                                              : cache->objBankGeneration;
+    const uint32_t fullGeneration = key.domain == PPU_GPU3DS_PALETTE_BG
+                                            ? cache->bg256Generation
+                                            : cache->obj256Generation;
+    return key.bpp8 ? fullGeneration : bankGenerations[key.paletteBank & 15u];
+}
+
+/* Decodes one tile into `slot`'s atlas cell. Split out of PpuGpu3DS_CacheTile
+ * so a retained layer can be refreshed in place after a palette change: the
+ * slot, and so the UV the retained geometry already points at, must not move.
+ */
+static void cache_decode_slot(PpuGpu3DSCache* cache, const uint8_t* source,
+                              size_t tileBytes, PpuGpu3DSTileKey key,
+                              uint16_t slot, uint16_t* atlas,
+                              uint32_t paletteGeneration) {
+    PpuGpu3DSCacheEntry* entry = &cache->entries[slot];
+    ++cache->decodes;
+    PROFILE_BEGIN(PPU_GPU3DS_PHASE_DECODE);
+    const uint16_t* palette =
+            key.domain == PPU_GPU3DS_PALETTE_BG ? cache->bgPalette : cache->objPalette;
+    memcpy(cache->sources[slot], source, tileBytes);
+    /* Every pixel of a 4bpp tile shares one 16-colour bank, so the pack that
+     * used to run 64 times runs 16, each source byte is read once for its two
+     * pixels instead of twice with a shift chosen per pixel, and the Morton
+     * position is a table lookup. Decoding is the part of the build that
+     * hardware does ~95 times a frame while a static-frame bench does ~1.5. */
+    uint16_t* const dest = atlas + (size_t)slot * 64;
+    unsigned opaqueMask = 0;
+    if (!key.bpp8) {
+        const unsigned domain =
+                key.domain == PPU_GPU3DS_PALETTE_BG ? 0u : 1u;
+        const unsigned bankIndex = key.paletteBank & 15u;
+        uint16_t* const lut = cache->bankLut[domain][bankIndex];
+        if (!cache->bankLutValid[domain][bankIndex] ||
+            cache->bankLutGeneration[domain][bankIndex] != paletteGeneration) {
+            const uint16_t* const bank = palette + bankIndex * 16u;
+            lut[0] = 0;
+            for (unsigned index = 1; index < 16u; ++index)
+                lut[index] = PpuGpu3DS_PackRgba5551(bank[index], true);
+            cache->bankLutGeneration[domain][bankIndex] = paletteGeneration;
+            cache->bankLutValid[domain][bankIndex] = true;
+        }
+        for (unsigned pixel = 0; pixel < 64u; pixel += 2u) {
+            const uint8_t pair = source[pixel >> 1u];
+            const unsigned low = pair & 0x0fu;
+            const unsigned high = pair >> 4u;
+            dest[kTileMorton[pixel]] = lut[low];
+            dest[kTileMorton[pixel + 1u]] = lut[high];
+            opaqueMask |= low | high;
+        }
+    } else {
+        for (unsigned pixel = 0; pixel < 64u; ++pixel) {
+            const uint8_t colorIndex = source[pixel];
+            dest[kTileMorton[pixel]] =
+                    colorIndex ? PpuGpu3DS_PackRgba5551(palette[colorIndex], true)
+                               : 0;
+            opaqueMask |= colorIndex;
+        }
+    }
+    entry->transparent = opaqueMask == 0;
+    entry->key = key;
+    entry->paletteGeneration = paletteGeneration;
+    entry->lastUseFrame = cache->frame;
+    entry->valid = true;
+    cache_mark_dirty(cache, slot);
+    /* A pinned slot is off the LRU list; touching it would relink it. In the
+     * allocation path below the victim is never pinned, so this is the same
+     * unconditional touch it always did. */
+    if (!entry->pinned) cache_touch(cache, slot);
+    PROFILE_END(PPU_GPU3DS_PHASE_DECODE);
+}
+
 bool PpuGpu3DS_CacheTile(PpuGpu3DSCache* cache, const uint8_t* vram, PpuGpu3DSTileKey key,
                          uint16_t* atlas, uint16_t* outSlot) {
     const size_t tileBytes = key.bpp8 ? 64u : 32u;
@@ -185,13 +263,7 @@ bool PpuGpu3DS_CacheTile(PpuGpu3DSCache* cache, const uint8_t* vram, PpuGpu3DSTi
         return false;
     }
 
-    const uint32_t* bankGenerations = key.domain == PPU_GPU3DS_PALETTE_BG
-                                              ? cache->bgBankGeneration
-                                              : cache->objBankGeneration;
-    const uint32_t fullGeneration =
-            key.domain == PPU_GPU3DS_PALETTE_BG ? cache->bg256Generation : cache->obj256Generation;
-    const uint32_t paletteGeneration =
-            key.bpp8 ? fullGeneration : bankGenerations[key.paletteBank];
+    const uint32_t paletteGeneration = tile_palette_generation(cache, key);
     const uint8_t* source = vram + key.vramOffset;
 
     const unsigned bucket = cache_bucket(key);
@@ -243,57 +315,8 @@ bool PpuGpu3DS_CacheTile(PpuGpu3DSCache* cache, const uint8_t* vram, PpuGpu3DSTi
         cache->buckets[bucket] = selected;
     }
 
-    PpuGpu3DSCacheEntry* entry = &cache->entries[selected];
-    ++cache->decodes;
-    const uint16_t* palette =
-            key.domain == PPU_GPU3DS_PALETTE_BG ? cache->bgPalette : cache->objPalette;
-    memcpy(cache->sources[selected], source, tileBytes);
-    /* Every pixel of a 4bpp tile shares one 16-colour bank, so the pack that
-     * used to run 64 times runs 16, each source byte is read once for its two
-     * pixels instead of twice with a shift chosen per pixel, and the Morton
-     * position is a table lookup. Decoding is the part of the build that
-     * hardware does ~95 times a frame while a static-frame bench does ~1.5. */
-    uint16_t* const dest = atlas + (size_t)selected * 64;
-    unsigned opaqueMask = 0;
-    if (!key.bpp8) {
-        const unsigned domain =
-                key.domain == PPU_GPU3DS_PALETTE_BG ? 0u : 1u;
-        const unsigned bankIndex = key.paletteBank & 15u;
-        uint16_t* const lut = cache->bankLut[domain][bankIndex];
-        if (!cache->bankLutValid[domain][bankIndex] ||
-            cache->bankLutGeneration[domain][bankIndex] != paletteGeneration) {
-            const uint16_t* const bank = palette + bankIndex * 16u;
-            lut[0] = 0;
-            for (unsigned index = 1; index < 16u; ++index)
-                lut[index] = PpuGpu3DS_PackRgba5551(bank[index], true);
-            cache->bankLutGeneration[domain][bankIndex] = paletteGeneration;
-            cache->bankLutValid[domain][bankIndex] = true;
-        }
-        for (unsigned pixel = 0; pixel < 64u; pixel += 2u) {
-            const uint8_t pair = source[pixel >> 1u];
-            const unsigned low = pair & 0x0fu;
-            const unsigned high = pair >> 4u;
-            dest[kTileMorton[pixel]] = lut[low];
-            dest[kTileMorton[pixel + 1u]] = lut[high];
-            opaqueMask |= low | high;
-        }
-    } else {
-        for (unsigned pixel = 0; pixel < 64u; ++pixel) {
-            const uint8_t colorIndex = source[pixel];
-            dest[kTileMorton[pixel]] =
-                    colorIndex ? PpuGpu3DS_PackRgba5551(palette[colorIndex], true)
-                               : 0;
-            opaqueMask |= colorIndex;
-        }
-    }
-    entry->transparent = opaqueMask == 0;
-
-    entry->key = key;
-    entry->paletteGeneration = paletteGeneration;
-    entry->lastUseFrame = cache->frame;
-    entry->valid = true;
-    cache_mark_dirty(cache, selected);
-    cache_touch(cache, selected);
+    cache_decode_slot(cache, source, tileBytes, key, selected, atlas,
+                      paletteGeneration);
     *outSlot = selected;
     return true;
 }
@@ -2261,6 +2284,39 @@ static uint32_t layer_palette_generation(const PpuGpu3DSCache* cache,
     return generation;
 }
 
+/* Re-decodes just the slots a retained layer samples whose palette moved on,
+ * leaving the geometry alone.
+ *
+ * This is the whole point of splitting palette out of the signature. When only
+ * the palette changed, the tilemap, the tiles and the window are all still
+ * identical, so a rebuild re-emits quads that come out byte-for-byte the same
+ * -- measured as the largest single cost in the frame. The atlas genuinely
+ * does need re-decoding, but the slots are pinned and reused, so decoding in
+ * place keeps every UV valid.
+ *
+ * Returns false if anything looks unexpected, in which case the caller falls
+ * back to the full rebuild rather than trusting a half-refreshed layer. */
+static bool retain_refresh_palette(PpuGpu3DSCache* cache, const uint8_t* vram,
+                                   unsigned bg, uint16_t* atlas) {
+    PpuGpu3DSRetainedMap* retained = &cache->retained[bg];
+    if (retained->slotCount == 0) return false;
+    for (unsigned index = 0; index < retained->slotCount; ++index) {
+        const uint16_t slot = retained->slots[index];
+        if (slot >= PPU_GPU3DS_SLOT_COUNT) return false;
+        PpuGpu3DSCacheEntry* entry = &cache->entries[slot];
+        if (!entry->valid || !entry->pinned) return false;
+        const PpuGpu3DSTileKey key = entry->key;
+        const size_t tileBytes = key.bpp8 ? 64u : 32u;
+        if (key.vramOffset > MODE1_VRAM_SIZE - tileBytes) return false;
+        const uint32_t needed = tile_palette_generation(cache, key);
+        /* slots[] can name one tile twice; the second visit is already current. */
+        if (entry->paletteGeneration == needed) continue;
+        cache_decode_slot(cache, vram + key.vramOffset, tileBytes, key, slot,
+                          atlas, needed);
+    }
+    return true;
+}
+
 /* Splits the old single test so the caller can attribute the miss. Order is
  * cheapest-first: both compares are two loads, but the tile digest behind
  * them reads kilobytes, so it must not run when this already failed. */
@@ -2378,13 +2434,27 @@ static bool build_bg_map(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
         bool matched = false;
         PpuGpu3DSMapRebuild why =
                 retain_state(cache, bg, signature, paletteGeneration, &matched);
-        if (matched) {
+        /* A palette-only miss still has an identical tilemap, tiles and window,
+         * so the quads would be re-emitted unchanged. Verify the tiles, then
+         * refresh the atlas in place and keep the geometry. */
+        const bool paletteOnly = why == PPU_GPU3DS_MAP_REBUILD_PALETTE;
+        if (matched || paletteOnly) {
             PROFILE_BEGIN(PPU_GPU3DS_PHASE_MAPRETAIN);
             const bool tilesCurrent = retain_tiles_current(cache, bg, frame);
             PROFILE_END(PPU_GPU3DS_PHASE_MAPRETAIN);
             if (!tilesCurrent) {
                 matched = false;
                 why = PPU_GPU3DS_MAP_REBUILD_TILES;
+            } else if (paletteOnly) {
+                const PpuGpu3DSRetainedMap* retained = &cache->retained[bg];
+                if (retained->rows == rows && retained->cols == cols &&
+                    retained->rowLo == rowLo && retained->colLo == colLo &&
+                    retain_refresh_palette(cache, frame->memory.vram, bg,
+                                           atlas)) {
+                    cache->retained[bg].paletteSignature = paletteGeneration;
+                    cmd->mapRefresh += 1u;
+                    matched = true;
+                }
             }
         }
         if (matched) {
@@ -2594,13 +2664,24 @@ static bool build_affine_map(const PpuGpu3DSFrameView* frame,
         bool matched = false;
         PpuGpu3DSMapRebuild why =
                 retain_state(cache, 2u, signature, paletteGeneration, &matched);
-        if (matched) {
+        const bool paletteOnly = why == PPU_GPU3DS_MAP_REBUILD_PALETTE;
+        if (matched || paletteOnly) {
             PROFILE_BEGIN(PPU_GPU3DS_PHASE_MAPRETAIN);
             const bool tilesCurrent = retain_tiles_current(cache, 2u, frame);
             PROFILE_END(PPU_GPU3DS_PHASE_MAPRETAIN);
             if (!tilesCurrent) {
                 matched = false;
                 why = PPU_GPU3DS_MAP_REBUILD_TILES;
+            } else if (paletteOnly) {
+                const PpuGpu3DSRetainedMap* retained = &cache->retained[2];
+                if (retained->rows == rows && retained->cols == cols &&
+                    retained->rowLo == rowLo && retained->colLo == colLo &&
+                    retain_refresh_palette(cache, frame->memory.vram, 2u,
+                                           atlas)) {
+                    cache->retained[2].paletteSignature = paletteGeneration;
+                    cmd->mapRefresh += 1u;
+                    matched = true;
+                }
             }
         }
         if (matched) {
@@ -3071,6 +3152,7 @@ bool PpuGpu3DS_BuildCommands(const PpuGpu3DSFrameView* frame,
     memset(cmd->mapSliceVertices, 0, sizeof(cmd->mapSliceVertices));
     memset(cmd->mapReject, 0, sizeof(cmd->mapReject));
     memset(cmd->mapRebuild, 0, sizeof(cmd->mapRebuild));
+    cmd->mapRefresh = 0;
     if (startBatch >= cmd->batchCapacity || startVertex > (size_t)UINT16_MAX) {
         cmd->failReason = PPU_GPU3DS_BUILD_CAPACITY;
         return false;

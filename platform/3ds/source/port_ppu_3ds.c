@@ -606,12 +606,13 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 (unsigned long)ppuGpuStats.mapLargestQuads);
         fprintf(info,
                 "PICA200 PPU map rebuilds (new/tilemap/palette/tiles/window): "
-                "%llu/%llu/%llu/%llu/%llu\n",
+                "%llu/%llu/%llu/%llu/%llu; palette refreshes %llu\n",
                 (unsigned long long)ppuGpuStats.mapRebuildReason[PPU_GPU3DS_MAP_REBUILD_NEW],
                 (unsigned long long)ppuGpuStats.mapRebuildReason[PPU_GPU3DS_MAP_REBUILD_TILEMAP],
                 (unsigned long long)ppuGpuStats.mapRebuildReason[PPU_GPU3DS_MAP_REBUILD_PALETTE],
                 (unsigned long long)ppuGpuStats.mapRebuildReason[PPU_GPU3DS_MAP_REBUILD_TILES],
-                (unsigned long long)ppuGpuStats.mapRebuildReason[PPU_GPU3DS_MAP_REBUILD_WINDOW]);
+                (unsigned long long)ppuGpuStats.mapRebuildReason[PPU_GPU3DS_MAP_REBUILD_WINDOW],
+                (unsigned long long)ppuGpuStats.mapRefreshes);
         fprintf(info,
                 "PICA200 PPU captured frame: %.3f ms build, %lu bands, %lu vertices, map mask 0x%02x\n",
                 TicksToMilliseconds(ppuGpuStats.lastBuildTicks),
@@ -622,7 +623,7 @@ void Port_PPU_3DS_WriteQuickDump(void) {
         {
             static const char* phaseNames[PPU_GPU3DS_PHASE_COUNT] = {
                 "bands", "merge", "maps", "mapsig", "mapretain", "scene",
-                "objwin", "regions", "bg", "obj"
+                "objwin", "regions", "bg", "obj", "decode"
             };
             const unsigned long long attempts =
                     ppuGpuStats.attemptedFrames ? ppuGpuStats.attemptedFrames : 1;
