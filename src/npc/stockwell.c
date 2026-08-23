@@ -309,7 +309,9 @@ void sub_08065370(Entity* this, ScriptExecutionContext* context) {
             gRoomVars.shopItemType2 = 0;
             context->condition = 1;
             if (localFlag) {
-                SetLocalFlag(localFlag);
+                /* localFlag comes from the USA-baseline named constants above,
+                 * not from the active ROM. */
+                SetLocalFlagB(localFlag);
             }
             if (gSave.items_bought <= ~1u) {
                 gSave.items_bought++;

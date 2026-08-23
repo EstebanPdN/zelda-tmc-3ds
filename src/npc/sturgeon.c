@@ -167,7 +167,7 @@ void sub_08064CD8(Entity* this) {
     u32 flag;
     u32 tmp = 2;
     if (GetInventoryValue(ITEM_FLIPPERS) == 0) {
-        if (CheckLocalFlagB(0x73)) {
+        if (CheckLocalFlag(0x73)) {
             tmp = 1;
         } else {
             tmp = 0;

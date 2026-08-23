@@ -41,7 +41,7 @@ void Trapdoor_Init(Entity* this) {
 }
 
 void Trapdoor_Action1(Entity* this) {
-    if (CheckLocalFlag(MIZUKAKI_STAIR)) {
+    if (CheckLocalFlagB(MIZUKAKI_STAIR)) {
         GetNextFrame(this);
         if ((this->frame == 1) && (this->subAction == 0)) {
             this->frame = 0;
@@ -72,7 +72,7 @@ void Trapdoor_Action3(Entity* this) {
             sub_08099ECC(this);
             RequestPriorityDuration(this, 30);
         }
-        if (CheckLocalFlag(MIZUKAKI_STAIR_WARP_OK)) {
+        if (CheckLocalFlagB(MIZUKAKI_STAIR_WARP_OK)) {
             CreateHoleManager(0x7);
         }
     }

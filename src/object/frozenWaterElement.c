@@ -40,7 +40,7 @@ void FrozenWaterElement(FrozenWaterElementEntity* this) {
 
 void FrozenWaterElement_Init(FrozenWaterElementEntity* this) {
     Entity* obj;
-    if (CheckFlagsB(0x9b)) {
+    if (CheckFlags(0x9b)) {
         DeleteThisEntity();
     }
     obj = CreateObject(FROZEN_OCTOROK, 0, 0);
@@ -83,7 +83,7 @@ void FrozenWaterElement_Action2(FrozenWaterElementEntity* this) {
     if (--this->unk_74 == 0) {
         (super->child)->subtimer = 1;
         sub_0809C23C(this);
-        CheckFlagsB(0x9b);
+        CheckFlags(0x9b);
         DeleteThisEntity();
     } else {
         if ((this->unk_74 & 0x1f) == 0) {

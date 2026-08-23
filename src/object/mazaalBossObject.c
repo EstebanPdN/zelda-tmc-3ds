@@ -63,7 +63,7 @@ void MazaalBossObject(Entity* this) {
 void MazaalBossObject_Action0(MazaalBossObjectEntity* this) {
     Entity* mazaalHead;
 
-    if (CheckFlagsB(0x31)) {
+    if (CheckFlags(0x31)) {
         sub_0809AD68(this);
         sub_0809AD8C(this);
         DeleteThisEntity();
@@ -176,7 +176,7 @@ void MazaalBossObject_Action8(MazaalBossObjectEntity* this) {
                 super->timer = 90;
                 super->subAction = 1;
                 SoundReq(SFX_SECRET_BIG);
-                SetFlagB(0x31);
+                SetFlag(0x31);
                 sub_0809AD8C(this);
             }
             break;

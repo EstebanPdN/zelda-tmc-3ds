@@ -208,7 +208,7 @@ void LightRay_Type2(LightRayEntity* this) {
             if (sub_0809BE78(this) && (--super->timer == 0)) {
                 super->timer = 120;
                 super->action = 3;
-                SetLocalFlagB(0x35);
+                SetLocalFlag(0x35);
                 SoundReq(SFX_SECRET);
             }
             break;
@@ -271,7 +271,7 @@ void LightRay_Type3(LightRayEntity* this) {
                         super->action = 2;
                         super->timer = 120;
                         gScreen.lcd.displayControl = (gScreen.lcd.displayControl & 0xdfff) | 0x4800;
-                        SetLocalFlagB(0x37);
+                        SetLocalFlag(0x37);
                         SoundReq(SFX_134);
                     }
                 }

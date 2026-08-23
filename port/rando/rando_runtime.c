@@ -62,6 +62,9 @@ static void WriteBaselineFlag(u32 flag) {
     ordinal = flag - bank;
 #if defined(PC_PORT) && defined(MULTI_REGION)
     ordinal = Port_RemapBaselineLocalFlag(bank, ordinal);
+    if (ordinal == PORT_FLAG_REMAP_INVALID) {
+        return;
+    }
 #endif
     WriteBit(gSave.flags, bank + ordinal);
 }

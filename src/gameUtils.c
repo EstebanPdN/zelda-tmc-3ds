@@ -433,7 +433,7 @@ void LoadRoomBgm(void) {
      * assignment (seed off / MUSIC_RANDO off) keeps vanilla. */
     gArea.queued_bgm = (u32)Rando_Music_Remap(gRoomControls.area, (int)gArea.queued_bgm);
 #endif
-    if (CheckLocalFlagByBank(FLAG_BANK_10, LV6_KANE_START)) {
+    if (CheckLocalFlagByBankB(FLAG_BANK_10, LV6_KANE_START)) {
         gArea.queued_bgm = BGM_FIGHT_THEME2;
     }
 }
@@ -938,11 +938,11 @@ void sub_080530B0(void) {
 
 void UpdateGlobalProgress(void) {
     u8 pcnt = 1;
-    if (CheckLocalFlagByBank(FLAG_BANK_3, SEIIKI_STAINED_GLASS)) {
+    if (CheckLocalFlagByBankB(FLAG_BANK_3, SEIIKI_STAINED_GLASS)) {
         pcnt = 9;
     } else if (CheckGlobalFlag(LV5_CLEAR)) {
         pcnt = 8;
-    } else if (CheckLocalFlagByBank(FLAG_BANK_3, OUBO_KAKERA)) {
+    } else if (CheckLocalFlagByBankB(FLAG_BANK_3, OUBO_KAKERA)) {
         pcnt = 7;
     } else if (CheckGlobalFlag(LV4_CLEAR)) {
         pcnt = 6;
@@ -1141,7 +1141,7 @@ void ResetTimerFlags(void) {
     };
 
     gSave.darknut_timer = 0;
-    if (CheckLocalFlagByBank(FLAG_BANK_10, LV6_ZELDA_DISCURSE))
+    if (CheckLocalFlagByBankB(FLAG_BANK_10, LV6_ZELDA_DISCURSE))
         ClearGlobalFlag(ZELDA_CHASE);
     ClearFlagArray(sClearFlags);
 }
@@ -1151,8 +1151,8 @@ void StartDarkNutTimer(void) {
 }
 
 void sub_080534AC(void) {
-    if (CheckLocalFlagByBank(FLAG_BANK_10, LV6_KANE_START)) {
-        ClearLocalFlagByBank(FLAG_BANK_10, LV6_KANE_START);
+    if (CheckLocalFlagByBankB(FLAG_BANK_10, LV6_KANE_START)) {
+        ClearLocalFlagByBankB(FLAG_BANK_10, LV6_KANE_START);
         gSave.darknut_timer = 0;
         SoundReq(SONG_STOP_BGM);
     }

@@ -469,7 +469,7 @@ void sub_08068CFC(Entity* this, ScriptExecutionContext* context) {
             itemID = ITEM_ROCS_CAPE;
             break;
         case 5:
-            if (CheckLocalFlag(DOUKUTU_05_EVENT) == 0) {
+            if (CheckLocalFlagB(DOUKUTU_05_EVENT) == 0) {
                 return;
             }
             context->condition = 1;

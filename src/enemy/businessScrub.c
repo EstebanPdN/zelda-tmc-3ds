@@ -321,7 +321,7 @@ void BusinessScrub_Action5(BusinessScrubEntity* this) {
                         this->unk_81 = 0;
                         sub_080290E0(this, 3);
                         if (REGION_IS_USA) {
-                            SetLocalFlag(KS_B06);
+                            SetLocalFlagB(KS_B06);
                         }
                         return;
                     }

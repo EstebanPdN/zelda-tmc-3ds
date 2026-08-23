@@ -138,7 +138,7 @@ void sub_0806E014(PicolyteBottleEntity* this) {
     uVar1 = (Random() & 0x70) >> 4;
     super->type2 = 0xff;
     super->timer = 255;
-    if (CheckLocalFlagB(0x93) == 0) {
+    if (CheckLocalFlag(0x93) == 0) {
         super->damage = 0;
         iVar2 = uVar1 * 2;
         ptr = &gUnk_081142CC[iVar2];

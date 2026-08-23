@@ -41,7 +41,7 @@ void Gina(GinaEntity* this) {
             if (UpdateFuseInteraction(super) != 0) {
                 super->action = 1;
                 if (REGION_IS_USA) {
-                    SetLocalFlag(KS_B15);
+                    SetLocalFlagB(KS_B15);
                 }
             }
             break;

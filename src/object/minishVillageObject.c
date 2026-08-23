@@ -215,7 +215,7 @@ void MinishVillageObject_Type8_Init(MinishVillageObjectEntity* this) {
     super->spritePriority.b0 = 7;
     super->frameIndex = super->type2;
     super->action = 2;
-    if ((super->type2 == 0) && (CheckLocalFlagB(0x7c) == 0)) {
+    if ((super->type2 == 0) && (CheckLocalFlag(0x7c) == 0)) {
         super->action = 1;
         super->timer = 0;
         super->spriteRendering.alphaBlend = 1;

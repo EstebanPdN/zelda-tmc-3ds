@@ -62,7 +62,7 @@ void RollingBarrelManager_Main(RollingBarrelManager* this) {
 void RollingBarrelManager_Init(RollingBarrelManager* this) {
     super->action = 1;
     this->unk_28 = 0x1234;
-    super->timer = CheckLocalFlagsB(0x15, 0x2) != 0;
+    super->timer = CheckLocalFlags(0x15, 0x2) != 0;
     sub_08058CB0(this);
     /* RoomExitCallback runs at the start of the door fade, while the old room
      * is still visible.  Match retail: keep the barrel's affine HDMA alive

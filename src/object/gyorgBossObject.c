@@ -68,7 +68,7 @@ void GyorgBossObject(Entity* this) {
 void GyorgBossObject_SetupStart(GyorgBossObjectEntity* this) {
     GyorgHeap* heap;
     Entity* tmp;
-    if (CheckFlagsB(0x7B)) {
+    if (CheckFlags(0x7B)) {
         DeleteThisEntity();
     }
     if (gEntCount > 0x45)
@@ -292,7 +292,7 @@ void GyorgBossObject_FightEnd(GyorgBossObjectEntity* this) {
         LinearMoveUpdate(super);
         sub_080A1E54(this);
         if (--super->subtimer == 0) {
-            SetFlagB(0x7B);
+            SetFlag(0x7B);
             DoExitTransitionWithType(&gUnk_0813ABD0, 8);
             return;
         }

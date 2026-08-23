@@ -204,7 +204,7 @@ void HoleManager_Init(HoleManager* this) {
         obj->x.HALF.HI = transition->parallax_entity->x + gRoomControls.origin_x;
         obj->y.HALF.HI = transition->parallax_entity->y + gRoomControls.origin_y;
     }
-    if (super->type != 0xa || CheckLocalFlagB(0x4B))
+    if (super->type != 0xa || CheckLocalFlag(0x4B))
         return;
     obj = CreateObject(PARALLAX_ROOM_VIEW, 3, 3);
     if (obj) {

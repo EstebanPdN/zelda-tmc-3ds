@@ -150,7 +150,7 @@ void Bird_Type1_Action1_Subaction1(BirdEntity* this) {
         super->action = 1;
         super->z.WORD = 0;
         super->collisionLayer = 1;
-        SetLocalFlag(LV3_OCARINA_FALL);
+        SetLocalFlagB(LV3_OCARINA_FALL);
         SoundReq(SFX_SECRET);
         fx = CreateFx(super, FX_DASH, 0);
         if (fx != NULL) {

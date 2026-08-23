@@ -83,7 +83,7 @@ void SteamOverlayManager_Action4(SteamOverlayManager* this) {
 u32 sub_08059F9C(SteamOverlayManager* this) {
     switch (gRoomControls.room) {
         case 1:
-            if (CheckLocalFlagB(0x16)) {
+            if (CheckLocalFlag(0x16)) {
                 return 0;
             }
             SteamOverlayManager_OnExitRoom(this);

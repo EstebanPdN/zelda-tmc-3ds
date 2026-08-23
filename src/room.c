@@ -17,6 +17,7 @@
 #ifdef PC_PORT
 #include "port_rom.h"
 #include "port/port_generic_entity.h"
+#include "port/port_region_data.h"
 #include <stdio.h>
 #else
 #define GE_FIELD(ent, fname) (&((GenericEntity*)(ent))->fname)
@@ -57,6 +58,9 @@ static void LoadGrassDropTile(TileEntity*);
 static void LoadLocationTile(TileEntity*);
 
 void LoadRoomEntityList(const EntityData* listPtr) {
+#ifdef PC_PORT
+    listPtr = (const EntityData*)Port_ResolveRegionData(listPtr);
+#endif
     if (listPtr != NULL) {
         while (listPtr->kind != 0xFF) {
             LoadRoomEntity(listPtr++);
@@ -67,6 +71,13 @@ void LoadRoomEntityList(const EntityData* listPtr) {
 Entity* LoadRoomEntity(const EntityData* dat) {
     int kind;
     Entity* entity;
+
+#ifdef PC_PORT
+    dat = (const EntityData*)Port_ResolveRegionData(dat);
+    if (dat == NULL) {
+        return NULL;
+    }
+#endif
 
 // r4/r5 regalloc
 #ifndef NON_MATCHING
@@ -572,7 +583,12 @@ void sub_0804B16C(void) {
 }
 
 void LoadRoomTileEntities(TileEntity* list) {
-    TileEntity* t = list;
+    TileEntity* t;
+
+#ifdef PC_PORT
+    list = (TileEntity*)Port_ResolveRegionData(list);
+#endif
+    t = list;
 
     if (t == NULL)
         return;

@@ -109,7 +109,7 @@ void Enemy64(Enemy64Entity* this) {
 void Enemy64_Init(Enemy64Entity* this) {
     Entity* tail;
 
-    if (CheckFlagsB(0x7c)) {
+    if (CheckFlags(0x7c)) {
         SetTile(SPECIAL_TILE_129, TILE_POS(10, 0), LAYER_TOP);
         SetTile(SPECIAL_TILE_129, TILE_POS(10, 1), LAYER_TOP);
         SetTile(SPECIAL_TILE_129, TILE_POS(10, 2), LAYER_TOP);
@@ -455,7 +455,7 @@ void Enemy64_Action4_SubAction6(Enemy64Entity* this) {
         super->subAction = 7;
         super->timer = 160;
         SoundReq(SFX_SECRET);
-        SetFlagB(0x7c);
+        SetFlag(0x7c);
         SetPlayerControl(CONTROL_1);
     }
 }

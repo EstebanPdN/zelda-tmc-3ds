@@ -835,6 +835,7 @@ target("tmc_pc")
     add_files("port/port_icon.cpp")     -- SDL window icon (placeholder, ROM-extracted in future)
     add_files("port/port_mods.cpp")     -- Tier 1 mod loader: asset overrides from <exe>/mods/
     add_files("port/port_rom.c")        -- ROM loading & symbol resolution
+    add_files("port/port_region_data.c") -- USA-compiled data -> active-region data provenance resolver
         -- PC port stubs for undefined symbols
     add_files("port/port_stubs.c")
     add_files("port/stubs_autogen.c")
@@ -1449,6 +1450,39 @@ target("delayed_entity_script_slot_test")
     end
     add_files("port/port_delayed_entity_script_slot_test.c")
     add_files("src/manager/delayedEntityLoadManager.c")
+target_end()
+
+
+-- ====================
+-- Semantic flag remap fail-closed runtime regression test.
+-- ====================
+target("flag_runtime_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
+    add_files("src/flags.c")
+    add_files("port/flag_remap_generated.c")
+    add_files("port/port_flag_runtime_test.c")
+target_end()
+
+
+-- ====================
+-- Compiled-USA -> region-native entity/tile data regression test.
+-- ====================
+target("region_data_resolver_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
+    add_files("port/port_region_data_test.c")
+    add_files("port/port_region_data.c")
 target_end()
 
 

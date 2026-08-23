@@ -109,7 +109,7 @@ void BigBarrel_Type0(BigBarrelEntity* this) {
 void sub_08088BE0(BigBarrelEntity* this) {
     Entity* ent;
 
-    if (CheckLocalFlagB(0x15) == 0) {
+    if (CheckLocalFlag(0x15) == 0) {
         sub_08088C78(this, 2, 0, -120);
         ent = sub_08088C78(this, 4, 0x15, 0);
         if (ent != NULL) {
@@ -118,7 +118,7 @@ void sub_08088BE0(BigBarrelEntity* this) {
         }
     }
 
-    if (CheckLocalFlagB(0x16) == 0) {
+    if (CheckLocalFlag(0x16) == 0) {
         sub_08088C78(this, 2, 1, 120);
         ent = sub_08088C78(this, 4, 0x16, 0);
         if (ent != NULL) {
@@ -312,7 +312,7 @@ void BigBarrel_Type4(BigBarrelEntity* this) {
             break;
         default:
             if (--super->timer == 0x5a) {
-                if (CheckLocalFlagsB(0x15, 2)) {
+                if (CheckLocalFlags(0x15, 2)) {
                     gRoomVars.animFlags |= 2;
                 } else {
                     gRoomVars.animFlags |= 1;
@@ -321,7 +321,7 @@ void BigBarrel_Type4(BigBarrelEntity* this) {
             }
             if (super->timer == 0) {
                 gRoomVars.animFlags &= ~0x10;
-                if (CheckLocalFlagsB(0x15, 2)) {
+                if (CheckLocalFlags(0x15, 2)) {
                     RequestPriorityDuration(super, 60);
                     SoundReq(SFX_SECRET);
                 }

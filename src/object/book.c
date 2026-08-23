@@ -45,7 +45,7 @@ void Book_Init(BookEntity* this) {
             DeleteThisEntity();
         }
     } else {
-        if (CheckLocalFlag(MIZUKAKI_BOOK_ALLBACK)) {
+        if (CheckLocalFlagB(MIZUKAKI_BOOK_ALLBACK)) {
             DeleteThisEntity();
         }
 

@@ -41,7 +41,7 @@ void EvilSpirit_Init(EvilSpiritEntity* this) {
     Entity* evilSpiritEnt;
     u32 index;
 
-    if (CheckLocalFlag(SORA_ELDER_RECOVER)) {
+    if (CheckLocalFlagB(SORA_ELDER_RECOVER)) {
         DeleteThisEntity();
     }
     super->action = 1;
@@ -163,7 +163,7 @@ void EvilSpirit_Action2(EvilSpiritEntity* this) {
         super->action = 3;
     } else {
         if (sub_0806F3E4(super)) {
-            SetLocalFlag(SORA_ELDER_RECOVER);
+            SetLocalFlagB(SORA_ELDER_RECOVER);
             SetRoomFlag(0);
 
             for (index = 0; index < 4; index++) {

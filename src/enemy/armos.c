@@ -81,9 +81,9 @@ void sub_080300E8(void) {
 
 void Armos_SetFlagFromTransition(u32 armosId) {
     if (((gRoomTransition.armos_data.field_0xac >> armosId) & 1) != 0) {
-        SetLocalFlagByBank(FLAG_BANK_3, armosId + AMOS_00_00);
+        SetLocalFlagByBankB(FLAG_BANK_3, armosId + AMOS_00_00);
     } else {
-        ClearLocalFlagByBank(FLAG_BANK_3, armosId + AMOS_00_00);
+        ClearLocalFlagByBankB(FLAG_BANK_3, armosId + AMOS_00_00);
     }
 }
 
