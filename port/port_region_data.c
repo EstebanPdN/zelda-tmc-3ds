@@ -11,6 +11,7 @@
  * exact: each EU offset below was verified against the corresponding symbol in
  * the retail EU map/entity data. */
 extern const u8 gUnk_080D9328[];
+extern const u8 gUnk_080DD750[];
 extern const u8 gUnk_080DD7E0[];
 extern const u8 gUnk_080DD840[];
 extern const u8 gUnk_080EAE60[];
@@ -33,6 +34,12 @@ typedef struct {
 
 static const RegionDataEntry sRegionDataEntries[] = {
     { gUnk_080D9328, 0x000D8A84, 0x10 },
+    /* Entities_CloudTops_Bottom_0 is emitted inside the compiled-USA
+     * gUnk_080DD750 blob at +0x40.  Its two FallingItemManagers carry both
+     * halves of the kill-reward protocol: F3/F4 and F5/F6 in USA, but
+     * F0/F1 and F2/F3 in EU.  Resolving only the later fight lists fixes the
+     * whirlwinds while leaving the golden Kinstones waiting on USA flags. */
+    { gUnk_080DD750 + 0x40, 0x000DCECC, 0x50 },
     { gUnk_080DD7E0, 0x000DCF1C, 0x40 },
     { gUnk_080DD840, 0x000DCF7C, 0x40 },
     { gUnk_080EAE60, 0x000EA53C, 0x50 },

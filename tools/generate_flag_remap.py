@@ -594,6 +594,7 @@ def render_report(inventory, comparisons):
         "| USA symbol | EU ROM offset | Minimum bytes | Reason |",
         "|---|---:|---:|---|",
         "| `gUnk_080D9328` | `0x0D8A84` | `0x10` | HAKA tile-entity local flag |",
+        "| `gUnk_080DD750 + 0x40` | `0x0DCECC` | `0x50` | Cloud Tops golden-Kinstone reward managers: completion and pickup flags |",
         "| `gUnk_080DD7E0` | `0x0DCF1C` | `0x40` | Cloud Tops upper fight: cloud and spawn-manager flag |",
         "| `gUnk_080DD840` | `0x0DCF7C` | `0x40` | Cloud Tops lower fight: completion and prerequisite flags |",
         "| `gUnk_080EAE60` | `0x0EA53C` | `0x50` | EU list terminates where USA has an extra manager |",

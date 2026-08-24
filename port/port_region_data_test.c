@@ -11,6 +11,7 @@ u32 gRomSize;
 int gActiveRegion = TMC_REGION_USA;
 
 const u8 gUnk_080D9328[1];
+const u8 gUnk_080DD750[0x41];
 const u8 gUnk_080DD7E0[1];
 const u8 gUnk_080DD840[1];
 const u8 gUnk_080EAE60[1];
@@ -48,6 +49,8 @@ int main(void) {
 
     gActiveRegion = TMC_REGION_EU;
     CHECK(Port_ResolveRegionData(gUnk_080D9328) == sRom + 0xD8A84, "EU resolves HAKA tile entities");
+    CHECK(Port_ResolveRegionData(gUnk_080DD750 + 0x40) == sRom + 0xDCECC,
+          "EU resolves both Cloud Tops golden-Kinstone managers");
     CHECK(Port_ResolveRegionData(gUnk_080DD7E0) == sRom + 0xDCF1C, "EU resolves top Cloud Tops fight");
     CHECK(Port_ResolveRegionData(gUnk_080DD840) == sRom + 0xDCF7C, "EU resolves bottom Cloud Tops fight");
     CHECK(Port_ResolveRegionData(gUnk_080EAE60) == sRom + 0xEA53C, "EU resolves first structural list");
@@ -63,6 +66,21 @@ int main(void) {
     CHECK(Port_ResolveRegionData(sUnknownCompiledData) == sUnknownCompiledData,
           "unknown compiled data is not guessed");
     CHECK(Port_ResolveRegionData(NULL) == NULL, "NULL remains NULL");
+
+    /* The first FallingItemManager must wait on EU F0 and mark EU F1 after
+     * pickup; the second must use F2/F3.  These exact bytes are what let an
+     * E4/E5/E6 save with the cloud already cleared recover on room re-entry. */
+    sRom[0xDCECC + 0x1c] = 0xf1;
+    sRom[0xDCECC + 0x1e] = 0xf0;
+    sRom[0xDCECC + 0x2c] = 0xf3;
+    sRom[0xDCECC + 0x2e] = 0xf2;
+    {
+        const u8* rewards = Port_ResolveRegionData(gUnk_080DD750 + 0x40);
+        CHECK(rewards[0x1c] == 0xf1 && rewards[0x1e] == 0xf0,
+              "top golden Kinstone uses EU reward/trigger flags F1/F0");
+        CHECK(rewards[0x2c] == 0xf3 && rewards[0x2e] == 0xf2,
+              "bottom golden Kinstone uses EU reward/trigger flags F3/F2");
+    }
 
     gRomSize = 0xDCF1C + 0x3F;
     CHECK(Port_ResolveRegionData(gUnk_080DD7E0) == NULL, "partially truncated regional list fails closed");

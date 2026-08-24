@@ -25,6 +25,7 @@ EXPECTED_SHA1 = {
 # symbol: (USA ROM offset, EU ROM offset, minimum bytes, exact differing bytes)
 MAPPINGS = {
     "gUnk_080D9328": (0x0D9328, 0x0D8A84, 0x10, 1),
+    "gUnk_080DD750 + 0x40": (0x0DD790, 0x0DCECC, 0x50, 5),
     "gUnk_080DD7E0": (0x0DD7E0, 0x0DCF1C, 0x40, 2),
     "gUnk_080DD840": (0x0DD840, 0x0DCF7C, 0x40, 2),
     "gUnk_080EAE60": (0x0EAE60, 0x0EA53C, 0x50, 8),
@@ -57,7 +58,7 @@ def _read_clean_rom(path, profile, game_code):
 def _parse_registry():
     text = REGISTRY.read_text(encoding="utf-8")
     matches = re.findall(
-        r"\{\s*(gUnk_\w+),\s*(0x[0-9A-Fa-f]+),\s*(0x[0-9A-Fa-f]+)\s*\}",
+        r"\{\s*(gUnk_\w+(?:\s*\+\s*0x[0-9A-Fa-f]+)?),\s*(0x[0-9A-Fa-f]+),\s*(0x[0-9A-Fa-f]+)\s*\}",
         text,
     )
     return {name: (int(offset, 16), int(size, 16)) for name, offset, size in matches}
@@ -96,6 +97,10 @@ def main(argv):
     # other directly consumed lists. These are more informative than a whole-
     # slice checksum if a future edit changes one flag-bearing byte.
     assert usa[0x0D9328 + 1] == 0x5C and eu[0x0D8A84 + 1] == 0x5A
+    assert usa[0x0DD790 + 0x1C] == 0xF4 and eu[0x0DCECC + 0x1C] == 0xF1
+    assert usa[0x0DD790 + 0x1E] == 0xF3 and eu[0x0DCECC + 0x1E] == 0xF0
+    assert usa[0x0DD790 + 0x2C] == 0xF6 and eu[0x0DCECC + 0x2C] == 0xF3
+    assert usa[0x0DD790 + 0x2E] == 0xF5 and eu[0x0DCECC + 0x2E] == 0xF2
     assert usa[0x0DD7E0 + 20] == 0xF3 and eu[0x0DCF1C + 20] == 0xF0
     assert usa[0x0DD7E0 + 46] == 0xF3 and eu[0x0DCF1C + 46] == 0xF0
     assert usa[0x0DD840 + 20] == 0xF5 and eu[0x0DCF7C + 20] == 0xF2
