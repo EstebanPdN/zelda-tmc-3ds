@@ -11,7 +11,10 @@ static C3D_RenderTarget* sTopTarget;
 static C3D_RenderTarget* sBottomTarget;
 static C3D_Tex sTopTexture;
 static C3D_Tex sBottomTexture;
+static C3D_Tex sSharpBilinearTexture;
+static C3D_RenderTarget* sSharpBilinearTarget;
 static Tex3DS_SubTexture sTopSubtexture;
+static Tex3DS_SubTexture sSharpBilinearSubtexture;
 static Tex3DS_SubTexture sBottomSubtexture;
 static uint32_t* sTopUpload;
 static uint32_t* sBottomUploads[2];
@@ -33,6 +36,8 @@ static int sTopCropY;
 enum {
     TOP_TEXTURE_WIDTH = 512,
     TOP_TEXTURE_HEIGHT = 256,
+    SHARP_BILINEAR_TEXTURE_WIDTH = 1024,
+    SHARP_BILINEAR_TEXTURE_HEIGHT = 512,
 };
 
 extern u32 __ctru_linear_heap;
@@ -127,10 +132,23 @@ static void ConfigureAbgrTextureEnv(void) {
     C3D_TexEnvColor(env, C2D_Color32(0, 0, 255, 255));
 }
 
+/* The first Bilinear pass must preserve the upload texture's ABGR channel
+ * order. The existing three-stage conversion is then applied exactly once,
+ * when the intermediate texture is drawn to the physical top target. */
+static void ConfigureIdentityTextureEnv(void) {
+    C3D_TexEnv* env = C3D_GetTexEnv(0);
+    C3D_TexEnvInit(env);
+    C3D_TexEnvSrc(env, C3D_Both, GPU_TEXTURE0, 0, 0);
+    C3D_TexEnvFunc(env, C3D_Both, GPU_REPLACE);
+    C3D_TexEnvInit(C3D_GetTexEnv(1));
+    C3D_TexEnvInit(C3D_GetTexEnv(2));
+}
+
 bool PlatformGpu3DS_Init(bool old3dsProfile) {
     memset(&sStats, 0, sizeof(sStats));
     sOld3DSProfile = old3dsProfile;
     sBottomTargetValid = false;
+    sSharpBilinearTarget = NULL;
     sC2dFlushBase = NULL;
     sC2dFlushSize = 0;
     sTopUpload = (uint32_t*)linearMemAlign(TOP_TEXTURE_WIDTH * TOP_TEXTURE_HEIGHT * sizeof(uint32_t), 0x80);
@@ -177,6 +195,25 @@ bool PlatformGpu3DS_Init(bool old3dsProfile) {
     C3D_TexSetWrap(&sTopTexture, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
     C3D_TexSetWrap(&sBottomTexture, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
 
+    /* 266x160 Wide is the largest fallback frame, so a 1024x512 container
+     * safely holds its exact 532x320 nearest-neighbour 2x image. This target
+     * has no depth buffer. Allocation failure is non-fatal: selecting
+     * Bilinear then uses the established nearest-neighbour Scaled path. */
+    if (C3D_TexInitVRAM(&sSharpBilinearTexture, SHARP_BILINEAR_TEXTURE_WIDTH,
+                        SHARP_BILINEAR_TEXTURE_HEIGHT, GPU_RGBA8)) {
+        C3D_TexSetFilter(&sSharpBilinearTexture, GPU_LINEAR, GPU_LINEAR);
+        C3D_TexSetWrap(&sSharpBilinearTexture, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
+        sSharpBilinearTarget = C3D_RenderTargetCreateFromTex(
+            &sSharpBilinearTexture, GPU_TEXFACE_2D, 0, -1);
+        if (!sSharpBilinearTarget) {
+            C3D_TexDelete(&sSharpBilinearTexture);
+        } else {
+            sStats.sharpBilinearAvailable = true;
+            sStats.sharpBilinearTargetBytes =
+                SHARP_BILINEAR_TEXTURE_WIDTH * SHARP_BILINEAR_TEXTURE_HEIGHT * sizeof(uint32_t);
+        }
+    }
+
     sTopTarget = C3D_RenderTargetCreate(240, 400, GPU_RB_RGBA8, GPU_RB_DEPTH16);
     sBottomTarget = C3D_RenderTargetCreate(240, 320, GPU_RB_RGBA8, GPU_RB_DEPTH16);
     if (!sTopTarget || !sBottomTarget) goto fail_targets;
@@ -192,6 +229,14 @@ bool PlatformGpu3DS_Init(bool old3dsProfile) {
 fail_targets:
     if (sBottomTarget) C3D_RenderTargetDelete(sBottomTarget);
     if (sTopTarget) C3D_RenderTargetDelete(sTopTarget);
+    if (sSharpBilinearTarget) {
+        C3D_RenderTargetDelete(sSharpBilinearTarget);
+        sSharpBilinearTarget = NULL;
+    }
+    if (sStats.sharpBilinearAvailable) {
+        C3D_TexDelete(&sSharpBilinearTexture);
+        sStats.sharpBilinearAvailable = false;
+    }
     C3D_TexDelete(&sBottomTexture);
 fail_top_texture:
     C3D_TexDelete(&sTopTexture);
@@ -252,18 +297,114 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width, unsigned height
         .bottom = 1.0f - (float)(presentation->sourceY + presentation->sourceHeight) / TOP_TEXTURE_HEIGHT,
     };
     const C2D_Image image = { .tex = &sTopTexture, .subtex = &sTopSubtexture };
-    const GPU_TEXTURE_FILTER_PARAM filter = plan.linearFilter ? GPU_LINEAR : GPU_NEAREST;
-    C3D_TexSetFilter(&sTopTexture, filter, filter);
-
     const C2D_DrawParams params = {
         .pos = { .x = (float)plan.drawX, .y = (float)plan.drawY,
                  .w = (float)plan.drawWidth, .h = (float)plan.drawHeight },
         .center = { 0.0f, 0.0f }, .depth = 0.0f, .angle = 0.0f,
     };
     C2D_TargetClear(sTopTarget, C2D_Color32(0, 0, 0, 255));
-    C2D_SceneBegin(sTopTarget);
-    C2D_DrawImage(image, &params, NULL);
-    ConfigureAbgrTextureEnv();
+    const unsigned intermediateWidth = (unsigned)presentation->sourceWidth * 2u;
+    const unsigned intermediateHeight = (unsigned)presentation->sourceHeight * 2u;
+    const bool useSharpBilinear = plan.useSharpBilinear && sSharpBilinearTarget &&
+                                  intermediateWidth <= SHARP_BILINEAR_TEXTURE_WIDTH &&
+                                  intermediateHeight <= SHARP_BILINEAR_TEXTURE_HEIGHT;
+    if (useSharpBilinear) {
+        const C2D_DrawParams integerParams = {
+            .pos = { .x = 0.0f, .y = 0.0f,
+                     .w = (float)intermediateWidth, .h = (float)intermediateHeight },
+            .center = { 0.0f, 0.0f }, .depth = 0.0f, .angle = 0.0f,
+        };
+        C3D_TexSetFilter(&sTopTexture, GPU_NEAREST, GPU_NEAREST);
+        C2D_SceneBegin(sSharpBilinearTarget);
+        ConfigureIdentityTextureEnv();
+        C2D_DrawImage(image, &integerParams, NULL);
+
+        /* Linear filtering can sample one texel beyond a subtexture edge.
+         * The valid image starts on the texture's clamped top/left edges;
+         * duplicate its final source column, row and corner into a one-texel
+         * right/bottom guard instead of allowing stale atlas data to bleed. */
+        const Tex3DS_SubTexture rightEdgeSubtexture = {
+            .width = 1,
+            .height = (u16)presentation->sourceHeight,
+            .left = (float)(presentation->sourceX + presentation->sourceWidth - 1) /
+                    TOP_TEXTURE_WIDTH,
+            .top = 1.0f - (float)presentation->sourceY / TOP_TEXTURE_HEIGHT,
+            .right = (float)(presentation->sourceX + presentation->sourceWidth) /
+                     TOP_TEXTURE_WIDTH,
+            .bottom = 1.0f -
+                      (float)(presentation->sourceY + presentation->sourceHeight) /
+                          TOP_TEXTURE_HEIGHT,
+        };
+        const Tex3DS_SubTexture bottomEdgeSubtexture = {
+            .width = (u16)presentation->sourceWidth,
+            .height = 1,
+            .left = (float)presentation->sourceX / TOP_TEXTURE_WIDTH,
+            .top = 1.0f -
+                   (float)(presentation->sourceY + presentation->sourceHeight - 1) /
+                       TOP_TEXTURE_HEIGHT,
+            .right = (float)(presentation->sourceX + presentation->sourceWidth) /
+                     TOP_TEXTURE_WIDTH,
+            .bottom = 1.0f -
+                      (float)(presentation->sourceY + presentation->sourceHeight) /
+                          TOP_TEXTURE_HEIGHT,
+        };
+        const Tex3DS_SubTexture cornerSubtexture = {
+            .width = 1,
+            .height = 1,
+            .left = rightEdgeSubtexture.left,
+            .top = bottomEdgeSubtexture.top,
+            .right = rightEdgeSubtexture.right,
+            .bottom = bottomEdgeSubtexture.bottom,
+        };
+        const C2D_Image rightEdgeImage = { .tex = &sTopTexture, .subtex = &rightEdgeSubtexture };
+        const C2D_Image bottomEdgeImage = { .tex = &sTopTexture, .subtex = &bottomEdgeSubtexture };
+        const C2D_Image cornerImage = { .tex = &sTopTexture, .subtex = &cornerSubtexture };
+        const C2D_DrawParams rightEdgeParams = {
+            .pos = { .x = (float)intermediateWidth, .y = 0.0f,
+                     .w = 1.0f, .h = (float)intermediateHeight },
+            .center = { 0.0f, 0.0f }, .depth = 0.0f, .angle = 0.0f,
+        };
+        const C2D_DrawParams bottomEdgeParams = {
+            .pos = { .x = 0.0f, .y = (float)intermediateHeight,
+                     .w = (float)intermediateWidth, .h = 1.0f },
+            .center = { 0.0f, 0.0f }, .depth = 0.0f, .angle = 0.0f,
+        };
+        const C2D_DrawParams cornerParams = {
+            .pos = { .x = (float)intermediateWidth, .y = (float)intermediateHeight,
+                     .w = 1.0f, .h = 1.0f },
+            .center = { 0.0f, 0.0f }, .depth = 0.0f, .angle = 0.0f,
+        };
+        C2D_DrawImage(rightEdgeImage, &rightEdgeParams, NULL);
+        C2D_DrawImage(bottomEdgeImage, &bottomEdgeParams, NULL);
+        C2D_DrawImage(cornerImage, &cornerParams, NULL);
+
+        /* Beginning the physical scene flushes the complete nearest pass
+         * before this texture is sampled. UVs cover only the valid 2x image,
+         * never the unused power-of-two container. */
+        sSharpBilinearSubtexture = (Tex3DS_SubTexture){
+            .width = (u16)intermediateWidth,
+            .height = (u16)intermediateHeight,
+            .left = 0.0f,
+            .top = 1.0f,
+            .right = (float)intermediateWidth / SHARP_BILINEAR_TEXTURE_WIDTH,
+            .bottom = 1.0f - (float)intermediateHeight / SHARP_BILINEAR_TEXTURE_HEIGHT,
+        };
+        const C2D_Image intermediateImage = {
+            .tex = &sSharpBilinearTexture, .subtex = &sSharpBilinearSubtexture
+        };
+        C2D_SceneBegin(sTopTarget);
+        C3D_TexSetFilter(&sSharpBilinearTexture, GPU_LINEAR, GPU_LINEAR);
+        C2D_DrawImage(intermediateImage, &params, NULL);
+        ConfigureAbgrTextureEnv();
+        ++sStats.sharpBilinearFrames;
+    } else {
+        const GPU_TEXTURE_FILTER_PARAM filter = plan.linearFilter ? GPU_LINEAR : GPU_NEAREST;
+        C3D_TexSetFilter(&sTopTexture, filter, filter);
+        C2D_SceneBegin(sTopTarget);
+        C2D_DrawImage(image, &params, NULL);
+        ConfigureAbgrTextureEnv();
+        if (plan.useSharpBilinear) ++sStats.sharpBilinearFallbacks;
+    }
     if (Port_Config_GetShowFps()) {
         char label[20];
         double fps = Port_PPU_3DS_CurrentFps();
@@ -391,6 +532,8 @@ void PlatformGpu3DS_Shutdown(void) {
     if (!aptShouldClose()) C3D_FrameSync();
     C3D_RenderTargetDelete(sBottomTarget);
     C3D_RenderTargetDelete(sTopTarget);
+    if (sSharpBilinearTarget) C3D_RenderTargetDelete(sSharpBilinearTarget);
+    if (sStats.sharpBilinearAvailable) C3D_TexDelete(&sSharpBilinearTexture);
     C3D_TexDelete(&sBottomTexture);
     C3D_TexDelete(&sTopTexture);
     C2D_Fini();
@@ -407,4 +550,5 @@ void PlatformGpu3DS_Shutdown(void) {
     sReady = false;
     sOld3DSProfile = false;
     sBottomTargetValid = false;
+    sSharpBilinearTarget = NULL;
 }

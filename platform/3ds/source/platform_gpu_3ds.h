@@ -10,6 +10,8 @@ typedef struct PlatformGpu3DSStats {
     uint64_t frames;
     uint64_t frameBeginFailures;
     uint64_t topTransfers;
+    uint64_t sharpBilinearFrames;
+    uint64_t sharpBilinearFallbacks;
     uint64_t bottomTransfers;
     uint64_t bottomTargetDraws;
     uint64_t bottomTargetReuseSkips;
@@ -19,6 +21,8 @@ typedef struct PlatformGpu3DSStats {
     uintptr_t c2dFlushAddress;
     uintptr_t topUploadAddress;
     uintptr_t bottomUploadAddress[2];
+    uint32_t sharpBilinearTargetBytes;
+    bool sharpBilinearAvailable;
     float drawingTime;
     float processingTime;
 } PlatformGpu3DSStats;

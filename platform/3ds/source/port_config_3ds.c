@@ -61,7 +61,9 @@ static const char* AspectRatioConfigName(Port3DSAspectRatio mode) {
 }
 
 static const char* DisplayStyleConfigName(Port3DSDisplayStyle style) {
-    static const char* const names[PORT_3DS_DISPLAY_COUNT] = { "pixel-perfect", "scaled", "blur" };
+    static const char* const names[PORT_3DS_DISPLAY_COUNT] = {
+        "pixel-perfect", "scaled", "bilinear", "blur"
+    };
     return style >= 0 && style < PORT_3DS_DISPLAY_COUNT ? names[style]
                                                         : names[PORT_3DS_DISPLAY_BLUR];
 }
@@ -431,7 +433,9 @@ void Port_Config_Cycle3DSAspectRatio(void) {
 }
 int Port_Config_Get3DSDisplayStyle(void) { return (int)sDisplayStyle; }
 const char* Port_Config_Get3DSDisplayStyleName(void) {
-    static const char* const names[PORT_3DS_DISPLAY_COUNT] = { "PIXEL PERFECT", "SCALED", "BLUR" };
+    static const char* const names[PORT_3DS_DISPLAY_COUNT] = {
+        "PIXEL PERFECT", "SCALED", "BILINEAR", "BLUR"
+    };
     return names[sDisplayStyle];
 }
 void Port_Config_Cycle3DSDisplayStyle(void) {

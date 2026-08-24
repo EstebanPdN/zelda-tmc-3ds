@@ -23,6 +23,7 @@ int main(void) {
     CHECK(plan.source.sourceWidth == 400 && plan.source.sourceHeight == 240);
     CHECK(plan.drawX == 0 && plan.drawY == 0 && plan.drawWidth == 400 && plan.drawHeight == 240);
     CHECK(!plan.linearFilter);
+    CHECK(!plan.useSharpBilinear);
 
     TopView3DS_BuildPlan(0, 1, TOP_VIEW_3DS_ASPECT_WIDE,
                          TOP_VIEW_3DS_DISPLAY_PIXEL_PERFECT,
@@ -79,23 +80,42 @@ int main(void) {
     CHECK(coherence.forceNativeFrame && coherence.clearFullViewProducer);
 
     /* Existing presentation choices remain byte-for-byte decisions: native
-     * 240, Wide 266, Original 360, Stretch 400, and Blur alone is linear. */
+     * 240, Wide 266, Original 360, Stretch 400, and Blur alone is directly
+     * linear-filtered. Bilinear requests a distinct 2x-nearest/linear pass. */
     TopView3DS_BuildPlan(0, 0, TOP_VIEW_3DS_ASPECT_WIDE,
                          TOP_VIEW_3DS_DISPLAY_SCALED,
                          PORT_3DS_FULL_VIEW_FALLBACK, 240, 160, 240, 160, 0, 0, &plan);
     CHECK(plan.source.sourceWidth == 240 && plan.drawWidth == 360 && plan.drawHeight == 240);
+    CHECK(!plan.linearFilter && !plan.useSharpBilinear);
     TopView3DS_BuildPlan(0, 0, TOP_VIEW_3DS_ASPECT_WIDE,
                          TOP_VIEW_3DS_DISPLAY_SCALED,
                          PORT_3DS_FULL_VIEW_FALLBACK, 266, 160, 266, 160, 0, 0, &plan);
     CHECK(plan.source.sourceWidth == 266 && plan.drawWidth == 400 && plan.drawHeight == 240);
+    CHECK(!plan.linearFilter && !plan.useSharpBilinear);
+    TopView3DS_BuildPlan(0, 0, TOP_VIEW_3DS_ASPECT_ORIGINAL,
+                         TOP_VIEW_3DS_DISPLAY_BILINEAR,
+                         PORT_3DS_FULL_VIEW_FALLBACK, 240, 160, 240, 160, 0, 0, &plan);
+    CHECK(plan.source.sourceWidth == 240 && plan.source.sourceHeight == 160);
+    CHECK(plan.drawX == 20 && plan.drawY == 0 && plan.drawWidth == 360 && plan.drawHeight == 240);
+    CHECK(!plan.linearFilter && plan.useSharpBilinear);
+    TopView3DS_BuildPlan(0, 0, TOP_VIEW_3DS_ASPECT_STRETCH,
+                         TOP_VIEW_3DS_DISPLAY_BILINEAR,
+                         PORT_3DS_FULL_VIEW_FALLBACK, 240, 160, 240, 160, 0, 0, &plan);
+    CHECK(plan.drawX == 0 && plan.drawWidth == 400 && plan.useSharpBilinear);
+    TopView3DS_BuildPlan(0, 0, TOP_VIEW_3DS_ASPECT_WIDE,
+                         TOP_VIEW_3DS_DISPLAY_BILINEAR,
+                         PORT_3DS_FULL_VIEW_FALLBACK, 266, 160, 266, 160, 0, 0, &plan);
+    CHECK(plan.source.sourceWidth == 266 && plan.drawWidth == 400 && plan.useSharpBilinear);
     TopView3DS_BuildPlan(0, 0, TOP_VIEW_3DS_ASPECT_ORIGINAL,
                          TOP_VIEW_3DS_DISPLAY_BLUR,
                          PORT_3DS_FULL_VIEW_FALLBACK, 266, 160, 266, 160, 0, 0, &plan);
     CHECK(plan.drawX == 20 && plan.drawWidth == 360 && plan.linearFilter);
+    CHECK(!plan.useSharpBilinear);
     TopView3DS_BuildPlan(0, 0, TOP_VIEW_3DS_ASPECT_STRETCH,
                          TOP_VIEW_3DS_DISPLAY_SCALED,
                          PORT_3DS_FULL_VIEW_FALLBACK, 240, 160, 240, 160, 0, 0, &plan);
     CHECK(plan.drawX == 0 && plan.drawWidth == 400 && !plan.linearFilter);
+    CHECK(!plan.useSharpBilinear);
 
     puts("top_view_3ds_test: PASS");
     return EXIT_SUCCESS;

@@ -477,6 +477,11 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 (unsigned long long)gpuStats.frames, (unsigned long long)gpuStats.frameBeginFailures);
         fprintf(info, "GPU top/bottom transfers: %llu / %llu\n",
                 (unsigned long long)gpuStats.topTransfers, (unsigned long long)gpuStats.bottomTransfers);
+        fprintf(info, "GPU Bilinear target: %s (%lu bytes); frames/fallbacks: %llu / %llu\n",
+                gpuStats.sharpBilinearAvailable ? "available" : "unavailable",
+                (unsigned long)gpuStats.sharpBilinearTargetBytes,
+                (unsigned long long)gpuStats.sharpBilinearFrames,
+                (unsigned long long)gpuStats.sharpBilinearFallbacks);
         fprintf(info, "Bottom target draws / unchanged Old 3DS reuses: %llu / %llu\n",
                 (unsigned long long)gpuStats.bottomTargetDraws,
                 (unsigned long long)gpuStats.bottomTargetReuseSkips);
