@@ -3,6 +3,7 @@
 #include "object.h"
 #include "port_cloud_tops_fight.h"
 #include "region.h"
+#include "kinstone.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -11,13 +12,24 @@ int gActiveRegion;
 static int sFailures;
 
 u32 Port_RemapBaselineLocalFlag(u32 bankOffset, u32 ordinal) {
-    if (bankOffset != FLAG_BANK_1 || (ordinal != KUMOUE_02_00 && ordinal != KUMOUE_02_02)) {
+    if (bankOffset != FLAG_BANK_1 || ordinal < KUMOUE_02_AWASE_01 || ordinal > KUMOUE_02_03) {
         fprintf(stderr, "unexpected remap request: bank=%u ordinal=%u\n", bankOffset, ordinal);
         sFailures++;
         return ordinal;
     }
     if (gActiveRegion == TMC_REGION_USA) return ordinal;
-    return ordinal == KUMOUE_02_00 ? 0xf0 : 0xf2;
+    return ordinal - 3;
+}
+
+u32 ReadBit(void* data, u32 bit) {
+    const u8* bytes = data;
+    return (bytes[bit >> 3] >> (bit & 7)) & 1u;
+}
+
+u32 WriteBit(void* data, u32 bit) {
+    u8* bytes = data;
+    bytes[bit >> 3] |= 1u << (bit & 7);
+    return 1;
 }
 
 #define CHECK(condition, message)                  \
@@ -84,6 +96,56 @@ static void RunBottomRegion(int region, u16 expectedCloudFlag, u16 expectedSpawn
           "bottom USA template is never mutated");
 }
 
+static void SetEuCloudFlag(SaveFile* save, u16 baselineFlag) {
+    WriteBit(save->flags, FLAG_BANK_1 + baselineFlag - 3);
+}
+
+static void BuildReportedLostRewardSave(SaveFile* save) {
+    memset(save, 0, sizeof(*save));
+    save->initialized = 1;
+    SetEuCloudFlag(save, KUMOUE_02_AWASE_01);
+    SetEuCloudFlag(save, KUMOUE_02_AWASE_02);
+    SetEuCloudFlag(save, KUMOUE_02_AWASE_03);
+    SetEuCloudFlag(save, KUMOUE_02_AWASE_04);
+    SetEuCloudFlag(save, KUMOUE_02_00);
+    SetEuCloudFlag(save, KUMOUE_02_01);
+    SetEuCloudFlag(save, KUMOUE_02_02);
+    SetEuCloudFlag(save, KUMOUE_02_03);
+    WriteBit(save->kinstones.fusedKinstones, KINSTONE_MYSTERIOUS_CLOUD_TOP_RIGHT);
+    WriteBit(save->kinstones.fusedKinstones, KINSTONE_MYSTERIOUS_CLOUD_BOTTOM_LEFT);
+    WriteBit(save->kinstones.fusedKinstones, KINSTONE_MYSTERIOUS_CLOUD_TOP_LEFT);
+    WriteBit(save->kinstones.fusedKinstones, KINSTONE_MYSTERIOUS_CLOUD_MIDDLE);
+}
+
+static void RunLostRewardRepairPredicate(void) {
+    SaveFile save;
+
+    gActiveRegion = TMC_REGION_EU;
+    BuildReportedLostRewardSave(&save);
+    CHECK(Port_CloudTopsHasLostGoldenKinstone(&save),
+          "exact v1.2-E7 EU report is selected for one-shot reward recovery");
+
+    save.kinstones.types[0] = PORT_CLOUD_TOPS_GOLDEN_KINSTONE;
+    save.kinstones.amounts[0] = 1;
+    CHECK(!Port_CloudTopsHasLostGoldenKinstone(&save), "existing golden Kinstone prevents a duplicate repair");
+
+    BuildReportedLostRewardSave(&save);
+    WriteBit(save.kinstones.fusedKinstones, KINSTONE_MYSTERIOUS_CLOUD_BOTTOM_RIGHT);
+    CHECK(!Port_CloudTopsHasLostGoldenKinstone(&save), "completed fifth fusion is never repaired");
+
+    BuildReportedLostRewardSave(&save);
+    SetEuCloudFlag(&save, KUMOUE_02_AWASE_05);
+    CHECK(!Port_CloudTopsHasLostGoldenKinstone(&save), "spinning fifth pinwheel is never repaired");
+
+    BuildReportedLostRewardSave(&save);
+    WriteBit(save.flags, FLAG_BANK_0 + KUMOTATSUMAKI);
+    CHECK(!Port_CloudTopsHasLostGoldenKinstone(&save), "completed tornado event is never repaired");
+
+    BuildReportedLostRewardSave(&save);
+    gActiveRegion = TMC_REGION_USA;
+    CHECK(!Port_CloudTopsHasLostGoldenKinstone(&save), "USA saves are outside the proven EU repair signature");
+}
+
 int main(void) {
     RunTopRegion(TMC_REGION_USA, KUMOUE_02_00, "top USA keeps retail ordinal 243");
     RunTopRegion(TMC_REGION_EU, 0xf0, "top EU uses the ROM-native ordinal 240");
@@ -94,6 +156,7 @@ int main(void) {
                     "bottom EU uses ROM-native ordinals 242 and 240");
     RunBottomRegion(TMC_REGION_JP, 0xf2, 0xf0,
                     "bottom JP uses ROM-native ordinals 242 and 240");
+    RunLostRewardRepairPredicate();
 
     if (sFailures != 0) return 1;
     puts("port_cloud_tops_fight_test: ALL PASS");

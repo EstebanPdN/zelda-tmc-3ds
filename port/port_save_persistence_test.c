@@ -328,6 +328,24 @@ int main(void) {
     CHECK(!FileExistsForTest("tmc_fuser_backup.sav.pre-fuser-repair.002.bak"),
           "replacement activation does not create a backup per fuser");
 
+    BuildDiskImage(image, activeSignature, 0xA7);
+    CHECK(WriteBytes("tmc_cloud_tops_backup.sav", image, sizeof(image)),
+          "Cloud Tops repair backup fixture is written");
+    CHECK(Port_Save_SetActivePath("tmc_cloud_tops_backup.sav"),
+          "Cloud Tops repair backup profile is selected");
+    EEPROMConfigure(0x40);
+    CHECK(Port_Save_PreserveBeforeCloudTopsRepair(),
+          "first permanent pre-Cloud-Tops-repair backup succeeds");
+    CHECK(FileExistsForTest("tmc_cloud_tops_backup.sav.pre-cloud-tops-repair.bak"),
+          "Cloud Tops repair has a stable permanent backup");
+    CHECK(FilesEqualForTest("tmc_cloud_tops_backup.sav",
+                            "tmc_cloud_tops_backup.sav.pre-cloud-tops-repair.bak"),
+          "Cloud Tops repair backup preserves the complete raw profile byte-for-byte");
+    CHECK(Port_Save_PreserveBeforeCloudTopsRepair(),
+          "later Cloud Tops repair checks reuse the verified profile backup");
+    CHECK(!FileExistsForTest("tmc_cloud_tops_backup.sav.pre-cloud-tops-repair.001.bak"),
+          "one profile does not create repeated Cloud Tops repair backups");
+
     BuildDiskImage(image, activeSignature, 0xA3);
     CHECK(WriteBytes("tmc_switch.sav", image, sizeof(image)), "pending-profile-switch fixture is written");
     Port_Save_SetActivePath("tmc_switch.sav");

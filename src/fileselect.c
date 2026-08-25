@@ -27,8 +27,10 @@
 #include "gfx.h"
 #include "fade.h"
 #ifdef PC_PORT
+#include "port_cloud_tops_fight.h"
 #include "port_ppu.h"
 #include "port_runtime_config.h"
+#include "port_save.h"
 #include "port_tts.h"
 #endif
 #include <stdio.h>
@@ -823,6 +825,36 @@ void SetActiveSave(u32 idx) {
             Rando_Runtime_OnNewFile();
             MemCopy(&gSave, &gFileSelectState.saves[idx], sizeof(gSave));
             WriteSaveFile(idx, &gSave);
+        }
+
+        if (!Rando_IsActive() && Port_CloudTopsHasLostGoldenKinstone(&gSave)) {
+            if (!Port_Save_PreserveBeforeCloudTopsRepair()) {
+                fprintf(stderr,
+                        "[SAVE] Refused Cloud Tops reward repair for slot %u because the permanent backup "
+                        "failed.\n",
+                        idx);
+            } else {
+                AddKinstoneToBag(PORT_CLOUD_TOPS_GOLDEN_KINSTONE);
+                if (Port_CloudTopsHasLostGoldenKinstone(&gSave)) {
+                    fprintf(stderr,
+                            "[SAVE] Refused Cloud Tops reward repair for slot %u because the Kinstone bag has "
+                            "no free entry.\n",
+                            idx);
+                } else {
+                    MemCopy(&gSave, &gFileSelectState.saves[idx], sizeof(gSave));
+                    if (WriteSaveFile(idx, &gSave) != 0) {
+                        fprintf(stderr,
+                                "[SAVE] Recovered the missing Cloud Tops golden Kinstone in slot %u and "
+                                "persisted the repaired save.\n",
+                                idx);
+                    } else {
+                        fprintf(stderr,
+                                "[SAVE] Recovered the missing Cloud Tops golden Kinstone in slot %u in memory; "
+                                "durable persistence will retry on the next save.\n",
+                                idx);
+                    }
+                }
+            }
         }
     } else {
         Rando_Reset();

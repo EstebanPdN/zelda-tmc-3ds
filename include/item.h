@@ -12,6 +12,7 @@ extern void EnableRandomDrops(void);
 extern u32 IsMinishItem(u32);
 
 void CreateItemEntity(u32, u32, u32);
+bool32 CreateItemEntityWithFlag(u32, u32, u32, u16);
 extern void ExecuteItemFunction(ItemBehavior* this, u32 index);
 
 extern void ItemDebug(ItemBehavior*, u32);

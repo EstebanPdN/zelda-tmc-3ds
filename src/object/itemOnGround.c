@@ -373,7 +373,13 @@ void ItemOnGround_SetFlagAndDelete(ItemOnGroundEntity* this, bool32 doSetFlag) {
     DeleteThisEntity();
 }
 
-bool32 sub_08081420(ItemOnGroundEntity* this) {
+enum ItemOnGroundAwardResult {
+    ITEM_AWARD_DIRECT,
+    ITEM_AWARD_CUTSCENE,
+    ITEM_AWARD_RETRY,
+};
+
+u32 sub_08081420(ItemOnGroundEntity* this) {
 #ifdef PC_PORT
     /* Resolve the per-location randomized reward BEFORE the item-get-cutscene
      * decision: the GBA randomizer rewrites the item bytes in the room's entity
@@ -401,12 +407,14 @@ bool32 sub_08081420(ItemOnGroundEntity* this) {
     if (CheckShouldPlayItemGetCutscene(this)) {
         u8 item = (u8)super->type;
         u8 subtype = (u8)super->type2;
+        if (!CreateItemEntityWithFlag(item, subtype, 0, this->flag)) {
+            return ITEM_AWARD_RETRY;
+        }
         SetEntityPriority(super, PRIO_PLAYER_EVENT);
-        CreateItemEntity(item, subtype, 0);
-        return TRUE;
+        return ITEM_AWARD_CUTSCENE;
     } else {
         GiveItem(super->type, super->type2);
-        return FALSE;
+        return ITEM_AWARD_DIRECT;
     }
 }
 
@@ -502,8 +510,21 @@ void sub_0808153C(ItemOnGroundEntity* this) {
 }
 
 void sub_08081598(ItemOnGroundEntity* this) {
+    u32 awardResult = ITEM_AWARD_DIRECT;
+
     if (super->health == 0) {
         ItemOnGround_SetFlagAndDelete(this, 1);
+        return;
+    }
+
+    if (super->type != 0x5F) {
+        awardResult = sub_08081420(this);
+        if (awardResult == ITEM_AWARD_RETRY) {
+            /* Both auxiliary entity slots are required for the item-get
+             * cutscene. Keep the pickup intact and collidable when either
+             * allocation fails so a later frame can retry the award. */
+            return;
+        }
     }
 
     COLLISION_OFF(super);
@@ -516,7 +537,9 @@ void sub_08081598(ItemOnGroundEntity* this) {
     super->child = &gPlayerEntity.base;
     CopyPosition(super->child, super);
     super->z.HALF.HI -= 4;
-    if (super->type != 0x5F && sub_08081420(this)) {
-        ItemOnGround_SetFlagAndDelete(this, 1);
+    if (awardResult == ITEM_AWARD_CUTSCENE) {
+        /* The holding-item entity now owns the location flag and commits it
+         * only after GiveItem() has actually changed the save. */
+        ItemOnGround_SetFlagAndDelete(this, 0);
     }
 }
