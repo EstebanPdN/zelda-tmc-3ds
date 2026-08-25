@@ -144,6 +144,27 @@ static void ConfigureIdentityTextureEnv(void) {
     C3D_TexEnvInit(C3D_GetTexEnv(2));
 }
 
+/* sTopTexture is uploaded as the port's ABGR carrier format: its texture
+ * alpha component contains the red colour channel, not transparency.  The
+ * Bilinear pre-pass must therefore overwrite the intermediate target instead
+ * of applying Citro2D's normal source-alpha blend.  Otherwise black pixels
+ * (red == 0) become transparent and leave the previous frame behind, which
+ * erases text-box fills, outlines and shadows and creates motion trails.
+ *
+ * Preserve that carrier alpha in the render target with ONE/ZERO; the final
+ * pass then performs the established ABGR conversion and uses normal alpha
+ * blending on the physical top target. */
+static void ConfigureOpaqueOverwriteBlend(void) {
+    C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD,
+                   GPU_ONE, GPU_ZERO, GPU_ONE, GPU_ZERO);
+}
+
+static void ConfigureStandardAlphaBlend(void) {
+    C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD,
+                   GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA,
+                   GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA);
+}
+
 bool PlatformGpu3DS_Init(bool old3dsProfile) {
     memset(&sStats, 0, sizeof(sStats));
     sOld3DSProfile = old3dsProfile;
@@ -317,6 +338,7 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width, unsigned height
         C3D_TexSetFilter(&sTopTexture, GPU_NEAREST, GPU_NEAREST);
         C2D_SceneBegin(sSharpBilinearTarget);
         ConfigureIdentityTextureEnv();
+        ConfigureOpaqueOverwriteBlend();
         C2D_DrawImage(image, &integerParams, NULL);
 
         /* Linear filtering can sample one texel beyond a subtexture edge.
@@ -392,7 +414,10 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width, unsigned height
         const C2D_Image intermediateImage = {
             .tex = &sSharpBilinearTexture, .subtex = &sSharpBilinearSubtexture
         };
+        /* SceneBegin flushes the complete overwrite batch before changing
+         * blend state for the physical-target batch. */
         C2D_SceneBegin(sTopTarget);
+        ConfigureStandardAlphaBlend();
         C3D_TexSetFilter(&sSharpBilinearTexture, GPU_LINEAR, GPU_LINEAR);
         C2D_DrawImage(intermediateImage, &params, NULL);
         ConfigureAbgrTextureEnv();
@@ -401,6 +426,7 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width, unsigned height
         const GPU_TEXTURE_FILTER_PARAM filter = plan.linearFilter ? GPU_LINEAR : GPU_NEAREST;
         C3D_TexSetFilter(&sTopTexture, filter, filter);
         C2D_SceneBegin(sTopTarget);
+        ConfigureStandardAlphaBlend();
         C2D_DrawImage(image, &params, NULL);
         ConfigureAbgrTextureEnv();
         if (plan.useSharpBilinear) ++sStats.sharpBilinearFallbacks;

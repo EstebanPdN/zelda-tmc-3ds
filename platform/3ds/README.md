@@ -10,7 +10,7 @@ touching it opens the existing Minish Cap Settings hierarchy.
 Install the universal CIA:
 
 ```text
-tmc-3ds-v1.2-E7.cia
+tmc-3ds-v1.2-E8.cia
 ```
 
 Then create this directory on the SD card:
