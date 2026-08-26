@@ -27,7 +27,7 @@ https://discord.gg/SMW49UMkw
 * True widescreen gameplay on the 400x240 top screen, plus Original and Stretch display modes.
 * Bottom-screen interface with live map, dungeon information, quest status, touch item controls, and settings.
 * New 3DS enhancements including 804 MHz mode, L2 cache, multi-core rendering, and optional 2x–5x turbo using the C-Stick.
-* Multiple display styles including Pixel Perfect, Scaled, Bilinear, Blur, and Ultra Sharp.
+* Multiple display styles including Blur, Bilinear, Ultra Sharp, and Pixel Perfect.
 * On New Nintendo 3DS, the existing Wide + Pixel Perfect combination enables
   experimental Full View: compatible outdoor rooms render at 400x240, while
   supported interiors use a centered 200x120 view scaled exactly 2x.
@@ -49,7 +49,7 @@ The bottom-screen worker avoids redundant static redraws while keeping touch inp
 1. Install the CIA with FBI, or use the 3DSX build with the Homebrew Launcher.
 
 ```text
-tmc-3ds-v1.2-E11.cia
+tmc-3ds-v1.2.cia
 ```
 
 2. Create this folder on your SD card:
@@ -144,8 +144,8 @@ chmod +x platform/3ds/build.sh
 Builds are generated under:
 
 ```text
-build-3ds/game/tmc-3ds-v1.2-E11.cia
-build-3ds/game/tmc-3ds-v1.2-E11.3dsx
+build-3ds/game/tmc-3ds-v1.2.cia
+build-3ds/game/tmc-3ds-v1.2.3dsx
 ```
 
 The build does not include or embed a ROM.

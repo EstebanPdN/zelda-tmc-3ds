@@ -224,8 +224,8 @@ bool PlatformGpu3DS_Init(bool old3dsProfile) {
     /* 266x160 Wide is the largest fallback frame, so a 1024x512 container
      * safely holds its exact 798x480 nearest-neighbour 3x image plus guard
      * texels. This target has no depth buffer. Allocation failure is
-     * non-fatal: Bilinear and Ultra Sharp then use the established
-     * nearest-neighbour Scaled path. */
+     * non-fatal: Bilinear and Ultra Sharp then use a nearest-neighbour
+     * presentation without the intermediate pass. */
     if (C3D_TexInitVRAM(&sSharpBilinearTexture, SHARP_BILINEAR_TEXTURE_WIDTH,
                         SHARP_BILINEAR_TEXTURE_HEIGHT, GPU_RGBA8)) {
         C3D_TexSetFilter(&sSharpBilinearTexture, GPU_LINEAR, GPU_LINEAR);

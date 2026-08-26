@@ -2050,7 +2050,7 @@ static int GetSettingState(int row, char* out, int outCap) {
             return 1;
         case SS_SET_DISPLAY_STYLE:
             snprintf(out, (size_t)outCap, "%s", Port_Config_Get3DSDisplayStyleName());
-            return Port_Config_Get3DSDisplayStyle() != PORT_3DS_DISPLAY_SCALED;
+            return Port_Config_Get3DSDisplayStyle() != PORT_3DS_DISPLAY_BILINEAR;
 #endif
     }
     if (row != SS_SET_TOP_HUD) {

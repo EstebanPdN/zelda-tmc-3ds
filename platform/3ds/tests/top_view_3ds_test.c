@@ -15,6 +15,11 @@
 int main(void) {
     TopView3DSPlan plan;
 
+    CHECK(TOP_VIEW_3DS_DISPLAY_BLUR == 0);
+    CHECK(TOP_VIEW_3DS_DISPLAY_BILINEAR == 1);
+    CHECK(TOP_VIEW_3DS_DISPLAY_ULTRA_SHARP == 2);
+    CHECK(TOP_VIEW_3DS_DISPLAY_PIXEL_PERFECT == 3);
+
     TopView3DS_BuildPlan(0, 1, TOP_VIEW_3DS_ASPECT_WIDE,
                          TOP_VIEW_3DS_DISPLAY_PIXEL_PERFECT,
                          PORT_3DS_FULL_VIEW_OUTDOOR_1X, 400, 240, 400, 240, 0, 0, &plan);
@@ -60,10 +65,10 @@ int main(void) {
     CHECK(plan.mode == PORT_3DS_FULL_VIEW_FALLBACK && plan.source.sourceWidth == 266);
     CHECK(plan.drawWidth == 266 && plan.drawHeight == 160);
     TopView3DS_BuildPlan(0, 0, TOP_VIEW_3DS_ASPECT_WIDE,
-                         TOP_VIEW_3DS_DISPLAY_SCALED,
+                         TOP_VIEW_3DS_DISPLAY_BLUR,
                          PORT_3DS_FULL_VIEW_OUTDOOR_1X, 400, 240, 400, 240, 0, 0, &plan);
     CHECK(plan.mode == PORT_3DS_FULL_VIEW_FALLBACK && plan.source.sourceWidth == 266);
-    CHECK(plan.drawWidth == 400 && plan.drawHeight == 240);
+    CHECK(plan.drawWidth == 400 && plan.drawHeight == 240 && plan.linearFilter);
 
     /* PPU/shadow geometry is published one VBlank behind presentation. A
      * mismatch always renders one native frame rather than mixing stride 54
@@ -80,20 +85,20 @@ int main(void) {
     coherence = TopView3DS_ResolvePpuCoherence(PORT_3DS_FULL_VIEW_INTERIOR_2X, 1);
     CHECK(coherence.forceNativeFrame && coherence.clearFullViewProducer);
 
-    /* Existing presentation choices remain byte-for-byte decisions: native
-     * 240, Wide 266, Original 360, Stretch 400, and Blur alone is directly
-     * linear-filtered. Bilinear requests a distinct 2x-nearest/linear pass,
-     * while Ultra Sharp uses the same guarded path with a 3x pre-scale. */
+    /* Native 240, Wide 266, Original 360 and Stretch 400 remain the physical
+     * geometry decisions. Blur is directly linear-filtered, Bilinear requests
+     * a distinct 2x-nearest/linear pass, and Ultra Sharp uses the same guarded
+     * path with a 3x pre-scale. */
     TopView3DS_BuildPlan(0, 0, TOP_VIEW_3DS_ASPECT_WIDE,
-                         TOP_VIEW_3DS_DISPLAY_SCALED,
+                         TOP_VIEW_3DS_DISPLAY_BLUR,
                          PORT_3DS_FULL_VIEW_FALLBACK, 240, 160, 240, 160, 0, 0, &plan);
     CHECK(plan.source.sourceWidth == 240 && plan.drawWidth == 360 && plan.drawHeight == 240);
-    CHECK(!plan.linearFilter && !plan.useSharpBilinear);
+    CHECK(plan.linearFilter && !plan.useSharpBilinear);
     TopView3DS_BuildPlan(0, 0, TOP_VIEW_3DS_ASPECT_WIDE,
-                         TOP_VIEW_3DS_DISPLAY_SCALED,
+                         TOP_VIEW_3DS_DISPLAY_BLUR,
                          PORT_3DS_FULL_VIEW_FALLBACK, 266, 160, 266, 160, 0, 0, &plan);
     CHECK(plan.source.sourceWidth == 266 && plan.drawWidth == 400 && plan.drawHeight == 240);
-    CHECK(!plan.linearFilter && !plan.useSharpBilinear);
+    CHECK(plan.linearFilter && !plan.useSharpBilinear);
     TopView3DS_BuildPlan(0, 0, TOP_VIEW_3DS_ASPECT_ORIGINAL,
                          TOP_VIEW_3DS_DISPLAY_BILINEAR,
                          PORT_3DS_FULL_VIEW_FALLBACK, 240, 160, 240, 160, 0, 0, &plan);
@@ -126,9 +131,9 @@ int main(void) {
     CHECK(plan.drawX == 20 && plan.drawWidth == 360 && plan.linearFilter);
     CHECK(!plan.useSharpBilinear);
     TopView3DS_BuildPlan(0, 0, TOP_VIEW_3DS_ASPECT_STRETCH,
-                         TOP_VIEW_3DS_DISPLAY_SCALED,
+                         TOP_VIEW_3DS_DISPLAY_BLUR,
                          PORT_3DS_FULL_VIEW_FALLBACK, 240, 160, 240, 160, 0, 0, &plan);
-    CHECK(plan.drawX == 0 && plan.drawWidth == 400 && !plan.linearFilter);
+    CHECK(plan.drawX == 0 && plan.drawWidth == 400 && plan.linearFilter);
     CHECK(!plan.useSharpBilinear);
 
     puts("top_view_3ds_test: PASS");
