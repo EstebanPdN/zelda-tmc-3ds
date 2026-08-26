@@ -18,6 +18,7 @@
 /* Production entry points under test (port_draw.c). */
 void Port_LoadOverlayDataFromConst(const u8* data, u32 size);
 void ram_DrawDirect(OAMCommand* cmd, u32 spriteIndex, u32 frameIndex);
+bool32 EnemyInit(Enemy* enemy);
 bool32 ProjectileInit(Entity* entity);
 
 /* Minimal runtime owned by RenderSpritePieces. */
@@ -67,11 +68,19 @@ EnemyDefinition gEnemyDefinitions[0x70] = {
     [LEEVER] = { .spriteIndex = SPRITE_LEEVER },
     [SPEAR_MOBLIN] = { .gfx = 0xFFFFu, .ptr.definition = kSpearMoblinForms },
     [BOW_MOBLIN] = { .gfx = 0xFFFFu, .ptr.definition = kBowMoblinForms },
+    [GYORG_CHILD] = { .spriteIndex = SPRITE_GYORGCHILD },
+    [GYORG_FEMALE_EYE] = { .spriteIndex = SPRITE_GYORGFEMALEEYE },
+    [GYORG_MALE_EYE] = { .spriteIndex = SPRITE_ENEMY62 },
+    [GYORG_FEMALE_MOUTH] = { .spriteIndex = SPRITE_GYORGFEMALEMOUTH },
 };
 EnemyDefinition gEnemyDefinitions_eu[0x70] = {
     [LEEVER] = { .spriteIndex = SPRITE_LEEVER },
     [SPEAR_MOBLIN] = { .gfx = 0xFFFFu, .ptr.definition = kSpearMoblinForms },
     [BOW_MOBLIN] = { .gfx = 0xFFFFu, .ptr.definition = kBowMoblinForms },
+    [GYORG_CHILD] = { .spriteIndex = SPRITE_GYORGCHILD },
+    [GYORG_FEMALE_EYE] = { .spriteIndex = SPRITE_GYORGFEMALEEYE },
+    [GYORG_MALE_EYE] = { .spriteIndex = SPRITE_ENEMY62 },
+    [GYORG_FEMALE_MOUTH] = { .spriteIndex = SPRITE_GYORGFEMALEMOUTH },
 };
 
 static const ProjectileDefinition kSpikedRollerForms[] = {
@@ -80,6 +89,7 @@ static const ProjectileDefinition kSpikedRollerForms[] = {
 const ProjectileDefinition gProjectileDefinitions[0x25] = {
     [ARROW_PROJECTILE] = { .spriteIndex = SPRITE_ARROWPROJECTILE },
     [SPIKED_ROLLERS] = { .gfx = 0xFFFFu, .ptr.definition = kSpikedRollerForms },
+    [GYORG_MALE_ENERGY_PROJECTILE] = { .spriteIndex = SPRITE_GYORGMALEENERGYPROJECTILE },
 };
 const ProjectileDefinition gProjectileDefinition_12_alt[] = { { 0 } };
 const ProjectileDefinition gProjectileDefinition_25_eu[] = { { 0 } };
@@ -198,6 +208,11 @@ static void CheckProductionSourceConversions(void) {
     CHECK_EQ(ProjectileInit(&projectile), TRUE, "EU spiked roller initializes");
     CHECK_EQ(projectile.spriteIndex, 301u, "EU spiked roller stores native sprite 301");
 
+    memset(&projectile, 0, sizeof(projectile));
+    projectile.id = GYORG_MALE_ENERGY_PROJECTILE;
+    CHECK_EQ(ProjectileInit(&projectile), TRUE, "EU Gyorg energy projectile initializes");
+    CHECK_EQ(projectile.spriteIndex, 305u, "EU Gyorg energy projectile stores native sprite 305");
+
     memset(&enemy, 0, sizeof(enemy));
     enemy.base.id = SPEAR_MOBLIN;
     enemy.base.type = 1;
@@ -211,6 +226,28 @@ static void CheckProductionSourceConversions(void) {
     enemy.base.type = 1;
     CHECK_EQ(EnemyInit(&enemy), TRUE, "EU alternate Bow Moblin initializes");
     CHECK_EQ(enemy.base.spriteIndex, 319u, "EU alternate Bow Moblin stores native sprite 319");
+
+    memset(&enemy, 0, sizeof(enemy));
+    enemy.base.id = GYORG_CHILD;
+    CHECK_EQ(EnemyInit(&enemy), TRUE, "EU Gyorg child initializes");
+    CHECK_EQ(enemy.base.spriteIndex, 312u, "EU Gyorg child stores native sprite 312");
+
+    memset(&enemy, 0, sizeof(enemy));
+    enemy.base.id = GYORG_FEMALE_EYE;
+    CHECK_EQ(EnemyInit(&enemy), TRUE, "EU Gyorg female eye initializes");
+    CHECK_EQ(enemy.base.spriteIndex, 311u, "EU Gyorg female eye stores native sprite 311");
+    CHECK_EQ(EnemyInit(&enemy), TRUE, "EU Gyorg female eye second init is a no-op");
+    CHECK_EQ(enemy.base.spriteIndex, 311u, "EU Gyorg female eye is not shifted twice");
+
+    memset(&enemy, 0, sizeof(enemy));
+    enemy.base.id = GYORG_MALE_EYE;
+    CHECK_EQ(EnemyInit(&enemy), TRUE, "EU Gyorg male eye initializes");
+    CHECK_EQ(enemy.base.spriteIndex, 310u, "EU Gyorg male eye stores native sprite 310");
+
+    memset(&enemy, 0, sizeof(enemy));
+    enemy.base.id = GYORG_FEMALE_MOUTH;
+    CHECK_EQ(EnemyInit(&enemy), TRUE, "EU Gyorg female mouth initializes");
+    CHECK_EQ(enemy.base.spriteIndex, 314u, "EU Gyorg female mouth stores native sprite 314");
 
     /* Below-hole ordinary enemies are already native in the regional table
      * and remain untouched even though they share EnemyInit. */
@@ -232,6 +269,11 @@ static void CheckProductionSourceConversions(void) {
     CHECK_EQ(ProjectileInit(&projectile), TRUE, "USA spiked roller initializes");
     CHECK_EQ(projectile.spriteIndex, 302u, "USA spiked roller keeps compiled sprite 302");
 
+    memset(&projectile, 0, sizeof(projectile));
+    projectile.id = GYORG_MALE_ENERGY_PROJECTILE;
+    CHECK_EQ(ProjectileInit(&projectile), TRUE, "USA Gyorg energy projectile initializes");
+    CHECK_EQ(projectile.spriteIndex, 306u, "USA Gyorg energy projectile keeps compiled sprite 306");
+
     memset(&enemy, 0, sizeof(enemy));
     enemy.base.id = SPEAR_MOBLIN;
     enemy.base.type = 1;
@@ -243,6 +285,26 @@ static void CheckProductionSourceConversions(void) {
     enemy.base.type = 1;
     CHECK_EQ(EnemyInit(&enemy), TRUE, "USA alternate Bow Moblin initializes");
     CHECK_EQ(enemy.base.spriteIndex, 320u, "USA alternate Bow Moblin keeps sprite 320");
+
+    memset(&enemy, 0, sizeof(enemy));
+    enemy.base.id = GYORG_CHILD;
+    CHECK_EQ(EnemyInit(&enemy), TRUE, "USA Gyorg child initializes");
+    CHECK_EQ(enemy.base.spriteIndex, 313u, "USA Gyorg child keeps compiled sprite 313");
+
+    memset(&enemy, 0, sizeof(enemy));
+    enemy.base.id = GYORG_FEMALE_EYE;
+    CHECK_EQ(EnemyInit(&enemy), TRUE, "USA Gyorg female eye initializes");
+    CHECK_EQ(enemy.base.spriteIndex, 312u, "USA Gyorg female eye keeps compiled sprite 312");
+
+    memset(&enemy, 0, sizeof(enemy));
+    enemy.base.id = GYORG_MALE_EYE;
+    CHECK_EQ(EnemyInit(&enemy), TRUE, "USA Gyorg male eye initializes");
+    CHECK_EQ(enemy.base.spriteIndex, 311u, "USA Gyorg male eye keeps compiled sprite 311");
+
+    memset(&enemy, 0, sizeof(enemy));
+    enemy.base.id = GYORG_FEMALE_MOUTH;
+    CHECK_EQ(EnemyInit(&enemy), TRUE, "USA Gyorg female mouth initializes");
+    CHECK_EQ(enemy.base.spriteIndex, 315u, "USA Gyorg female mouth keeps compiled sprite 315");
 }
 
 int main(void) {
@@ -250,12 +312,19 @@ int main(void) {
      * of ROM-derived graphics data.  Distinct topologies at adjacent native
      * indices make an omitted/double/absent shift visible in byte-exact OAM:
      *   logical 302 SpikedRollers -> EU native 301 (two pieces)
+     *   logical 312 GyorgFemaleEye -> EU native 311 (two pieces)
      *   logical 321 ArrowProjectile -> EU native 320 (one piece)
      * Native 302 is an unrelated one-piece negative control.  Private ROM
      * verification separately proves the retail USA/EU table correspondence. */
     static const u8 kMappedEu301Frame0[] = { 0x02, 0xFD, 0xFA, 0x10, 0x05, 0x00,
                                               0x0D, 0x0A, 0x40, 0x09, 0x00 };
     static const u8 kUnmappedEu302Frame0[] = { 0x01, 0x05, 0xEC, 0x20, 0x0B, 0x00 };
+    static const u8 kMappedEu311GyorgEyeFrame0[] = { 0x02, 0xFA, 0xFB, 0x00, 0x0C, 0x00,
+                                                     0x08, 0x05, 0x10, 0x10, 0x00 };
+    static const u8 kWrongEu312GyorgChildFrame0[] = { 0x04, 0xF8, 0xFA, 0x41, 0x10, 0x40,
+                                                       0xFC, 0x08, 0x01, 0x14, 0x20,
+                                                       0x00, 0xF8, 0x15, 0x00, 0x20,
+                                                       0xF0, 0xF8, 0x11, 0x00, 0x20 };
     static const u8 kMappedEu320Frame0[] = { 0x01, 0xF9, 0x04, 0x40, 0x0D, 0x00 };
     OAMCommand cmd;
 
@@ -263,6 +332,8 @@ int main(void) {
     InstallFrame(301u, 0x1000u, 0x1100u, kMappedEu301Frame0, sizeof(kMappedEu301Frame0));
     InstallFrame(302u, 0x1010u, 0x1110u, kUnmappedEu302Frame0, sizeof(kUnmappedEu302Frame0));
     InstallFrame(320u, 0x1020u, 0x1120u, kMappedEu320Frame0, sizeof(kMappedEu320Frame0));
+    InstallFrame(311u, 0x1030u, 0x1130u, kMappedEu311GyorgEyeFrame0, sizeof(kMappedEu311GyorgEyeFrame0));
+    InstallFrame(312u, 0x1040u, 0x1140u, kWrongEu312GyorgChildFrame0, sizeof(kWrongEu312GyorgChildFrame0));
     Port_LoadOverlayDataFromConst(kOverlaySizeData, sizeof(kOverlaySizeData));
     CheckProductionSourceConversions();
 
@@ -298,6 +369,27 @@ int main(void) {
     CHECK_EQ(gOAMControls.updated, 1u, "unshifted trap negative control emits unrelated one-piece frame");
     CHECK_EQ(OamHalfword(0, 0), 0x007Cu, "unshifted trap negative-control attr0");
     CHECK_EQ(OamHalfword(0, 1), 0x802Eu, "unshifted trap negative-control attr1");
+
+    {
+        Enemy eye;
+        memset(&eye, 0, sizeof(eye));
+        eye.base.id = GYORG_FEMALE_EYE;
+        CHECK_EQ(EnemyInit(&eye), TRUE, "EU Gyorg eye initializes for OAM regression");
+        CHECK_EQ(eye.base.spriteIndex, 311u, "EU Gyorg eye selects its native frame-list index");
+
+        memset(&cmd, 0, sizeof(cmd));
+        cmd.x = 100;
+        cmd.y = 40;
+        cmd._8 = 0x2A60;
+        ClearOam();
+        ram_DrawDirect(&cmd, eye.base.spriteIndex, 0u);
+        CHECK_EQ(gOAMControls.updated, 2u, "EU Gyorg eye emits the intended two-piece frame");
+
+        ClearOam();
+        ram_DrawDirect(&cmd, SPRITE_GYORGFEMALEEYE, 0u);
+        CHECK_EQ(gOAMControls.updated, 4u,
+                 "unshifted EU Gyorg eye negative control emits the adjacent child topology");
+    }
 
     memset(&cmd, 0, sizeof(cmd));
     cmd.x = 120;

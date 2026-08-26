@@ -49,7 +49,7 @@ The bottom-screen worker avoids redundant static redraws while keeping touch inp
 1. Install the CIA with FBI, or use the 3DSX build with the Homebrew Launcher.
 
 ```text
-tmc-3ds-v1.2.cia
+tmc-3ds-v1.3-E1.cia
 ```
 
 2. Create this folder on your SD card:
@@ -144,8 +144,8 @@ chmod +x platform/3ds/build.sh
 Builds are generated under:
 
 ```text
-build-3ds/game/tmc-3ds-v1.2.cia
-build-3ds/game/tmc-3ds-v1.2.3dsx
+build-3ds/game/tmc-3ds-v1.3-E1.cia
+build-3ds/game/tmc-3ds-v1.3-E1.3dsx
 ```
 
 The build does not include or embed a ROM.

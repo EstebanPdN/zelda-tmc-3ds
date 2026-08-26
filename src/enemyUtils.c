@@ -104,13 +104,16 @@ bool32 EnemyInit(Enemy* this) {
         }
         super->spriteIndex = definition->spriteIndex;
 #ifdef PC_PORT
-        /* The fat binary's Moblin form tables are compiled from the USA
-         * Sprites enum, while Entity.spriteIndex and all downstream sprite
-         * APIs use active-ROM-native indices.  EU omits enum entry 288, so
-         * only these demonstrably USA-enum-backed definitions need the
-         * one-time conversion here.  Do not remap ordinary EU object/NPC
-         * definitions: those tables already contain native indices. */
-        if (super->id == SPEAR_MOBLIN || super->id == BOW_MOBLIN) {
+        /* These definitions are compiled from the USA Sprites enum, while
+         * Entity.spriteIndex and every downstream animation/frame API consume
+         * active-ROM-native indices. EU omits enum entry 288, so convert these
+         * known compiled-logical sources exactly once when materializing the
+         * entity. The Gyorg family is especially important: without this
+         * conversion the female eye selects the adjacent Gyorg-child frame
+         * topology and renders four unrelated OBJ pieces per eye. */
+        if (super->id == SPEAR_MOBLIN || super->id == BOW_MOBLIN || super->id == GYORG_CHILD ||
+            super->id == GYORG_FEMALE_EYE || super->id == GYORG_MALE_EYE ||
+            super->id == GYORG_FEMALE_MOUTH) {
             super->spriteIndex = Port_RemapSpriteIndex(super->spriteIndex);
         }
 #endif
