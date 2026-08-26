@@ -69,6 +69,26 @@ int main(void) {
     SetLocalFlagB(KUMOUE_02_00);
     CHECK(ReadBit(gSave.flags, FLAG_BANK_1 + 240), "baseline helper writes the EU Cloud Tops bit");
     CHECK(!ReadBit(gSave.flags, FLAG_BANK_1 + KUMOUE_02_00), "baseline helper never writes USA bit 243 on EU");
+    CHECK(Port_RemapBaselineLocalFlag(FLAG_BANK_1, KUMOUE_02_AWASE_01) == 235,
+          "top-right pinwheel maps 238 USA to 235 EU");
+    CHECK(Port_RemapBaselineLocalFlag(FLAG_BANK_1, KUMOUE_02_AWASE_05) == 239,
+          "bottom-right pinwheel maps 242 USA to 239 EU");
+    CHECK(Port_RemapBaselineLocalFlag(FLAG_BANK_1, KUMOUE_UNCLE_TALK) == 244,
+          "Gale dialogue maps 247 USA to 244 EU");
+    CHECK(Port_RemapBaselineLocalFlag(FLAG_BANK_1, KUMOUE_GIRL_TALK) == 245,
+          "Hailey dialogue maps 248 USA to 245 EU");
+    CHECK(Port_RemapBaselineLocalFlag(FLAG_BANK_1, MACHI_07_BELL) == 205,
+          "town bell dialogue maps 208 USA to 205 EU");
+    CHECK(Port_RemapBaselineLocalFlag(FLAG_BANK_1, MACHI_MES_20) == 207,
+          "town gossip dialogue maps 210 USA to 207 EU");
+    CHECK(Port_RemapBaselineLocalFlag(FLAG_BANK_1, MACHI_MES_21) == 208,
+          "second gossip dialogue maps 211 USA to 208 EU");
+    CHECK(Port_RemapBaselineLocalFlag(FLAG_BANK_1, MACHI_MES_24) == 211,
+          "town mushroom dialogue maps 214 USA to 211 EU");
+    CHECK(Port_RemapBaselineLocalFlag(FLAG_BANK_1, MACHI_MES_30) == 212,
+          "later town dialogue maps 215 USA to 212 EU");
+    CHECK(Port_RemapBaselineLocalFlag(FLAG_BANK_1, MACHI_MES_40) == 213,
+          "latest town dialogue maps 216 USA to 213 EU");
 
     ResetFlags(FLAG_BANK_2);
     WriteBit(gSave.flags, FLAG_BANK_2 + SHOP00_BOMBBAG);

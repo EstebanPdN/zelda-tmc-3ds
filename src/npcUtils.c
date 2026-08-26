@@ -417,7 +417,27 @@ void MarkFuserDone(Entity* entity) {
         gSave.kinstones.fuserOffers[fuserId] = KINSTONE_FUSER_DONE;
 }
 
-void ShowNPCDialogue(Entity* ent, const Dialog* dia) {
+static bool32 CheckDialogLocalFlag(u32 flag, bool32 baselineLocalFlags) {
+    return baselineLocalFlags ? CheckLocalFlagB(flag) : CheckLocalFlag(flag);
+}
+
+static void SetDialogLocalFlag(u32 flag, bool32 baselineLocalFlags) {
+    if (baselineLocalFlags) {
+        SetLocalFlagB(flag);
+    } else {
+        SetLocalFlag(flag);
+    }
+}
+
+static void ClearDialogLocalFlag(u32 flag, bool32 baselineLocalFlags) {
+    if (baselineLocalFlags) {
+        ClearLocalFlagB(flag);
+    } else {
+        ClearLocalFlag(flag);
+    }
+}
+
+static void ShowNPCDialogueInternal(Entity* ent, const Dialog* dia, bool32 baselineLocalFlags) {
     u32 fromSelf;
     s32 temp;
     u32 uVar2;
@@ -440,8 +460,8 @@ void ShowNPCDialogue(Entity* ent, const Dialog* dia) {
                     SetRoomFlag(uVar3);
                     break;
                 case DIALOG_LOCAL_FLAG:
-                    isFlagSet = CheckLocalFlag(uVar3);
-                    SetLocalFlag(uVar3);
+                    isFlagSet = CheckDialogLocalFlag(uVar3, baselineLocalFlags);
+                    SetDialogLocalFlag(uVar3, baselineLocalFlags);
                     break;
                 case DIALOG_GLOBAL_FLAG:
                     isFlagSet = CheckGlobalFlag(uVar3);
@@ -469,11 +489,11 @@ void ShowNPCDialogue(Entity* ent, const Dialog* dia) {
                     }
                     break;
                 case DIALOG_LOCAL_FLAG:
-                    isFlagSet = CheckLocalFlag(uVar3);
+                    isFlagSet = CheckDialogLocalFlag(uVar3, baselineLocalFlags);
                     if (!isFlagSet) {
-                        SetLocalFlag(uVar3);
+                        SetDialogLocalFlag(uVar3, baselineLocalFlags);
                     } else {
-                        ClearLocalFlag(uVar3);
+                        ClearDialogLocalFlag(uVar3, baselineLocalFlags);
                     }
                     break;
                 case DIALOG_GLOBAL_FLAG:
@@ -503,7 +523,7 @@ void ShowNPCDialogue(Entity* ent, const Dialog* dia) {
                         isFlagSet = CheckRoomFlag(uVar3);
                         break;
                     case DIALOG_LOCAL_FLAG:
-                        isFlagSet = CheckLocalFlag(uVar3);
+                        isFlagSet = CheckDialogLocalFlag(uVar3, baselineLocalFlags);
                         break;
                     case DIALOG_GLOBAL_FLAG:
                         isFlagSet = CheckGlobalFlag(uVar3);
@@ -554,6 +574,14 @@ void ShowNPCDialogue(Entity* ent, const Dialog* dia) {
     } else {
         MessageFromTarget(uVar2);
     }
+}
+
+void ShowNPCDialogue(Entity* ent, const Dialog* dia) {
+    ShowNPCDialogueInternal(ent, dia, FALSE);
+}
+
+void ShowNPCDialogueB(Entity* ent, const Dialog* dia) {
+    ShowNPCDialogueInternal(ent, dia, TRUE);
 }
 
 const u8 gUnk_08114F30[] = {

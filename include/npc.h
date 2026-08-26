@@ -68,6 +68,8 @@ s32 sub_0806F078(Entity* ent, s32 a2);
 void InitializeNPCFusion(Entity* ent);
 void MarkFuserDone(Entity* ent);
 void ShowNPCDialogue(Entity* ent, const Dialog* dia);
+/* Use only for Dialog records compiled with USA-baseline local-flag ordinals. */
+void ShowNPCDialogueB(Entity* ent, const Dialog* dia);
 
 Entity* CreateNPC(u32 subtype, u32 form, u32 parameter);
 u32 UpdateFuseInteraction(Entity*);

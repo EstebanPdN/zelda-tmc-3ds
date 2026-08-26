@@ -1471,6 +1471,28 @@ target_end()
 
 
 -- ====================
+-- Compiled-USA Dialog local-flag provenance regression test.
+-- ====================
+target("dialog_region_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections")
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("src/npcUtils.c")
+    add_files("port/port_dialog_region_test.c")
+target_end()
+
+
+-- ====================
 -- Compiled-USA -> region-native entity/tile data regression test.
 -- ====================
 target("region_data_resolver_test")

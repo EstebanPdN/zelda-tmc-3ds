@@ -274,7 +274,7 @@ void sub_0806CA3C(Entity* this, ScriptExecutionContext* context) {
                                           DIALOG_SET_FLAG,
                                           1,
                                           { TEXT_INDEX(TEXT_WIND_TRIBE, 0x19), TEXT_INDEX(TEXT_WIND_TRIBE, 0x16) } };
-    ShowNPCDialogue(this, &gUnk_08113B28);
+    ShowNPCDialogueB(this, &gUnk_08113B28);
 }
 
 void sub_0806CA4C(Entity* this, ScriptExecutionContext* context) {
@@ -283,7 +283,7 @@ void sub_0806CA4C(Entity* this, ScriptExecutionContext* context) {
                                           DIALOG_SET_FLAG,
                                           1,
                                           { TEXT_INDEX(TEXT_WIND_TRIBE, 0x18), TEXT_INDEX(TEXT_WIND_TRIBE, 0x17) } };
-    ShowNPCDialogue(this, &gUnk_08113B30);
+    ShowNPCDialogueB(this, &gUnk_08113B30);
 }
 
 void sub_0806CA5C(Entity* this, ScriptExecutionContext* context) {

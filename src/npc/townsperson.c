@@ -339,7 +339,10 @@ void sub_08062048(Entity* this) {
         {
             Dialog dia;
             TownspersonGBADialog(this->type * 0x8 + iVar1, &dia);
-            ShowNPCDialogue(this, &dia);
+            /* The raw fallback table is compiled from the USA ROM. Its local
+             * flag ordinals must follow the active region without altering
+             * ROM-native Dialog records used by other callers. */
+            ShowNPCDialogueB(this, &dia);
         }
 #else
         ShowNPCDialogue(this, gUnk_0810B7C0 + this->type * 0x8 + iVar1);
