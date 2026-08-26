@@ -10,7 +10,7 @@ touching it opens the existing Minish Cap Settings hierarchy.
 Install the universal CIA:
 
 ```text
-tmc-3ds-v1.2-E10.cia
+tmc-3ds-v1.2-E11.cia
 ```
 
 Then create this directory on the SD card:
@@ -37,7 +37,8 @@ Audio requires a working 3DS DSP firmware setup. On Luma3DS, use Rosalina's
 
 - Top screen: selectable Wide, Original, and Stretch aspect ratios.
 - Display styles: centered one-pixel-per-source-pixel Pixel Perfect, nearest-
-  neighbor Scaled, sharp two-pass Bilinear, and linearly filtered Blur.
+  neighbor Scaled, 2x sharp Bilinear, linearly filtered Blur, and experimental
+  3x Ultra Sharp.
 - Experimental Full View: on New 3DS, selecting Wide + Pixel Perfect renders
   compatible outdoor rooms at 400x240 and supported interiors at a centered
   200x120 logical view scaled exactly 2x. Dialogues, transitions and unsupported

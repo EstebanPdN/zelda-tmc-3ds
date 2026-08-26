@@ -36,8 +36,13 @@ void TopView3DS_BuildPlan(int old3DS, int fullViewComboEnabled,
         validSourceHeight, cropX, cropY, &result.source);
     result.linearFilter = result.mode == PORT_3DS_FULL_VIEW_FALLBACK &&
                           displayStyle == TOP_VIEW_3DS_DISPLAY_BLUR;
+    const int sharpBilinearScale =
+        displayStyle == TOP_VIEW_3DS_DISPLAY_ULTRA_SHARP
+            ? 3
+            : (displayStyle == TOP_VIEW_3DS_DISPLAY_BILINEAR ? 2 : 0);
     result.useSharpBilinear = result.mode == PORT_3DS_FULL_VIEW_FALLBACK &&
-                              displayStyle == TOP_VIEW_3DS_DISPLAY_BILINEAR;
+                              sharpBilinearScale != 0;
+    result.sharpBilinearScale = result.useSharpBilinear ? sharpBilinearScale : 0;
 
     if (result.mode != PORT_3DS_FULL_VIEW_FALLBACK) {
         result.drawWidth = 400;

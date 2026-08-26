@@ -40,6 +40,11 @@ enum {
     SHARP_BILINEAR_TEXTURE_HEIGHT = 512,
 };
 
+_Static_assert(SHARP_BILINEAR_TEXTURE_WIDTH >= 266 * 3 + 1,
+               "Ultra Sharp target must hold Wide plus its guard column");
+_Static_assert(SHARP_BILINEAR_TEXTURE_HEIGHT >= 160 * 3 + 1,
+               "Ultra Sharp target must hold the frame plus its guard row");
+
 extern u32 __ctru_linear_heap;
 extern u32 __ctru_linear_heap_size;
 extern bool Port_Config_GetShowFps(void);
@@ -217,9 +222,10 @@ bool PlatformGpu3DS_Init(bool old3dsProfile) {
     C3D_TexSetWrap(&sBottomTexture, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
 
     /* 266x160 Wide is the largest fallback frame, so a 1024x512 container
-     * safely holds its exact 532x320 nearest-neighbour 2x image. This target
-     * has no depth buffer. Allocation failure is non-fatal: selecting
-     * Bilinear then uses the established nearest-neighbour Scaled path. */
+     * safely holds its exact 798x480 nearest-neighbour 3x image plus guard
+     * texels. This target has no depth buffer. Allocation failure is
+     * non-fatal: Bilinear and Ultra Sharp then use the established
+     * nearest-neighbour Scaled path. */
     if (C3D_TexInitVRAM(&sSharpBilinearTexture, SHARP_BILINEAR_TEXTURE_WIDTH,
                         SHARP_BILINEAR_TEXTURE_HEIGHT, GPU_RGBA8)) {
         C3D_TexSetFilter(&sSharpBilinearTexture, GPU_LINEAR, GPU_LINEAR);
@@ -324,11 +330,18 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width, unsigned height
         .center = { 0.0f, 0.0f }, .depth = 0.0f, .angle = 0.0f,
     };
     C2D_TargetClear(sTopTarget, C2D_Color32(0, 0, 0, 255));
-    const unsigned intermediateWidth = (unsigned)presentation->sourceWidth * 2u;
-    const unsigned intermediateHeight = (unsigned)presentation->sourceHeight * 2u;
-    const bool useSharpBilinear = plan.useSharpBilinear && sSharpBilinearTarget &&
-                                  intermediateWidth <= SHARP_BILINEAR_TEXTURE_WIDTH &&
-                                  intermediateHeight <= SHARP_BILINEAR_TEXTURE_HEIGHT;
+    const unsigned intermediateScale = (unsigned)plan.sharpBilinearScale;
+    const bool validSharpBilinearScale = intermediateScale == 2u || intermediateScale == 3u;
+    const unsigned intermediateWidth = validSharpBilinearScale
+                                           ? (unsigned)presentation->sourceWidth * intermediateScale
+                                           : 0u;
+    const unsigned intermediateHeight = validSharpBilinearScale
+                                            ? (unsigned)presentation->sourceHeight * intermediateScale
+                                            : 0u;
+    const bool useSharpBilinear = plan.useSharpBilinear && validSharpBilinearScale &&
+                                  sSharpBilinearTarget &&
+                                  intermediateWidth < SHARP_BILINEAR_TEXTURE_WIDTH &&
+                                  intermediateHeight < SHARP_BILINEAR_TEXTURE_HEIGHT;
     if (useSharpBilinear) {
         const C2D_DrawParams integerParams = {
             .pos = { .x = 0.0f, .y = 0.0f,
@@ -401,8 +414,8 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width, unsigned height
         C2D_DrawImage(cornerImage, &cornerParams, NULL);
 
         /* Beginning the physical scene flushes the complete nearest pass
-         * before this texture is sampled. UVs cover only the valid 2x image,
-         * never the unused power-of-two container. */
+         * before this texture is sampled. UVs cover only the valid 2x or 3x
+         * image, never the unused power-of-two container. */
         sSharpBilinearSubtexture = (Tex3DS_SubTexture){
             .width = (u16)intermediateWidth,
             .height = (u16)intermediateHeight,

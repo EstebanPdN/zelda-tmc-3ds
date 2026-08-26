@@ -14,6 +14,7 @@ enum {
     TOP_VIEW_3DS_DISPLAY_SCALED,
     TOP_VIEW_3DS_DISPLAY_BILINEAR,
     TOP_VIEW_3DS_DISPLAY_BLUR,
+    TOP_VIEW_3DS_DISPLAY_ULTRA_SHARP,
 };
 
 typedef struct TopView3DSPlan {
@@ -25,6 +26,7 @@ typedef struct TopView3DSPlan {
     int drawHeight;
     int linearFilter;
     int useSharpBilinear;
+    int sharpBilinearScale;
 } TopView3DSPlan;
 
 typedef struct TopView3DSPpuCoherence {
