@@ -64,6 +64,7 @@
 
 #ifdef TMC_3DS
 #include "platform_3ds.h"
+#include "port_dump_state_3ds.h"
 
 extern void Port_PPU_3DS_WriteQuickDump(void);
 extern double Port_PPU_3DS_CurrentFps(void);
@@ -152,6 +153,9 @@ enum {
     SS_ACT_SETTINGS_PAGE,
     SS_ACT_SETTINGS_BACK,
     SS_ACT_DEVELOPER_DUMP,
+    SS_ACT_DEVELOPER_LOAD,
+    SS_ACT_LOAD_CANCEL,
+    SS_ACT_LOAD_CONFIRM,
     SS_ACT_RANDO_CANCEL,
     SS_ACT_RANDO_CONFIRM,
 };
@@ -284,6 +288,9 @@ static struct {
      * one of the two lists it opens, the same step in the pause menu. */
     uint8_t questView;
     uint32_t dumpFlashUntil;
+    uint32_t loadStateFlashUntil;
+    uint8_t loadStateResult;
+    uint8_t loadConfirmActive;
     uint8_t randoConfirmActive;
     uint8_t randoDesired;
 } sUi = { .floorPreview = SS_NO_FLOOR, .playerFloorDisp = SS_NO_FLOOR };
@@ -1951,6 +1958,17 @@ static void DrawDiagnosticRow(const SSurf* s, float x0, float y0, float x1, floa
                  (int32_t)((y0 + y1) / 2 - 8 * ms), ms, SS_TEXT_RED);
 }
 
+static void DrawDeveloperActionRow(const SSurf* s, TargetList* tl, float x0, float y0, float x1, float y1,
+                                   const char* label, const char* value, int action, float u, int32_t ts) {
+    DrawMenuButton(s, x0, y0, x1, y1, "", 0, 0, u, ts);
+    int32_t ms = (int32_t)(2.0f * u);
+    if (ms < 1) ms = 1;
+    MenuTextDraw(s, label, (int32_t)(x0 + 24 * u), (int32_t)((y0 + y1) / 2 - 8 * ms), ms, SS_TEXT_NAVY);
+    MenuTextDraw(s, value, (int32_t)(x1 - 24 * u - MenuTextWidth(value, ms)),
+                 (int32_t)((y0 + y1) / 2 - 8 * ms), ms, SS_TEXT_RED);
+    AddTarget(tl, x0, y0, x1, y1, action, 0);
+}
+
 static void PaintDeveloperOverlay(const SSurf* s, const SecondScreenSnapshot* snap, float x0, float y0,
                                   float x1, float y1, float u, int32_t ts) {
     const char* labels[8] = { "VERSION", "MODEL", "FPS NOW", "FPS AVG", "CORE1", "SCREEN", "AREA", "ROOM" };
@@ -2065,7 +2083,7 @@ static int GetSettingState(int row, char* out, int outCap) {
  * parchment, chips, font, and palette keep it native to this game. */
 static void PaintSettingsPanel(const SSurf* s, const SecondScreenSnapshot* snap, TargetList* tl, float rx0,
                                float ry0, float rx1, float ry1, float u, int32_t ts, int page, uint32_t tick,
-                               uint32_t dumpFlashUntil) {
+                               uint32_t dumpFlashUntil, uint32_t loadStateFlashUntil, int loadStateResult) {
     Port_SecondScreenTheme_DrawPlate(s->px, s->w, s->h, s->stride, (int32_t)rx0, (int32_t)ry0,
                                      (int32_t)(rx1 - rx0), (int32_t)(ry1 - ry0), ts);
     float inset = 6 * ts;
@@ -2105,23 +2123,35 @@ static void PaintSettingsPanel(const SSurf* s, const SecondScreenSnapshot* snap,
 
     if (page == SS_SETTINGS_DEVELOPER) {
         float gap = 10 * u;
-        float rowH = (iy1 - y0 - 2 * gap) / 3;
+        int rowCount = 3;
+#ifdef TMC_3DS
+        rowCount = 4;
+#endif
+        float rowH = (iy1 - y0 - (rowCount - 1) * gap) / rowCount;
         if (rowH > 92 * u) rowH = 92 * u;
         char dumpValue[16];
         snprintf(dumpValue, sizeof(dumpValue), "%s",
                  (int32_t)(dumpFlashUntil - tick) > 0 ? "DONE" : "WRITE");
-        DrawMenuButton(s, x0, y0, x1, y0 + rowH, "", 0, 0, u, ts);
-        int32_t ms = (int32_t)(2.0f * u);
-        if (ms < 1) ms = 1;
-        MenuTextDraw(s, "MEM DUMP", (int32_t)(x0 + 24 * u), (int32_t)(y0 + rowH / 2 - 8 * ms), ms,
-                     SS_TEXT_NAVY);
-        MenuTextDraw(s, dumpValue, (int32_t)(x1 - 24 * u - MenuTextWidth(dumpValue, ms)),
-                     (int32_t)(y0 + rowH / 2 - 8 * ms), ms, SS_TEXT_RED);
-        AddTarget(tl, x0, y0, x1, y0 + rowH, SS_ACT_DEVELOPER_DUMP, 0);
+        DrawDeveloperActionRow(s, tl, x0, y0, x1, y0 + rowH, "MEM DUMP", dumpValue,
+                               SS_ACT_DEVELOPER_DUMP, u, ts);
+#ifdef TMC_3DS
+        const char* loadValue = (int32_t)(loadStateFlashUntil - tick) > 0
+                                    ? Port_DumpState_ResultLabel((PortDumpStateResult)loadStateResult)
+                                    : "LOAD";
+        DrawDeveloperActionRow(s, tl, x0, y0 + rowH + gap, x1, y0 + 2 * rowH + gap, "LOAD STATE",
+                               loadValue, SS_ACT_DEVELOPER_LOAD, u, ts);
+        DrawSettingsValueRow(s, tl, x0, y0 + 2 * (rowH + gap), x1, y0 + 3 * rowH + 2 * gap,
+                             SS_SET_SHOW_FPS, u, ts);
+        DrawSettingsNavRow(s, tl, x0, y0 + 3 * (rowH + gap), x1, y0 + 4 * rowH + 3 * gap, "OVERLAY",
+                           SS_SETTINGS_OVERLAY, u, ts);
+#else
+        (void)loadStateFlashUntil;
+        (void)loadStateResult;
         DrawSettingsValueRow(s, tl, x0, y0 + rowH + gap, x1, y0 + 2 * rowH + gap,
                              SS_SET_SHOW_FPS, u, ts);
         DrawSettingsNavRow(s, tl, x0, y0 + 2 * (rowH + gap), x1, y0 + 3 * rowH + 2 * gap, "OVERLAY",
                            SS_SETTINGS_OVERLAY, u, ts);
+#endif
         return;
     }
 
@@ -2142,6 +2172,43 @@ static void PaintSettingsPanel(const SSurf* s, const SecondScreenSnapshot* snap,
 }
 
 #ifdef TMC_3DS
+static void PaintLoadStateConfirmation(const SSurf* s, TargetList* tl, float u, int32_t ts) {
+    tl->n = 0;
+    const float x0 = 18 * u;
+    const float x1 = s->w - 18 * u;
+    const float y0 = 18 * u;
+    const float y1 = s->h - 18 * u;
+    Port_SecondScreenTheme_DrawPlate(s->px, s->w, s->h, s->stride, (int32_t)x0, (int32_t)y0,
+                                     (int32_t)(x1 - x0), (int32_t)(y1 - y0), ts);
+
+    int32_t titleScale = (int32_t)(2.2f * u);
+    if (titleScale < 1) titleScale = 1;
+    MenuTextCentered(s, "LOAD LATEST DUMP?", (x0 + x1) / 2, y0 + 10, titleScale, SS_TEXT_NAVY);
+
+    static const char* const lines[] = {
+        "THE LATEST DUMP IN THE DUMPS FOLDER",
+        "WILL REPLACE THE CURRENT GAME STATE.",
+        "UNSAVED PROGRESS MAY BE LOST.",
+        "THE GAME WILL RESTART.",
+    };
+    int32_t textScale = (int32_t)(1.55f * u);
+    if (textScale < 1) textScale = 1;
+    float lineY = y0 + 44;
+    const float lineStep = MENU_TEXT_BOX * textScale + 3;
+    for (size_t i = 0; i < sizeof(lines) / sizeof(lines[0]); ++i) {
+        MenuTextCentered(s, lines[i], (x0 + x1) / 2, lineY + i * lineStep, textScale, SS_TEXT_INK);
+    }
+
+    const float gap = 8;
+    const float buttonY1 = y1 - 8;
+    const float buttonY0 = buttonY1 - 34;
+    const float middle = (x0 + x1) / 2;
+    DrawMenuButton(s, x0 + 14 * u, buttonY0, middle - gap / 2, buttonY1, "CANCEL", 0, 0, u, ts);
+    DrawMenuButton(s, middle + gap / 2, buttonY0, x1 - 14 * u, buttonY1, "LOAD", 0, 0, u, ts);
+    AddTarget(tl, x0 + 14 * u, buttonY0, middle - gap / 2, buttonY1, SS_ACT_LOAD_CANCEL, 0);
+    AddTarget(tl, middle + gap / 2, buttonY0, x1 - 14 * u, buttonY1, SS_ACT_LOAD_CONFIRM, 0);
+}
+
 static void PaintRandomizerConfirmation(const SSurf* s, TargetList* tl, float u, int32_t ts, int enable) {
     tl->n = 0;
     const float x0 = 18 * u;
@@ -2598,6 +2665,7 @@ void Port_SecondScreen_PaintInto(uint32_t* pixels, int width, int height, int st
         sUi.regionState = SS_REGION_OFF; /* a zoom never survives a load */
         sUi.questView = SS_QUEST_MAIN;   /* nor does an open list */
         sUi.settingsPage = SS_SETTINGS_ROOT;
+        sUi.loadConfirmActive = 0;
         sUi.randoConfirmActive = 0;
         UI_UNLOCK();
         sLastFix.valid = 0; /* stale fixes must not survive into a new save */
@@ -2613,9 +2681,10 @@ void Port_SecondScreen_PaintInto(uint32_t* pixels, int width, int height, int st
 
     int isDungeon = (snap->areaFlags & SECOND_SCREEN_AR_IS_DUNGEON) != 0;
 
-    int tab, armedRing, regionState, settingsPage, randoConfirmActive, randoDesired;
+    int tab, armedRing, regionState, settingsPage, loadStateResult, loadConfirmActive, randoConfirmActive,
+        randoDesired;
     int32_t regionId;
-    uint32_t dumpFlashUntil;
+    uint32_t dumpFlashUntil, loadStateFlashUntil;
     UI_LOCK();
     if (isDungeon) {
         sUi.regionState = SS_REGION_OFF; /* the world map is gone; so is its zoom */
@@ -2628,6 +2697,9 @@ void Port_SecondScreen_PaintInto(uint32_t* pixels, int width, int height, int st
     regionId = sUi.regionId;
     settingsPage = sUi.settingsPage;
     dumpFlashUntil = sUi.dumpFlashUntil;
+    loadStateFlashUntil = sUi.loadStateFlashUntil;
+    loadStateResult = sUi.loadStateResult;
+    loadConfirmActive = sUi.loadConfirmActive;
     randoConfirmActive = sUi.randoConfirmActive;
     randoDesired = sUi.randoDesired;
     sUi.mapLive = 0; /* set again by PaintOverworld when the map is up */
@@ -2678,7 +2750,7 @@ void Port_SecondScreen_PaintInto(uint32_t* pixels, int width, int height, int st
         PaintQuestPanel(&s, snap, &tl, mx0, my0, mx1, my1, u, ts, tick, questView);
     } else if (tab == SS_TAB_SETTINGS) {
         PaintSettingsPanel(&s, snap, &tl, mx0, my0, mx1, my1, u, ts, settingsPage, tick,
-                           dumpFlashUntil);
+                           dumpFlashUntil, loadStateFlashUntil, loadStateResult);
     } else if (isDungeon) {
         PaintDungeon(&s, snap, &tl, mx0, my0, mx1, my1, u, ts, tick, returnCfg);
     } else {
@@ -2706,7 +2778,9 @@ void Port_SecondScreen_PaintInto(uint32_t* pixels, int width, int height, int st
     }
     PaintTabBar(&s, &tl, u, ts, tab);
 #ifdef TMC_3DS
-    if (randoConfirmActive) {
+    if (loadConfirmActive) {
+        PaintLoadStateConfirmation(&s, &tl, u, ts);
+    } else if (randoConfirmActive) {
         PaintRandomizerConfirmation(&s, &tl, u, ts, randoDesired);
     }
 #endif
@@ -2801,6 +2875,32 @@ void Port_SecondScreen_OnTap(int x, int y, int longPress) {
             UI_UNLOCK();
 #ifdef TMC_3DS
             Port_PPU_3DS_WriteQuickDump();
+#endif
+            break;
+        case SS_ACT_DEVELOPER_LOAD:
+            UI_LOCK();
+            sUi.loadConfirmActive = 1;
+            UI_UNLOCK();
+            break;
+        case SS_ACT_LOAD_CANCEL:
+            UI_LOCK();
+            sUi.loadConfirmActive = 0;
+            UI_UNLOCK();
+            break;
+        case SS_ACT_LOAD_CONFIRM:
+#ifdef TMC_3DS
+            {
+                PortDumpStateResult result = Port_DumpState3DS_LoadLatest();
+                UI_LOCK();
+                sUi.loadConfirmActive = 0;
+                sUi.loadStateResult = (uint8_t)result;
+                sUi.loadStateFlashUntil = sUi.lastTick + 80;
+                UI_UNLOCK();
+            }
+#else
+            UI_LOCK();
+            sUi.loadConfirmActive = 0;
+            UI_UNLOCK();
 #endif
             break;
         case SS_ACT_RANDO_CANCEL:

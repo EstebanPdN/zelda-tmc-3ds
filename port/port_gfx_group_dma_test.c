@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "port_gfx_group_dma.h"
+#include "port_vertical_minish_path.h"
 
 #define CHECK(condition, message)                                                                  \
     do {                                                                                            \
@@ -151,6 +152,28 @@ static int CheckMinishRaftersGroupPath(void) {
     return 0;
 }
 
+static int CheckVerticalMinishPathWindowing(void) {
+    uint8_t mapData[0x8000];
+    uint8_t* bg3;
+    uint8_t* bg1;
+
+    /* Captured failing state: origin_y=64, scroll_y=580.  BG3 and BG1 use
+     * different parallax rates, but both offsets are expressed in bytes. */
+    const int scrollDelta = 580 - 64;
+    const int bg3Offset = scrollDelta + (scrollDelta >> 3);
+    const int bg1Offset = scrollDelta + (scrollDelta >> 2);
+
+    bg3 = Port_VerticalMinishPathSubTileMap(mapData, bg3Offset, 0);
+    bg1 = Port_VerticalMinishPathSubTileMap(mapData, bg1Offset, 0x2000);
+
+    CHECK(bg3 - mapData == 0x1200, "vertical Minish Path BG3 selects the captured byte page");
+    CHECK(bg1 - mapData == 0x3400, "vertical Minish Path opaque BG1 selects its populated byte page");
+    CHECK(bg1 + 0x800 <= mapData + 0x4000, "opaque BG1 screenblock remains inside loaded group data");
+    CHECK(Port_VerticalMinishPathSubTileMap(mapData, -0x80, 0) == mapData,
+          "negative transition offset remains clamped to the tilemap start");
+    return 0;
+}
+
 int main(void) {
     static const uint8_t payload[] = { 0xA1, 0xB2, 0xC3, 0xD4 };
     PortGfxGroupDmaResult result;
@@ -164,6 +187,7 @@ int main(void) {
           "bottom-layer destination");
     CHECK(CheckCapturedRaftersCoverage() == 0, "OLD-3b camera/map coverage oracle");
     CHECK(CheckMinishRaftersGroupPath() == 0, "OLD-3b Minish Rafters background path");
+    CHECK(CheckVerticalMinishPathWindowing() == 0, "vertical Minish Path parallax byte windowing");
 
     /* Gfx groups 30-35 chain four 4 KiB blocks inside top-special. */
     memset(sMapDataTopSpecial, 0, sizeof sMapDataTopSpecial);

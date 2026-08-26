@@ -77,6 +77,7 @@ static void ResetIdleOnlyState(void) {
     sUi.regionState = SS_REGION_OFF;
     sUi.questView = SS_QUEST_MAIN;
     sUi.settingsPage = SS_SETTINGS_ROOT;
+    sUi.loadConfirmActive = 0;
     sUi.randoConfirmActive = 0;
     if (sIdleOwnsSettingsTab) sUi.tab = SS_TAB_MAP;
     UI_UNLOCK();

@@ -1314,6 +1314,21 @@ target("gfx_group_dma_test")
     add_files("port/port_gfx_group_dma_test.c")
 target_end()
 
+-- ====================
+-- 3DS diagnostic-dump Load State file selection/validation regression test.
+-- ====================
+target("dump_state_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH", "REVISION=0")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_files("port/port_dump_state.c")
+    add_files("port/port_dump_state_test.c")
+target_end()
+
 
 -- ====================
 -- Hidden-HUD second-screen charge-meter regression test.

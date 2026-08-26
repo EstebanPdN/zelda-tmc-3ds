@@ -3,6 +3,7 @@
 #include "port_gba_mem.h"
 #include "port_config.h"
 #include "port_collision_diagnostics.h"
+#include "port_dump_state_3ds.h"
 #include "port_hdma.h"
 #include "port_runtime_config.h"
 #include "port_audio_3ds.h"
@@ -303,6 +304,7 @@ void Port_PPU_3DS_WriteQuickDump(void) {
     WriteBlob(path, gBG3Buffer, sizeof(gBG3Buffer));
     snprintf(path, sizeof(path), "%s/save-state.bin", dir);
     WriteBlob(path, &gSave, sizeof(gSave));
+    const bool loadStateOk = Port_DumpState3DS_Write(dir);
 
     snprintf(path, sizeof(path), "%s/info.txt", dir);
     FILE* info = fopen(path, "wb");
@@ -662,6 +664,9 @@ void Port_PPU_3DS_WriteQuickDump(void) {
         fprintf(info, "room-controls.bin, map-bottom-layer.bin, map-top-layer.bin\n");
         fprintf(info, "map-bottom-special.bin, map-top-special.bin, bg0-buffer.bin, bg1-buffer.bin, "
                       "bg2-buffer.bin, bg3-buffer.bin, save-state.bin (active SaveFile, 0x500 bytes)\n");
+        fprintf(info, "load-state.bin: %s\n",
+                loadStateOk ? "validated Developer > Load State checkpoint"
+                            : "unavailable (checkpoint capture requires active gameplay)");
         fprintf(info, "Trigger: L + R + A\n");
         fclose(info);
     }

@@ -49,7 +49,7 @@ The bottom-screen worker avoids redundant static redraws while keeping touch inp
 1. Install the CIA with FBI, or use the 3DSX build with the Homebrew Launcher.
 
 ```text
-tmc-3ds-v1.3-E2.cia
+tmc-3ds-v1.3-E3.cia
 ```
 
 2. Create this folder on your SD card:
@@ -107,6 +107,16 @@ Dumps are saved under:
 sdmc:/3ds/The Minish Cap 3DS/dumps/
 ```
 
+Gameplay dumps also include a validated `load-state.bin` checkpoint. To reproduce the most recent dump, open:
+
+```text
+Settings > Developer > Load State
+```
+
+The loader asks for confirmation, selects the newest `dump-*` folder, and rejects corrupted checkpoints or checkpoints
+created with a different ROM region. Older dumps that only contain `save-state.bin` remain supported, but they resume
+from the saved checkpoint rather than the exact captured position.
+
 Please send the dump when reporting bugs whenever possible.
 
 ## Releases
@@ -144,8 +154,8 @@ chmod +x platform/3ds/build.sh
 Builds are generated under:
 
 ```text
-build-3ds/game/tmc-3ds-v1.3-E2.cia
-build-3ds/game/tmc-3ds-v1.3-E2.3dsx
+build-3ds/game/tmc-3ds-v1.3-E3.cia
+build-3ds/game/tmc-3ds-v1.3-E3.3dsx
 ```
 
 The build does not include or embed a ROM.
