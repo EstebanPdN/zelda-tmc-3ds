@@ -82,6 +82,7 @@ static char sActivePath[SAVE_FILENAME_MAX] = DEFAULT_SAVE_FILENAME;
  * E1 image must not create a new 8 KiB backup on every NPC update. */
 static char sFuserRepairPreservedPath[SAVE_FILENAME_MAX];
 static char sCloudTopsRepairPreservedPath[SAVE_FILENAME_MAX];
+static char sVaatiProgressRepairPreservedPath[SAVE_FILENAME_MAX];
 static PortSaveStats sSaveStats;
 /* 1 once the user has explicitly chosen a named profile (config.json), so the
  * per-region default below must NOT override their choice. 0 in the default
@@ -1076,6 +1077,19 @@ int Port_Save_PreserveBeforeCloudTopsRepair(void) {
     }
     if (!PreserveFileUnique(sActivePath, "pre-cloud-tops-repair")) return 0;
     snprintf(sCloudTopsRepairPreservedPath, sizeof(sCloudTopsRepairPreservedPath), "%s", sActivePath);
+    return 1;
+}
+
+int Port_Save_PreserveBeforeVaatiProgressRepair(void) {
+    if (!sEepromInited || sEepromWriteBlocked) return 0;
+    if (strcmp(sVaatiProgressRepairPreservedPath, sActivePath) == 0) return 1;
+    if (sSaveTxnDepth != 0) return 0;
+    if (sEepromDirty) {
+        FlushEepromFile();
+        if (sEepromDirty) return 0;
+    }
+    if (!PreserveFileUnique(sActivePath, "pre-vaati-progress-repair")) return 0;
+    snprintf(sVaatiProgressRepairPreservedPath, sizeof(sVaatiProgressRepairPreservedPath), "%s", sActivePath);
     return 1;
 }
 

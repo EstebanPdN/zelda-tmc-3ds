@@ -51,6 +51,9 @@ int Port_Save_PreserveBeforeFuserRepair(void);
 /* Preserve the complete active profile before the one-shot Cloud Tops lost
  * reward repair. Repeated checks during one profile activation reuse it. */
 int Port_Save_PreserveBeforeCloudTopsRepair(void);
+/* Preserve the complete active profile before the one-shot Vaati progression
+ * repair. Repeated checks during one profile activation reuse it. */
+int Port_Save_PreserveBeforeVaatiProgressRepair(void);
 /* Switch profiles only after pending data for the current profile is durable.
  * Returns 0 and retains the current path/state if that flush fails. */
 int Port_Save_SetActivePath(const char* path);

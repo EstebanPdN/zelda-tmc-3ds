@@ -1513,6 +1513,22 @@ target_end()
 
 
 -- ====================
+-- USA/EU Vaati progression invariant and one-shot repair regression test.
+-- ====================
+target("vaati_progress_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "TMC_3DS", "USA", "ENGLISH")
+    add_files("port/port_vaati_progress_test.c")
+    add_files("port/port_vaati_progress.c")
+target_end()
+
+
+-- ====================
 -- Spiked-roller signed-range trajectory regression test.
 -- ====================
 target("spiked_rollers_motion_test")

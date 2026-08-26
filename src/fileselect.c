@@ -28,6 +28,7 @@
 #include "fade.h"
 #ifdef PC_PORT
 #include "port_cloud_tops_fight.h"
+#include "port_vaati_progress.h"
 #include "port_ppu.h"
 #include "port_runtime_config.h"
 #include "port_save.h"
@@ -825,6 +826,24 @@ void SetActiveSave(u32 idx) {
             Rando_Runtime_OnNewFile();
             MemCopy(&gSave, &gFileSelectState.saves[idx], sizeof(gSave));
             WriteSaveFile(idx, &gSave);
+        }
+
+        if (!Rando_IsActive() && Port_VaatiProgressNeedsRepair(&gSave)) {
+            if (!Port_Save_PreserveBeforeVaatiProgressRepair()) {
+                fprintf(stderr,
+                        "[SAVE] Refused Vaati progression repair for slot %u because the permanent backup failed.\n",
+                        idx);
+            } else if (Port_RepairVaatiProgress(&gSave)) {
+                MemCopy(&gSave, &gFileSelectState.saves[idx], sizeof(gSave));
+                if (WriteSaveFile(idx, &gSave) != 0) {
+                    fprintf(stderr, "[SAVE] Restored the missing Vaati 1 progression flag in slot %u.\n", idx);
+                } else {
+                    fprintf(stderr,
+                            "[SAVE] Restored the missing Vaati 1 progression flag in slot %u in memory; durable "
+                            "persistence will retry on the next save.\n",
+                            idx);
+                }
+            }
         }
 
         if (!Rando_IsActive() && Port_CloudTopsHasLostGoldenKinstone(&gSave)) {
