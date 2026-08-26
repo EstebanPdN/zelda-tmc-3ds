@@ -34,6 +34,7 @@
 #include "port_entity_ctx.h"
 #include "port_collision_fidelity.h"
 #include "port_gba_mem.h"
+#include "port_config.h"
 #include "port_rom.h"
 #include "port_runtime_config.h"
 #include "port_widescreen.h"
@@ -157,6 +158,8 @@ u32 gUnk_02000020;
 
 // gFrameObjLists — sprite frame data (200KB, self-relative offsets)
 u32 gFrameObjLists[50016];
+_Static_assert(sizeof(gFrameObjLists) == PORT_FRAME_OBJ_LISTS_CAPACITY_BYTES,
+               "frame-object staging capacity must match the runtime bounds");
 
 // gMapData — map data blob, backed by ROM data.
 // On GBA this is a label in .rodata at gAreaRoomMap_None (~14MB region).
@@ -2735,6 +2738,8 @@ void* Subtask_MapHint_Functions[16];
 
 // Various game data
 u32 gFixedTypeGfxData[528];
+_Static_assert(ARRAY_COUNT(gFixedTypeGfxData) == PORT_FIXED_TYPE_GFX_CAPACITY_ENTRIES,
+               "fixed-gfx staging capacity must match the runtime bounds");
 // gCaveBorderMapData — now provided by src/data/caveBorderMapData.c
 // gOverworldLocations — now provided by src/data/areaMetadata.c
 u16* gMoreSpritePtrs[16];

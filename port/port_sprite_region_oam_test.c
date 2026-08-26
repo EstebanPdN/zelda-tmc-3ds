@@ -409,6 +409,14 @@ int main(void) {
     ram_DrawDirect(&cmd, Port_RemapSpriteIndex(PORT_EU_OMITTED_SPRITE_INDEX), 0u);
     CHECK_EQ(gOAMControls.updated, 0u, "EU USA-only sprite hole fails closed without aliasing geometry");
 
+    /* A pointer into the 484-byte USA-only tail must be rejected for EU even
+     * though the host buffer has spare capacity there. */
+    memset(gFrameObjLists, 0, sizeof(gFrameObjLists));
+    gFrameObjLists[1] = PORT_EU_FRAME_OBJ_LISTS_SIZE;
+    ClearOam();
+    ram_DrawDirect(&cmd, 1u, 0u);
+    CHECK_EQ(gOAMControls.updated, 0u, "EU renderer rejects frame data in the unloaded USA-only tail");
+
     if (sFailures != 0) {
         fprintf(stderr, "port_sprite_region_oam_test: %d failure(s)\n", sFailures);
         return 1;

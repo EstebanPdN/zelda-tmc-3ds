@@ -3,6 +3,10 @@
 #include "main.h"
 #include "structures.h"
 
+#ifdef PC_PORT
+#include "port_config.h"
+#endif
+
 extern u32 gFixedTypeGfxData[];
 
 void ReserveGFXSlots(u32, u32, u32);
@@ -227,6 +231,11 @@ static bool32 LoadFixedGFX_baseline(Entity* entity, u32 gfxIndex) {
 #endif
 
 bool32 LoadFixedGFX(Entity* entity, u32 gfxIndex) {
+#ifdef PC_PORT
+    if (!Port_IsFixedTypeGfxIndexValidForRegion(gRomRegion, gfxIndex)) {
+        return FALSE;
+    }
+#endif
 #ifdef MULTI_REGION
     if (REGION_IS_EU) {
         return LoadFixedGFX_eu(entity, gfxIndex);

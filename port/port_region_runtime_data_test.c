@@ -99,6 +99,22 @@ int main(void) {
     CHECK_EQ(PORT_EU_SPRITE_PTR_COUNT, 328u, "EU retail sprite-pointer count reflects omitted entry");
     CHECK_EQ(PORT_USA_FRAME_OBJ_COUNT, 512u, "USA frame-object top-level count");
     CHECK_EQ(PORT_EU_FRAME_OBJ_COUNT, 511u, "EU frame-object top-level count reflects omitted entry");
+    CHECK_EQ(Port_FrameObjListsSizeForRegion(ROM_REGION_USA), 200045u,
+             "USA frame-object payload uses its exact retail size");
+    CHECK_EQ(Port_FrameObjListsSizeForRegion(ROM_REGION_EU), 199561u,
+             "EU frame-object payload stops before the following ROM table");
+    CHECK_EQ(Port_FrameObjCountForRegion(ROM_REGION_USA), 512u,
+             "USA frame-object lookup accepts exactly its native top-level entries");
+    CHECK_EQ(Port_FrameObjCountForRegion(ROM_REGION_EU), 511u,
+             "EU frame-object lookup excludes the omitted top-level entry");
+    CHECK_EQ(Port_FixedTypeGfxCountForRegion(ROM_REGION_USA), 526u,
+             "USA fixed-gfx table contains native indices 0 through 525");
+    CHECK_EQ(Port_FixedTypeGfxCountForRegion(ROM_REGION_EU), 525u,
+             "EU fixed-gfx table contains native indices 0 through 524");
+    CHECK_EQ(Port_IsFixedTypeGfxIndexValidForRegion(ROM_REGION_USA, 525u), TRUE,
+             "USA accepts its last native fixed-gfx index");
+    CHECK_EQ(Port_IsFixedTypeGfxIndexValidForRegion(ROM_REGION_EU, 525u), FALSE,
+             "EU rejects the first index beyond its fixed-gfx table");
     CHECK_EQ(Port_RemapLogicalSpriteIndexForRegion(ROM_REGION_USA, 287u), 287u,
              "USA index before the regional hole stays native");
     CHECK_EQ(Port_RemapLogicalSpriteIndexForRegion(ROM_REGION_USA, 288u), 288u,

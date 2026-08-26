@@ -515,8 +515,8 @@ const RomOffsets kRomOffsets_USA = {
     .gfxGroupsCount = 133,
     .paletteGroupsCount = 208,
     .objPalettesCount = 360,
-    .frameObjListsSize = 200045,
-    .fixedTypeGfxCount = 527,
+    .frameObjListsSize = PORT_USA_FRAME_OBJ_LISTS_SIZE,
+    .fixedTypeGfxCount = PORT_USA_FIXED_TYPE_GFX_COUNT,
     .spritePtrsCount = PORT_USA_SPRITE_PTR_COUNT,
     .expectedRomSize = 0x1000000,
     .gameCode = "BZME",
@@ -584,8 +584,8 @@ const RomOffsets kRomOffsets_EU = {
     .gfxGroupsCount = 133,
     .paletteGroupsCount = 207,
     .objPalettesCount = 360,
-    .frameObjListsSize = 200045,
-    .fixedTypeGfxCount = 527,
+    .frameObjListsSize = PORT_EU_FRAME_OBJ_LISTS_SIZE,
+    .fixedTypeGfxCount = PORT_EU_FIXED_TYPE_GFX_COUNT,
     /* EU omits USA-only SPRITE_OBJECTB4_1 (index 288). */
     .spritePtrsCount = PORT_EU_SPRITE_PTR_COUNT,
     .expectedRomSize = 0x1000000,
@@ -665,8 +665,8 @@ const RomOffsets kRomOffsets_JP = {
     .gfxGroupsCount = 133,
     .paletteGroupsCount = 208,
     .objPalettesCount = 360,
-    .frameObjListsSize = 200045,
-    .fixedTypeGfxCount = 527,
+    .frameObjListsSize = PORT_USA_FRAME_OBJ_LISTS_SIZE,
+    .fixedTypeGfxCount = PORT_USA_FIXED_TYPE_GFX_COUNT,
     .spritePtrsCount = PORT_USA_SPRITE_PTR_COUNT,
     .expectedRomSize = 0x1000000,
     .gameCode = "BZMJ",
@@ -1639,12 +1639,16 @@ void Port_LoadRom(const char* path) {
      * MULTI_REGION binaries are compiled with USA tables, but JP/EU have
      * different table addresses. Copying the compile-time USA blobs here
      * corrupts title/UI sprite rendering after a region switch. */
-    if (R->frameObjLists + R->frameObjListsSize <= gRomSize) {
+    memset(gFrameObjLists, 0, PORT_FRAME_OBJ_LISTS_CAPACITY_BYTES);
+    if (R->frameObjListsSize <= PORT_FRAME_OBJ_LISTS_CAPACITY_BYTES &&
+        R->frameObjLists + R->frameObjListsSize <= gRomSize) {
         memcpy(gFrameObjLists, &gRomData[R->frameObjLists], R->frameObjListsSize);
         fprintf(stderr, "gFrameObjLists loaded (%u bytes from ROM 0x%X).\n", R->frameObjListsSize, R->frameObjLists);
-    } else {
+    } else if (gRomRegion == ROM_REGION_USA) {
         memcpy(gFrameObjLists, kFrameObjListsData, R->frameObjListsSize);
         fprintf(stderr, "WARNING: gFrameObjLists ROM range invalid; using compile-time fallback.\n");
+    } else {
+        fprintf(stderr, "WARNING: gFrameObjLists ROM range invalid; regional table disabled.\n");
     }
 
     /* gExtraFrameOffsets is region-specific. EU removes one first-level entry
@@ -1664,13 +1668,17 @@ void Port_LoadRom(const char* path) {
 
     /* OBJ palette offset table — now compile-time const src/data/objPalettes.c */
 
-    if (R->fixedTypeGfx + R->fixedTypeGfxCount * 4 <= gRomSize) {
+    memset(gFixedTypeGfxData, 0, PORT_FIXED_TYPE_GFX_CAPACITY_ENTRIES * sizeof(u32));
+    if (R->fixedTypeGfxCount <= PORT_FIXED_TYPE_GFX_CAPACITY_ENTRIES &&
+        R->fixedTypeGfx + R->fixedTypeGfxCount * sizeof(u32) <= gRomSize) {
         memcpy(gFixedTypeGfxData, &gRomData[R->fixedTypeGfx], R->fixedTypeGfxCount * 4);
         fprintf(stderr, "gFixedTypeGfxData loaded (%u entries from ROM 0x%X).\n", R->fixedTypeGfxCount,
                 R->fixedTypeGfx);
-    } else {
+    } else if (gRomRegion == ROM_REGION_USA) {
         memcpy(gFixedTypeGfxData, kFixedTypeGfxInitData, R->fixedTypeGfxCount * 4);
         fprintf(stderr, "WARNING: gFixedTypeGfxData ROM range invalid; using compile-time fallback.\n");
+    } else {
+        fprintf(stderr, "WARNING: gFixedTypeGfxData ROM range invalid; regional table disabled.\n");
     }
 
     /* gSpritePtrs — resolve every entry from the active ROM table. */
