@@ -68,12 +68,26 @@ void Port_SecondScreen_OnSurfaceLost(void);
 void Port_SecondScreen_OnTap(int x, int y, int longPress);
 
 #ifdef PORT_SECOND_SCREEN_TEST
+typedef struct PortSecondScreenTestLoadStateLayout {
+    int32_t titleCenterY;
+    int32_t firstLineCenterY;
+    int32_t lastLineCenterY;
+    int32_t buttonLeft;
+    int32_t buttonRight;
+    int32_t buttonTop;
+    int32_t buttonBottom;
+} PortSecondScreenTestLoadStateLayout;
+
 /* Focused host oracle for the production ammo compositor.  Paints the A
  * counter at x=0 and B at x=20*scale, and returns how many equipped items
  * own a counter (including a real zero-ammo counter). */
 int Port_SecondScreen_TestPaintEquippedAmmo(uint32_t* pixels, int32_t width, int32_t height,
                                             int32_t stride, const SecondScreenSnapshot* snap,
                                             int32_t scale);
+void Port_SecondScreen_TestLoadStateConfirmationLayout(int32_t width, int32_t height,
+                                                       PortSecondScreenTestLoadStateLayout* out);
+float Port_SecondScreen_TestSidebarRingRadius(float vitalsBottom, float chipY, float width, float u,
+                                              int chargeVisible);
 #endif
 
 /* Which way round the two screens ended up this launch: nonzero when the

@@ -217,7 +217,10 @@ bool PlatformGpu3DS_Init(bool old3dsProfile) {
     if (!C3D_TexInitVRAM(&sTopTexture, TOP_TEXTURE_WIDTH, TOP_TEXTURE_HEIGHT, GPU_RGBA8)) goto fail;
     if (!C3D_TexInitVRAM(&sBottomTexture, 512, 256, GPU_RGBA8)) goto fail_top_texture;
     C3D_TexSetFilter(&sTopTexture, GPU_NEAREST, GPU_NEAREST);
-    C3D_TexSetFilter(&sBottomTexture, GPU_NEAREST, GPU_NEAREST);
+    /* The complete 320x240 compositor (map, HUD and menus) shares this
+     * texture, so linear filtering here makes bilinear presentation the
+     * default consistently instead of special-casing individual panels. */
+    C3D_TexSetFilter(&sBottomTexture, GPU_LINEAR, GPU_LINEAR);
     C3D_TexSetWrap(&sTopTexture, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
     C3D_TexSetWrap(&sBottomTexture, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
 

@@ -2171,42 +2171,98 @@ static void PaintSettingsPanel(const SSurf* s, const SecondScreenSnapshot* snap,
     }
 }
 
+typedef struct LoadStateConfirmationLayout {
+    float x0;
+    float x1;
+    float y0;
+    float y1;
+    float titleY;
+    float firstLineY;
+    float lineStep;
+    float buttonLeft;
+    float buttonMiddleLeft;
+    float buttonMiddleRight;
+    float buttonRight;
+    float buttonTop;
+    float buttonBottom;
+} LoadStateConfirmationLayout;
+
+static LoadStateConfirmationLayout ComputeLoadStateConfirmationLayout(int32_t width, int32_t height,
+                                                                       float u) {
+    LoadStateConfirmationLayout layout;
+    layout.x0 = 18 * u;
+    layout.x1 = width - 18 * u;
+    layout.y0 = 18 * u;
+    layout.y1 = height - 18 * u;
+
+    /* The 3DS canvas is 320x240 (u=1/3). Keep this confirmation on an
+     * explicit pixel rhythm: the old y0+10 title landed against the top
+     * rim, while its four long body lines reached both side rims. */
+    layout.titleY = layout.y0 + 30;
+    layout.firstLineY = layout.y0 + 62;
+    layout.lineStep = MENU_TEXT_BOX + 2;
+
+    layout.buttonLeft = layout.x0 + 20;
+    layout.buttonMiddleLeft = width / 2.0f - 8;
+    layout.buttonMiddleRight = width / 2.0f + 8;
+    layout.buttonRight = layout.x1 - 20;
+    layout.buttonBottom = layout.y1 - 12;
+    layout.buttonTop = layout.buttonBottom - 26;
+    return layout;
+}
+
+#ifdef PORT_SECOND_SCREEN_TEST
+void Port_SecondScreen_TestLoadStateConfirmationLayout(int32_t width, int32_t height,
+                                                       PortSecondScreenTestLoadStateLayout* out) {
+    LoadStateConfirmationLayout layout;
+    float u;
+    if (out == NULL || width <= 0 || height <= 0) return;
+    u = (width < height ? width : height) / 720.0f;
+    layout = ComputeLoadStateConfirmationLayout(width, height, u);
+    out->titleCenterY = (int32_t)layout.titleY;
+    out->firstLineCenterY = (int32_t)layout.firstLineY;
+    out->lastLineCenterY = (int32_t)(layout.firstLineY + 4 * layout.lineStep);
+    out->buttonLeft = (int32_t)layout.buttonLeft;
+    out->buttonRight = (int32_t)layout.buttonRight;
+    out->buttonTop = (int32_t)layout.buttonTop;
+    out->buttonBottom = (int32_t)layout.buttonBottom;
+}
+#endif
+
 #ifdef TMC_3DS
 static void PaintLoadStateConfirmation(const SSurf* s, TargetList* tl, float u, int32_t ts) {
+    const LoadStateConfirmationLayout layout = ComputeLoadStateConfirmationLayout(s->w, s->h, u);
     tl->n = 0;
-    const float x0 = 18 * u;
-    const float x1 = s->w - 18 * u;
-    const float y0 = 18 * u;
-    const float y1 = s->h - 18 * u;
-    Port_SecondScreenTheme_DrawPlate(s->px, s->w, s->h, s->stride, (int32_t)x0, (int32_t)y0,
-                                     (int32_t)(x1 - x0), (int32_t)(y1 - y0), ts);
+    Port_SecondScreenTheme_DrawPlate(s->px, s->w, s->h, s->stride, (int32_t)layout.x0,
+                                     (int32_t)layout.y0, (int32_t)(layout.x1 - layout.x0),
+                                     (int32_t)(layout.y1 - layout.y0), ts);
 
     int32_t titleScale = (int32_t)(2.2f * u);
     if (titleScale < 1) titleScale = 1;
-    MenuTextCentered(s, "LOAD LATEST DUMP?", (x0 + x1) / 2, y0 + 10, titleScale, SS_TEXT_NAVY);
+    MenuTextCentered(s, "LOAD LATEST DUMP?", s->w / 2.0f, layout.titleY, titleScale, SS_TEXT_NAVY);
 
     static const char* const lines[] = {
-        "THE LATEST DUMP IN THE DUMPS FOLDER",
-        "WILL REPLACE THE CURRENT GAME STATE.",
+        "THE LATEST DUMP IN THE",
+        "DUMPS FOLDER WILL REPLACE",
+        "THE CURRENT GAME STATE.",
         "UNSAVED PROGRESS MAY BE LOST.",
         "THE GAME WILL RESTART.",
     };
     int32_t textScale = (int32_t)(1.55f * u);
     if (textScale < 1) textScale = 1;
-    float lineY = y0 + 44;
-    const float lineStep = MENU_TEXT_BOX * textScale + 3;
     for (size_t i = 0; i < sizeof(lines) / sizeof(lines[0]); ++i) {
-        MenuTextCentered(s, lines[i], (x0 + x1) / 2, lineY + i * lineStep, textScale, SS_TEXT_INK);
+        MenuTextCentered(s, lines[i], s->w / 2.0f, layout.firstLineY + i * layout.lineStep,
+                         textScale, SS_TEXT_INK);
     }
 
-    const float gap = 8;
-    const float buttonY1 = y1 - 8;
-    const float buttonY0 = buttonY1 - 34;
-    const float middle = (x0 + x1) / 2;
-    DrawMenuButton(s, x0 + 14 * u, buttonY0, middle - gap / 2, buttonY1, "CANCEL", 0, 0, u, ts);
-    DrawMenuButton(s, middle + gap / 2, buttonY0, x1 - 14 * u, buttonY1, "LOAD", 0, 0, u, ts);
-    AddTarget(tl, x0 + 14 * u, buttonY0, middle - gap / 2, buttonY1, SS_ACT_LOAD_CANCEL, 0);
-    AddTarget(tl, middle + gap / 2, buttonY0, x1 - 14 * u, buttonY1, SS_ACT_LOAD_CONFIRM, 0);
+    DrawMenuButton(s, layout.buttonLeft, layout.buttonTop, layout.buttonMiddleLeft,
+                   layout.buttonBottom, "CANCEL", 0, 0, u, ts);
+    DrawMenuButton(s, layout.buttonMiddleRight, layout.buttonTop, layout.buttonRight,
+                   layout.buttonBottom, "LOAD", 0, 0, u, ts);
+    AddTarget(tl, layout.buttonLeft, layout.buttonTop, layout.buttonMiddleLeft,
+              layout.buttonBottom, SS_ACT_LOAD_CANCEL, 0);
+    AddTarget(tl, layout.buttonMiddleRight, layout.buttonTop, layout.buttonRight,
+              layout.buttonBottom, SS_ACT_LOAD_CONFIRM, 0);
 }
 
 static void PaintRandomizerConfirmation(const SSurf* s, TargetList* tl, float u, int32_t ts, int enable) {
@@ -2472,6 +2528,49 @@ static void DrawChargeIndicator(const SSurf* s, const SecondScreenSnapshot* snap
     }
 }
 
+typedef struct SidebarRingLayout {
+    float mid;
+    float radius;
+} SidebarRingLayout;
+
+typedef struct SidebarPromptBands {
+    float promptY;
+    float promptHeight;
+    float contentBottom;
+} SidebarPromptBands;
+
+static SidebarRingLayout ComputeSidebarRingLayout(float vitalsBottom, float chipY, float w, float u) {
+    SidebarRingLayout layout;
+    layout.mid = (vitalsBottom + chipY) / 2;
+    layout.radius = 60 * u;
+    if (layout.radius > w / 2 - 14 * u) layout.radius = w / 2 - 14 * u;
+    {
+        float quarter = (chipY - vitalsBottom) / 4 - 7 * u;
+        if (layout.radius > quarter) layout.radius = quarter;
+    }
+    return layout;
+}
+
+static SidebarPromptBands ComputeSidebarPromptBands(float vitalsBottom, float u, int chargeVisible) {
+    SidebarPromptBands bands;
+    const float reservedHeight = 144 * u;
+    const float chargeHeight = chargeVisible ? 28 * u : 0;
+    /* Charge shares the R-prompt reservation; it must not consume another
+     * band and squeeze the A/B rings below it. */
+    bands.promptY = vitalsBottom + chargeHeight;
+    bands.promptHeight = reservedHeight - chargeHeight;
+    bands.contentBottom = vitalsBottom + reservedHeight;
+    return bands;
+}
+
+#ifdef PORT_SECOND_SCREEN_TEST
+float Port_SecondScreen_TestSidebarRingRadius(float vitalsBottom, float chipY, float width, float u,
+                                              int chargeVisible) {
+    const SidebarPromptBands bands = ComputeSidebarPromptBands(vitalsBottom, u, chargeVisible);
+    return ComputeSidebarRingLayout(bands.contentBottom, chipY, width, u).radius;
+}
+#endif
+
 /* Sidebar, right edge: hearts on top (the most-glanced info), the R
  * prompt band under them, the A/B equip rings centered in the middle, the
  * rupee/keys chip anchored to the bottom, just above the tab bar. */
@@ -2536,13 +2635,14 @@ static void PaintSidebar(const SSurf* s, const SecondScreenSnapshot* snap, Targe
     }
     float vitalsBottom = hy + rows * 8 * hk + 4 * u;
 
-    /* When the top HUD is disabled, preserve the sword-charge cue beside
-     * the other glanceable vitals.  Reserve no space while inactive so the
-     * established sidebar geometry is unchanged during ordinary play. */
-    if (Port_SecondScreenChargeVisible(snap)) {
+    /* The charge cue occupies the top of the R-prompt reservation. The
+     * total reserved height stays fixed, so displaying the meter cannot
+     * shrink or move the equipped-item rings. */
+    const int chargeVisible = Port_SecondScreenChargeVisible(snap);
+    const SidebarPromptBands promptBands = ComputeSidebarPromptBands(vitalsBottom, u, chargeVisible);
+    if (chargeVisible) {
         float chargeBandH = 28 * u;
         DrawChargeIndicator(s, snap, x, vitalsBottom, w, chargeBandH, u, tick);
-        vitalsBottom += chargeBandH;
     }
 
     /* R prompt band, reserved whether or not there is a prompt so the
@@ -2550,9 +2650,8 @@ static void PaintSidebar(const SSurf* s, const SecondScreenSnapshot* snap, Targe
     /* The prompt shares the sidebar with the A/B rings, and at 34u it was
      * dwarfed by them — this is the one contextual control on the panel, so
      * it gets a band it can actually be read in. */
-    float rBandH = 144 * u;
-    DrawRPrompt(s, snap, x, vitalsBottom, w, rBandH, u, ts);
-    vitalsBottom += rBandH;
+    DrawRPrompt(s, snap, x, promptBands.promptY, w, promptBands.promptHeight, u, ts);
+    vitalsBottom = promptBands.contentBottom;
 
     /* Bare counters sit above the tab bar without another stone tray. */
     int chipRows = isDungeon ? 2 : 1;
@@ -2587,11 +2686,9 @@ static void PaintSidebar(const SSurf* s, const SecondScreenSnapshot* snap, Targe
 
     /* Equip rings, centered between the vitals and the chip: A above B.
      * Tap a ring to arm it; the next item-grid tap assigns that slot. */
-    float mid = (vitalsBottom + chipY) / 2;
-    float ringR = 60 * u;
-    if (ringR > w / 2 - 14 * u) ringR = w / 2 - 14 * u;
-    float quarter = (chipY - vitalsBottom) / 4 - 7 * u;
-    if (ringR > quarter) ringR = quarter;
+    SidebarRingLayout ringLayout = ComputeSidebarRingLayout(vitalsBottom, chipY, w, u);
+    float mid = ringLayout.mid;
+    float ringR = ringLayout.radius;
     if (ringR >= 10 * u) {
         float lowerBy = 24 * u;
         float maxLower = chipY - (mid + 2 * ringR + 6 * u);
