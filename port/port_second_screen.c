@@ -274,6 +274,7 @@ static struct {
     uint8_t mapLive;
     float mapOx, mapOy, mapScale, mapU;
     int32_t mapImgW, mapImgH;
+    uint32_t mapWindcrests;
     /* Map-tile zoom: SS_REGION_* state, the picked tile's region id, and
      * its rect in world-map image pixels (what the bracket outlines). */
     uint8_t regionState;
@@ -1165,6 +1166,14 @@ static void PaintOverworld(const SSurf* s, const SecondScreenSnapshot* snap, Tar
         DrawMapMarker(s, (int32_t)px, (int32_t)py, base, c);
     }
 
+    /* The native pause map stamps one opaque gray DrawDirect frame over
+     * every region whose discovery bit is still clear. Draw these last,
+     * exactly like sub_080A6498, so hidden terrain and its markers cannot
+     * leak through the bottom screen. */
+    Port_SecondScreenWorldMap_DrawUnrevealedRegions(
+        s->px, s->w, s->h, s->stride, snap->windcrests, ox, oy, sCam.scale, (int32_t)rx0,
+        (int32_t)ry0, (int32_t)rx1, (int32_t)ry1);
+
     /* Zoom-grid availability, asked once per frame at the view center: the
      * map screen's own tile grid answering means a tap can zoom, which is
      * also what decides whether the view chip below is worth showing. */
@@ -1214,6 +1223,7 @@ static void PaintOverworld(const SSurf* s, const SecondScreenSnapshot* snap, Tar
     sUi.mapU = u;
     sUi.mapImgW = imgW;
     sUi.mapImgH = imgH;
+    sUi.mapWindcrests = snap->windcrests;
     sUi.regionGridReady = (uint8_t)(gridReady != 0);
     UI_UNLOCK();
 
@@ -2227,6 +2237,22 @@ void Port_SecondScreen_TestLoadStateConfirmationLayout(int32_t width, int32_t he
     out->buttonTop = (int32_t)layout.buttonTop;
     out->buttonBottom = (int32_t)layout.buttonBottom;
 }
+
+void Port_SecondScreen_TestRandomizerConfirmationLayout(int32_t width, int32_t height,
+                                                        PortSecondScreenTestLoadStateLayout* out) {
+    LoadStateConfirmationLayout layout;
+    float u;
+    if (out == NULL || width <= 0 || height <= 0) return;
+    u = (width < height ? width : height) / 720.0f;
+    layout = ComputeLoadStateConfirmationLayout(width, height, u);
+    out->titleCenterY = (int32_t)layout.titleY;
+    out->firstLineCenterY = (int32_t)layout.firstLineY;
+    out->lastLineCenterY = (int32_t)(layout.firstLineY + 5 * layout.lineStep);
+    out->buttonLeft = (int32_t)layout.buttonLeft;
+    out->buttonRight = (int32_t)layout.buttonRight;
+    out->buttonTop = (int32_t)layout.buttonTop;
+    out->buttonBottom = (int32_t)layout.buttonBottom;
+}
 #endif
 
 #ifdef TMC_3DS
@@ -2266,42 +2292,40 @@ static void PaintLoadStateConfirmation(const SSurf* s, TargetList* tl, float u, 
 }
 
 static void PaintRandomizerConfirmation(const SSurf* s, TargetList* tl, float u, int32_t ts, int enable) {
+    const LoadStateConfirmationLayout layout = ComputeLoadStateConfirmationLayout(s->w, s->h, u);
     tl->n = 0;
-    const float x0 = 18 * u;
-    const float x1 = s->w - 18 * u;
-    const float y0 = 18 * u;
-    const float y1 = s->h - 18 * u;
-    Port_SecondScreenTheme_DrawPlate(s->px, s->w, s->h, s->stride, (int32_t)x0, (int32_t)y0,
-                                     (int32_t)(x1 - x0), (int32_t)(y1 - y0), ts);
+    Port_SecondScreenTheme_DrawPlate(s->px, s->w, s->h, s->stride, (int32_t)layout.x0,
+                                     (int32_t)layout.y0, (int32_t)(layout.x1 - layout.x0),
+                                     (int32_t)(layout.y1 - layout.y0), ts);
 
     int32_t titleScale = (int32_t)(2.2f * u);
     if (titleScale < 1) titleScale = 1;
-    MenuTextCentered(s, enable ? "ENABLE RANDOMIZER" : "DISABLE RANDOMIZER", (x0 + x1) / 2,
-                     y0 + 10, titleScale, SS_TEXT_NAVY);
+    MenuTextCentered(s, enable ? "ENABLE RANDOMIZER" : "DISABLE RANDOMIZER", s->w / 2.0f,
+                     layout.titleY, titleScale, SS_TEXT_NAVY);
 
     static const char* const lines[] = {
         "RANDOMIZER REQUIRES A NEW GAME.",
-        "THE ACTIVE PROFILE SAVE, AUTOSAVES,",
-        "SAVESTATES AND RANDOMIZER DATA",
-        "WILL BE DELETED. THE ROM IS KEPT.",
+        "THE ACTIVE PROFILE SAVE,",
+        "AUTOSAVES, SAVESTATES, AND",
+        "RANDOMIZER DATA WILL BE",
+        "DELETED. THE ROM IS KEPT.",
         "THE GAME WILL RESTART.",
     };
     int32_t textScale = (int32_t)(1.55f * u);
     if (textScale < 1) textScale = 1;
-    float lineY = y0 + 38;
-    const float lineStep = MENU_TEXT_BOX * textScale + 2;
     for (size_t i = 0; i < sizeof(lines) / sizeof(lines[0]); ++i) {
-        MenuTextCentered(s, lines[i], (x0 + x1) / 2, lineY + i * lineStep, textScale, SS_TEXT_INK);
+        MenuTextCentered(s, lines[i], s->w / 2.0f, layout.firstLineY + i * layout.lineStep,
+                         textScale, SS_TEXT_INK);
     }
 
-    const float gap = 8;
-    const float buttonY1 = y1 - 8;
-    const float buttonY0 = buttonY1 - 34;
-    const float middle = (x0 + x1) / 2;
-    DrawMenuButton(s, x0 + 14 * u, buttonY0, middle - gap / 2, buttonY1, "CANCEL", 0, 0, u, ts);
-    DrawMenuButton(s, middle + gap / 2, buttonY0, x1 - 14 * u, buttonY1, "CONTINUE", 0, 0, u, ts);
-    AddTarget(tl, x0 + 14 * u, buttonY0, middle - gap / 2, buttonY1, SS_ACT_RANDO_CANCEL, 0);
-    AddTarget(tl, middle + gap / 2, buttonY0, x1 - 14 * u, buttonY1, SS_ACT_RANDO_CONFIRM,
+    DrawMenuButton(s, layout.buttonLeft, layout.buttonTop, layout.buttonMiddleLeft,
+                   layout.buttonBottom, "CANCEL", 0, 0, u, ts);
+    DrawMenuButton(s, layout.buttonMiddleRight, layout.buttonTop, layout.buttonRight,
+                   layout.buttonBottom, "CONTINUE", 0, 0, u, ts);
+    AddTarget(tl, layout.buttonLeft, layout.buttonTop, layout.buttonMiddleLeft,
+              layout.buttonBottom, SS_ACT_RANDO_CANCEL, 0);
+    AddTarget(tl, layout.buttonMiddleRight, layout.buttonTop, layout.buttonRight,
+              layout.buttonBottom, SS_ACT_RANDO_CONFIRM,
               (uint8_t)(enable != 0));
 }
 #endif
@@ -2911,7 +2935,8 @@ static int PickMapRegion(int x, int y) {
          * around the fitted view is not a tap on the map. */
         if (ix >= WMAP_CROP_X0 && iy >= WMAP_CROP_Y0 && ix < WMAP_CROP_X1 && iy < WMAP_CROP_Y1 &&
             ix < sUi.mapImgW && iy < sUi.mapImgH &&
-            Port_SecondScreenWorldMap_GetRegionAt(ix, iy, &region, &rx0, &ry0, &rx1, &ry1)) {
+            Port_SecondScreenWorldMap_GetRegionAt(ix, iy, &region, &rx0, &ry0, &rx1, &ry1) &&
+            Port_SecondScreenWorldMap_IsRegionRevealed(sUi.mapWindcrests, region)) {
             sUi.regionId = region;
             sUi.regionX0 = rx0;
             sUi.regionY0 = ry0;

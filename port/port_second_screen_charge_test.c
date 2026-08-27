@@ -1,5 +1,6 @@
 #include "port_second_screen.h"
 #include "port_second_screen_theme.h"
+#include "port_second_screen_worldmap.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -62,6 +63,7 @@ static void CheckSolidRect(const uint32_t* pixels, int stride, int x0, int y0, i
 int main(void) {
     SecondScreenSnapshot snapshot;
     PortSecondScreenTestLoadStateLayout loadLayout;
+    PortSecondScreenTestLoadStateLayout randomizerLayout;
     uint32_t pixels[40 * 8];
     memset(&snapshot, 0, sizeof(snapshot));
     InitGlyphOracle();
@@ -153,6 +155,38 @@ int main(void) {
     CHECK_EQ(loadLayout.buttonLeft, 26, "load-state buttons have a left inset");
     CHECK_EQ(loadLayout.buttonRight, 294, "load-state buttons have a right inset");
     CHECK_EQ(loadLayout.buttonBottom - loadLayout.buttonTop, 26, "load-state buttons stay compact");
+
+    memset(&randomizerLayout, 0, sizeof(randomizerLayout));
+    Port_SecondScreen_TestRandomizerConfirmationLayout(320, 240, &randomizerLayout);
+    CHECK_EQ(randomizerLayout.titleCenterY, loadLayout.titleCenterY,
+             "randomizer title matches load-state rhythm");
+    CHECK_EQ(randomizerLayout.firstLineCenterY, loadLayout.firstLineCenterY,
+             "randomizer copy starts at the compact load-state position");
+    CHECK_EQ(randomizerLayout.lastLineCenterY, 158,
+             "six randomizer copy lines stay above the buttons");
+    CHECK_EQ(randomizerLayout.buttonLeft, loadLayout.buttonLeft,
+             "randomizer controls match load-state left inset");
+    CHECK_EQ(randomizerLayout.buttonRight, loadLayout.buttonRight,
+             "randomizer controls match load-state right inset");
+    CHECK_EQ(randomizerLayout.buttonBottom - randomizerLayout.buttonTop, 26,
+             "randomizer buttons stay compact");
+
+    CHECK_EQ(Port_SecondScreenWorldMap_IsRegionRevealed(0, 7), 1,
+             "native map always reveals navigation region 7");
+    CHECK_EQ(Port_SecondScreenWorldMap_IsRegionRevealed(0, 10), 1,
+             "native map always reveals navigation region 10");
+    CHECK_EQ(Port_SecondScreenWorldMap_IsRegionRevealed(0, 16), 1,
+             "native map always reveals navigation region 16");
+    CHECK_EQ(Port_SecondScreenWorldMap_IsRegionRevealed(0, 0), 0,
+             "undiscovered map region stays covered");
+    CHECK_EQ(Port_SecondScreenWorldMap_IsRegionRevealed(1u << 3, 3), 1,
+             "save discovery bit reveals its matching region");
+    CHECK_EQ(Port_SecondScreenWorldMap_IsRegionRevealed(1u << 24, 0), 0,
+             "windcrest travel bits do not reveal map regions");
+    CHECK_EQ(Port_SecondScreenWorldMap_IsRegionRevealed(0, -1), 0,
+             "negative map region is rejected");
+    CHECK_EQ(Port_SecondScreenWorldMap_IsRegionRevealed(0, 17), 0,
+             "out-of-range map region is rejected");
 
     /* The charge meter shares the always-reserved R band. Its appearance
      * therefore cannot alter the ring radius derived by production. */

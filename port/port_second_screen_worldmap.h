@@ -25,6 +25,28 @@ extern "C" {
  * rendering and simply retry next frame — the call is cheap once decoded. */
 const uint32_t* Port_SecondScreenWorldMap_GetImage(int32_t* outW, int32_t* outH);
 
+/* PauseMenu screen 4 always reveals these five navigation regions when it
+ * opens, then uses bits 0..16 of gSave.windcrests for the remaining map
+ * discovery. Keep this pure rule shared by paint and touch hit-testing so a
+ * covered region can never be opened through the bottom screen. */
+#define SECOND_SCREEN_WORLDMAP_BASE_REVEALED 0x00010780u
+
+static inline uint32_t Port_SecondScreenWorldMap_RevealedMask(uint32_t windcrests) {
+    return windcrests | SECOND_SCREEN_WORLDMAP_BASE_REVEALED;
+}
+
+static inline int Port_SecondScreenWorldMap_IsRegionRevealed(uint32_t windcrests, int32_t region) {
+    return region >= 0 && region < 17 &&
+           ((Port_SecondScreenWorldMap_RevealedMask(windcrests) >> region) & 1u) != 0;
+}
+
+/* Draws the exact gray cover frames pause-menu screen 4 stamps over every
+ * unrevealed region (sub_080A6498), transformed with the already-drawn map.
+ * Returns how many region frames were drawn. */
+int Port_SecondScreenWorldMap_DrawUnrevealedRegions(
+    uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, uint32_t windcrests, float ox,
+    float oy, float scale, int32_t clipX0, int32_t clipY0, int32_t clipX1, int32_t clipY1);
+
 /* Maps an area + area-local player position (pixels) to world-map image
  * pixel coordinates. Returns 1 on success, 0 when the area has no world-map
  * location (interiors, dungeons) — callers keep the last successful fix,

@@ -86,6 +86,8 @@ int Port_SecondScreen_TestPaintEquippedAmmo(uint32_t* pixels, int32_t width, int
                                             int32_t scale);
 void Port_SecondScreen_TestLoadStateConfirmationLayout(int32_t width, int32_t height,
                                                        PortSecondScreenTestLoadStateLayout* out);
+void Port_SecondScreen_TestRandomizerConfirmationLayout(int32_t width, int32_t height,
+                                                        PortSecondScreenTestLoadStateLayout* out);
 float Port_SecondScreen_TestSidebarRingRadius(float vitalsBottom, float chipY, float width, float u,
                                               int chargeVisible);
 #endif

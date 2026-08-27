@@ -75,6 +75,10 @@ extern const u8* gGlobalGfxAndPalettes;
  * src/subtask/subtaskFastTravel.c). */
 extern const Transition gUnk_08128024[];
 
+/* pauseMenu.c keeps this packed type private, but screen 4 only needs bytes
+ * 6/7 of each eight-byte row: the DrawDirect anchor for its region cover. */
+extern const u8 gUnk_08128DE8[];
+
 /* port/port_bios.c — BIOS LZ77 into a caller-owned buffer (the engine's
  * LZ77UnCompWram/Vram always resolve their destination into live GBA
  * regions, which an off-screen decode must not touch). */
@@ -1080,6 +1084,113 @@ static const u8* MarkerTile(int32_t region, u32 tileNo) {
         tile = Port_GetRawGfxSpanForVram(REGION_GFX_GROUP_BASE + (u32)region, vram, 32u);
     }
     return tile != NULL ? tile : Port_GetRawGfxSpanForVram(WORLDMAP_GFX_GROUP, vram, 32u);
+}
+
+static int32_t FloorPixel(float value) {
+    int32_t integer = (int32_t)value;
+    return value < (float)integer ? integer - 1 : integer;
+}
+
+/* Transform and stamp one arbitrary-size DrawDirect frame in world-map
+ * screen coordinates. Unlike the 16x16 marker cache below, the discovery
+ * covers span several OAM pieces and differ in size, so drawing their pieces
+ * directly avoids a large permanent 17-frame cache. */
+static int DrawWorldMapFrameTransformed(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
+                                        u32 frame, int32_t anchorX, int32_t anchorY, float ox, float oy,
+                                        float scale, int32_t clipX0, int32_t clipY0, int32_t clipX1,
+                                        int32_t clipY1) {
+    const u8* sizeTab = Port_GetSpriteSizeTable();
+    u32 maxPieces = 0;
+    const u8* fd = Port_GetDirectSpriteFrame(DIRECT_SPRITE_INDEX, frame, &maxPieces);
+    u32 count, i;
+    int drewAny = 0;
+
+    if (pixels == NULL || sizeTab == NULL || fd == NULL || scale <= 0.0f) {
+        return 0;
+    }
+    if (clipX0 < 0) clipX0 = 0;
+    if (clipY0 < 0) clipY0 = 0;
+    if (clipX1 > bufW) clipX1 = bufW;
+    if (clipY1 > bufH) clipY1 = bufH;
+    count = fd[0];
+    fd++;
+    if (count > maxPieces) count = maxPieces;
+
+    for (i = 0; i < count; i++, fd += 5) {
+        int32_t xoff = (int8_t)fd[0];
+        int32_t yoff = (int8_t)fd[1];
+        u32 shapeInfo = fd[2];
+        u32 attr2 = (u32)fd[3] | ((u32)fd[4] << 8);
+        u32 tileNo = attr2 & 0x3FFu;
+        u32 palRow = attr2 >> 12;
+        const u8* se = &sizeTab[(shapeInfo & 0xF0u) >> 2];
+        int32_t pieceX = anchorX + xoff - (int32_t)se[0];
+        int32_t pieceY = anchorY + yoff - (int32_t)se[1];
+        int32_t wpx = se[2];
+        int32_t hpx = se[3];
+        int32_t hflip = (shapeInfo & 4u) != 0;
+        int32_t vflip = (shapeInfo & 8u) != 0;
+        const uint16_t* pal = MarkerObjPalette(palRow);
+        int32_t tx, ty, sx, sy;
+
+        if (pal == NULL) return 0;
+        for (ty = 0; ty < hpx / 8; ty++) {
+            for (tx = 0; tx < wpx / 8; tx++) {
+                const u8* tile = MarkerTile(SECOND_SCREEN_WORLDMAP_NO_REGION,
+                                            tileNo + (u32)(ty * (wpx / 8) + tx));
+                if (tile == NULL) return 0;
+                for (sy = 0; sy < 8; sy++) {
+                    for (sx = 0; sx < 8; sx++) {
+                        u8 packed = tile[sy * 4 + sx / 2];
+                        u8 colorIndex = (sx & 1) ? (u8)(packed >> 4) : (u8)(packed & 0xFu);
+                        int32_t localX, localY, srcX, srcY, dx0, dy0, dx1, dy1, dx, dy;
+                        uint32_t color;
+                        if (colorIndex == 0) continue;
+                        localX = tx * 8 + sx;
+                        localY = ty * 8 + sy;
+                        srcX = pieceX + (hflip ? wpx - 1 - localX : localX);
+                        srcY = pieceY + (vflip ? hpx - 1 - localY : localY);
+                        dx0 = FloorPixel(ox + srcX * scale);
+                        dy0 = FloorPixel(oy + srcY * scale);
+                        dx1 = FloorPixel(ox + (srcX + 1) * scale);
+                        dy1 = FloorPixel(oy + (srcY + 1) * scale);
+                        if (dx1 <= dx0) dx1 = dx0 + 1;
+                        if (dy1 <= dy0) dy1 = dy0 + 1;
+                        if (dx0 < clipX0) dx0 = clipX0;
+                        if (dy0 < clipY0) dy0 = clipY0;
+                        if (dx1 > clipX1) dx1 = clipX1;
+                        if (dy1 > clipY1) dy1 = clipY1;
+                        color = Rgb555ToRgba8888(pal[colorIndex]);
+                        for (dy = dy0; dy < dy1; dy++) {
+                            for (dx = dx0; dx < dx1; dx++) {
+                                pixels[(size_t)dy * (size_t)stride + (size_t)dx] = color;
+                                drewAny = 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return drewAny;
+}
+
+int Port_SecondScreenWorldMap_DrawUnrevealedRegions(
+    uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, uint32_t windcrests, float ox,
+    float oy, float scale, int32_t clipX0, int32_t clipY0, int32_t clipX1, int32_t clipY1) {
+    int32_t region;
+    int32_t count = 0;
+
+    for (region = 0; region < WORLDMAP_REGION_COUNT; region++) {
+        const u8* row;
+        if (Port_SecondScreenWorldMap_IsRegionRevealed(windcrests, region)) continue;
+        row = gUnk_08128DE8 + region * 8;
+        if (DrawWorldMapFrameTransformed(pixels, bufW, bufH, stride, (u32)(0x28 + 3 * region), row[6],
+                                         row[7], ox, oy, scale, clipX0, clipY0, clipX1, clipY1)) {
+            count++;
+        }
+    }
+    return count;
 }
 
 /* Decode one frame into `slot` (0 = transparent). Piece walk mirrors
