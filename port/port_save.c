@@ -81,6 +81,7 @@ static char sActivePath[SAVE_FILENAME_MAX] = DEFAULT_SAVE_FILENAME;
  * slots and duplicate records). Further contaminated fusers from that same
  * E1 image must not create a new 8 KiB backup on every NPC update. */
 static char sFuserRepairPreservedPath[SAVE_FILENAME_MAX];
+static char sSmithBottleFlagRepairPreservedPath[SAVE_FILENAME_MAX];
 static char sCloudTopsRepairPreservedPath[SAVE_FILENAME_MAX];
 static char sVaatiProgressRepairPreservedPath[SAVE_FILENAME_MAX];
 static PortSaveStats sSaveStats;
@@ -1067,6 +1068,19 @@ int Port_Save_PreserveBeforeFuserRepair(void) {
     return 1;
 }
 
+int Port_Save_PreserveBeforeSmithBottleFlagRepair(void) {
+    if (!sEepromInited || sEepromWriteBlocked) return 0;
+    if (strcmp(sSmithBottleFlagRepairPreservedPath, sActivePath) == 0) return 1;
+    if (sSaveTxnDepth != 0) return 0;
+    if (sEepromDirty) {
+        FlushEepromFile();
+        if (sEepromDirty) return 0;
+    }
+    if (!PreserveFileUnique(sActivePath, "pre-smith-bottle-flag-repair")) return 0;
+    snprintf(sSmithBottleFlagRepairPreservedPath, sizeof(sSmithBottleFlagRepairPreservedPath), "%s", sActivePath);
+    return 1;
+}
+
 int Port_Save_PreserveBeforeCloudTopsRepair(void) {
     if (!sEepromInited || sEepromWriteBlocked) return 0;
     if (strcmp(sCloudTopsRepairPreservedPath, sActivePath) == 0) return 1;
@@ -1237,6 +1251,7 @@ int Port_Save_SetActivePath(const char* path) {
     sEepromDirty = 0;
     sEepromWriteBlocked = 0;
     sFuserRepairPreservedPath[0] = '\0';
+    sSmithBottleFlagRepairPreservedPath[0] = '\0';
     sCloudTopsRepairPreservedPath[0] = '\0';
     return 1;
 }
@@ -1280,6 +1295,7 @@ int Port_Save_ClearActiveProfileData(void) {
     sSaveTxnDepth = 0;
     sFlushFailedLast = 0;
     sFuserRepairPreservedPath[0] = '\0';
+    sSmithBottleFlagRepairPreservedPath[0] = '\0';
     sCloudTopsRepairPreservedPath[0] = '\0';
 #ifdef PORT_SAVE_TEST
     sTestFailNextPreserve = 0;

@@ -53,6 +53,7 @@ set(TMC_PORT_SOURCES
     port/port_bios.c port/port_debug_verbose.c port/port_inline_ptrs.c
     port/port_script_addrs.c port/port_offset_remap.c port/port_rom.c
     port/port_region_data.c
+    port/port_bottle_compat.c
     port/port_cloud_tops_fight.c
     port/port_vaati_progress.c
     port/port_stubs.c port/stubs_autogen.c port/data_stubs_autogen.c

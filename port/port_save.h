@@ -48,6 +48,9 @@ int Port_Save_PreserveBeforeMigration(void);
  * repairing v1.2-E1's region-contaminated fuser cursors. Repeated repairs in
  * the same profile/session reuse that already-verified preservation. */
 int Port_Save_PreserveBeforeFuserRepair(void);
+/* Preserve the active profile before moving the pre-v1.2-E5 USA Smith bottle
+ * chest bit to its native European ordinal. */
+int Port_Save_PreserveBeforeSmithBottleFlagRepair(void);
 /* Preserve the complete active profile before the one-shot Cloud Tops lost
  * reward repair. Repeated checks during one profile activation reuse it. */
 int Port_Save_PreserveBeforeCloudTopsRepair(void);

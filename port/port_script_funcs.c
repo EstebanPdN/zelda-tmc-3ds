@@ -187,6 +187,9 @@ extern void sub_08053B3C();
 extern void sub_08053BE8();
 extern void sub_08053C84();
 extern void sub_08054968();
+extern void sub_08054EB8();
+extern void sub_08054EFC();
+extern void sub_08054F64();
 extern void sub_0806014C();
 extern void sub_08060158();
 extern void sub_08060208();
@@ -536,6 +539,10 @@ static const ScriptFuncEntry sScriptFuncTable[] = {
     { 0x08054565, (void (*)(void))DisableRandomDrops },
     { 0x08054571, (void (*)(void))EnableRandomDrops },
     { 0x08054969, (void (*)(void))sub_08054968 },
+    /* PORT FIX (keep on regenerate): Goron Kinstone wall and sync callbacks. */
+    { 0x08054EB9, (void (*)(void))sub_08054EB8 },
+    { 0x08054EFD, (void (*)(void))sub_08054EFC },
+    { 0x08054F65, (void (*)(void))sub_08054F64 },
     { 0x0805DDED, (void (*)(void))CreateRepeatedSoundManager },
     { 0x0805DE19, (void (*)(void))DeleteRepeatedSoundManager },
     { 0x0805E545, (void (*)(void))SetPlayerEventPriority },
@@ -1026,6 +1033,10 @@ static const ScriptFuncEntry sScriptFuncTable_EU[] = {
     { 0x080540FD, (void (*)(void))DisableRandomDrops },
     { 0x08054109, (void (*)(void))EnableRandomDrops },
     { 0x080544E9, (void (*)(void))sub_08054968 },
+    /* PORT FIX (keep on regenerate): exact retail EU Goron callback addresses. */
+    { 0x08054A39, (void (*)(void))sub_08054EB8 },
+    { 0x08054A7D, (void (*)(void))sub_08054EFC },
+    { 0x08054AE5, (void (*)(void))sub_08054F64 },
     { 0x0805D889, (void (*)(void))CreateRepeatedSoundManager },
     { 0x0805D8B5, (void (*)(void))DeleteRepeatedSoundManager },
     { 0x0805DFCD, (void (*)(void))SetPlayerEventPriority },

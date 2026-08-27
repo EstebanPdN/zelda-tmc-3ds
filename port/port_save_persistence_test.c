@@ -328,6 +328,24 @@ int main(void) {
     CHECK(!FileExistsForTest("tmc_fuser_backup.sav.pre-fuser-repair.002.bak"),
           "replacement activation does not create a backup per fuser");
 
+    BuildDiskImage(image, activeSignature, 0xA8);
+    CHECK(WriteBytes("tmc_smith_bottle_backup.sav", image, sizeof(image)),
+          "Smith bottle flag repair backup fixture is written");
+    CHECK(Port_Save_SetActivePath("tmc_smith_bottle_backup.sav"),
+          "Smith bottle flag repair backup profile is selected");
+    EEPROMConfigure(0x40);
+    CHECK(Port_Save_PreserveBeforeSmithBottleFlagRepair(),
+          "first permanent pre-Smith-bottle-flag-repair backup succeeds");
+    CHECK(FileExistsForTest("tmc_smith_bottle_backup.sav.pre-smith-bottle-flag-repair.bak"),
+          "Smith bottle flag repair has a stable permanent backup");
+    CHECK(FilesEqualForTest("tmc_smith_bottle_backup.sav",
+                            "tmc_smith_bottle_backup.sav.pre-smith-bottle-flag-repair.bak"),
+          "Smith bottle flag repair backup preserves the complete raw profile byte-for-byte");
+    CHECK(Port_Save_PreserveBeforeSmithBottleFlagRepair(),
+          "later Smith bottle flag repair checks reuse the verified profile backup");
+    CHECK(!FileExistsForTest("tmc_smith_bottle_backup.sav.pre-smith-bottle-flag-repair.001.bak"),
+          "one profile does not create repeated Smith bottle flag repair backups");
+
     BuildDiskImage(image, activeSignature, 0xA7);
     CHECK(WriteBytes("tmc_cloud_tops_backup.sav", image, sizeof(image)),
           "Cloud Tops repair backup fixture is written");

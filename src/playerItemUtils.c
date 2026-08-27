@@ -8,6 +8,9 @@
 #include "player.h"
 #include "save.h"
 #include "sound.h"
+#ifdef PC_PORT
+#include "port_bottle_compat.h"
+#endif
 
 static Entity* GiveItemWithCutscene(u32, u32, u32);
 static bool32 CreateItemEntityInternal(u32, u32, u32, u16);
@@ -100,7 +103,6 @@ void OpenSmallChest(u32 pos, u32 layer) {
     }
     if ((layer >> 1) == ((u32)(t->_6 << 31) >> 31)) {
         if (found) {
-            SetLocalFlag(t->localFlag);
             {
                 u8 item = t->_2;
                 u8 subtype = t->_3;
@@ -111,6 +113,13 @@ void OpenSmallChest(u32 pos, u32 layer) {
                     (void)Rando_OverrideLocationKey(key, &item, &subtype);
                 }
 #endif
+#ifdef PC_PORT
+                if (!Port_BottleRewardCanBeCollected(&gSave, item)) {
+                    SoundReq(SFX_MENU_ERROR);
+                    return;
+                }
+#endif
+                SetLocalFlag(t->localFlag);
                 CreateItemEntity(item, subtype, 0);
             }
         } else {

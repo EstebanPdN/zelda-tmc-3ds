@@ -27,6 +27,7 @@
 #include "gfx.h"
 #include "fade.h"
 #ifdef PC_PORT
+#include "port_bottle_compat.h"
 #include "port_cloud_tops_fight.h"
 #include "port_vaati_progress.h"
 #include "port_ppu.h"
@@ -840,6 +841,24 @@ void SetActiveSave(u32 idx) {
                 } else {
                     fprintf(stderr,
                             "[SAVE] Restored the missing Vaati 1 progression flag in slot %u in memory; durable "
+                            "persistence will retry on the next save.\n",
+                            idx);
+                }
+            }
+        }
+
+        if (Port_SmithBottleFlagsNeedRepair(&gSave, Rando_IsActive())) {
+            if (!Port_Save_PreserveBeforeSmithBottleFlagRepair()) {
+                fprintf(stderr,
+                        "[SAVE] Refused Smith bottle flag repair for slot %u because the permanent backup failed.\n",
+                        idx);
+            } else if (Port_RepairSmithBottleFlags(&gSave, Rando_IsActive())) {
+                MemCopy(&gSave, &gFileSelectState.saves[idx], sizeof(gSave));
+                if (WriteSaveFile(idx, &gSave) != 0) {
+                    fprintf(stderr, "[SAVE] Migrated the legacy EU Smith bottle flag in slot %u.\n", idx);
+                } else {
+                    fprintf(stderr,
+                            "[SAVE] Migrated the legacy EU Smith bottle flag in slot %u in memory; durable "
                             "persistence will retry on the next save.\n",
                             idx);
                 }
