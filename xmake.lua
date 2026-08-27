@@ -1566,6 +1566,21 @@ target_end()
 
 
 -- ====================
+-- Inline text-variable formatting used by figurine names.
+-- ====================
+target("text_variables_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "USA", "ENGLISH")
+    add_files("port/port_text_variables_test.c")
+target_end()
+
+
+-- ====================
 -- Spiked-roller signed-range trajectory regression test.
 -- ====================
 target("spiked_rollers_motion_test")

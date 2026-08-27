@@ -14,6 +14,9 @@
 #include "room.h"
 #include "player.h"
 #include "asm.h"
+#ifdef PC_PORT
+#include "port_vaati_progress.h"
+#endif
 
 typedef struct {
     /*0x00*/ Entity base;
@@ -965,7 +968,7 @@ void VaatiRebornEnemyType0PreAction(VaatiRebornEnemyEntity* this) {
 #ifdef PC_PORT
     /* v0.8.2 prevents new phase-3 zombies, but older quick/autosaves can
      * restore one. Phase 3 has no valid combat actions; resume defeat. */
-    if (this->unk_86 > 2 && super->action != 7) {
+    if (Port_VaatiRebornNeedsResumeDefeat(super->action, this->unk_86)) {
         super->action = 7;
         super->flags &= ~ENT_COLLIDE;
         super->timer = 128;
