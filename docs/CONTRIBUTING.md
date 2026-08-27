@@ -12,7 +12,7 @@ assembly byte-for-byte), that work belongs upstream at zeldaret/tmc — see
 
 ## Getting set up
 
-- Read the [README](README.md) for the build (`python3 build.py`, or the faster
+- Read the [README](../README.md) for the build (`python3 build.py`, or the faster
   `xmake` dev cycle) and [INSTALL.md](INSTALL.md) for build options.
 - You need your own ROM at the repo root — it is **not** shipped. USA
   `baserom.gba`, SHA1 `b4bd50e4131b027c334547b4524e2dbbd4227130`.
@@ -21,7 +21,7 @@ assembly byte-for-byte), that work belongs upstream at zeldaret/tmc — see
   GBA reference behaviour.
 - Code-quality conventions for this port (header ownership, the metrics that
   matter, when to add a characterization test) live in
-  [docs/MAINTAINABILITY.md](docs/MAINTAINABILITY.md).
+  [docs/MAINTAINABILITY.md](MAINTAINABILITY.md).
 
 
 ## Your first contribution
@@ -46,7 +46,7 @@ requiring GBA reverse-engineering first, do this:
    in the PR.
 
 If you are working in the decompiled engine (`src/`) or want to move a
-function from `asm/` into C, read [docs/DECOMP-ONBOARDING.md](docs/DECOMP-ONBOARDING.md)
+function from `asm/` into C, read [docs/DECOMP-ONBOARDING.md](DECOMP-ONBOARDING.md)
 first. That document covers the dual GBA/PC build, agbcc quirks, and the
 byte-matching workflow.
 

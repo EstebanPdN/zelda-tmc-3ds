@@ -102,14 +102,15 @@ tags
 types_*.taghl
 *.zip
 *.bundle
-!calcrom.pl
+!scripts/dev/calcrom.pl
 !sound/programmable_wave_samples/*.pcm
 _Deparsed_XSubs.pm
 *.sna
 __pycache__
 Info.plist
 ctx.c
-!doxygen_config.py
+!docs/doxygen/doxygen_config.py
+!scripts/dev/progress.py
 
 !build.py
 .xmake

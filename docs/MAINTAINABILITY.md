@@ -3,7 +3,7 @@
 Conventions and reasoning for keeping `tmc_pc` easy to change and easy to
 onboard into. Scope is the **PC port** (`port/`, the port-owned parts of
 `src/`); byte-matching the GBA decomp is upstream at zeldaret/tmc and out of
-scope here. See [CONTRIBUTING.md](../CONTRIBUTING.md) for the module map and
+scope here. See [CONTRIBUTING.md](CONTRIBUTING.md) for the module map and
 build/verify loop.
 
 ## Principles we follow

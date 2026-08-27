@@ -6,8 +6,8 @@ C in `src/` is compiled into two very different binaries, and the code does not
 read like normal application code. Read this before touching `src/`.
 
 For the PC port layer (`port/`), GBA→PC bug classes, and submission rules, see
-[`CONTRIBUTING.md`](../CONTRIBUTING.md) and [`AGENTS.md`](../AGENTS.md) — this
-doc deliberately does not duplicate them.
+[`CONTRIBUTING.md`](CONTRIBUTING.md). This document deliberately does not
+duplicate them.
 
 ---
 

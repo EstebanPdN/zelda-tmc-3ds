@@ -20,7 +20,7 @@ This repository does **not** ship the ROM.
 
 ## Dependencies
 
-See the [README](README.md#dependencies) for per-platform package lists. The
+See the [README](../README.md#dependencies) for per-platform package lists. The
 short version:
 
 - **xmake** (build system)
