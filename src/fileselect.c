@@ -829,20 +829,28 @@ void SetActiveSave(u32 idx) {
             WriteSaveFile(idx, &gSave);
         }
 
-        if (!Rando_IsActive() && Port_VaatiProgressNeedsRepair(&gSave)) {
-            if (!Port_Save_PreserveBeforeVaatiProgressRepair()) {
-                fprintf(stderr,
-                        "[SAVE] Refused Vaati progression repair for slot %u because the permanent backup failed.\n",
-                        idx);
-            } else if (Port_RepairVaatiProgress(&gSave)) {
-                MemCopy(&gSave, &gFileSelectState.saves[idx], sizeof(gSave));
-                if (WriteSaveFile(idx, &gSave) != 0) {
-                    fprintf(stderr, "[SAVE] Restored the missing Vaati 1 progression flag in slot %u.\n", idx);
-                } else {
+        if (!Rando_IsActive()) {
+            SaveFile vaatiRepairBackup;
+            bool32 legacyVaatiRepair =
+                Port_Save_ReadVaatiProgressBackupSlot(idx, &vaatiRepairBackup, sizeof(vaatiRepairBackup)) &&
+                Port_VaatiProgressBackupProvesLegacyRepair(&gSave, &vaatiRepairBackup);
+
+            if (Port_VaatiProgressNeedsRepair(&gSave, legacyVaatiRepair)) {
+                if (!Port_Save_PreserveBeforeVaatiProgressRepair()) {
                     fprintf(stderr,
-                            "[SAVE] Restored the missing Vaati 1 progression flag in slot %u in memory; durable "
-                            "persistence will retry on the next save.\n",
+                            "[SAVE] Refused Vaati progression repair for slot %u because the permanent backup "
+                            "failed.\n",
                             idx);
+                } else if (Port_RepairVaatiProgress(&gSave, legacyVaatiRepair)) {
+                    MemCopy(&gSave, &gFileSelectState.saves[idx], sizeof(gSave));
+                    if (WriteSaveFile(idx, &gSave) != 0) {
+                        fprintf(stderr, "[SAVE] Reset a corrupted Vaati finale checkpoint in slot %u.\n", idx);
+                    } else {
+                        fprintf(stderr,
+                                "[SAVE] Reset a corrupted Vaati finale checkpoint in slot %u in memory; durable "
+                                "persistence will retry on the next save.\n",
+                                idx);
+                    }
                 }
             }
         }

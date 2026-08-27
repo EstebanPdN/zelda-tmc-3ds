@@ -2,6 +2,7 @@
 #define PORT_SAVE_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -57,6 +58,9 @@ int Port_Save_PreserveBeforeCloudTopsRepair(void);
 /* Preserve the complete active profile before the one-shot Vaati progression
  * repair. Repeated checks during one profile activation reuse it. */
 int Port_Save_PreserveBeforeVaatiProgressRepair(void);
+/* Read one validated save slot from the first permanent Vaati-repair backup.
+ * This is used only to recognize saves changed by the legacy E10 repair. */
+int Port_Save_ReadVaatiProgressBackupSlot(uint32_t slot, void* data, size_t size);
 /* Switch profiles only after pending data for the current profile is durable.
  * Returns 0 and retains the current path/state if that flush fails. */
 int Port_Save_SetActivePath(const char* path);

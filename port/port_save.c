@@ -1107,6 +1107,38 @@ int Port_Save_PreserveBeforeVaatiProgressRepair(void) {
     return 1;
 }
 
+int Port_Save_ReadVaatiProgressBackupSlot(uint32_t slot, void* data, size_t size) {
+    static const struct {
+        u16 status1;
+        u16 status2;
+        u16 data1;
+        u16 data2;
+    } records[] = {
+        { 0x30, 0x1030, 0x80, 0x1080 },
+        { 0x40, 0x1040, 0x580, 0x1580 },
+        { 0x50, 0x1050, 0xA80, 0x1A80 },
+    };
+    char backupPath[SAVE_AUX_PATH_MAX];
+    u8 image[EEPROM_SIZE];
+    const u8* source;
+    int written;
+
+    if (slot >= sizeof(records) / sizeof(records[0]) || data == NULL || size != 0x500) return 0;
+    written = snprintf(backupPath, sizeof(backupPath), "%s.pre-vaati-progress-repair.bak", sActivePath);
+    if (written < 0 || (size_t)written >= sizeof(backupPath)) return 0;
+    if (ReadAndClassifyEepromFile(backupPath, image, NULL, NULL) != EEPROM_IMAGE_ACTIVE_REGION) return 0;
+
+    if (EepromStatusValidForData(image, records[slot].status1, records[slot].data1, 0x500)) {
+        source = image + records[slot].data1;
+    } else if (EepromStatusValidForData(image, records[slot].status2, records[slot].data2, 0x500)) {
+        source = image + records[slot].data2;
+    } else {
+        return 0;
+    }
+    memcpy(data, source, size);
+    return 1;
+}
+
 void Port_Save_GetStats(PortSaveStats* stats) {
     if (!stats) return;
     *stats = sSaveStats;
@@ -1253,6 +1285,7 @@ int Port_Save_SetActivePath(const char* path) {
     sFuserRepairPreservedPath[0] = '\0';
     sSmithBottleFlagRepairPreservedPath[0] = '\0';
     sCloudTopsRepairPreservedPath[0] = '\0';
+    sVaatiProgressRepairPreservedPath[0] = '\0';
     return 1;
 }
 

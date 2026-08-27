@@ -184,6 +184,7 @@ int main(void) {
     char* tempDirectory;
     u8 image[EEPROM_SIZE];
     u8 compare[EEPROM_SIZE];
+    u8 vaatiSlot[0x500];
     u16 block[4] = { 0x1234, 0x5678, 0x9ABC, 0xDEF0 };
     const u8 shortFile[] = { 0x12, 0x34, 0x56 };
 
@@ -363,6 +364,27 @@ int main(void) {
           "later Cloud Tops repair checks reuse the verified profile backup");
     CHECK(!FileExistsForTest("tmc_cloud_tops_backup.sav.pre-cloud-tops-repair.001.bak"),
           "one profile does not create repeated Cloud Tops repair backups");
+
+    BuildDiskImage(image, activeSignature, 0xA9);
+    CHECK(WriteBytes("tmc_vaati_backup.sav", image, sizeof(image)),
+          "Vaati repair backup fixture is written");
+    CHECK(Port_Save_SetActivePath("tmc_vaati_backup.sav"), "Vaati repair backup profile is selected");
+    EEPROMConfigure(0x40);
+    CHECK(Port_Save_PreserveBeforeVaatiProgressRepair(),
+          "first permanent pre-Vaati-repair backup succeeds");
+    CHECK(FileExistsForTest("tmc_vaati_backup.sav.pre-vaati-progress-repair.bak"),
+          "Vaati repair has a stable permanent backup");
+    memset(vaatiSlot, 0, sizeof(vaatiSlot));
+    CHECK(Port_Save_ReadVaatiProgressBackupSlot(0, vaatiSlot, sizeof(vaatiSlot)) && vaatiSlot[0] == 0xA9,
+          "validated Vaati backup exposes the original slot data in RAM order");
+    CHECK(!Port_Save_ReadVaatiProgressBackupSlot(3, vaatiSlot, sizeof(vaatiSlot)),
+          "out-of-range Vaati backup slots fail closed");
+    CHECK(!Port_Save_ReadVaatiProgressBackupSlot(0, vaatiSlot, sizeof(vaatiSlot) - 1),
+          "wrong-sized Vaati backup reads fail closed");
+    CHECK(Port_Save_PreserveBeforeVaatiProgressRepair(),
+          "later Vaati repair checks reuse the verified profile backup");
+    CHECK(!FileExistsForTest("tmc_vaati_backup.sav.pre-vaati-progress-repair.001.bak"),
+          "one profile does not create repeated Vaati repair backups");
 
     BuildDiskImage(image, activeSignature, 0xA3);
     CHECK(WriteBytes("tmc_switch.sav", image, sizeof(image)), "pending-profile-switch fixture is written");

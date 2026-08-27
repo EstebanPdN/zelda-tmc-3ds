@@ -1,9 +1,12 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "area.h"
 #include "flags.h"
+#include "player.h"
 #include "port_vaati_progress.h"
 #include "region.h"
+#include "roomid.h"
 
 int gActiveRegion = TMC_REGION_USA;
 static int sFailures;
@@ -27,6 +30,12 @@ u32 WriteBit(void* data, u32 bit) {
     return 1;
 }
 
+u32 ClearBit(void* data, u32 bit) {
+    u8* bytes = data;
+    bytes[bit >> 3] &= ~(1u << (bit & 7));
+    return 1;
+}
+
 static void SetBank10Flag(SaveFile* save, u32 flag) {
     WriteBit(save->flags, FLAG_BANK_10 + flag);
 }
@@ -47,16 +56,23 @@ static void CheckReportedState(int region, const char* name) {
 
     gActiveRegion = region;
     BuildReportedState(&save);
-    CHECK(Port_VaatiProgressNeedsRepair(&save), name);
-    CHECK(Port_RepairVaatiProgress(&save), name);
-    CHECK(HasFlag(&save, LV6_GUFUU1_DEMO), "repair restores only the missing Vaati 1 intro flag");
+    save.saved_status.area_next = AREA_VAATI_2;
+    CHECK(Port_VaatiProgressNeedsRepair(&save, FALSE), name);
+    CHECK(Port_RepairVaatiProgress(&save, FALSE), name);
+    CHECK(!HasFlag(&save, LV6_GUFUU1_DEMO), "repair leaves the Vaati 1 intro ready to replay");
     CHECK(HasFlag(&save, LV6_GUFUU1_GISHIKI), "repair preserves the Vaati approach flag");
-    CHECK(HasFlag(&save, LV6_GUFUU2_DEAD), "repair preserves the Vaati 2 completion flag");
-    CHECK(!Port_RepairVaatiProgress(&save), "repair is one-shot after its prerequisite is restored");
+    CHECK(!HasFlag(&save, LV6_GUFUU2_DEAD), "repair clears the premature Vaati 2 completion flag");
+    CHECK(save.saved_status.area_next == AREA_DARK_HYRULE_CASTLE &&
+              save.saved_status.room_next == ROOM_DARK_HYRULE_CASTLE_3F_TRIPLE_DARKNUT &&
+              save.saved_status.start_pos_x == 0xA8 && save.saved_status.start_pos_y == 0x78 &&
+              save.saved_status.layer == 1 && save.saved_status.spawn_type == PL_SPAWN_DEFAULT,
+          "Vaati 2 saves return to the retail Vaati 1 checkpoint");
+    CHECK(!Port_RepairVaatiProgress(&save, FALSE), "repair is one-shot after the premature bit is cleared");
 }
 
 int main(void) {
     SaveFile save;
+    SaveFile backup;
 
     CHECK(LV6_GUFUU1_GISHIKI == 0x77u, "Vaati approach ordinal remains 0x77");
     CHECK(LV6_GUFUU1_DEMO == 0x78u, "Vaati 1 intro ordinal remains 0x78");
@@ -67,15 +83,43 @@ int main(void) {
     BuildReportedState(&save);
     gActiveRegion = TMC_REGION_USA;
     save.saw_staffroll = 1;
-    CHECK(!Port_VaatiProgressNeedsRepair(&save), "completed saves are never modified");
+    CHECK(!Port_VaatiProgressNeedsRepair(&save, FALSE), "completed saves are never modified");
 
     BuildReportedState(&save);
     SetBank10Flag(&save, LV6_GUFUU1_DEMO);
-    CHECK(!Port_VaatiProgressNeedsRepair(&save), "valid in-progress Vaati state is never modified");
+    CHECK(!Port_VaatiProgressNeedsRepair(&save, FALSE),
+          "Vaati 1 plus Vaati 2 flags are not changed without legacy-backup evidence");
+
+    BuildReportedState(&backup);
+    CHECK(Port_VaatiProgressBackupProvesLegacyRepair(&save, &backup),
+          "the exact pre-E10 backup proves the legacy opposite repair");
+    SetBank10Flag(&backup, LV6_KANE_START);
+    CHECK(!Port_VaatiProgressBackupProvesLegacyRepair(&save, &backup),
+          "a stale backup with different finale progress cannot authorize a repair");
+    ClearBit(backup.flags, FLAG_BANK_10 + LV6_KANE_START);
+    CHECK(Port_VaatiProgressNeedsRepair(&save, TRUE), "the proven legacy E10 state is repaired");
+    CHECK(Port_RepairVaatiProgress(&save, TRUE), "the proven legacy E10 state can replay Vaati 1");
+    CHECK(!HasFlag(&save, LV6_GUFUU1_DEMO) && !HasFlag(&save, LV6_GUFUU2_DEAD),
+          "legacy repair reversal clears both mutually inconsistent phase bits");
+
+    BuildReportedState(&save);
+    save.saved_status.area_next = AREA_HYRULE_TOWN;
+    save.saved_status.room_next = 3;
+    CHECK(Port_RepairVaatiProgress(&save, FALSE), "corrupt flags are repaired outside the Vaati 2 arena");
+    CHECK(save.saved_status.area_next == AREA_HYRULE_TOWN && save.saved_status.room_next == 3,
+          "non-Vaati save locations remain untouched");
+
+    BuildReportedState(&save);
+    SetBank10Flag(&save, LV6_ZELDA_DISCURSE);
+    CHECK(!Port_VaatiProgressNeedsRepair(&save, FALSE), "later Zelda progression makes the repair fail closed");
+
+    BuildReportedState(&save);
+    WriteBit(save.flags, FLAG_BANK_1 + ENDING);
+    CHECK(!Port_VaatiProgressNeedsRepair(&save, FALSE), "ending progress makes the repair fail closed");
 
     BuildReportedState(&save);
     gActiveRegion = TMC_REGION_JP;
-    CHECK(!Port_VaatiProgressNeedsRepair(&save), "unproven JP state is intentionally left untouched");
+    CHECK(!Port_VaatiProgressNeedsRepair(&save, FALSE), "unproven JP state is intentionally left untouched");
 
     if (sFailures != 0) return 1;
     puts("port_vaati_progress_test: ALL PASS");
