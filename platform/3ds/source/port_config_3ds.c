@@ -50,6 +50,95 @@ static int sRandoTricks;
 static int sRandoAccessibility;
 static bool sConfigLoaded;
 static char sConfigPath[256] = "tmc3ds.ini";
+/* Lets a console session A/B the PICA200 renderer against the software
+ * rasterizer without a rebuild. */
+static bool sGpuRenderer = true;
+/* Whether the GPU frame waits for the previous one to retire before the
+ * builder rewrites the command buffers.
+ *
+ * Waiting is the correct thing in principle -- the GPU reads those buffers
+ * asynchronously -- but it is off by default because it coincided with a
+ * console showing a black top screen, and a renderer that draws is worth more
+ * than one that is theoretically race-free. `gpu_frame_sync=1` turns it back
+ * on for testing. The proper fix is double-buffered geometry, which needs the
+ * presentation measurement first; see docs/old3ds-pica200-parity-notes.md. */
+static bool sGpuFrameSync = false;
+/* Where the rendered frame sits in the 512x256 target. The viewport and the
+ * scissor are offset so scanline 0 lands in target row 0, which is where the
+ * presenter samples -- but hardware parity fails from exactly row 96 down
+ * (256 - 160, the offset itself), while an emulator passes, so the two
+ * disagree about this axis. `gpu_viewport_offset=0` draws at the bottom of
+ * the target instead, which is the other reading of the same convention. */
+static bool sGpuViewportOffset = true;
+/* How a batch's scanline range becomes a scissor rectangle.
+ *   0 = none      : no vertical clipping at all (tile rows overhang)
+ *   1 = flipped   : y measured from the bottom of the target (default)
+ *   2 = direct    : y measured from the top
+ * Hardware draws only the first band with the default while an emulator draws
+ * both, so the two disagree about this axis; the switch settles it. */
+static int sGpuScissorMode = 1;
+/* Window/blend masking uses the stencil buffer. Turning it off draws every
+ * batch unconditionally: windows and blending come out wrong, but if the
+ * missing band appears then the stencil is what was rejecting it. */
+static bool sGpuStencil = true;
+/* -1 keeps the built-in choice; 0 or 1 pins the audio worker for an A/B. */
+static int sAudioCore = -1;
+/* -1 keeps core 0; 1 moves the bottom-screen painter off the main thread's core. */
+static int sBottomCore = -1;
+/* Skip a MAP-tab bottom-screen repaint when the quantised animation signature
+ * says the next tick draws the same picture. Defaults on: a dump measured 2230
+ * paints at 11.679 ms with 0 skips, ~1.95 ms per presented frame against a
+ * 1.55 ms/frame deficit. Turn it off to A/B, or if the bottom screen ever
+ * freezes -- that is the failure mode if the signature misses an input. */
+static bool sBottomMapSkip = true;
+/* Phase-lock the presentation wait to the next VBlank instead of accepting an
+ * already-pending one. Off by default: unproven, and the failure mode is a
+ * heavy scene pinned to 30 FPS. See Platform3DS_WaitForVBlank. */
+static bool sVblankPhaseLock = false;
+/* Interpolation for the offloaded NDSP voices.
+ *
+ * The software mix leaves channel 0 at 16364 Hz and NDSP upsamples it to its
+ * 32728 Hz output with NDSP_INTERP_LINEAR -- exactly 2x, so linear inserts the
+ * arithmetic midpoint and gently low-passes the GBA's aliasing. Before the DSP
+ * offload every voice went through that one channel, so the whole mix shared
+ * that character. The offload gave its own channels NDSP_INTERP_NONE, which
+ * keeps the aliasing, so the mix has run two different resampling characters
+ * at once ever since -- offloaded voices brighter than the software ones.
+ *
+ * Default matches channel 0, which is the pre-offload sound. Set to 0 for
+ * NDSP_INTERP_NONE, which is closer to MP2K's NEAREST pitching in isolation
+ * but inconsistent with the rest of the mix. */
+static bool sAudioDspInterpLinear = true;
+/* Speaker shaping. Off by default: it deliberately departs from GBA output, so
+ * it is the player's call, not the port's. The cutoff is a knob because the
+ * right value depends on the actual driver and on how NDSP's biquad interprets
+ * f0 relative to its output rate -- tune it by ear, not from a datasheet. */
+static bool sSpeakerEq = false;
+static float sSpeakerEqHz = 280.0f;
+/* Periodic per-120-frame diagnostic line. Off by default: Platform3DS_Debug
+ * writes it to the SD card with fopen/fwrite/fclose on the main thread inside
+ * the presentation span, and FS runs on core 1 with the app's 20% quota. The
+ * quick dump already reports every counter it contains; turn this on only when
+ * a hang needs forensics that survive the crash. */
+static bool sFrameLog = false;
+/* Compact Old 3DS upload surfaces (272x160 top, 320x240 bottom RGBA8 instead of
+ * 512x256). Cuts the bottom clean-and-transfer from 491520 to 307200 bytes, and
+ * that transfer is synchronous, so it shortens a recurring main-thread block on
+ * GSP rather than just saving memory. Off by default: the painter stride and the
+ * display-transfer dimensions must agree, and if they do not the bottom screen
+ * is visibly garbage. Flip it, look at the screen, then keep or drop it. */
+static bool sCompactUpload = false;
+/* Cap on the app's core-1 share. 0 keeps the built-in preference order (80 first).
+ * Lower values hand core 1 back to the sysmodules -- GSP above all, which retires
+ * the queue C3D_FrameBegin waits on. See Platform3DS_Init. */
+static int sAppCpuLimit = 0;
+/* Report and research items that measurement says are neutral or harmful by
+ * default. Present, switchable, and off unless asked for. */
+static bool sGpuStaticQuad = false;
+static bool sBottomRgb565 = false;
+static bool sGpuShortVertices = false;
+static bool sAudioDsp = false;
+static bool sAudioDspPcm = false;
 
 static bool ParseBool(const char* value) {
     return value != NULL && (value[0] == '1' || value[0] == 't' || value[0] == 'T' ||
@@ -99,6 +188,34 @@ static void SaveConfig(void) {
     fprintf(file, "rando_tricks=%d\n", sRandoTricks);
     fprintf(file, "rando_accessibility=%d\n", sRandoAccessibility);
 
+    /* Round-trip the performance/research switches. SaveConfig parses these
+     * but used to omit them, so any Settings change -- or any exit that saves
+     * -- silently erased every hand-set flag from tmc3ds.ini and the next run
+     * quietly reverted to compiled defaults. That destroyed the config of the
+     * very run being measured; `dump-20260820-205902` was diagnosed only by
+     * reading the offload counters back out of info.txt. Whatever is parsed
+     * must be written. */
+    fprintf(file, "gpu_renderer=%u\n", sGpuRenderer ? 1u : 0u);
+    fprintf(file, "gpu_frame_sync=%u\n", sGpuFrameSync ? 1u : 0u);
+    fprintf(file, "gpu_viewport_offset=%u\n", sGpuViewportOffset ? 1u : 0u);
+    fprintf(file, "gpu_scissor_mode=%d\n", sGpuScissorMode);
+    fprintf(file, "gpu_stencil=%u\n", sGpuStencil ? 1u : 0u);
+    fprintf(file, "audio_core=%d\n", sAudioCore);
+    fprintf(file, "bottom_core=%d\n", sBottomCore);
+    fprintf(file, "bottom_map_skip=%u\n", sBottomMapSkip ? 1u : 0u);
+    fprintf(file, "vblank_phase_lock=%u\n", sVblankPhaseLock ? 1u : 0u);
+    fprintf(file, "audio_dsp_interp_linear=%u\n", sAudioDspInterpLinear ? 1u : 0u);
+    fprintf(file, "speaker_eq=%u\n", sSpeakerEq ? 1u : 0u);
+    fprintf(file, "speaker_eq_hz=%.1f\n", (double)sSpeakerEqHz);
+    fprintf(file, "frame_log=%u\n", sFrameLog ? 1u : 0u);
+    fprintf(file, "compact_upload=%u\n", sCompactUpload ? 1u : 0u);
+    fprintf(file, "app_cpu_limit=%d\n", sAppCpuLimit);
+    fprintf(file, "gpu_static_quad=%u\n", sGpuStaticQuad ? 1u : 0u);
+    fprintf(file, "bottom_rgb565=%u\n", sBottomRgb565 ? 1u : 0u);
+    fprintf(file, "gpu_short_vertices=%u\n", sGpuShortVertices ? 1u : 0u);
+    fprintf(file, "audio_dsp=%u\n", sAudioDsp ? 1u : 0u);
+    fprintf(file, "audio_dsp_pcm=%u\n", sAudioDspPcm ? 1u : 0u);
+
     /* A synchronous SD flush can stall the 3DS main thread for seconds on
      * every Settings change. The temporary file plus close/rename/backup
      * sequence still protects this recoverable preferences file. */
@@ -135,6 +252,27 @@ void Port_Config_Load(const char* path) {
             char value[64];
             if (line[0] == '#' || sscanf(line, " %63[^=]=%63s", key, value) != 2) continue;
             if (strcmp(key, "show_fps") == 0) sShowFps = ParseBool(value);
+            else if (strcmp(key, "gpu_renderer") == 0) sGpuRenderer = ParseBool(value);
+            else if (strcmp(key, "gpu_frame_sync") == 0) sGpuFrameSync = ParseBool(value);
+            else if (strcmp(key, "gpu_viewport_offset") == 0) sGpuViewportOffset = ParseBool(value);
+            else if (strcmp(key, "gpu_scissor_mode") == 0) sGpuScissorMode = (int)strtol(value, NULL, 10);
+            else if (strcmp(key, "gpu_stencil") == 0) sGpuStencil = ParseBool(value);
+            else if (strcmp(key, "audio_core") == 0) sAudioCore = (int)strtol(value, NULL, 10);
+            else if (strcmp(key, "bottom_core") == 0) sBottomCore = (int)strtol(value, NULL, 10);
+            else if (strcmp(key, "bottom_map_skip") == 0) sBottomMapSkip = ParseBool(value);
+            else if (strcmp(key, "vblank_phase_lock") == 0) sVblankPhaseLock = ParseBool(value);
+            else if (strcmp(key, "audio_dsp_interp_linear") == 0)
+                sAudioDspInterpLinear = ParseBool(value);
+            else if (strcmp(key, "speaker_eq") == 0) sSpeakerEq = ParseBool(value);
+            else if (strcmp(key, "speaker_eq_hz") == 0) sSpeakerEqHz = strtof(value, NULL);
+            else if (strcmp(key, "frame_log") == 0) sFrameLog = ParseBool(value);
+            else if (strcmp(key, "compact_upload") == 0) sCompactUpload = ParseBool(value);
+            else if (strcmp(key, "app_cpu_limit") == 0) sAppCpuLimit = (int)strtol(value, NULL, 10);
+            else if (strcmp(key, "gpu_static_quad") == 0) sGpuStaticQuad = ParseBool(value);
+            else if (strcmp(key, "bottom_rgb565") == 0) sBottomRgb565 = ParseBool(value);
+            else if (strcmp(key, "gpu_short_vertices") == 0) sGpuShortVertices = ParseBool(value);
+            else if (strcmp(key, "audio_dsp") == 0) sAudioDsp = ParseBool(value);
+            else if (strcmp(key, "audio_dsp_pcm") == 0) sAudioDspPcm = ParseBool(value);
             else if (strcmp(key, "follow_cam") == 0) sFollow = ParseBool(value);
             else if (strcmp(key, "windcrest_pins") == 0) sCrests = ParseBool(value);
             else if (strcmp(key, "floor_auto_return") == 0) sFloorReturn = ParseBool(value);
@@ -188,6 +326,26 @@ void Port_Config_Load(const char* path) {
     sConfigLoaded = true;
 }
 void Port_Config_SetActiveSaveProfile(const char* path) { (void)path; }
+bool Port_Config_GpuRenderer(void) { return sGpuRenderer; }
+bool Port_Config_GpuFrameSync(void) { return sGpuFrameSync; }
+bool Port_Config_GpuViewportOffset(void) { return sGpuViewportOffset; }
+int Port_Config_GpuScissorMode(void) { return sGpuScissorMode; }
+bool Port_Config_GpuStencil(void) { return sGpuStencil; }
+int Port_Config_AudioCore(void) { return sAudioCore; }
+int Port_Config_BottomCore(void) { return sBottomCore; }
+bool Port_Config_BottomMapSkip(void) { return sBottomMapSkip; }
+bool Port_Config_VblankPhaseLock(void) { return sVblankPhaseLock; }
+bool Port_Config_AudioDspInterpLinear(void) { return sAudioDspInterpLinear; }
+bool Port_Config_SpeakerEq(void) { return sSpeakerEq; }
+float Port_Config_SpeakerEqHz(void) { return sSpeakerEqHz; }
+bool Port_Config_FrameLog(void) { return sFrameLog; }
+bool Port_Config_CompactUpload(void) { return sCompactUpload; }
+int Port_Config_AppCpuLimit(void) { return sAppCpuLimit; }
+bool Port_Config_GpuStaticQuad(void) { return sGpuStaticQuad; }
+bool Port_Config_BottomRgb565(void) { return sBottomRgb565; }
+bool Port_Config_GpuShortVertices(void) { return sGpuShortVertices; }
+bool Port_Config_AudioDsp(void) { return sAudioDsp; }
+bool Port_Config_AudioDspPcm(void) { return sAudioDspPcm; }
 u8 Port_Config_WindowScale(void) { return 1; }
 const char* Port_Config_UpscaleMethod(void) { return "nearest"; }
 u64 Port_Config_FrameTimeNs(void) { return 16666667ULL; }

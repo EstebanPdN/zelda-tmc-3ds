@@ -1,3 +1,6 @@
+#if defined(__3DS__)
+#include "ndsp_pcm_offload.h"
+#endif
 #include "MP2KChnPCM.hpp"
 
 #include "Constants.hpp"
@@ -70,13 +73,37 @@ MP2KChnPCM::MP2KChnPCM(MP2KContext &ctx, MP2KTrack *track, SampleInfo sInfo, ADS
     }
 }
 
+#if defined(__3DS__)
+MP2KChnPCM::~MP2KChnPCM()
+{
+    /* A voice can be destroyed without a final Process -- a context reset or a
+     * song change clears the channel lists outright -- and the DSP would go on
+     * playing the sample with the slot never released. */
+    NdspPcm_Stop(&ndspSlot);
+}
+#endif
+
 void MP2KChnPCM::Process(std::span<sample> buffer, const MixingArgs &args)
 {
+#if defined(__3DS__)
+    /* A dead voice must give its hardware channel back before the mixer's
+     * remove_if destroys this object, or the sample would keep playing. */
+    if (envState == EnvState::DEAD) {
+        NdspPcm_Stop(&ndspSlot);
+        return;
+    }
+    stepEnvelope();
+    if (envState == EnvState::DEAD) {
+        NdspPcm_Stop(&ndspSlot);
+        return;
+    }
+#else
     if (envState == EnvState::DEAD)
         return;
     stepEnvelope();
     if (envState == EnvState::DEAD)
         return;
+#endif
     if (buffer.size() == 0)
         return;
 
@@ -98,6 +125,42 @@ void MP2KChnPCM::Process(std::span<sample> buffer, const MixingArgs &args)
         cargs.interStep = float(args.fixedModeRate) * args.sampleRateInv;
     else
         cargs.interStep = freq * args.sampleRateInv;
+
+#if defined(__3DS__)
+    /* Hand plain PCM voices to the DSP. The envelope, volume and pan above are
+     * still MP2K's, computed per block exactly as before; only the per-sample
+     * fetch/resample/accumulate below is skipped. Compressed and synth voices
+     * keep the software path, as does every voice when a channel or a linear
+     * sample slot is unavailable -- NdspPcm_Play returns false and nothing
+     * changes. */
+    if (!isSynth && type == Type::PCM && !sInfo.gamefreakCompressed) {
+        const float rate = fixed ? float(args.fixedModeRate) : freq;
+        /* pos, not sInfo.samplePos: samplePos is a ROM file offset kept for
+         * range validation, while pos is the live playback index the software
+         * path advances. A voice that spent its first blocks in software (no
+         * free channel) must resume from where it actually got to. */
+        bool finished = false;
+        if (NdspPcm_Play(&ndspSlot, sInfo.samplePtr, uint32_t(sInfo.endPos),
+                         sInfo.loopPos, sInfo.loopEnabled,
+                         pos, rate, vol.toVolLeft,
+                         vol.toVolRight, &finished)) {
+            updateVolFade();
+            return;
+        }
+        if (finished) {
+            /* Mirrors processNormal's `if (!running) Kill()`. */
+            updateVolFade();
+            Kill();
+            return;
+        }
+    } else {
+        /* Compressed (DPCM/ADPCM) and the three synth types still mix in
+         * software. Counted so the dump shows how far short of full coverage
+         * the offload actually falls, rather than leaving it to inference. */
+        NdspPcm_Stop(&ndspSlot);
+        NdspPcm_NoteUnsupported();
+    }
+#endif
 
     if (isSynth) {
         cargs.interStep /= 64.f;    // different scale for GS

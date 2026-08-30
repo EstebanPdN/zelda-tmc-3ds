@@ -161,17 +161,14 @@ u32 gFrameObjLists[50016];
 _Static_assert(sizeof(gFrameObjLists) == PORT_FRAME_OBJ_LISTS_CAPACITY_BYTES,
                "frame-object staging capacity must match the runtime bounds");
 
-// gMapData — map data blob, backed by ROM data.
-// On GBA this is a label in .rodata at gAreaRoomMap_None (~14MB region).
-// On PC, we use a large buffer filled from ROM in Port_LoadRom().
-// Source files use &gMapData + offset, so this must be an array (not a pointer).
+// gMapData — map data blob backed directly by the loaded ROM.
 #ifdef TMC_N64
 /* #N64: the ~14 MB ROM map-data window can't live in 8 MB RDRAM. Temporary 1 MB
  * placeholder so the binary links and boots to the title (which doesn't read map
- * data). Phase 3 backs &gMapData with the embedded cart ROM (PI/DFS), not a RAM copy. */
+ * data). Phase 3 backs gMapData with the embedded cart ROM (PI/DFS), not a RAM copy. */
 u8 gMapData[0x100000] __attribute__((aligned(4))); /* 1 MB placeholder */
 #else
-u8 gMapData[0xE00000] __attribute__((aligned(4))); /* ~14 MB */
+u8* gMapData = NULL;
 #endif
 
 // gCollisionMtx — On GBA, the collision matrix label sits at 0x080B7B74 with

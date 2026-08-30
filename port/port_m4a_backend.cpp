@@ -4,6 +4,7 @@
 #include "sound.h"
 #include "port_debug_verbose.h"
 #include "port_pcm_quantize.hpp"
+#include "port_m4a_mixdown.h"
 
 #ifdef min
 #undef min
@@ -65,6 +66,7 @@ extern const MusicPlayer gMusicPlayers[];
 #include <fstream>
 #include <memory>
 #include <atomic>
+#include <chrono>
 #include <mutex>
 #include <span>
 #include <string>
@@ -95,6 +97,9 @@ struct BackendState {
     std::vector<int16_t> pendingSamples;
     std::vector<float> mixAccL;
     std::vector<float> mixAccR;
+    /* Per-chunk scratch for the mixdown's track list. Cleared, never freed, so
+     * the real-time path allocates only while the track count grows. */
+    std::vector<PortM4AMixTrack> mixTracks;
     size_t pendingFrameOffset = 0;
     std::array<size_t, kSongCount> songHeaderOffsets;
     uint8_t trackVolumes[kPlayerCount][kMaxTracks];
@@ -626,31 +631,70 @@ static void PublishActivePlayerMaskLocked(void) {
     sActivePlayerMask.store(mask, std::memory_order_relaxed);
 }
 
+/* Portable: the 3DS supplies the system tick, other platforms fall back to
+ * the steady clock. Only the ratio of mix time to total audio time matters. */
+static std::atomic<uint64_t> sMixTicks{0};
+
+#if defined(__3DS__)
+/* Declared rather than including <3ds.h>, whose u32/s32 collide with the port's
+ * own types. */
+extern "C" unsigned long long svcGetSystemTick(void);
+#endif
+
+extern "C" uint64_t Port_M4A_Backend_TickNow(void) {
+#if defined(__3DS__)
+    return (uint64_t)svcGetSystemTick();
+#else
+    return (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(
+                   std::chrono::steady_clock::now().time_since_epoch())
+            .count();
+#endif
+}
+
+extern "C" void Port_M4A_Backend_AddMixTicks(uint64_t ticks) {
+    sMixTicks.fetch_add(ticks, std::memory_order_relaxed);
+}
+
+extern "C" uint64_t Port_M4A_Backend_MixTicks(void) {
+    return sMixTicks.load(std::memory_order_relaxed);
+}
+
 static void RenderChunkLocked(void) {
     const size_t sampleCount = sState.ctx->mixer.GetSamplesPerBuffer();
 
     sState.pendingSamples.resize(sampleCount * 2);
-    std::fill(sState.pendingSamples.begin(), sState.pendingSamples.end(), static_cast<int16_t>(0));
     sState.pendingFrameOffset = 0;
 
     if (!sState.vsyncEnabled || !HasActivePlaybackLocked()) {
+        /* Only the bail-out paths need to zero the buffer now; PortM4A_Mixdown
+         * writes every frame it is asked for. */
+        std::fill(sState.pendingSamples.begin(), sState.pendingSamples.end(),
+                  static_cast<int16_t>(0));
         return;
     }
 
     try {
+        /* Split the two halves of the audio cost. m4aSoundMain is the sequencer
+         * plus the software mix -- everything a DSP offload would replace. What
+         * follows is per-track gain/pan and the copy out, which would remain.
+         * Sizing the offload against a measurement beats sizing it against an
+         * estimate: 2100 lines of channel handling is a lot to write for a prize
+         * nobody has weighed. */
+        const uint64_t mixStart = Port_M4A_Backend_TickNow();
         sState.ctx->m4aSoundMain();
+        Port_M4A_Backend_AddMixTicks(Port_M4A_Backend_TickNow() - mixStart);
 
-        // Track-outer / sample-inner: gain/pan are per-track invariants, so they
-        // (and the muted/silent skip) are computed once per track instead of once
-        // per sample. Track summation order is preserved, so the float result is
-        // bit-identical to the old per-sample loop (pan factor folds to *1.0f when
-        // inactive, which is exact in IEEE754).
+        /* Gain/pan are per-track invariants, so they are collected once per
+         * track and the mixdown itself lives in port_m4a_mixdown.c, where it is
+         * measured and proved bit-identical by port_m4a_mixdown_test.
+         *
+         * That split matters: a dump put this post-mix stage at 5.0 ms of the
+         * 5.4 ms audio budget per buffer -- 93% of it, and 32% of one core --
+         * while the m4aSoundMain call above, the half the DSP offload replaced,
+         * costs 0.35 ms. The comment that used to sit here assumed the reverse. */
         sState.mixAccL.resize(sampleCount);
         sState.mixAccR.resize(sampleCount);
-        std::fill(sState.mixAccL.begin(), sState.mixAccL.end(), 0.0f);
-        std::fill(sState.mixAccR.begin(), sState.mixAccR.end(), 0.0f);
-        float *const accL = sState.mixAccL.data();
-        float *const accR = sState.mixAccR.data();
+        sState.mixTracks.clear();
 
         auto mixTrack = [&](uint32_t playerIndex, size_t trackIndex, const MP2KTrack& track) {
 #ifdef TMC_3DS
@@ -666,29 +710,23 @@ static void RenderChunkLocked(void) {
             }
 
             const int8_t panValue = sState.trackPans[playerIndex][trackIndex];
-            const size_t n = std::min(sampleCount, track.audioBuffer.size());
-            const auto* buf = track.audioBuffer.data();
-            if (volume == 0xFF && panValue == 0) {
-                for (size_t sampleIndex = 0; sampleIndex < n; sampleIndex++) {
-                    accL[sampleIndex] += buf[sampleIndex].left;
-                    accR[sampleIndex] += buf[sampleIndex].right;
-                }
-                return;
-            }
+            PortM4AMixTrack entry;
+            /* `sample` is two interleaved floats, so the buffer is already the
+             * layout the mixdown wants. */
+            entry.samples = reinterpret_cast<const float*>(track.audioBuffer.data());
+            entry.frames = std::min(sampleCount, track.audioBuffer.size());
+            entry.gain = gain;
+            entry.unity = (volume == 0xFF && panValue == 0) ? 1 : 0;
 
             const float pan = static_cast<float>(panValue) / 64.0f;
-            float panL = 1.0f;
-            float panR = 1.0f;
+            entry.panL = 1.0f;
+            entry.panR = 1.0f;
             if (pan > 0.0f) {
-                panL = 1.0f - std::min(pan, 1.0f);
+                entry.panL = 1.0f - std::min(pan, 1.0f);
             } else if (pan < 0.0f) {
-                panR = 1.0f - std::min(-pan, 1.0f);
+                entry.panR = 1.0f - std::min(-pan, 1.0f);
             }
-
-            for (size_t sampleIndex = 0; sampleIndex < n; sampleIndex++) {
-                accL[sampleIndex] += buf[sampleIndex].left * gain * panL;
-                accR[sampleIndex] += buf[sampleIndex].right * gain * panR;
-            }
+            sState.mixTracks.push_back(entry);
         };
 
 #ifdef TMC_3DS
@@ -707,18 +745,9 @@ static void RenderChunkLocked(void) {
         }
 #endif
 
-        const float masterVolume = sState.masterVolume;
-        for (size_t sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++) {
-            float left = accL[sampleIndex];
-            float right = accR[sampleIndex];
-            if (masterVolume != 1.0f) {
-                left *= masterVolume;
-                right *= masterVolume;
-            }
-
-            sState.pendingSamples[sampleIndex * 2 + 0] = Port_QuantizePcm16(left);
-            sState.pendingSamples[sampleIndex * 2 + 1] = Port_QuantizePcm16(right);
-        }
+        PortM4A_Mixdown(sState.mixTracks.data(), sState.mixTracks.size(), sampleCount,
+                        sState.masterVolume, sState.mixAccL.data(), sState.mixAccR.data(),
+                        sState.pendingSamples.data());
     } catch (const std::exception& e) {
         AudioGuardWarn("RenderChunkLocked", e.what());
         std::fill(sState.pendingSamples.begin(), sState.pendingSamples.end(), static_cast<int16_t>(0));

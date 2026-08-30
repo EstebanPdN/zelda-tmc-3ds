@@ -1,5 +1,9 @@
 #include "port_audio.h"
 #include "port_audio_3ds.h"
+#include "platform_3ds.h"
+#include "ndsp_pcm_offload.h"
+#include "ndsp_psg_offload.h"
+#include "speaker_eq_3ds.h"
 #include "port_m4a_backend.h"
 
 #include <3ds.h>
@@ -12,9 +16,17 @@
  * native mixer workload bounded while NDSP performs final interpolation. */
 #define SAMPLE_RATE 16364
 #define BUFFER_FRAMES 256
-#define BUFFER_COUNT 4
+/* Four buffers is 4 x 256 / 16364 = 62.6 ms of audio, and a single render was
+ * measured at 61.97 ms -- one slow render could drain the entire queue, which
+ * is exactly what 102 underruns and 2475 missed block deadlines look like.
+ * Offloading rendering to the PICA200 made this worse rather than better,
+ * because GSP services every GX command and cache flush on core 1, which is
+ * where the audio worker lives: the frame rate went up and the audio budget
+ * went down. Eight buffers is 125 ms, so a worst-case render costs half the
+ * queue instead of all of it. The cost is queue latency, which matters less
+ * here than crackling. */
+#define BUFFER_COUNT 8
 #define AUDIO_THREAD_STACK (64u * 1024u)
-#define AUDIO_THREAD_CORE 0
 
 static ndspWaveBuf sWave[BUFFER_COUNT];
 static int16_t* sSamples;
@@ -36,8 +48,20 @@ extern float Port_Config_GetMasterVolume(void);
 static void FillBuffer(int index) {
     const uint64_t startTick = svcGetSystemTick();
     int16_t* dst = sSamples + index * BUFFER_FRAMES * 2;
+    /* Reverb can be toggled at runtime from the debug menu, so re-read it
+     * rather than sampling once at start-up. */
+    extern int Port_M4A_Backend_GetReverbLevel(void);
+    NdspPsg_SetReverbLevel(Port_M4A_Backend_GetReverbLevel());
     Port_M4A_Backend_Render(dst, BUFFER_FRAMES, false);
-    DSP_FlushDataCache(dst, BUFFER_FRAMES * 2 * sizeof(int16_t));
+    /* DSP_FlushDataCache is IPC to the dsp sysmodule: the caller blocks while
+     * that service is scheduled on core 1, with only the app's quota share of
+     * it. This is the same round-trip that platform_3ds.c:638 measured at
+     * ~330 us for GSP and replaced with a direct SVC -- the GPU path was
+     * converted, the audio path never was, and it sits once per buffer here.
+     * The payload is 1 KiB, about 32 cache lines, so the IPC cost dwarfs the
+     * work by orders of magnitude. Clean-only is correct: the ARM writes and
+     * the DSP reads. */
+    Platform3DS_CleanDataCache(dst, BUFFER_FRAMES * 2 * sizeof(int16_t));
     sWave[index].data_pcm16 = dst;
     sWave[index].nsamples = BUFFER_FRAMES;
     sWave[index].status = NDSP_WBUF_FREE;
@@ -80,6 +104,7 @@ static void AudioThreadMain(void* argument) {
         LightEvent_Wait(&sAudioWake);
         if (!__atomic_load_n(&sAudioThreadRunning, __ATOMIC_ACQUIRE)) break;
 
+        Platform3DS_WatchdogPoll();
         const uint32_t backlogBefore = CountDoneBuffers();
         uint32_t refillCount = 0;
         int bufferIndex;
@@ -111,12 +136,18 @@ bool Port_Audio_Init(void) {
     if (sInitialized) return true;
     if (ndspInit() != 0) return false;
     ndspSetOutputMode(NDSP_OUTPUT_STEREO);
+    /* Claims hardware channels 1..4 for CGB voices when audio_dsp=1. */
+    NdspPsg_Init();
+    /* Claims 5..12 for DirectSound PCM voices when audio_dsp_pcm=1. */
+    NdspPcm_Init();
     ndspChnReset(0);
     ndspChnSetInterp(0, NDSP_INTERP_LINEAR);
     ndspChnSetRate(0, SAMPLE_RATE);
     ndspChnSetFormat(0, NDSP_FORMAT_STEREO_PCM16);
     float mix[12] = { 1.0f, 0.0f, 0.0f, 1.0f };
     ndspChnSetMix(0, mix);
+    /* Establishes the filter on every channel and latches headphone state. */
+    SpeakerEq3DS_Poll();
 
     sSamples = (int16_t*)linearAlloc(BUFFER_COUNT * BUFFER_FRAMES * 2 * sizeof(int16_t));
     if (!sSamples || !Port_M4A_Backend_Init(SAMPLE_RATE)) {
@@ -133,9 +164,22 @@ bool Port_Audio_Init(void) {
     LightEvent_Init(&sAudioWake, RESET_ONESHOT);
     memset(&sStats, 0, sizeof(sStats));
     sStats.sampleRate = SAMPLE_RATE;
+    /* The 10.337 ms render figure is wall clock on a core-1 thread the OS
+     * quota-limits, so it may be mostly descheduling rather than CPU. Pinning
+     * to core 0 for one run and comparing renderTicks for the same content
+     * settles it -- and decides whether moving mixing to the DSP is worth its
+     * parity risk. Core 0 is busier overall, so this is a measurement, not a
+     * default. */
+    /* Declared locally: port_runtime_config.h pulls in port_types.h, whose
+     * u32/s32 collide with libctru's. */
+    extern int Port_Config_AudioCore(void);
+    int audioThreadCore = Platform3DS_IsNew3DS() ? 0 : 1;
+    const int audioCoreOverride = Port_Config_AudioCore();
+    if (audioCoreOverride == 0 || audioCoreOverride == 1)
+        audioThreadCore = audioCoreOverride;
     sStats.bufferFrames = BUFFER_FRAMES;
     sStats.bufferCount = BUFFER_COUNT;
-    sStats.threadCore = AUDIO_THREAD_CORE;
+    sStats.threadCore = audioThreadCore;
     sStats.initialized = true;
     sCallbackSignals = 0;
     sInitialized = true;
@@ -148,7 +192,7 @@ bool Port_Audio_Init(void) {
     if (priority > 0x18) --priority;
     sStats.threadPriority = priority;
     __atomic_store_n(&sAudioThreadRunning, true, __ATOMIC_RELEASE);
-    sAudioThread = threadCreate(AudioThreadMain, NULL, AUDIO_THREAD_STACK, priority, AUDIO_THREAD_CORE, false);
+    sAudioThread = threadCreate(AudioThreadMain, NULL, AUDIO_THREAD_STACK, priority, audioThreadCore, false);
     if (!sAudioThread) {
         __atomic_store_n(&sAudioThreadRunning, false, __ATOMIC_RELEASE);
     }
@@ -158,6 +202,8 @@ bool Port_Audio_Init(void) {
 void Port_Audio_3DSPump(void) {
     if (!sInitialized) return;
     if (sPaused) return;
+    /* Headphones can be plugged in mid-session, and the correction must follow. */
+    SpeakerEq3DS_Poll();
     const bool playing = ndspChnIsPlaying(0);
     const uint32_t doneBuffers = CountDoneBuffers();
     const bool callbackMissed = doneBuffers > 0;

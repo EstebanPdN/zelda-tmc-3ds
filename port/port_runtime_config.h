@@ -88,6 +88,39 @@ void Port_Config_SetTouchOpacity(float opacity);
  * switch decides whether gameplay uses the wider camera/reveal or falls
  * back to a native 240x160 frame. No effect in native-width builds. */
 bool Port_Config_WidescreenEnabled(void);
+/* 3DS: `gpu_renderer=0` in tmc3ds.ini forces the software rasterizer, so a
+ * console session can compare the two renderers without a rebuild. */
+bool Port_Config_GpuRenderer(void);
+/* 3DS: `gpu_frame_sync=0` stops the GPU frame waiting for the previous one. */
+bool Port_Config_GpuFrameSync(void);
+/* 3DS: `gpu_viewport_offset=0` draws the frame at the bottom of the target. */
+bool Port_Config_GpuViewportOffset(void);
+/* 3DS: 0 = no vertical scissor, 1 = bottom-up (default), 2 = top-down. */
+int Port_Config_GpuScissorMode(void);
+/* 3DS: `gpu_stencil=0` draws every batch, ignoring window/blend masking. */
+bool Port_Config_GpuStencil(void);
+int Port_Config_AudioCore(void);
+int Port_Config_BottomCore(void);
+/* 3DS: `bottom_map_skip=0` restores an unconditional MAP-tab repaint. */
+bool Port_Config_BottomMapSkip(void);
+/* 3DS: `vblank_phase_lock=1` waits for the next VBlank instead of accepting an
+ * already-pending one. Experiment; see Platform3DS_WaitForVBlank. */
+bool Port_Config_VblankPhaseLock(void);
+/* 3DS: interpolation for offloaded NDSP voices. Default 1 (linear) matches the
+ * software mix on channel 0; 0 selects NDSP_INTERP_NONE. */
+bool Port_Config_AudioDspInterpLinear(void);
+/* 3DS: `frame_log=1` re-enables the per-120-frame SD diagnostic line. Off by
+ * default; it costs main-thread SD I/O inside the presentation span. */
+bool Port_Config_FrameLog(void);
+/* 3DS: `compact_upload=1` uses 272x160 / 320x240 upload surfaces instead of
+ * 512x256. Every caller of PlatformGpu3DS_GetUploadLayout must gate on this
+ * identically or the painter stride and the display transfer disagree. */
+bool Port_Config_CompactUpload(void);
+bool Port_Config_GpuStaticQuad(void);
+bool Port_Config_BottomRgb565(void);
+bool Port_Config_GpuShortVertices(void);
+bool Port_Config_AudioDsp(void);
+bool Port_Config_AudioDspPcm(void);
 void Port_Config_SetWidescreenEnabled(bool enabled);
 void Port_Config_ToggleWidescreen(void);
 

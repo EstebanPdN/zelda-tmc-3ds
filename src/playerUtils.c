@@ -53,7 +53,6 @@ extern void UpdateScreenShake(void);
 void sub_080790E4(Entity* this);
 void sub_08079064(Entity*);
 
-extern u8 gMapData[];
 extern const u8 gUnk_0800851C[];
 extern const u8 gUnk_080084BC[];
 extern const u8 gUnk_0800845C[];

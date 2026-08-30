@@ -1824,20 +1824,24 @@ void Port_LoadRom(const char* path) {
         Port_LoadOverlayDataFromConst(kOverlaySizeData, 240);
     }
 
-    /* gMapData — copy map data blob from ROM into the PC buffer.
-     * On GBA, gMapData is a ROM label; on PC it's a large u8 array.
-     * Source files compute &gMapData + offset, so we fill the buffer. */
+    /* Map data is immutable ROM content. Keep one copy instead of reserving
+     * another ~14 MB, which exceeds the Homebrew Launcher's Old 3DS layout. */
     {
-        extern u8 gMapData[];
+        if (R->mapDataBase >= gRomSize) {
+            Port_FatalRomError("Invalid ROM", "Map data offset is outside the loaded ROM.");
+        }
         u32 mapDataSize = gRomSize - R->mapDataBase;
         if (mapDataSize > 0xE00000u)
             mapDataSize = 0xE00000u;
 #ifdef TMC_N64
         if (mapDataSize > 0x100000u)
-            mapDataSize = 0x100000u; /* gMapData is a 1 MB placeholder on N64 */
-#endif
+            mapDataSize = 0x100000u;
         memcpy(gMapData, &gRomData[R->mapDataBase], mapDataSize);
         fprintf(stderr, "gMapData loaded (%u bytes from ROM offset 0x%X).\n", mapDataSize, R->mapDataBase);
+#else
+        gMapData = Port_MapDataFromRom(gRomData, gRomSize, R->mapDataBase);
+        fprintf(stderr, "gMapData mapped (%u bytes from ROM offset 0x%X).\n", mapDataSize, R->mapDataBase);
+#endif
     }
 
     /* ---- Area / room data tables (0x90 entries each) ---- */

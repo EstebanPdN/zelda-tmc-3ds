@@ -106,7 +106,9 @@ void SortKinstoneBag(void);
 
 extern void* GetRoomProperty(u32, u32, u32);
 
+#ifndef PC_PORT
 extern u8 gMapData[];
+#endif
 extern const DungeonLayout* const* const gDungeonLayouts[];
 extern u16 gMapDataBottomSpecial[];
 
@@ -801,18 +803,18 @@ void DispReset(bool32 refresh) {
 }
 
 void ClearOAM(void) {
-    u8* d = (u8*)gOAMControls.oam;
-    u8* mem = (u8*)0x07000000;
     u32 i;
-    for (i = 128; i != 0; --i) {
-        *(u16*)d = 0x2A0;
-        d += 8;
+
+    for (i = 0; i < 128; ++i) {
+        *(u16*)&gOAMControls.oam[i] = 0x2A0;
+    }
+
+    for (i = 0; i < 128; ++i) {
 #ifdef PC_PORT
-        gba_write16((uint32_t)mem, 0x2A0);
+        gba_write16(0x07000000 + i * sizeof(struct OamData), 0x2A0);
 #else
-        *(u16*)mem = 0x2A0;
+        *(u16*)(0x07000000 + i * sizeof(struct OamData)) = 0x2A0;
 #endif
-        mem += 8;
     }
 }
 
