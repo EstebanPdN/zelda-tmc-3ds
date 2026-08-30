@@ -1107,7 +1107,7 @@ int Port_Save_PreserveBeforeVaatiProgressRepair(void) {
     return 1;
 }
 
-int Port_Save_ReadVaatiProgressBackupSlot(uint32_t slot, void* data, size_t size) {
+static int ReadRepairBackupSlot(const char* tag, uint32_t slot, void* data, size_t size) {
     static const struct {
         u16 status1;
         u16 status2;
@@ -1124,7 +1124,7 @@ int Port_Save_ReadVaatiProgressBackupSlot(uint32_t slot, void* data, size_t size
     int written;
 
     if (slot >= sizeof(records) / sizeof(records[0]) || data == NULL || size != 0x500) return 0;
-    written = snprintf(backupPath, sizeof(backupPath), "%s.pre-vaati-progress-repair.bak", sActivePath);
+    written = snprintf(backupPath, sizeof(backupPath), "%s.%s.bak", sActivePath, tag);
     if (written < 0 || (size_t)written >= sizeof(backupPath)) return 0;
     if (ReadAndClassifyEepromFile(backupPath, image, NULL, NULL) != EEPROM_IMAGE_ACTIVE_REGION) return 0;
 
@@ -1137,6 +1137,14 @@ int Port_Save_ReadVaatiProgressBackupSlot(uint32_t slot, void* data, size_t size
     }
     memcpy(data, source, size);
     return 1;
+}
+
+int Port_Save_ReadCloudTopsRepairBackupSlot(uint32_t slot, void* data, size_t size) {
+    return ReadRepairBackupSlot("pre-cloud-tops-repair", slot, data, size);
+}
+
+int Port_Save_ReadVaatiProgressBackupSlot(uint32_t slot, void* data, size_t size) {
+    return ReadRepairBackupSlot("pre-vaati-progress-repair", slot, data, size);
 }
 
 void Port_Save_GetStats(PortSaveStats* stats) {

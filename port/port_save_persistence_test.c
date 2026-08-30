@@ -184,6 +184,7 @@ int main(void) {
     char* tempDirectory;
     u8 image[EEPROM_SIZE];
     u8 compare[EEPROM_SIZE];
+    u8 cloudTopsSlot[0x500];
     u8 vaatiSlot[0x500];
     u16 block[4] = { 0x1234, 0x5678, 0x9ABC, 0xDEF0 };
     const u8 shortFile[] = { 0x12, 0x34, 0x56 };
@@ -360,6 +361,14 @@ int main(void) {
     CHECK(FilesEqualForTest("tmc_cloud_tops_backup.sav",
                             "tmc_cloud_tops_backup.sav.pre-cloud-tops-repair.bak"),
           "Cloud Tops repair backup preserves the complete raw profile byte-for-byte");
+    memset(cloudTopsSlot, 0, sizeof(cloudTopsSlot));
+    CHECK(Port_Save_ReadCloudTopsRepairBackupSlot(0, cloudTopsSlot, sizeof(cloudTopsSlot)) &&
+              cloudTopsSlot[0] == 0xA7,
+          "validated Cloud Tops backup exposes the original slot data in RAM order");
+    CHECK(!Port_Save_ReadCloudTopsRepairBackupSlot(3, cloudTopsSlot, sizeof(cloudTopsSlot)),
+          "out-of-range Cloud Tops backup slots fail closed");
+    CHECK(!Port_Save_ReadCloudTopsRepairBackupSlot(0, cloudTopsSlot, sizeof(cloudTopsSlot) - 1),
+          "wrong-sized Cloud Tops backup reads fail closed");
     CHECK(Port_Save_PreserveBeforeCloudTopsRepair(),
           "later Cloud Tops repair checks reuse the verified profile backup");
     CHECK(!FileExistsForTest("tmc_cloud_tops_backup.sav.pre-cloud-tops-repair.001.bak"),

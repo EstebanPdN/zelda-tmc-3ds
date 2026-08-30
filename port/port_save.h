@@ -52,9 +52,12 @@ int Port_Save_PreserveBeforeFuserRepair(void);
 /* Preserve the active profile before moving the pre-v1.2-E5 USA Smith bottle
  * chest bit to its native European ordinal. */
 int Port_Save_PreserveBeforeSmithBottleFlagRepair(void);
-/* Preserve the complete active profile before the one-shot Cloud Tops lost
- * reward repair. Repeated checks during one profile activation reuse it. */
+/* Preserve the complete active profile before the one-shot Cloud Tops fight
+ * replay repair. Repeated checks during one profile activation reuse it. */
 int Port_Save_PreserveBeforeCloudTopsRepair(void);
+/* Read one validated slot from the first Cloud Tops repair backup.  This is
+ * used only to prove and reverse the legacy direct-inventory repair. */
+int Port_Save_ReadCloudTopsRepairBackupSlot(uint32_t slot, void* data, size_t size);
 /* Preserve the complete active profile before the one-shot Vaati progression
  * repair. Repeated checks during one profile activation reuse it. */
 int Port_Save_PreserveBeforeVaatiProgressRepair(void);
