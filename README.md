@@ -91,11 +91,6 @@ If homebrew audio is not working, open the Luma3DS Rosalina Menu and use:
 Miscellaneous options > Dump DSP firmware
 ```
 
-When testing in Azahar on Android or Flatpak, keep both audio input and output
-on `Auto-select`. Azahar has a separate emulator-side issue where choosing
-`None` for the input while stereo output is enabled can silence every title;
-the running homebrew cannot change that host setting.
-
 ## Diagnostics
 
 If you encounter a crash, graphical bug, performance problem, or anything unusual, press:
