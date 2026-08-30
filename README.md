@@ -49,7 +49,7 @@ The bottom-screen worker avoids redundant static redraws while keeping touch inp
 1. Install the CIA with FBI, or use the 3DSX build with the Homebrew Launcher.
 
 ```text
-tmc-3ds-v1.3-E7.cia
+tmc-3ds-v1.3-E8.cia
 ```
 
 2. Create this folder on your SD card:
@@ -90,6 +90,11 @@ If homebrew audio is not working, open the Luma3DS Rosalina Menu and use:
 ```text
 Miscellaneous options > Dump DSP firmware
 ```
+
+When testing in Azahar on Android or Flatpak, keep both audio input and output
+on `Auto-select`. Azahar has a separate emulator-side issue where choosing
+`None` for the input while stereo output is enabled can silence every title;
+the running homebrew cannot change that host setting.
 
 ## Diagnostics
 
@@ -154,8 +159,8 @@ chmod +x platform/3ds/build.sh
 Builds are generated under:
 
 ```text
-build-3ds/game/tmc-3ds-v1.3-E7.cia
-build-3ds/game/tmc-3ds-v1.3-E7.3dsx
+build-3ds/game/tmc-3ds-v1.3-E8.cia
+build-3ds/game/tmc-3ds-v1.3-E8.3dsx
 ```
 
 The build does not include or embed a ROM.
