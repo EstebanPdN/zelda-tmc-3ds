@@ -111,7 +111,8 @@ bool32 EnemyInit(Enemy* this) {
          * entity. The Gyorg family is especially important: without this
          * conversion the female eye selects the adjacent Gyorg-child frame
          * topology and renders four unrelated OBJ pieces per eye. */
-        if (super->id == SPEAR_MOBLIN || super->id == BOW_MOBLIN || super->id == GYORG_CHILD ||
+        if (super->id == SPEAR_MOBLIN || super->id == BOW_MOBLIN || super->id == VAATI_TRANSFIGURED ||
+            super->id == GYORG_CHILD ||
             super->id == GYORG_FEMALE_EYE || super->id == GYORG_MALE_EYE ||
             super->id == GYORG_FEMALE_MOUTH) {
             super->spriteIndex = Port_RemapSpriteIndex(super->spriteIndex);

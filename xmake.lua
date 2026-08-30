@@ -1303,6 +1303,50 @@ target_end()
 
 
 -- ====================
+-- Horizontal Minish-path GBA EWRAM-alias materialization regression test.
+-- ====================
+target("horizontal_minish_path_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections")
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/port_horizontal_minish_path_test.c")
+    add_files("src/manager/horizontalMinishPathBackgroundManager.c")
+target_end()
+
+
+-- ====================
+-- NPC graphics-allocation failure/retry regression test (Goron quest).
+-- ====================
+target("npc_gfx_retry_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections")
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/port_npc_gfx_retry_test.c")
+    add_files("src/npcUtils.c")
+target_end()
+
+
+-- ====================
 -- ROM-backed raw gfx-group EWRAM alias regression test.
 -- ====================
 target("gfx_group_dma_test")
