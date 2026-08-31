@@ -9,8 +9,6 @@
 #include <stdio.h>
 #include <string.h>
 
-/* Which renderer produced the frame on screen, so the overlay can say so
- * without needing a log read over FTP. */
 /* The static quad is drawn with the PPU's own shader and attribute info, so it
  * must use the PPU's vertex type -- not a look-alike. A separate struct here
  * silently became wrong the moment the vertex was packed to 16 bytes (UV is
@@ -28,8 +26,8 @@ static unsigned sPresentQuadWidth;
 bool Port_Config_GpuStaticQuad(void);
 bool Port_Config_CompactUpload(void);
 bool Port_Config_BottomRgb565(void);
+bool Port_Config_FrameLog(void);
 
-static bool sLastFrameUsedGpu;
 static C3D_RenderTarget* sTopTarget;
 static C3D_RenderTarget* sBottomTarget;
 static C3D_Tex sTopTexture;
@@ -526,9 +524,10 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width, unsigned height
         double fps = Port_PPU_3DS_CurrentFps();
         unsigned rounded = fps > 0.0 ? (unsigned)(fps + 0.5) : 0u;
         if (rounded > 999u) rounded = 999u;
-        snprintf(label, sizeof(label), "FPS %u %s", rounded,
-                 sLastFrameUsedGpu ? "GPU" : "CPU");
-        C2D_DrawRectSolid(5.0f, 216.0f, 0.7f, 122.0f, 20.0f, C2D_Color32(0, 0, 0, 210));
+        snprintf(label, sizeof(label), "FPS %u", rounded);
+        const float backgroundWidth = (float)strlen(label) * 12.0f + 8.0f;
+        C2D_DrawRectSolid(5.0f, 216.0f, 0.7f, backgroundWidth, 20.0f,
+                          C2D_Color32(0, 0, 0, 210));
         DrawStatusText(10.0f, 219.0f, 2.0f, label);
     }
 }
@@ -684,9 +683,9 @@ static void DrawTopTexture(C3D_Tex* texture, unsigned width, bool configureAbgr)
         double fps = Port_PPU_3DS_CurrentFps();
         unsigned rounded = fps > 0.0 ? (unsigned)(fps + 0.5) : 0u;
         if (rounded > 999u) rounded = 999u;
-        snprintf(label, sizeof(label), "FPS %u %s", rounded,
-                 sLastFrameUsedGpu ? "GPU" : "CPU");
-        C2D_DrawRectSolid(5.0f, 216.0f, 0.7f, 122.0f, 20.0f,
+        snprintf(label, sizeof(label), "FPS %u", rounded);
+        const float backgroundWidth = (float)strlen(label) * 12.0f + 8.0f;
+        C2D_DrawRectSolid(5.0f, 216.0f, 0.7f, backgroundWidth, 20.0f,
                           C2D_Color32(0, 0, 0, 210));
         DrawStatusText(10.0f, 219.0f, 2.0f, label);
     }
@@ -700,8 +699,9 @@ void PlatformGpu3DS_BeginTop(const uint32_t* pixels, unsigned width, unsigned he
     const u8 frameFlags = (u8)(Port_Config_GpuFrameSync() ? C3D_FRAME_SYNCDRAW : 0);
     if (!C3D_FrameBegin(frameFlags)) {
         ++sStats.frameBeginFailures;
-        if (sStats.frameBeginFailures <= 3u ||
-            (sStats.frameBeginFailures % 300u) == 0u) {
+        if (Port_Config_FrameLog() &&
+            (sStats.frameBeginFailures <= 3u ||
+             (sStats.frameBeginFailures % 300u) == 0u)) {
             char line[112];
             snprintf(line, sizeof(line),
                      "[tmc3ds] GPU busy, frame begin skipped (%llu total)\n",
@@ -744,8 +744,9 @@ bool PlatformGpu3DS_BeginCustomTop(void) {
     const u8 frameFlags = (u8)(Port_Config_GpuFrameSync() ? C3D_FRAME_SYNCDRAW : 0);
     if (!C3D_FrameBegin(frameFlags)) {
         ++sStats.frameBeginFailures;
-        if (sStats.frameBeginFailures <= 3u ||
-            (sStats.frameBeginFailures % 300u) == 0u) {
+        if (Port_Config_FrameLog() &&
+            (sStats.frameBeginFailures <= 3u ||
+             (sStats.frameBeginFailures % 300u) == 0u)) {
             char line[112];
             snprintf(line, sizeof(line),
                      "[tmc3ds] GPU busy, frame begin skipped (%llu total)\n",
@@ -761,7 +762,6 @@ bool PlatformGpu3DS_BeginCustomTop(void) {
 void PlatformGpu3DS_DrawTopTexture(void* texturePointer, unsigned width) {
     C3D_Tex* texture = texturePointer;
     if (!sFrameActive || !texture) return;
-    sLastFrameUsedGpu = true;
     DrawTopTexture(texture, width, false);
 }
 

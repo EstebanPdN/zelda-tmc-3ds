@@ -115,11 +115,10 @@ static bool sAudioDspInterpLinear = true;
  * f0 relative to its output rate -- tune it by ear, not from a datasheet. */
 static bool sSpeakerEq = false;
 static float sSpeakerEqHz = 280.0f;
-/* Periodic per-120-frame diagnostic line. Off by default: Platform3DS_Debug
- * writes it to the SD card with fopen/fwrite/fclose on the main thread inside
- * the presentation span, and FS runs on core 1 with the app's 20% quota. The
- * quick dump already reports every counter it contains; turn this on only when
- * a hang needs forensics that survive the crash. */
+/* Frame-path diagnostics. Off by default: Platform3DS_Debug writes each line
+ * to the SD card with fopen/fwrite/fclose on the main thread inside the
+ * presentation span. The quick dump reports the same counters without adding
+ * intermittent gameplay stalls. */
 static bool sFrameLog = false;
 /* Compact Old 3DS upload surfaces (272x160 top, 320x240 bottom RGBA8 instead of
  * 512x256). Cuts the bottom clean-and-transfer from 491520 to 307200 bytes, and
@@ -137,8 +136,19 @@ static int sAppCpuLimit = 0;
 static bool sGpuStaticQuad = false;
 static bool sBottomRgb565 = false;
 static bool sGpuShortVertices = false;
+/* Stored audio choices. The versioned migration below enables both for the
+ * Old 3DS profile; the effective accessors keep New 3DS on the reference mix. */
 static bool sAudioDsp = false;
 static bool sAudioDspPcm = false;
+/* E8 shipped the Old 3DS performance work with both audio offloads stored as
+ * disabled.  The hardware run that validated the PR used both of them and the
+ * new dumps show why they are part of the Old 3DS profile rather than merely
+ * research switches: fanfares miss the 15.6 ms audio-block deadline by as much
+ * as 64 ms.  Version the private performance profile so an existing E8 ini is
+ * migrated once, while a deliberate later audio_dsp=0 A/B remains possible. */
+static int sPerformanceProfileVersion;
+
+enum { PERFORMANCE_PROFILE_VERSION = 1 };
 
 static bool ParseBool(const char* value) {
     return value != NULL && (value[0] == '1' || value[0] == 't' || value[0] == 'T' ||
@@ -156,6 +166,7 @@ static void SaveConfig(void) {
     FILE* file = fopen(temp, "wb");
     if (!file) return;
     fprintf(file, "# The Minish Cap 3DS runtime settings\n");
+    fprintf(file, "performance_profile_version=%d\n", PERFORMANCE_PROFILE_VERSION);
     fprintf(file, "show_fps=%u\n", sShowFps ? 1u : 0u);
     fprintf(file, "follow_cam=%u\n", sFollow ? 1u : 0u);
     fprintf(file, "windcrest_pins=%u\n", sCrests ? 1u : 0u);
@@ -244,6 +255,7 @@ void Port_Config_Load(const char* path) {
     if (path != NULL && path[0] != '\0') snprintf(sConfigPath, sizeof(sConfigPath), "%s", path);
 
     bool hasScreenAspect = false;
+    bool migratePerformanceProfile = false;
     FILE* file = fopen(sConfigPath, "rb");
     if (file) {
         char line[160];
@@ -251,7 +263,9 @@ void Port_Config_Load(const char* path) {
             char key[64];
             char value[64];
             if (line[0] == '#' || sscanf(line, " %63[^=]=%63s", key, value) != 2) continue;
-            if (strcmp(key, "show_fps") == 0) sShowFps = ParseBool(value);
+            if (strcmp(key, "performance_profile_version") == 0)
+                sPerformanceProfileVersion = (int)strtol(value, NULL, 10);
+            else if (strcmp(key, "show_fps") == 0) sShowFps = ParseBool(value);
             else if (strcmp(key, "gpu_renderer") == 0) sGpuRenderer = ParseBool(value);
             else if (strcmp(key, "gpu_frame_sync") == 0) sGpuFrameSync = ParseBool(value);
             else if (strcmp(key, "gpu_viewport_offset") == 0) sGpuViewportOffset = ParseBool(value);
@@ -312,6 +326,17 @@ void Port_Config_Load(const char* path) {
         fclose(file);
     }
 
+    /* Keep New 3DS on the established software-mix reference.  Old 3DS needs
+     * the PR's proven DSP profile, including when an E8 settings save already
+     * wrote the old research defaults as explicit zeroes. */
+    if (!Platform3DS_IsNew3DS() &&
+        sPerformanceProfileVersion < PERFORMANCE_PROFILE_VERSION) {
+        sAudioDsp = true;
+        sAudioDspPcm = true;
+        sPerformanceProfileVersion = PERFORMANCE_PROFILE_VERSION;
+        migratePerformanceProfile = true;
+    }
+
     if (sVolume < 0.0f) sVolume = 0.0f;
     if (sVolume > 1.0f) sVolume = 1.0f;
     if (sBackdrop < 0 || sBackdrop > 6) sBackdrop = 0;
@@ -324,6 +349,7 @@ void Port_Config_Load(const char* path) {
         sRandoAccessibility = RANDO_ACCESS_GOAL;
     Platform3DS_SetTurboMultiplier(sTurboMultiplier);
     sConfigLoaded = true;
+    if (migratePerformanceProfile) SaveConfig();
 }
 void Port_Config_SetActiveSaveProfile(const char* path) { (void)path; }
 bool Port_Config_GpuRenderer(void) { return sGpuRenderer; }
@@ -344,8 +370,12 @@ int Port_Config_AppCpuLimit(void) { return sAppCpuLimit; }
 bool Port_Config_GpuStaticQuad(void) { return sGpuStaticQuad; }
 bool Port_Config_BottomRgb565(void) { return sBottomRgb565; }
 bool Port_Config_GpuShortVertices(void) { return sGpuShortVertices; }
-bool Port_Config_AudioDsp(void) { return sAudioDsp; }
-bool Port_Config_AudioDspPcm(void) { return sAudioDspPcm; }
+bool Port_Config_AudioDsp(void) {
+    return !Platform3DS_IsNew3DS() && sAudioDsp;
+}
+bool Port_Config_AudioDspPcm(void) {
+    return !Platform3DS_IsNew3DS() && sAudioDspPcm;
+}
 u8 Port_Config_WindowScale(void) { return 1; }
 const char* Port_Config_UpscaleMethod(void) { return "nearest"; }
 u64 Port_Config_FrameTimeNs(void) { return 16666667ULL; }

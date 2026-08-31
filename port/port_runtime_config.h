@@ -109,8 +109,8 @@ bool Port_Config_VblankPhaseLock(void);
 /* 3DS: interpolation for offloaded NDSP voices. Default 1 (linear) matches the
  * software mix on channel 0; 0 selects NDSP_INTERP_NONE. */
 bool Port_Config_AudioDspInterpLinear(void);
-/* 3DS: `frame_log=1` re-enables the per-120-frame SD diagnostic line. Off by
- * default; it costs main-thread SD I/O inside the presentation span. */
+/* 3DS: `frame_log=1` re-enables frame-path SD diagnostics. Off by default;
+ * each line costs main-thread SD I/O inside the presentation span. */
 bool Port_Config_FrameLog(void);
 /* 3DS: `compact_upload=1` uses 272x160 / 320x240 upload surfaces instead of
  * 512x256. Every caller of PlatformGpu3DS_GetUploadLayout must gate on this
@@ -119,6 +119,8 @@ bool Port_Config_CompactUpload(void);
 bool Port_Config_GpuStaticQuad(void);
 bool Port_Config_BottomRgb565(void);
 bool Port_Config_GpuShortVertices(void);
+/* Old 3DS performance profile: hardware CGB/PSG and eligible PCM voices.
+ * New 3DS retains the established software-mix reference. */
 bool Port_Config_AudioDsp(void);
 bool Port_Config_AudioDspPcm(void);
 void Port_Config_SetWidescreenEnabled(bool enabled);

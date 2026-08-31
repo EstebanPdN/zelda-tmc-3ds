@@ -16,6 +16,8 @@
 #include "platform_gpu_3ds.h"
 #include "top_view_3ds.h"
 #include "port_ppu_gpu_3ds.h"
+#include "ndsp_pcm_offload.h"
+#include "ndsp_psg_offload.h"
 
 #include "virtuappu.h"
 #include "cpu/mode1.h"
@@ -343,6 +345,10 @@ static double TicksToMilliseconds(uint64_t ticks) {
 void Port_PPU_3DS_WriteQuickDump(void) {
     if (!sInitialized)
         return;
+    /* The dump and its confirmation overlay deliberately pause for SD I/O.
+     * Do not let that pause become the next measured gameplay frame when a
+     * retired renderer cannot arm the parity-frame reset below. */
+    sPerfLastFrameTick = 0;
     /* Capture what is on screen now, before the parity path re-renders it. */
     if (sGpuPpuInitialized) PortPpuGpu3DS_RequestFrameCapture();
     if (sGpuPpuInitialized) PortPpuGpu3DS_RequestParityCheck();
@@ -655,6 +661,20 @@ void Port_PPU_3DS_WriteQuickDump(void) {
         fprintf(info, "C2D flush address: 0x%08lX; upload buffers: 0x%08lX / 0x%08lX / 0x%08lX\n",
                 (unsigned long)gpuStats.c2dFlushAddress, (unsigned long)gpuStats.topUploadAddress,
                 (unsigned long)gpuStats.bottomUploadAddress[0], (unsigned long)gpuStats.bottomUploadAddress[1]);
+        fprintf(info, "PICA200 PPU initialized/enabled/disabled: %s / %s / %s\n",
+                ppuGpuStats.initialized ? "yes" : "no",
+                ppuGpuStats.enabled ? "yes" : "no",
+                ppuGpuStats.disabled ? "yes" : "no");
+        fprintf(info, "PICA200 PPU attempted/rendered/fallback/disabled frames: %llu/%llu/%llu/%llu\n",
+                (unsigned long long)ppuGpuStats.attemptedFrames,
+                (unsigned long long)ppuGpuStats.renderedFrames,
+                (unsigned long long)ppuGpuStats.fallbackFrames,
+                (unsigned long long)ppuGpuStats.disabledFrames);
+        fprintf(info, "PICA200 parity checks/failures/differing/structural: %llu/%llu/%llu/%llu\n",
+                (unsigned long long)ppuGpuStats.parityChecks,
+                (unsigned long long)ppuGpuStats.parityFailures,
+                (unsigned long long)ppuGpuStats.differingPixels,
+                (unsigned long long)ppuGpuStats.structuralPixels);
         {
             /* Measured, not inferred: which phase of a paint actually costs
              * the 10-15 ms. */
@@ -718,6 +738,15 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 (unsigned long long)audioStats.fallbackRenders, (unsigned long)audioStats.samplePosition);
         fprintf(info, "NDSP frames / dropped frames: %lu / %lu\n", (unsigned long)audioStats.ndspFrames,
                 (unsigned long)audioStats.ndspDroppedFrames);
+        fprintf(info, "DSP offload active (PSG/PCM): %s / %s\n",
+                NdspPsg_Available() ? "yes" : "no",
+                NdspPcm_Available() ? "yes" : "no");
+        fprintf(info, "PSG voices offloaded / rate-declined: %llu / %llu; reverb level: %d\n",
+                NdspPsg_VoicesOffloaded(), NdspPsg_VoicesRateDeclined(),
+                NdspPsg_CurrentReverbLevel());
+        fprintf(info, "PCM voices offloaded / declined / unsupported: %llu / %llu / %llu\n",
+                NdspPcm_VoicesOffloaded(), NdspPcm_VoicesDeclined(),
+                NdspPcm_VoicesUnsupported());
 
         fprintf(info, "\n[Save storage]\n");
         fprintf(info, "Active path: %s\n", saveStats.activePath);
@@ -976,19 +1005,6 @@ void Port_PPU_PresentFrame(void) {
     const uint64_t frameStart = Platform3DS_Milliseconds();
 #endif
     const uint16_t dispcnt = (uint16_t)(gIoMem[0] | (gIoMem[1] << 8));
-    {
-        /* One dump, once, about thirty seconds in, and only while the PICA200
-         * path is actually rendering. The full statistics -- audio underruns,
-         * render and presentation costs, build phases, cadence -- are only in a
-         * dump, and every measurement so far predates the GPU path working. One
-         * pause of roughly a second, then never again. */
-        static bool measurementTaken = false;
-        if (!measurementTaken && sFrameNumber == 1800u &&
-            Port_Config_GpuRenderer() && sGpuPpuInitialized && !sGpuPpuDisabled) {
-            measurementTaken = true;
-            Platform3DS_RequestQuickDump();
-        }
-    }
     const uint8_t mode = (uint8_t)(dispcnt & 7);
     TopFrameState topFrame = SelectTopFrame();
     const TopView3DSPpuCoherence coherence = TopView3DS_ResolvePpuCoherence(
@@ -1033,7 +1049,7 @@ void Port_PPU_PresentFrame(void) {
                 OLD3DS_FRAME_PACER_DISCONTINUITY_DUMP);
             virtuappu_render_frame();
             PortPpuGpu3DS_CaptureParityReference(
-                sTopUpload, sTopUploadPitch, sTopPresentWidth, MODE1_GBA_HEIGHT);
+                sTopUpload, sTopUploadPitch, sTopPresentWidth, sTopPresentHeight);
             port_hdma_vblank_reset();
         }
         FillPreparedFrameView(&frameView);
@@ -1165,7 +1181,7 @@ void Port_PPU_PresentFrame(void) {
      * the counters that say why are otherwise only visible in a quick dump --
      * which is hard to take when the screen is blank. Report the first frames
      * to the log so the state can be read straight off the SD card. */
-    if (sFrameNumber == 1u) {
+    if (Port_Config_FrameLog() && sFrameNumber == 1u) {
         /* Stamp the run with the switches in effect, so a log read later says
          * which configuration produced it. */
         char config[160];
@@ -1184,10 +1200,11 @@ void Port_PPU_PresentFrame(void) {
      * millisecond per frame, and the stall itself lands in the presentation
      * span, which is where the unexplained ~196 ms maximum shows up.
      *
-     * The first frames stay unconditional -- they are boot forensics and cost
-     * eight writes once. The periodic line is redundant with the quick dump,
-     * which reports every one of these counters, so it is opt-in. */
-    if (sFrameNumber <= 8u || (Port_Config_FrameLog() && (sFrameNumber % 120u) == 0u)) {
+     * The first-frame forensics and the periodic line are both opt-in.  They
+     * are useful for a black-screen investigation, but release gameplay must
+     * not pay for synchronous SD opens during its first animation frames. */
+    if (Port_Config_FrameLog() &&
+        (sFrameNumber <= 8u || (sFrameNumber % 120u) == 0u)) {
         PlatformGpu3DSStats presenter;
         PortPpuGpu3DSStats gpu;
         PlatformGpu3DS_GetStats(&presenter);
@@ -1216,8 +1233,10 @@ void Port_PPU_PresentFrame(void) {
      * 1800 frames is ~30 s apart: even at 30 ms per open-write-close that is
      * 0.017 ms/frame, three orders below the per-120-frame line this replaces.
      *
-     * Deliberately after frame 1800 only, so the numbers exclude warm-up. */
-    if (sFrameNumber >= 1800u && (sFrameNumber % 1800u) == 0u && sPerfIntervalSamples > 0u &&
+     * Deliberately after frame 1800 only, and behind frame_log, so normal
+     * gameplay performs no periodic SD write. */
+    if (Port_Config_FrameLog() && sFrameNumber >= 1800u &&
+        (sFrameNumber % 1800u) == 0u && sPerfIntervalSamples > 0u &&
         sPerfSamples > 0u) {
         PlatformGpu3DSStats gpuCadence;
         PlatformGpu3DS_GetStats(&gpuCadence);

@@ -787,6 +787,14 @@ bool PortPpuGpu3DS_DrawPrepared(void) {
     C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP, GPU_STENCIL_KEEP);
     C3D_StencilTest(false, GPU_ALWAYS, 0, 0xff, 0);
     C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_ALL);
+    /* Scissor state is global Citro3D state, not render-target state.  Leaving
+     * the last GBA scanline band active clips Citro2D's following top-screen
+     * pass at screen x=240: this is why the end of DUMP SAVED was missing.
+     * Disable it before returning to the presenter and invalidate the cache so
+     * the next PPU frame cannot mistake the disabled state for its first band. */
+    C3D_SetScissor(GPU_SCISSOR_DISABLE, 0, 0, 0, 0);
+    sScissorKeyLow = 0xffffffffu;
+    sScissorKeyHigh = 0xffffffffu;
     return FinishDraw(true, startTick);
 }
 
