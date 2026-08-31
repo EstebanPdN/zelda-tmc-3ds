@@ -37,9 +37,9 @@ Audio requires a working 3DS DSP firmware setup. On Luma3DS, use Rosalina's
 
 - Top screen: selectable Wide, Original, and Stretch aspect ratios.
 - Display styles, in menu order: linearly filtered Blur, 2x sharp Bilinear,
-  experimental 3x Ultra Sharp, and centered one-pixel-per-source-pixel Pixel
-  Perfect. Fresh installations start with Bilinear and Stretch; valid saved
-  choices are restored on later launches.
+  and centered one-pixel-per-source-pixel Pixel Perfect. Fresh installations
+  start with Bilinear and Stretch; valid saved choices are restored on later
+  launches.
 - Experimental Full View: on New 3DS, selecting Wide + Pixel Perfect renders
   compatible outdoor rooms at 400x240 and supported interiors at a centered
   200x120 logical view scaled exactly 2x. Dialogues, transitions and unsupported

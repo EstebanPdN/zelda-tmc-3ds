@@ -45,6 +45,7 @@ void NdspPcm_Stop(int* slot);
 /* The master fade is applied to the software track buffers only, so the mixer
  * publishes the current level here for folding into the hardware mix. */
 void NdspPcm_SetMasterLevel(float level);
+void NdspPcm_SetPaused(bool paused);
 
 unsigned long long NdspPcm_VoicesOffloaded(void);
 unsigned long long NdspPcm_VoicesDeclined(void);

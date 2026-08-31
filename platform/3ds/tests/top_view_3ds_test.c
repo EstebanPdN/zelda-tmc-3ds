@@ -17,8 +17,7 @@ int main(void) {
 
     CHECK(TOP_VIEW_3DS_DISPLAY_BLUR == 0);
     CHECK(TOP_VIEW_3DS_DISPLAY_BILINEAR == 1);
-    CHECK(TOP_VIEW_3DS_DISPLAY_ULTRA_SHARP == 2);
-    CHECK(TOP_VIEW_3DS_DISPLAY_PIXEL_PERFECT == 3);
+    CHECK(TOP_VIEW_3DS_DISPLAY_PIXEL_PERFECT == 2);
 
     TopView3DS_BuildPlan(0, 1, TOP_VIEW_3DS_ASPECT_WIDE,
                          TOP_VIEW_3DS_DISPLAY_PIXEL_PERFECT,
@@ -86,9 +85,8 @@ int main(void) {
     CHECK(coherence.forceNativeFrame && coherence.clearFullViewProducer);
 
     /* Native 240, Wide 266, Original 360 and Stretch 400 remain the physical
-     * geometry decisions. Blur is directly linear-filtered, Bilinear requests
-     * a distinct 2x-nearest/linear pass, and Ultra Sharp uses the same guarded
-     * path with a 3x pre-scale. */
+     * geometry decisions. Blur is directly linear-filtered and Bilinear
+     * requests a distinct guarded 2x-nearest/linear pass. */
     TopView3DS_BuildPlan(0, 0, TOP_VIEW_3DS_ASPECT_WIDE,
                          TOP_VIEW_3DS_DISPLAY_BLUR,
                          PORT_3DS_FULL_VIEW_FALLBACK, 240, 160, 240, 160, 0, 0, &plan);
@@ -114,17 +112,6 @@ int main(void) {
                          PORT_3DS_FULL_VIEW_FALLBACK, 266, 160, 266, 160, 0, 0, &plan);
     CHECK(plan.source.sourceWidth == 266 && plan.drawWidth == 400 && plan.useSharpBilinear);
     CHECK(plan.sharpBilinearScale == 2);
-    TopView3DS_BuildPlan(0, 0, TOP_VIEW_3DS_ASPECT_ORIGINAL,
-                         TOP_VIEW_3DS_DISPLAY_ULTRA_SHARP,
-                         PORT_3DS_FULL_VIEW_FALLBACK, 240, 160, 240, 160, 0, 0, &plan);
-    CHECK(plan.source.sourceWidth == 240 && plan.source.sourceHeight == 160);
-    CHECK(plan.drawX == 20 && plan.drawY == 0 && plan.drawWidth == 360 && plan.drawHeight == 240);
-    CHECK(!plan.linearFilter && plan.useSharpBilinear && plan.sharpBilinearScale == 3);
-    TopView3DS_BuildPlan(0, 0, TOP_VIEW_3DS_ASPECT_WIDE,
-                         TOP_VIEW_3DS_DISPLAY_ULTRA_SHARP,
-                         PORT_3DS_FULL_VIEW_FALLBACK, 266, 160, 266, 160, 0, 0, &plan);
-    CHECK(plan.source.sourceWidth == 266 && plan.drawWidth == 400);
-    CHECK(plan.useSharpBilinear && plan.sharpBilinearScale == 3);
     TopView3DS_BuildPlan(0, 0, TOP_VIEW_3DS_ASPECT_ORIGINAL,
                          TOP_VIEW_3DS_DISPLAY_BLUR,
                          PORT_3DS_FULL_VIEW_FALLBACK, 266, 160, 266, 160, 0, 0, &plan);

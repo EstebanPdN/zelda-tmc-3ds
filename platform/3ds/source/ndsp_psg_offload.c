@@ -185,6 +185,13 @@ void NdspPsg_SetMasterLevel(float level) {
     sMasterLevel = level < 0.0f ? 0.0f : level;
 }
 
+void NdspPsg_SetPaused(bool paused) {
+    if (!sReady) return;
+    for (int i = 0; i < PSG_CHANNEL_COUNT; ++i) {
+        if (sChannelBusy[i]) ndspChnSetPaused(PSG_FIRST_CHANNEL + i, paused);
+    }
+}
+
 static bool psg_claim(int* slot);
 static bool psg_decline(int* slot);
 static void psg_configure(int slot, const int16_t* data, int samples);

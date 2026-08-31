@@ -114,6 +114,13 @@ void NdspPcm_SetMasterLevel(float level) {
     sMasterLevel = level < 0.0f ? 0.0f : level;
 }
 
+void NdspPcm_SetPaused(bool paused) {
+    if (!sReady) return;
+    for (int i = 0; i < PCM_CHANNEL_COUNT; ++i) {
+        if (sSlots[i].busy) ndspChnSetPaused(PCM_FIRST_CHANNEL + i, paused);
+    }
+}
+
 static PcmCacheEntry* AcquireSample(const int8_t* source, uint32_t bytes) {
     if (!source || bytes == 0) return NULL;
     for (int i = 0; i < PCM_CACHE_ENTRIES; ++i) {

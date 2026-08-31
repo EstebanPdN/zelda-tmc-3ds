@@ -287,6 +287,10 @@ void Port_Audio_3DSSetPaused(bool paused) {
     if (!sInitialized || sPaused == paused) return;
     sPaused = paused;
     ndspChnSetPaused(0, paused);
+    /* Keep every experimental hardware voice on the same pause boundary as
+     * the reference mix, even though E10 disables those split-timeline paths. */
+    NdspPsg_SetPaused(paused);
+    NdspPcm_SetPaused(paused);
     if (!paused) LightEvent_Signal(&sAudioWake);
 }
 

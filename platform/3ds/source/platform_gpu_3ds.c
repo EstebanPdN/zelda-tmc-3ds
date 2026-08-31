@@ -62,10 +62,10 @@ enum {
     SHARP_BILINEAR_TEXTURE_HEIGHT = 512,
 };
 
-_Static_assert(SHARP_BILINEAR_TEXTURE_WIDTH >= 266 * 3 + 1,
-               "Ultra Sharp target must hold Wide plus its guard column");
-_Static_assert(SHARP_BILINEAR_TEXTURE_HEIGHT >= 160 * 3 + 1,
-               "Ultra Sharp target must hold the frame plus its guard row");
+_Static_assert(SHARP_BILINEAR_TEXTURE_WIDTH >= 266 * 2 + 1,
+               "Bilinear target must hold Wide plus its guard column");
+_Static_assert(SHARP_BILINEAR_TEXTURE_HEIGHT >= 160 * 2 + 1,
+               "Bilinear target must hold the frame plus its guard row");
 
 extern u32 __ctru_linear_heap;
 extern u32 __ctru_linear_heap_size;
@@ -292,11 +292,10 @@ bool PlatformGpu3DS_Init(bool old3dsProfile) {
     C3D_TexSetWrap(&sTopTexture, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
     C3D_TexSetWrap(&sBottomTexture, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
 
-    /* 266x160 Wide is the largest fallback frame, so a 1024x512 container
-     * safely holds its exact 798x480 nearest-neighbour 3x image plus guard
-     * texels. This target has no depth buffer. Allocation failure is
-     * non-fatal: Bilinear and Ultra Sharp then use a nearest-neighbour
-     * presentation without the intermediate pass. */
+    /* 266x160 Wide is the largest fallback frame, so this container holds its
+     * exact 532x320 nearest-neighbour 2x image plus guard texels. This target
+     * has no depth buffer. Allocation failure is non-fatal: Bilinear then
+     * falls back to a direct linear-filtered presentation. */
     if (C3D_TexInitVRAM(&sSharpBilinearTexture, SHARP_BILINEAR_TEXTURE_WIDTH,
                         SHARP_BILINEAR_TEXTURE_HEIGHT, GPU_RGBA8)) {
         C3D_TexSetFilter(&sSharpBilinearTexture, GPU_LINEAR, GPU_LINEAR);
@@ -406,7 +405,7 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width, unsigned height
     };
     C2D_TargetClear(sTopTarget, C2D_Color32(0, 0, 0, 255));
     const unsigned intermediateScale = (unsigned)plan.sharpBilinearScale;
-    const bool validSharpBilinearScale = intermediateScale == 2u || intermediateScale == 3u;
+    const bool validSharpBilinearScale = intermediateScale == 2u;
     const unsigned intermediateWidth = validSharpBilinearScale
                                            ? (unsigned)presentation->sourceWidth * intermediateScale
                                            : 0u;
@@ -489,8 +488,8 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width, unsigned height
         C2D_DrawImage(cornerImage, &cornerParams, NULL);
 
         /* Beginning the physical scene flushes the complete nearest pass
-         * before this texture is sampled. UVs cover only the valid 2x or 3x
-         * image, never the unused power-of-two container. */
+         * before this texture is sampled. UVs cover only the valid 2x image,
+         * never the unused power-of-two container. */
         sSharpBilinearSubtexture = (Tex3DS_SubTexture){
             .width = (u16)intermediateWidth,
             .height = (u16)intermediateHeight,
@@ -511,7 +510,8 @@ static void DrawTopImage(const uint32_t* pixels, unsigned width, unsigned height
         ConfigureAbgrTextureEnv();
         ++sStats.sharpBilinearFrames;
     } else {
-        const GPU_TEXTURE_FILTER_PARAM filter = plan.linearFilter ? GPU_LINEAR : GPU_NEAREST;
+        const GPU_TEXTURE_FILTER_PARAM filter =
+            (plan.linearFilter || plan.useSharpBilinear) ? GPU_LINEAR : GPU_NEAREST;
         C3D_TexSetFilter(&sTopTexture, filter, filter);
         C2D_SceneBegin(sTopTarget);
         ConfigureStandardAlphaBlend();
@@ -638,8 +638,6 @@ static void DrawTopTexture(C3D_Tex* texture, unsigned width, bool configureAbgr)
         .center = { 0.0f, 0.0f }, .depth = 0.0f, .angle = 0.0f,
     };
 
-    C3D_TexSetFilter(texture, plan.linearFilter ? GPU_LINEAR : GPU_NEAREST,
-                     plan.linearFilter ? GPU_LINEAR : GPU_NEAREST);
     C2D_Prepare();
     TopLayoutChanged(params.pos.x, params.pos.y, params.pos.w, params.pos.h,
                      style, width, Port_Config_GetShowFps());
@@ -648,33 +646,149 @@ static void DrawTopTexture(C3D_Tex* texture, unsigned width, bool configureAbgr)
      * the PICA200 PPU target and its physical-screen sampling pass. */
     if (sTopClearFrames != 0) --sTopClearFrames;
     C2D_TargetClear(sTopTarget, C2D_Color32(0, 0, 0, 255));
-    C2D_SceneBegin(sTopTarget);
-    if (Port_Config_GpuStaticQuad() && sPresentQuad &&
-        PortPpuGpu3DS_BindPresentShader()) {
-        C2D_Flush();
-        if (!sPresentQuadValid || sPresentQuadW != params.pos.w ||
-            sPresentQuadH != params.pos.h || sPresentQuadWidth != width) {
-            BuildPresentQuad(params.pos.x, params.pos.y, params.pos.w,
-                             params.pos.h, width, &sTopSubtexture);
-        }
-        C3D_BufInfo bufInfo;
-        BufInfo_Init(&bufInfo);
-        BufInfo_Add(&bufInfo, sPresentQuad, sizeof(PresentVertex), 2, 0x10);
-        C3D_SetBufInfo(&bufInfo);
-        C3D_TexBind(0, texture);
-        C3D_TexEnv* env = C3D_GetTexEnv(0);
-        C3D_TexEnvInit(env);
-        C3D_TexEnvSrc(env, C3D_Both, GPU_TEXTURE0, GPU_TEXTURE0, GPU_TEXTURE0);
-        C3D_TexEnvFunc(env, C3D_Both, GPU_REPLACE);
-        C3D_AlphaTest(false, GPU_ALWAYS, 0);
-        C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_COLOR);
-        C3D_StencilTest(false, GPU_ALWAYS, 0, 0xff, 0);
-        C3D_CullFace(GPU_CULL_NONE);
-        C3D_DrawArrays(GPU_TRIANGLE_STRIP, 0, 4);
-        C2D_Prepare();
+    const unsigned intermediateScale = (unsigned)plan.sharpBilinearScale;
+    const unsigned intermediateWidth =
+        intermediateScale == 2u ? (unsigned)presentation->sourceWidth * 2u : 0u;
+    const unsigned intermediateHeight =
+        intermediateScale == 2u ? (unsigned)presentation->sourceHeight * 2u : 0u;
+    const bool useSharpBilinear =
+        plan.useSharpBilinear && intermediateScale == 2u &&
+        sSharpBilinearTarget &&
+        intermediateWidth < SHARP_BILINEAR_TEXTURE_WIDTH &&
+        intermediateHeight < SHARP_BILINEAR_TEXTURE_HEIGHT;
+
+    if (useSharpBilinear) {
+        const C2D_DrawParams integerParams = {
+            .pos = { .x = 0.0f, .y = 0.0f,
+                     .w = (float)intermediateWidth,
+                     .h = (float)intermediateHeight },
+            .center = { 0.0f, 0.0f }, .depth = 0.0f, .angle = 0.0f,
+        };
+        C3D_TexSetFilter(texture, GPU_NEAREST, GPU_NEAREST);
+        C2D_SceneBegin(sSharpBilinearTarget);
+        ConfigureIdentityTextureEnv();
+        ConfigureOpaqueOverwriteBlend();
+        C2D_DrawImage(image, &integerParams, NULL);
+
+        /* Duplicate the last source column and row into guard texels. Without
+         * these, the final linear sample can bleed stale pixels from the
+         * unused part of the power-of-two render target. */
+        const Tex3DS_SubTexture rightEdgeSubtexture = {
+            .width = 1,
+            .height = (u16)presentation->sourceHeight,
+            .left = (float)(presentation->sourceX + presentation->sourceWidth - 1) /
+                    texture->width,
+            .top = 1.0f - (float)presentation->sourceY / texture->height,
+            .right = (float)(presentation->sourceX + presentation->sourceWidth) /
+                     texture->width,
+            .bottom = 1.0f -
+                      (float)(presentation->sourceY + presentation->sourceHeight) /
+                          texture->height,
+        };
+        const Tex3DS_SubTexture bottomEdgeSubtexture = {
+            .width = (u16)presentation->sourceWidth,
+            .height = 1,
+            .left = (float)presentation->sourceX / texture->width,
+            .top = 1.0f -
+                   (float)(presentation->sourceY + presentation->sourceHeight - 1) /
+                       texture->height,
+            .right = (float)(presentation->sourceX + presentation->sourceWidth) /
+                     texture->width,
+            .bottom = 1.0f -
+                      (float)(presentation->sourceY + presentation->sourceHeight) /
+                          texture->height,
+        };
+        const Tex3DS_SubTexture cornerSubtexture = {
+            .width = 1, .height = 1,
+            .left = rightEdgeSubtexture.left,
+            .top = bottomEdgeSubtexture.top,
+            .right = rightEdgeSubtexture.right,
+            .bottom = bottomEdgeSubtexture.bottom,
+        };
+        const C2D_Image rightEdgeImage = {
+            .tex = texture, .subtex = &rightEdgeSubtexture
+        };
+        const C2D_Image bottomEdgeImage = {
+            .tex = texture, .subtex = &bottomEdgeSubtexture
+        };
+        const C2D_Image cornerImage = {
+            .tex = texture, .subtex = &cornerSubtexture
+        };
+        const C2D_DrawParams rightEdgeParams = {
+            .pos = { .x = (float)intermediateWidth, .y = 0.0f,
+                     .w = 1.0f, .h = (float)intermediateHeight },
+            .center = { 0.0f, 0.0f }, .depth = 0.0f, .angle = 0.0f,
+        };
+        const C2D_DrawParams bottomEdgeParams = {
+            .pos = { .x = 0.0f, .y = (float)intermediateHeight,
+                     .w = (float)intermediateWidth, .h = 1.0f },
+            .center = { 0.0f, 0.0f }, .depth = 0.0f, .angle = 0.0f,
+        };
+        const C2D_DrawParams cornerParams = {
+            .pos = { .x = (float)intermediateWidth,
+                     .y = (float)intermediateHeight,
+                     .w = 1.0f, .h = 1.0f },
+            .center = { 0.0f, 0.0f }, .depth = 0.0f, .angle = 0.0f,
+        };
+        C2D_DrawImage(rightEdgeImage, &rightEdgeParams, NULL);
+        C2D_DrawImage(bottomEdgeImage, &bottomEdgeParams, NULL);
+        C2D_DrawImage(cornerImage, &cornerParams, NULL);
+
+        sSharpBilinearSubtexture = (Tex3DS_SubTexture){
+            .width = (u16)intermediateWidth,
+            .height = (u16)intermediateHeight,
+            .left = 0.0f, .top = 1.0f,
+            .right = (float)intermediateWidth / SHARP_BILINEAR_TEXTURE_WIDTH,
+            .bottom = 1.0f -
+                      (float)intermediateHeight / SHARP_BILINEAR_TEXTURE_HEIGHT,
+        };
+        const C2D_Image intermediateImage = {
+            .tex = &sSharpBilinearTexture,
+            .subtex = &sSharpBilinearSubtexture,
+        };
         C2D_SceneBegin(sTopTarget);
+        ConfigureStandardAlphaBlend();
+        ConfigureIdentityTextureEnv();
+        C3D_TexSetFilter(&sSharpBilinearTexture, GPU_LINEAR, GPU_LINEAR);
+        C2D_DrawImage(intermediateImage, &params, NULL);
+        ++sStats.sharpBilinearFrames;
     } else {
-        C2D_DrawImage(image, &params, NULL);
+        /* If the intermediate target is unavailable, Bilinear must remain a
+         * bilinear mode rather than silently becoming nearest-neighbour. */
+        const GPU_TEXTURE_FILTER_PARAM filter =
+            (plan.linearFilter || plan.useSharpBilinear) ? GPU_LINEAR : GPU_NEAREST;
+        C3D_TexSetFilter(texture, filter, filter);
+        C2D_SceneBegin(sTopTarget);
+        ConfigureStandardAlphaBlend();
+        if (Port_Config_GpuStaticQuad() && sPresentQuad &&
+            PortPpuGpu3DS_BindPresentShader()) {
+            C2D_Flush();
+            if (!sPresentQuadValid || sPresentQuadW != params.pos.w ||
+                sPresentQuadH != params.pos.h || sPresentQuadWidth != width) {
+                BuildPresentQuad(params.pos.x, params.pos.y, params.pos.w,
+                                 params.pos.h, width, &sTopSubtexture);
+            }
+            C3D_BufInfo bufInfo;
+            BufInfo_Init(&bufInfo);
+            BufInfo_Add(&bufInfo, sPresentQuad, sizeof(PresentVertex), 2, 0x10);
+            C3D_SetBufInfo(&bufInfo);
+            C3D_TexBind(0, texture);
+            C3D_TexEnv* env = C3D_GetTexEnv(0);
+            C3D_TexEnvInit(env);
+            C3D_TexEnvSrc(env, C3D_Both, GPU_TEXTURE0, GPU_TEXTURE0, GPU_TEXTURE0);
+            C3D_TexEnvFunc(env, C3D_Both, GPU_REPLACE);
+            C3D_AlphaTest(false, GPU_ALWAYS, 0);
+            C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_COLOR);
+            C3D_StencilTest(false, GPU_ALWAYS, 0, 0xff, 0);
+            C3D_CullFace(GPU_CULL_NONE);
+            C3D_DrawArrays(GPU_TRIANGLE_STRIP, 0, 4);
+            C2D_Prepare();
+            C2D_SceneBegin(sTopTarget);
+        } else {
+            ConfigureIdentityTextureEnv();
+            C2D_DrawImage(image, &params, NULL);
+        }
+        if (plan.useSharpBilinear) ++sStats.sharpBilinearFallbacks;
     }
     if (configureAbgr) ConfigureAbgrTextureEnv();
 
@@ -864,15 +978,28 @@ bool PlatformGpu3DS_EndBottom(const uint32_t* pixels, bool changed) {
     return true;
 }
 
-void PlatformGpu3DS_ShowDumpSavedOverlay(void) {
+void PlatformGpu3DS_ShowDumpSavedOverlay(void* currentTopTexture) {
     if (!sReady || !sTopUpload || !sBottomUploads[0] || !C3D_FrameBegin(C3D_FRAME_NONBLOCK)) return;
     /* This frame paints outside the usual layout. */
     PlatformGpu3DS_InvalidateTopBorder();
     sFrameActive = true;
-    DrawTopImage(sTopUpload, sTopPresentWidth, sTopPresentHeight,
-                 sTopValidSourceWidth, sTopValidSourceHeight,
-                 sTopPresentMode, sTopCropX, sTopCropY);
-    C2D_DrawRectSolid(132.0f, 12.0f, 0.7f, 136.0f, 24.0f, C2D_Color32(0, 0, 0, 220));
+    /* The CPU upload is intentionally stale while PICA renders the game.
+     * Re-present the live output texture so saving a dump never flashes an
+     * older CPU/parity frame. */
+    if (currentTopTexture)
+        DrawTopTexture((C3D_Tex*)currentTopTexture, sTopPresentWidth, false);
+    else
+        DrawTopImage(sTopUpload, sTopPresentWidth, sTopPresentHeight,
+                     sTopValidSourceWidth, sTopValidSourceHeight,
+                     sTopPresentMode, sTopCropX, sTopCropY);
+
+    /* Start a clean overlay batch. PICA scissor/blend state is global and a
+     * leaked scanline clip was what truncated the end of this label. */
+    C2D_Prepare();
+    C2D_SceneBegin(sTopTarget);
+    C3D_SetScissor(GPU_SCISSOR_DISABLE, 0, 0, 0, 0);
+    ConfigureStandardAlphaBlend();
+    C2D_DrawRectSolid(124.0f, 12.0f, 0.7f, 152.0f, 24.0f, C2D_Color32(0, 0, 0, 220));
     DrawStatusText(141.0f, 17.0f, 2.0f, "DUMP SAVED");
 
     sBottomSubtexture = (Tex3DS_SubTexture){

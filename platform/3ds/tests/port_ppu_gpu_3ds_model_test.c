@@ -830,10 +830,10 @@ int main(void) {
                 find_batch(&renderCommand, PPU_GPU3DS_OBJ, 3);
         const uint16_t affineVertex =
                 renderIndices[renderCommand.batches[affineBatch].firstIndex];
-        CHECK(vertex_screen_x(&renderVertices[affineVertex], renderView.width) > 7.99f &&
-              vertex_screen_x(&renderVertices[affineVertex], renderView.width) < 8.01f);
-        CHECK(vertex_screen_y(&renderVertices[affineVertex], renderView.height) > -0.01f &&
-              vertex_screen_y(&renderVertices[affineVertex], renderView.height) < 0.01f);
+        CHECK(vertex_screen_x(&renderVertices[affineVertex], renderView.width) > 8.49f &&
+              vertex_screen_x(&renderVertices[affineVertex], renderView.width) < 8.51f);
+        CHECK(vertex_screen_y(&renderVertices[affineVertex], renderView.height) > 0.49f &&
+              vertex_screen_y(&renderVertices[affineVertex], renderView.height) < 0.51f);
         CHECK(find_object_scissor(&renderCommand, 3, 0, 10, 0, 12) != SIZE_MAX);
         CHECK(find_object_scissor(&renderCommand, 3, 10, 12, 0, 12) != SIZE_MAX);
 

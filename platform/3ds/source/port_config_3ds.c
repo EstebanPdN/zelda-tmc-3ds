@@ -136,19 +136,18 @@ static int sAppCpuLimit = 0;
 static bool sGpuStaticQuad = false;
 static bool sBottomRgb565 = false;
 static bool sGpuShortVertices = false;
-/* Stored audio choices. The versioned migration below enables both for the
- * Old 3DS profile; the effective accessors keep New 3DS on the reference mix. */
+/* Stored research choices. E10 disables both routes on every console because
+ * they start voices immediately while channel 0 plays a queued software mix.
+ * That phase mismatch separates a song's layers and also lets offloaded voices
+ * continue through a quick-dump pause. */
 static bool sAudioDsp = false;
 static bool sAudioDspPcm = false;
-/* E8 shipped the Old 3DS performance work with both audio offloads stored as
- * disabled.  The hardware run that validated the PR used both of them and the
- * new dumps show why they are part of the Old 3DS profile rather than merely
- * research switches: fanfares miss the 15.6 ms audio-block deadline by as much
- * as 64 ms.  Version the private performance profile so an existing E8 ini is
- * migrated once, while a deliberate later audio_dsp=0 A/B remains possible. */
+/* E9 migrated Old 3DS installations to both unsafe offloads. Version 2
+ * reverses that migration once so an existing tmc3ds.ini cannot preserve the
+ * broken split-timeline mix. */
 static int sPerformanceProfileVersion;
 
-enum { PERFORMANCE_PROFILE_VERSION = 1 };
+enum { PERFORMANCE_PROFILE_VERSION = 2 };
 
 static bool ParseBool(const char* value) {
     return value != NULL && (value[0] == '1' || value[0] == 't' || value[0] == 'T' ||
@@ -326,13 +325,13 @@ void Port_Config_Load(const char* path) {
         fclose(file);
     }
 
-    /* Keep New 3DS on the established software-mix reference.  Old 3DS needs
-     * the PR's proven DSP profile, including when an E8 settings save already
-     * wrote the old research defaults as explicit zeroes. */
-    if (!Platform3DS_IsNew3DS() &&
-        sPerformanceProfileVersion < PERFORMANCE_PROFILE_VERSION) {
-        sAudioDsp = true;
-        sAudioDspPcm = true;
+    /* Restore one synchronized software-mix timeline on every model. Also
+     * normalize a manually carried research value so the saved ini describes
+     * the effective profile truthfully. */
+    if (sPerformanceProfileVersion < PERFORMANCE_PROFILE_VERSION ||
+        sAudioDsp || sAudioDspPcm) {
+        sAudioDsp = false;
+        sAudioDspPcm = false;
         sPerformanceProfileVersion = PERFORMANCE_PROFILE_VERSION;
         migratePerformanceProfile = true;
     }
@@ -371,10 +370,13 @@ bool Port_Config_GpuStaticQuad(void) { return sGpuStaticQuad; }
 bool Port_Config_BottomRgb565(void) { return sBottomRgb565; }
 bool Port_Config_GpuShortVertices(void) { return sGpuShortVertices; }
 bool Port_Config_AudioDsp(void) {
-    return !Platform3DS_IsNew3DS() && sAudioDsp;
+    /* Immediate hardware voices cannot be synchronized with channel 0's
+     * buffered timeline. Keep the parsed keys for diagnostics, but never let
+     * an old hand-edited ini re-enable the broken mixed path. */
+    return false;
 }
 bool Port_Config_AudioDspPcm(void) {
-    return !Platform3DS_IsNew3DS() && sAudioDspPcm;
+    return false;
 }
 u8 Port_Config_WindowScale(void) { return 1; }
 const char* Port_Config_UpscaleMethod(void) { return "nearest"; }

@@ -106,8 +106,7 @@ bool Port_Config_BottomMapSkip(void);
 /* 3DS: `vblank_phase_lock=1` waits for the next VBlank instead of accepting an
  * already-pending one. Experiment; see Platform3DS_WaitForVBlank. */
 bool Port_Config_VblankPhaseLock(void);
-/* 3DS: interpolation for offloaded NDSP voices. Default 1 (linear) matches the
- * software mix on channel 0; 0 selects NDSP_INTERP_NONE. */
+/* 3DS: interpolation for the experimental offloaded NDSP voices. */
 bool Port_Config_AudioDspInterpLinear(void);
 /* 3DS: `frame_log=1` re-enables frame-path SD diagnostics. Off by default;
  * each line costs main-thread SD I/O inside the presentation span. */
@@ -119,8 +118,9 @@ bool Port_Config_CompactUpload(void);
 bool Port_Config_GpuStaticQuad(void);
 bool Port_Config_BottomRgb565(void);
 bool Port_Config_GpuShortVertices(void);
-/* Old 3DS performance profile: hardware CGB/PSG and eligible PCM voices.
- * New 3DS retains the established software-mix reference. */
+/* Experimental hardware CGB/PSG and eligible PCM voices. These remain
+ * disabled while their immediate NDSP playback cannot share channel 0's
+ * queued software-mix timeline. */
 bool Port_Config_AudioDsp(void);
 bool Port_Config_AudioDspPcm(void);
 void Port_Config_SetWidescreenEnabled(bool enabled);
@@ -255,7 +255,6 @@ typedef enum {
 typedef enum {
     PORT_3DS_DISPLAY_BLUR = 0,
     PORT_3DS_DISPLAY_BILINEAR,
-    PORT_3DS_DISPLAY_ULTRA_SHARP,
     PORT_3DS_DISPLAY_PIXEL_PERFECT,
     PORT_3DS_DISPLAY_COUNT,
 } Port3DSDisplayStyle;

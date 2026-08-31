@@ -874,7 +874,11 @@ void Port_PPU_3DS_WriteQuickDump(void) {
     char message[192];
     snprintf(message, sizeof(message), "[tmc3ds] quick dump written to %s\n", dir);
     Platform3DS_Debug(message);
-    PlatformGpu3DS_ShowDumpSavedOverlay();
+    void* currentTopTexture =
+        sGpuPpuInitialized && !sGpuPpuDisabled
+            ? PortPpuGpu3DS_OutputTexture()
+            : NULL;
+    PlatformGpu3DS_ShowDumpSavedOverlay(currentTopTexture);
     Port_Audio_3DSSetPaused(false);
 }
 

@@ -79,7 +79,8 @@ void PlatformGpu3DS_DrawTopTexture(void* texture, unsigned width);
 bool PlatformGpu3DS_QueueRgba5551Readback(void* texture, uint16_t* pixels);
 /* Returns true only when a Citro3D frame was active and submitted. */
 bool PlatformGpu3DS_EndBottom(const uint32_t* pixels, bool changed);
-void PlatformGpu3DS_ShowDumpSavedOverlay(void);
+/* currentTopTexture is the live PICA output, or NULL for the CPU presenter. */
+void PlatformGpu3DS_ShowDumpSavedOverlay(void* currentTopTexture);
 void PlatformGpu3DS_GetStats(PlatformGpu3DSStats* stats);
 void PlatformGpu3DS_InvalidateBottomTarget(void);
 void PlatformGpu3DS_Shutdown(void);

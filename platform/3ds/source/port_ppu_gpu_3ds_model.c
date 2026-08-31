@@ -1932,10 +1932,16 @@ static bool build_obj(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
                         (tileRow + 1) * PPU_GPU3DS_TILE_SIDE,
                         (tileRow + 1) * PPU_GPU3DS_TILE_SIDE,
                     };
+                    /* GBA affine OBJ equations address integer destination
+                     * pixels. PICA rasterizes at D+0.5, so placing the inverse
+                     * geometry around a half-pixel-shifted centre makes its
+                     * sample land on the same integer D as the CPU renderer.
+                     * Without this, the captured 90-degree sword sprite was
+                     * exactly one pixel left and retired PICA at dump 5. */
                     const float centerX =
-                            obj->x + obj->boundsWidth * 0.5f;
+                            obj->x + obj->boundsWidth * 0.5f + 0.5f;
                     const float centerY =
-                            obj->y + obj->boundsHeight * 0.5f;
+                            obj->y + obj->boundsHeight * 0.5f + 0.5f;
                     for (unsigned corner = 0; corner < 4; ++corner) {
                         const int sx = sourceX[corner] - obj->width / 2;
                         const int sy = sourceY[corner] - obj->height / 2;

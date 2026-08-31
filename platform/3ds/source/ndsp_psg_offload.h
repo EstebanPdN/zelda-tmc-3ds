@@ -27,6 +27,7 @@ bool NdspPsg_Available(void);
 /* The mixer's master volume and fade level, which offloaded voices must apply
  * themselves -- they never reach the track-buffer stage that applies it. */
 void NdspPsg_SetMasterLevel(float level);
+void NdspPsg_SetPaused(bool paused);
 
 /* Diagnostic only -- recorded for the dump, does not gate offload. */
 void NdspPsg_SetReverbLevel(int level);
