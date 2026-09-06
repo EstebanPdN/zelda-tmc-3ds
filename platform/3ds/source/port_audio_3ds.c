@@ -16,15 +16,9 @@
  * native mixer workload bounded while NDSP performs final interpolation. */
 #define SAMPLE_RATE 16364
 #define BUFFER_FRAMES 256
-/* Four buffers is 4 x 256 / 16364 = 62.6 ms of audio, and a single render was
- * measured at 61.97 ms -- one slow render could drain the entire queue, which
- * is exactly what 102 underruns and 2475 missed block deadlines look like.
- * Offloading rendering to the PICA200 made this worse rather than better,
- * because GSP services every GX command and cache flush on core 1, which is
- * where the audio worker lives: the frame rate went up and the audio budget
- * went down. Eight buffers is 125 ms, so a worst-case render costs half the
- * queue instead of all of it. The cost is queue latency, which matters less
- * here than crackling. */
+/* Keep the existing 125 ms queue for transient stalls. Increasing its depth
+ * cannot compensate for an audio worker starved by core 1's application quota;
+ * the worker below therefore uses application core 0 by default. */
 #define BUFFER_COUNT 8
 #define AUDIO_THREAD_STACK (64u * 1024u)
 
@@ -164,16 +158,16 @@ bool Port_Audio_Init(void) {
     LightEvent_Init(&sAudioWake, RESET_ONESHOT);
     memset(&sStats, 0, sizeof(sStats));
     sStats.sampleRate = SAMPLE_RATE;
-    /* The 10.337 ms render figure is wall clock on a core-1 thread the OS
-     * quota-limits, so it may be mostly descheduling rather than CPU. Pinning
-     * to core 0 for one run and comparing renderTicks for the same content
-     * settles it -- and decides whether moving mixing to the DSP is worth its
-     * parity risk. Core 0 is busier overall, so this is a measurement, not a
-     * default. */
+    /* E11 Old 3DS dumps run this worker on system core 1 with only a 30%
+     * application quota: noise SFX exhaust all eight queued buffers while
+     * individual 15.6 ms blocks take up to 53.9 ms to refill. Priority cannot
+     * escape that quota. Use application core 0, as on New 3DS, where this
+     * callback-driven worker can preempt gameplay briefly to meet its deadline.
+     * Keep the explicit diagnostic override for hardware A/B measurements. */
     /* Declared locally: port_runtime_config.h pulls in port_types.h, whose
      * u32/s32 collide with libctru's. */
     extern int Port_Config_AudioCore(void);
-    int audioThreadCore = Platform3DS_IsNew3DS() ? 0 : 1;
+    int audioThreadCore = 0;
     const int audioCoreOverride = Port_Config_AudioCore();
     if (audioCoreOverride == 0 || audioCoreOverride == 1)
         audioThreadCore = audioCoreOverride;
