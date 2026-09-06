@@ -70,8 +70,8 @@ void sub_08058004(u32 unk1, void* src, void* dest) {
 #ifdef PC_PORT
     /* Same-class fix as bigGoron.c::sub_0806D164 (issue #102).
      * Callers pass src = gUnk_02006F00 (16 KB) or gUnk_02006F00 + 0x2000
-     * (so 8 KB remaining). The loop reads 32 × 0x100 = 0x2000 bytes
-     * forward from src+startOff. When unk1 is derived from
+     * (so 8 KB remaining). The loop reads 32 rows of 64 bytes, spaced
+     * 256 bytes apart, starting at src+startOff. When unk1 is derived from
      * scroll_x - origin_x and that goes negative (camera wraps past the
      * BG edge during e.g. a Minish-path transition), startOff balloons
      * to a huge value and the read walks off into unmapped host memory.
@@ -81,7 +81,12 @@ void sub_08058004(u32 unk1, void* src, void* dest) {
     {
         extern u8 gUnk_02006F00[];
         uintptr_t srcOff = (uintptr_t)src - (uintptr_t)gUnk_02006F00;
-        if (srcOff > 0x4000u || startOff + 0x2000u > 0x4000u - srcOff)
+        /* There are 31 strides followed by one 64-byte row, not 32
+         * complete strides. The old 0x2000 bound rejected every nonzero
+         * scroll on the second layer, leaving its last tilemap on screen. */
+        const u32 readBytes = 31u * 0x100u + 0x40u;
+        if (srcOff > 0x4000u || startOff > 0x4000u - srcOff ||
+            readBytes > 0x4000u - srcOff - startOff)
             return;
     }
 #endif

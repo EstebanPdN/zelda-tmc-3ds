@@ -159,6 +159,7 @@ typedef struct PpuGpu3DSFrameView {
     int wsCols, wsShadowHalfwords;
     int wsHudRightAnchor, wsHudRightNativeX;
     int wsMsgShift, wsMsgX0, wsMsgX1, wsMsgY0, wsMsgY1;
+    bool bg3Repeat;
     bool objClipEnable;
     const uint8_t* objClipMark;
     int objClipY;

@@ -112,17 +112,23 @@ static uint16_t record_sample(const uint16_t* atlas, const PpuGpu3DSVertex* quad
                               const PpuGpu3DSBatch* batch, float px, float py,
                               unsigned width, unsigned height) {
     /* The vertex shader adds the batch offset, so the record has to as well. */
-    const float x0 = (quad[0].x + batch->offsetX + 1.0f) * 0.5f * (float)width;
-    const float x1 = (quad[1].x + batch->offsetX + 1.0f) * 0.5f * (float)width;
-    const float y0 = (1.0f - quad[0].y - batch->offsetY) * 0.5f * (float)height;
-    const float y1 = (1.0f - quad[2].y - batch->offsetY) * 0.5f * (float)height;
-    const float spanX = x1 - x0, spanY = y1 - y0;
-    const float tx = spanX != 0.0f ? (px - x0) / spanX : 0.0f;
-    const float ty = spanY != 0.0f ? (py - y0) / spanY : 0.0f;
+    const float x0 = (quad[0].x + batch->offsetX + 1.0f) * 0.5f * width;
+    const float y0 = (1.0f - quad[0].y - batch->offsetY) * 0.5f * height;
+    const float ax = (quad[1].x - quad[0].x) * 0.5f * width;
+    const float ay = (quad[0].y - quad[1].y) * 0.5f * height;
+    const float bx = (quad[3].x - quad[0].x) * 0.5f * width;
+    const float by = (quad[0].y - quad[3].y) * 0.5f * height;
+    const float determinant = ax * by - ay * bx;
+    if (determinant == 0.0f) return 0;
+    const float tx = ((px - x0) * by - (py - y0) * bx) / determinant;
+    const float ty = (ax * (py - y0) - ay * (px - x0)) / determinant;
+    if (tx < 0.0f || tx >= 1.0f || ty < 0.0f || ty >= 1.0f) return 0;
     const float qu0 = PpuGpu3DS_UnpackUV(quad[0].u);
     const float qv0 = PpuGpu3DS_UnpackUV(quad[0].v);
-    const float u = qu0 + (PpuGpu3DS_UnpackUV(quad[1].u) - qu0) * tx;
-    const float v = qv0 + (PpuGpu3DS_UnpackUV(quad[2].v) - qv0) * ty;
+    const float u = qu0 + (PpuGpu3DS_UnpackUV(quad[1].u) - qu0) * tx +
+                          (PpuGpu3DS_UnpackUV(quad[3].u) - qu0) * ty;
+    const float v = qv0 + (PpuGpu3DS_UnpackUV(quad[1].v) - qv0) * tx +
+                          (PpuGpu3DS_UnpackUV(quad[3].v) - qv0) * ty;
     int atlasX = (int)(u * PPU_GPU3DS_ATLAS_SIDE);
     int atlasY = (int)((1.0f - v) * PPU_GPU3DS_ATLAS_SIDE);
     if (atlasX < 0) atlasX = 0;
@@ -147,8 +153,17 @@ static void record_batch(const PpuGpu3DSCommandBuffer* cmd, const uint16_t* atla
         float right = (quad[1].x + batch->offsetX + 1.0f) * 0.5f * (float)width;
         float top = (1.0f - quad[0].y - batch->offsetY) * 0.5f * (float)height;
         float bottom = (1.0f - quad[2].y - batch->offsetY) * 0.5f * (float)height;
-        if (right < left) { const float swap = left; left = right; right = swap; }
-        if (bottom < top) { const float swap = top; top = bottom; bottom = swap; }
+        /* Affine OBJ quads rotate/shear: all four corners determine bounds. */
+        left = right = (quad[0].x + batch->offsetX + 1.0f) * 0.5f * width;
+        top = bottom = (1.0f - quad[0].y - batch->offsetY) * 0.5f * height;
+        for (unsigned corner = 1; corner < 4; ++corner) {
+            const float x = (quad[corner].x + batch->offsetX + 1.0f) * 0.5f * width;
+            const float y = (1.0f - quad[corner].y - batch->offsetY) * 0.5f * height;
+            if (x < left) left = x;
+            if (x > right) right = x;
+            if (y < top) top = y;
+            if (y > bottom) bottom = y;
+        }
         int x0 = (int)(left + 0.5f), x1 = (int)(right + 0.5f);
         int y0 = (int)(top + 0.5f), y1 = (int)(bottom + 0.5f);
         if (x0 < (int)batch->scissorLeft) x0 = batch->scissorLeft;
@@ -272,6 +287,7 @@ static int compare_against_software(PpuGpu3DSFrameView* frame,
     ppu.frame_pitch = 512;
     ppu.mode = (frame->frameDispcnt & 7u) == 0u ? 1 : 2;
 
+    virtuappu_mode1_bg3_repeat = frame->bg3Repeat;
     virtuappu_mode1_bind_gba_memory(&frame->memory);
     virtuappu_mode1_set_output_buffer(gSoftwarePixels, 512);
     virtuappu_mode1_set_color_correction(false);
@@ -323,6 +339,9 @@ static int compare_against_software(PpuGpu3DSFrameView* frame,
             if (f) { fwrite(gRecord, sizeof(gRecord), 1, f); fclose(f); }
         }
     }
+    const unsigned compared = width * MODE1_GBA_HEIGHT - skipEffect - skipBlend;
+    printf("exact-color coverage: %u/%u pixels%s\n", compared, width * MODE1_GBA_HEIGHT,
+           compared ? "" : " (NO EXACT-COLOR COVERAGE)");
     printf("software comparison: %u differing pixels", differing);
     if (differing) {
         printf(", first at %u,%u; by layer:", firstX, firstY);
@@ -446,10 +465,36 @@ int main(int argc, char** argv) {
     static uint16_t dispcntPerLine[MODE1_GBA_HEIGHT];
     static int32_t affineRefX[MODE1_GBA_HEIGHT], affineRefY[MODE1_GBA_HEIGHT];
     static int32_t affineRef[MODE1_GBA_HEIGHT * 2];
-    const bool perLine =
+    bool perLine =
             read_file(dir, "io-per-line.bin", ioPerLine, sizeof(ioPerLine)) &&
             read_file(dir, "dispcnt-per-line.bin", dispcntPerLine,
                       sizeof(dispcntPerLine));
+    if (perLine) {
+        char path[2048], info[16384];
+        snprintf(path, sizeof(path), "%s/info.txt", dir);
+        FILE* f = fopen(path, "rb");
+        if (f) {
+            const size_t n = fread(info, 1, sizeof(info)-1, f);
+            info[n] = 0; fclose(f);
+            if (strstr(info, "GPU per-line snapshot: unavailable") ||
+                (!strstr(info, "GPU per-line snapshot: available") &&
+                 strstr(info, "PICA200 PPU initialized/enabled/disabled: yes / no / yes"))) {
+                fprintf(stderr, "Discarding stale GPU registers after renderer retirement; "
+                                "single-register replay cannot validate HDMA parity.\n");
+                perLine = false;
+            }
+        }
+    }
+    if (perLine) {
+        bool populated = false;
+        for (size_t i = 0; i < sizeof(ioPerLine); ++i)
+            populated |= ((const uint8_t*)ioPerLine)[i] != 0;
+        if (!populated && (io[0] != 0 || io[1] != 0)) {
+            fprintf(stderr, "Discarding legacy zero-filled GPU registers from a CPU-only dump; "
+                            "single-register replay cannot validate HDMA parity.\n");
+            perLine = false;
+        }
+    }
     if (perLine && read_file(dir, "affine-ref.bin", affineRef, sizeof(affineRef))) {
         memcpy(affineRefX, affineRef, sizeof(affineRefX));
         memcpy(affineRefY, affineRef + MODE1_GBA_HEIGHT, sizeof(affineRefY));
@@ -490,6 +535,16 @@ int main(int argc, char** argv) {
     frame.dispcntPerLine = dispcntPerLine;
     frame.affineRefX = affineRefX;
     frame.affineRefY = affineRefY;
+    {
+        char path[2048], info[16384];
+        snprintf(path, sizeof(path), "%s/info.txt", dir);
+        FILE* f = fopen(path, "rb");
+        if (f) {
+            const size_t n = fread(info, 1, sizeof(info)-1, f);
+            info[n] = 0; fclose(f);
+            frame.bg3Repeat = strstr(info, "BG3 seamless repeat: enabled") != NULL;
+        }
+    }
     frame.wsCols = 4;
     for (unsigned bg = 0; bg < 4; ++bg) frame.wsShadowBaseTile[bg] = -1;
 

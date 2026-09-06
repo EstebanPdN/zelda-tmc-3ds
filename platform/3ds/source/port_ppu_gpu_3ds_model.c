@@ -1147,7 +1147,8 @@ static bool build_widescreen_bg_geometry(
     const unsigned mosaicHeight =
             mosaicEnabled ? ((mosaic >> 4u) & 0x0fu) + 1u : 1u;
     unsigned nativeRenderWidth =
-            mapWidthTiles == 64u || frame->wsShadowBaseTile[bg] >= 0
+            mapWidthTiles == 64u || frame->wsShadowBaseTile[bg] >= 0 ||
+            (bg == 3u && frame->bg3Repeat)
                     ? frame->width
                     : MODE1_GBA_BG_CLIP_X;
     if (nativeRenderWidth > frame->width) nativeRenderWidth = frame->width;
@@ -1942,21 +1943,19 @@ static bool build_obj(const PpuGpu3DSFrameView* frame, PpuGpu3DSCache* cache,
                             obj->x + obj->boundsWidth * 0.5f + 0.5f;
                     const float centerY =
                             obj->y + obj->boundsHeight * 0.5f + 0.5f;
+                    /* Source coordinates have 8 fractional bits on GBA.
+                     * Bias by half that smallest step so integer texels do
+                     * not land on a floating-point texture boundary. This
+                     * cannot cross a genuine GBA fractional sample boundary. */
                     for (unsigned corner = 0; corner < 4; ++corner) {
-                        const int sx = sourceX[corner] - obj->width / 2;
-                        const int sy = sourceY[corner] - obj->height / 2;
-                        px[corner] =
-                                centerX +
-                                (float)(((int64_t)obj->pd * sx -
-                                         (int64_t)obj->pb * sy) *
-                                        256) /
-                                        (float)determinant;
-                        py[corner] =
-                                centerY +
-                                (float)((-(int64_t)obj->pc * sx +
-                                         (int64_t)obj->pa * sy) *
-                                        256) /
-                                        (float)determinant;
+                        const int sx = (sourceX[corner] - obj->width / 2) * 512 - 1;
+                        const int sy = (sourceY[corner] - obj->height / 2) * 512 - 1;
+                        px[corner] = centerX +
+                                (float)((int64_t)obj->pd * sx - (int64_t)obj->pb * sy) /
+                                (2.0f * (float)determinant);
+                        py[corner] = centerY +
+                                (float)(-(int64_t)obj->pc * sx + (int64_t)obj->pa * sy) /
+                                (2.0f * (float)determinant);
                     }
                 } else {
                     const int left =

@@ -5,6 +5,9 @@
 
 #ifdef PC_PORT
 #include "port_config.h"
+#define PORT_GFX_COMPACTION 1
+#else
+#define PORT_GFX_COMPACTION 0
 #endif
 
 extern u32 gFixedTypeGfxData[];
@@ -52,7 +55,7 @@ void sub_080ADD70(void) {
     u32 index;
     GfxSlot* slot;
     if (gGFXSlots.unk0 != 0) {
-        if (!REGION_IS_EU && gGFXSlots.unk_3 != 0) {
+        if ((PORT_GFX_COMPACTION || !REGION_IS_EU) && gGFXSlots.unk_3 != 0) {
             sub_080ADE24();
         } else {
             index = 0;
@@ -199,7 +202,7 @@ static bool32 LoadFixedGFX_eu(Entity* entity, u32 gfxIndex) {
 }
 #endif
 
-#if !defined(EU) || defined(MULTI_REGION)
+#if !defined(EU) || defined(MULTI_REGION) || defined(PC_PORT)
 // USA/JP variant of LoadFixedGFX: retries once via CleanUpGFXSlots when full.
 static bool32 LoadFixedGFX_baseline(Entity* entity, u32 gfxIndex) {
     u32 index;
@@ -235,6 +238,8 @@ bool32 LoadFixedGFX(Entity* entity, u32 gfxIndex) {
     if (!Port_IsFixedTypeGfxIndexValidForRegion(gRomRegion, gfxIndex)) {
         return FALSE;
     }
+    /* Use the corrected allocator for all native regions. */
+    return LoadFixedGFX_baseline(entity, gfxIndex);
 #endif
 #ifdef MULTI_REGION
     if (REGION_IS_EU) {
@@ -251,10 +256,15 @@ bool32 LoadFixedGFX(Entity* entity, u32 gfxIndex) {
 // If slotIndex != 0 the gfx loaded starting from that slot, else in the first fitting free one.
 bool32 LoadSwapGFX(Entity* entity, u32 count, u32 slotIndex) {
     u32 status;
+#ifdef PC_PORT
+    if (count == 0 || count > MAX_GFX_SLOTS - 4 ||
+        slotIndex >= MAX_GFX_SLOTS || count > MAX_GFX_SLOTS - slotIndex)
+        return FALSE;
+#endif
     if ((slotIndex == 0) && (slotIndex = FindFreeGFXSlots(count), slotIndex == 0)) {
-        if (!REGION_IS_EU) {
-        CleanUpGFXSlots();
-        slotIndex = FindFreeGFXSlots(count);
+        if (PORT_GFX_COMPACTION || !REGION_IS_EU) {
+            CleanUpGFXSlots();
+            slotIndex = FindFreeGFXSlots(count);
         }
         if (slotIndex == 0) {
             goto _080AE058;
@@ -353,7 +363,7 @@ u32 FindFreeGFXSlots(u32 slotCount) {
     continuosFreeSlots = 0;
     index = 4;
     for (index = 4; index < MAX_GFX_SLOTS; index++) {
-        if (REGION_IS_EU ? (gGFXSlots.slots[index].status == GFX_SLOT_UNLOADED) : (gGFXSlots.slots[index].status == GFX_SLOT_FREE || gGFXSlots.slots[index].status == GFX_SLOT_UNLOADED)) {
+        if ((!PORT_GFX_COMPACTION && REGION_IS_EU) ? (gGFXSlots.slots[index].status == GFX_SLOT_UNLOADED) : (gGFXSlots.slots[index].status == GFX_SLOT_FREE || gGFXSlots.slots[index].status == GFX_SLOT_UNLOADED)) {
             continuosFreeSlots++;
             if (slotCount <= continuosFreeSlots) {
                 return (index - continuosFreeSlots) + 1;
@@ -372,7 +382,9 @@ void CleanUpGFXSlots(void) {
     if (gGFXSlots.unk0 != 0) {
         for (occupiedIndex = 4; (occupiedIndex = FindNextOccupiedGFXSlot(occupiedIndex)) != 0; occupiedIndex++) {
             firstFreeIndex = FindFirstFreeGFXSlot();
-            if (firstFreeIndex <= occupiedIndex) {
+            /* Zero means the table is full: it is not a destination slot.
+             * Moving there overwrites the four reserved palette slots. */
+            if (firstFreeIndex >= 4 && firstFreeIndex < occupiedIndex) {
                 sub_080AE218(occupiedIndex, firstFreeIndex);
                 MoveGFXSlots(occupiedIndex, firstFreeIndex);
                 occupiedIndex = firstFreeIndex;
@@ -392,51 +404,23 @@ void sub_080AE218(u32 param1, u32 param2) {
     r7 = r3 + ((u32)gGFXSlots.slots[param1].slotCount << 4);
 
 #ifdef PC_PORT
-    {
-        Entity* ent;
-        u32 i;
-
-        ent = &gPlayerEntity.base;
-        if (ent->next != NULL) {
-            if (param1 == ent->spriteAnimation[0]) {
+    bool32 liveExtra[ARRAY_COUNT(gUnk_020000C0)] = { 0 };
+    /* Subtasks suspend gameplay lists without freeing their entities. Only
+     * the current lists own this graphics table; remapping every allocated
+     * entity also corrupts the suspended scene's separately saved slots. */
+    for (u32 listIndex = 0; listIndex < ARRAY_COUNT(gEntityLists); ++listIndex) {
+        LinkedList* list = &gEntityLists[listIndex];
+        Entity* ent = list->first;
+        for (u32 visited = 0; ent != NULL && ent != (Entity*)list && visited < 256u;
+             ent = ent->next, ++visited) {
+            if (ent->kind == MANAGER) continue;
+            if (ent->spriteAnimation[2] < ARRAY_COUNT(liveExtra))
+                liveExtra[ent->spriteAnimation[2]] = TRUE;
+            if (param1 == ent->spriteAnimation[0])
                 ent->spriteAnimation[0] = param2;
-            }
             r0 = ent->spriteVramOffset;
-            if ((r3 <= r0) && (r7 > r0)) {
-                r0 = (r0 - r3);
-                r1 = r0 + r12;
-                ent->spriteVramOffset = r1;
-            }
-        }
-
-        for (i = 0; i < ARRAY_COUNT(gAuxPlayerEntities); i++) {
-            ent = &gAuxPlayerEntities[i].base;
-            if (ent->next != NULL) {
-                if (param1 == ent->spriteAnimation[0]) {
-                    ent->spriteAnimation[0] = param2;
-                }
-                r0 = ent->spriteVramOffset;
-                if ((r3 <= r0) && (r7 > r0)) {
-                    r0 = (r0 - r3);
-                    r1 = r0 + r12;
-                    ent->spriteVramOffset = r1;
-                }
-            }
-        }
-
-        for (i = 0; i < ARRAY_COUNT(gEntities); i++) {
-            ent = &gEntities[i].base;
-            if (ent->next != NULL) {
-                if (param1 == ent->spriteAnimation[0]) {
-                    ent->spriteAnimation[0] = param2;
-                }
-                r0 = ent->spriteVramOffset;
-                if ((r3 <= r0) && (r7 > r0)) {
-                    r0 = (r0 - r3);
-                    r1 = r0 + r12;
-                    ent->spriteVramOffset = r1;
-                }
-            }
+            if (r3 <= r0 && r7 > r0)
+                ent->spriteVramOffset = r0 - r3 + r12;
         }
     }
 #else
@@ -457,6 +441,9 @@ void sub_080AE218(u32 param1, u32 param2) {
 #endif
 
     for (index2 = 0; index2 < ARRAY_COUNT(gUnk_020000C0); index2++) {
+#ifdef PC_PORT
+        if (index2 == 0 || !liveExtra[index2]) continue;
+#endif
         for (index1 = 0; index1 < 4; index1++) {
             psVar6 = gUnk_020000C0[index2].unk_00 + index1;
             if ((((*(u8*)&psVar6->unk_00) & 1) != 0) && (((*(u8*)&psVar6->unk_00) & 2) == 0)) {
@@ -496,7 +483,7 @@ void MoveGFXSlots(u32 srcIndex, u32 targetIndex) {
 }
 
 u32 FindNextOccupiedGFXSlot(u32 index) {
-    for (; index < MAX_GFX_SLOTS - 1; index++) {
+    for (; index < MAX_GFX_SLOTS; index++) {
         switch (gGFXSlots.slots[index].status) {
             case GFX_SLOT_RESERVED:
             case GFX_SLOT_GFX:

@@ -238,7 +238,13 @@ void Subtask_FadeIn(void) {
         MemCopy(&gGFXSlots, &gUI.gfxSlotList, sizeof(GfxSlotList));
         MemCopy(gPaletteList, gUI.palettes, sizeof(gUI.palettes));
         MemCopy(&gRoomControls, &gUI.roomControls, sizeof(RoomControls));
+#ifdef PC_PORT
+        /* GBA 03000420 aliases the affine table in gOAMControls. Native
+         * globals do not alias: save both matrices and slot ownership. */
+        MemCopy(gOAMControls.unk, gUI.unk_2a8, sizeof(gUI.unk_2a8));
+#else
         MemCopy(gUnk_03000420, gUI.unk_2a8, sizeof(gUI.unk_2a8));
+#endif
         MemCopy(&gActiveScriptInfo, &gUI.activeScriptInfo, sizeof(ActiveScriptInfo));
         sub_0805E958();
         gUI.unk_d = gRoomTransition.field2f;
@@ -289,7 +295,12 @@ void Subtask_FadeOut(void) {
         gMapBottom.bgSettings = gUI.mapBottomBgSettings;
         gMapTop.bgSettings = gUI.mapTopBgSettings;
         MemCopy(&gUI.activeScriptInfo, &gActiveScriptInfo, sizeof(ActiveScriptInfo));
+#ifdef PC_PORT
+        MemCopy(gUI.unk_2a8, gOAMControls.unk, sizeof(gUI.unk_2a8));
+        gOAMControls.unk[0].unk7 = 1; /* Upload restored matrices to OAM. */
+#else
         MemCopy(gUI.unk_2a8, gUnk_03000420, sizeof(gUI.unk_2a8));
+#endif
         MemCopy(gUI.palettes, gPaletteList, sizeof(gUI.palettes));
         MemCopy(&gUI.gfxSlotList, &gGFXSlots, sizeof(gGFXSlots));
         MemCopy(&gUI.roomControls, &gRoomControls, sizeof(RoomControls));

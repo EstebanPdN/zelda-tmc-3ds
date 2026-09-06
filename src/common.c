@@ -1656,6 +1656,16 @@ KinstoneId GetFusionToOffer(Entity* entity) {
 #ifdef PC_PORT
     extern const u8 SharedFusions[];
     extern bool Port_Config_GetRandoEnabled(void);
+    /* Retail EU marks Eenie done even after cancelling his first fusion.
+     * Only this exact unfinished, vanilla state is recoverable without
+     * guessing another fuser's scripted sentinel. Preserve the raw profile. */
+    if (REGION_IS_EU && fuserId == 0x3fu && fuserProgress == 0 &&
+        offeredFusion == KINSTONE_FUSER_DONE && fuserData[5] == 0x29u &&
+        !CheckKinstoneFused(0x29u) && !Port_Config_GetRandoEnabled()) {
+        if (!Port_Save_PreserveBeforeFuserRepair()) return KINSTONE_NONE;
+        offeredFusion = KINSTONE_NONE;
+        gSave.kinstones.fuserOffers[fuserId] = KINSTONE_NONE;
+    }
     if (!Port_IsFuserSaveStateValid(fuserData, fuserProgress, offeredFusion)) {
         fprintf(stderr,
                 "[KINSTONE] Refusing structurally invalid saved fuser state (id=%u progress=%u "

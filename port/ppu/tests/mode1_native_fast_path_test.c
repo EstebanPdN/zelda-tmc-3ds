@@ -890,6 +890,39 @@ static int CheckInteriorViewportParity(PPUMemory* ppu) {
 }
 #endif
 
+/* A seamless cloud layer must shade the Wide extension on every CPU path. */
+static int CheckWideCloudRepeat(PPUMemory* ppu) {
+    memset(sIo, 0, sizeof(sIo)); memset(sVram, 0, sizeof(sVram));
+    memset(sBgPalette, 0, sizeof(sBgPalette));
+    for (int i=0;i<128;++i) sOam[i*4]=0x0200;
+    for (int bg=0;bg<4;++bg) virtuappu_mode1_ws_shadow[bg]=NULL;
+    virtuappu_mode1_ws_full_view=0; virtuappu_mode1_bg3_hdma_native_bounds=false;
+    virtuappu_mode1_ws_hud_right_anchor=0; virtuappu_mode1_ws_msg_shift=0;
+    virtuappu_mode1_pre_line_callback=NULL;
+    memset(sVram+32,0x11,32); memset(sVram+64,0x22,32);
+    sBgPalette[1]=0x001f; sBgPalette[2]=0x7c00;
+    for (int i=0;i<1024;++i) { sVram[0xe000+i*2]=1; sVram[0xc000+i*2]=2; sVram[0xc800+i*2]=2; }
+    WriteIo16(MODE1_IO_DISPCNT,MODE1_DISP_BG2_ON|MODE1_DISP_BG3_ON);
+    WriteIo16(MODE1_IO_BG3CNT,28u<<8); WriteIo16(MODE1_IO_BG2CNT,(24u<<8)|0x4001);
+    WriteIo16(MODE1_IO_BLDCNT,(1u<<3)|(1u<<6)|(1u<<10));
+    WriteIo16(MODE1_IO_BLDALPHA,0x0609);
+    virtuappu_mode1_set_color_correction(false);
+    for (int path=0;path<4;++path) {
+        virtuappu_mode1_set_old3ds_profile((path&1)!=0);
+        virtuappu_mode1_set_native_fast_paths_enabled((path&2)!=0);
+        virtuappu_mode1_bg3_repeat=false;
+        virtuappu_mode1_render_frame(ppu);
+        uint32_t native=virtuappu_frame_buffer[1], before=virtuappu_frame_buffer[260];
+        virtuappu_mode1_bg3_repeat=true;
+        virtuappu_mode1_render_frame(ppu);
+        if (virtuappu_frame_buffer[1]!=native || virtuappu_frame_buffer[260]!=native || before==native) {
+            fprintf(stderr,"Wide cloud repeat failed on CPU path %d\n",path); return 0;
+        }
+    }
+    virtuappu_mode1_bg3_repeat=false;
+    return 1;
+}
+
 int main(void) {
     const VirtuaPPUMode1GbaMemory memory = { sIo, sVram, sBgPalette, sObjPalette, sOam };
     PPUMemory ppu;
@@ -900,6 +933,8 @@ int main(void) {
     ppu.frame_pitch = MODE1_GBA_WIDTH;
     virtuappu_mode1_bind_gba_memory(&memory);
     virtuappu_mode1_pre_line_callback = NULL;
+
+    if (!CheckWideCloudRepeat(&ppu)) return 1;
 
     if (!CheckSignedOamY(&ppu)) {
         return 1;

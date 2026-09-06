@@ -131,6 +131,17 @@ void sub_0805EEB4(Token* token, u32 textIndex) {
     u32 uVar7;
 
     token->textIndex = (u16)textIndex;
+#ifdef PC_PORT
+    if (REGION_IS_EU && textIndex == TEXT_INDEX(TEXT_STOCKWELL, 0x25)) {
+        /* Original English wording for the added EU shop item; the final
+         * control code chains to the active ROM's existing buy/cancel menu. */
+        static const u8 bombBagOffer[] =
+            "Bomb bag upgrade: \x06\x01 Rupees.\n"
+            "Increase your bomb capacity.\n\x07\x2c\x14";
+        sub_0805EF40(token, bombBagOffer);
+        return;
+    }
+#endif
     langIndex = gSaveHeader->language;
 #ifdef PC_PORT
     if (langIndex >= RegionLanguageSlotCount() || gTranslations[langIndex] == NULL) {

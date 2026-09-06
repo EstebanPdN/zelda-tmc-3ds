@@ -34,6 +34,7 @@
 
 #ifdef PC_PORT
 #include "port_config.h"
+#include "port_region_data.h"
 #include "port_cloud_tops_fight.h"
 #include "port_rom.h"
 #include "port_gba_mem.h"
@@ -1062,7 +1063,9 @@ void sub_0804BF38(Entity* this, ScriptExecutionContext* context) {
     /* ROM struct_080D8E54 data: 16 bytes on GBA (u16* a = 4 bytes pointer).
      * On 64-bit, native sizeof = 24. Index and read with GBA stride of 16. */
     {
-        const u8* raw = (const u8*)gUnk_080D8E50 + iVar2 * 16;
+        const u8* table = (const u8*)Port_ResolveRegionData(gUnk_080D8E50);
+        if (iVar2 >= 6 || table == NULL) return;
+        const u8* raw = table + iVar2 * 16;
         u32 gba_a = Port_ReadU32(raw + 0);
         a = gba_a ? (u16*)Port_ResolveRomData(gba_a) : NULL;
         u16 p_x = Port_ReadU16(raw + 4);
@@ -1071,6 +1074,19 @@ void sub_0804BF38(Entity* this, ScriptExecutionContext* context) {
         u16 p_shakeTime = Port_ReadU16(raw + 10);
         u16 p_shakeMag = Port_ReadU16(raw + 12);
         u16 p_sfx = Port_ReadU16(raw + 14);
+        /* Validate the complete pattern before changing any tiles. The
+         * largest of the six wall patterns contains 39 pairs and a sentinel. */
+        if (a == NULL || numEnts > 13) return;
+        const uintptr_t pattern = (uintptr_t)a;
+        const uintptr_t rom = (uintptr_t)gRomData;
+        if (pattern < rom || pattern - rom >= gRomSize) return;
+        const size_t remaining = gRomSize - (pattern - rom);
+        u32 pairs;
+        for (pairs = 0; pairs <= 39; ++pairs) {
+            if (remaining < pairs * 4u + 2u) return;
+            if (Port_ReadU16((const u8*)a + pairs * 4u) == 0xffffu) break;
+        }
+        if (pairs > 39) return;
         xtile = (p_x >> 4) & 0x3f;
         ytile = ((p_y >> 4) & 0x3f) << 6;
         sub_0807BB68(a, xtile | ytile, 1);
@@ -5602,9 +5618,20 @@ void sub_StateChange_HouseInteriors3_StockwellShop(void) {
         }
         if (!GetInventoryValue(ITEM_BOOMERANG) && !GetInventoryValue(ITEM_MAGIC_BOOMERANG)) {
             LoadRoomEntityList(&gUnk_080F5888);
-        } else if (!REGION_IS_EU) {
+        } else {
             if (!CheckLocalFlagB(SHOP00_BOMBBAG)) {
-                LoadRoomEntityList(&gUnk_080F58A8);
+#ifdef PC_PORT
+                if (REGION_IS_EU) {
+                    /* EU has no ROM entity list for the third bomb bag. */
+                    static const EntityData bombBag[] = {
+                        { OBJECT, 0x0f, SHOP_ITEM, ITEM_BOMBBAG, 0, 100, 64, 0 },
+                        { 0xff },
+                    };
+                    LoadRoomEntityList(bombBag);
+                } else
+#endif
+                if (!REGION_IS_EU)
+                    LoadRoomEntityList(&gUnk_080F58A8);
             }
         }
     }
@@ -5786,9 +5813,13 @@ void sub_StateChange_WindTribeTowerRoof_Main(void) {
         LoadRoomEntityList(&gUnk_080F66AC);
     }
     SetWorldMapPos(8, 0, 0x1e8, 0x158);
+#ifdef PC_PORT
+    gArea.areaMetadata |= AR_ALLOWS_WARP;
+#else
     if (!REGION_IS_EU) {
         gArea.areaMetadata |= AR_ALLOWS_WARP;
     }
+#endif
 }
 
 u32 sub_unk3_Beanstalks_MountCrenel(void) {

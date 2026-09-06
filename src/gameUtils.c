@@ -251,7 +251,7 @@ void InitializePlayer(void) {
 /* gAreaMetadata is a single USA-baseline table for all regions (see
  * areaMetadata.c), so overworld areas always carry AR_ALLOWS_WARP. This yields
  * the same overworld set for every region as retail does against its own table,
- * because EU never otherwise observes the warp bit. */
+ * while the tower roof can independently opt into warp permission. */
 bool32 AreaIsOverworld(void) {
     return gArea.areaMetadata == (AR_ALLOWS_WARP | AR_IS_OVERWORLD);
 }
@@ -260,9 +260,7 @@ bool32 CheckAreaOverworld(u32 area) {
     return gAreaMetadata[area].flags == (AR_ALLOWS_WARP | AR_IS_OVERWORLD);
 }
 
-/* USA/JP expose a dedicated "warp allowed" check; EU never calls it (warp
- * permission is folded into AR_IS_OVERWORLD above). Always defined for the
- * multi-region build so the runtime !REGION_IS_EU caller links. */
+/* Native EU also uses this bit for the Wind Tribe roof backport. */
 bool32 AreaAllowsWarp(void) {
     return (gArea.areaMetadata >> 7) & 1;
 }
@@ -386,9 +384,13 @@ extern void sub_08016CA8(BgSettings* bg);
 #endif
 void RestoreGameTask(bool32 loadGfx) {
     LoadGfxGroups();
+#ifdef PC_PORT
+    CleanUpGFXSlots();
+#else
     if (!REGION_IS_EU) {
         CleanUpGFXSlots();
     }
+#endif
     sub_080ADE24();
     InitUI(TRUE);
     sub_0801AE44(loadGfx);

@@ -11,6 +11,7 @@
  * Enable with TMC_ROOMCAP=1 (headless: TMC_AUTOPLAY=1, SDL_VIDEODRIVER=dummy).
  *   TMC_ROOMCAP_WARP="a,r,x,y,l"    target area,room,x,y,layer (decimal or 0x-hex)
  *   TMC_ROOMCAP_SETTLE=<frames>     frames to settle after warp (default 300)
+ *   TMC_ROOMCAP_GORON_STAGE=1..6    exercise a regional Goron world event
  *   TMC_ROOMCAP_OUT=<path.png>      output PNG (default roomcap.png)
  */
 
@@ -27,6 +28,11 @@
 #include "message.h"    /* gMessage, MessageRequest (TMC_ROOMCAP_MSG hook) */
 #include "script.h"     /* gActiveScriptInfo, ScriptExecutionContext (TMC_ROOMCAP_PAN_PROBE) */
 #include "port_repro.h"
+#include "kinstone.h"
+#include "subtask.h"
+#include "menu.h"
+#include "npc.h"
+#include "port_rom.h"
 #include "port_gba_mem.h" /* gIoMem, gVram, gBgPltt, gObjPltt, gOamMem */
 #include "port_debug_actions.h"
 
@@ -212,6 +218,75 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
         if (rc == 1) {
             warp_done = 1;
             cap_frame = (int)(frame + settle);
+        }
+    }
+
+    /* Exercise real regional Goron scripts, world-event entry and restoration.
+     * Run from an isolated working directory: the normal save layer is live. */
+    {
+        static unsigned started;
+        static int visitedGoronRoom;
+        const char* stageEnv = getenv("TMC_ROOMCAP_GORON_STAGE");
+        const unsigned stage = stageEnv ? (unsigned)strtoul(stageEnv, NULL, 0) : 0;
+        if (stage >= 1 && stage <= 6 && warp_done && !started &&
+            (int)frame >= cap_frame - settle + 120) {
+            const KinstoneWorldEvent* fusions = REGION_IS_EU ?
+                gKinstoneWorldEvents_eu : gKinstoneWorldEvents;
+            for (unsigned id = 1; id <= 100; ++id) {
+                if (fusions[id].subtask != SUBTASK_WORLDEVENT) continue;
+                const WorldEvent* event = &GetWorldEvents()[fusions[id].worldEventId];
+                if ((event->type == 17 || event->type == 18) && event->entity_idx < stage)
+                    gSave.kinstones.fusedKinstones[id / 8] |= 1u << (id % 8);
+            }
+            for (unsigned id = 1; id <= 100; ++id) {
+                if (fusions[id].subtask != SUBTASK_WORLDEVENT) continue;
+                const WorldEvent* event = &GetWorldEvents()[fusions[id].worldEventId];
+                if ((event->type == 17 || event->type == 18) && event->entity_idx == stage - 1) {
+                    gFuseInfo.kinstoneId = id;
+                    MenuFadeIn(SUBTASK_WORLDEVENT, fusions[id].worldEventId);
+                    started = frame;
+                    cap_frame = frame + settle;
+                    fprintf(stderr, "[roomcap-goron] stage=%u fusion=%u event=%u started=%u\n",
+                            stage, id, fusions[id].worldEventId, frame);
+                    break;
+                }
+            }
+            if (!started) { fputs("[roomcap-goron] no event found\n", stderr); _Exit(4); }
+        }
+        if (stage && started && (frame - started) % 40 < 2) {
+            extern void Port_Config_TestForceEdge(int input);
+            Port_Config_TestForceEdge(0); /* Advance scripted dialogue. */
+        }
+        if (stage && started && frame == started + 240) {
+            const char* out = getenv("TMC_ROOMCAP_OUT");
+            if (out) {
+                char path[1024];
+                snprintf(path, sizeof(path), "%s-event.png", out);
+                Port_CaptureBaseFramebufferPNG(path);
+            }
+        }
+        if (stage && started && gUI.nextToLoad == 2 && gRoomControls.area == 0x2f)
+            visitedGoronRoom = 1;
+        if (visitedGoronRoom && gUI.nextToLoad == 0 && frame > started + 600)
+            cap_frame = (int)frame;
+        if (stage && started && (int)frame == cap_frame) {
+            fprintf(stderr, "[roomcap-goron] end next=%u task=%u area=%u room=%u menu=%u/%u sync=%04x\n",
+                    gUI.nextToLoad, gMain.task, gRoomControls.area, gRoomControls.room,
+                    gMenu.menuType, gMenu.overlayType, gActiveScriptInfo.syncFlags);
+            fprintf(stderr, "[roomcap-goron] message=%u render=%u flagff=%u\n",
+                    gMessage.state, gTextRender.renderStatus, CheckRoomFlag(0xff));
+            for (unsigned i = 0; i < MAX_ENTITIES; ++i) {
+                Entity* ent = &gEntities[i].base;
+                if (ent->next && ent->kind == NPC && ent->id == GORON) {
+                    const ScriptExecutionContext* ctx = gEntities[i].scriptContext;
+                    fprintf(stderr, "[roomcap-goron] npc%u action=%u anim=%u xy=%d,%d script=%lx wait=%u cond=%u\n",
+                            i, ent->action, ent->animIndex, ent->x.HALF.HI, ent->y.HALF.HI,
+                            ctx ? (unsigned long)((uintptr_t)ctx->scriptInstructionPointer - (uintptr_t)gRomData) : 0,
+                            ctx ? ctx->wait : 0, ctx ? ctx->condition : 0);
+                }
+            }
+            if (gUI.nextToLoad != 0 || gRoomControls.area != a || gRoomControls.room != r)
+                { fputs("[roomcap-goron] scene did not return\n", stderr); _Exit(5); }
         }
     }
 
@@ -655,7 +730,7 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
         _Exit(ok ? 0 : 2);
     }
 
-    if (frame == 5000) {
+    if (frame == (unsigned)(cap_frame > 5000 ? cap_frame + 600 : 5000)) {
         fprintf(stderr, "[roomcap] timeout (booted=%d task=%u warp=%d)\n", booted, (unsigned)gMain.task, warp_done);
         fflush(stderr);
         _Exit(3);

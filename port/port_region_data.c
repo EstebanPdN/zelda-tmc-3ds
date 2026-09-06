@@ -10,6 +10,7 @@
 /* Compiled stubs use the USA baserom layout.  Keep this registry intentionally
  * exact: each EU offset below was verified against the corresponding symbol in
  * the retail EU map/entity data. */
+extern const u8 gUnk_080D8E50[];
 extern const u8 gUnk_080D9328[];
 extern const u8 gUnk_080DD750[];
 extern const u8 gUnk_080DD7E0[];
@@ -33,6 +34,9 @@ typedef struct {
 } RegionDataEntry;
 
 static const RegionDataEntry sRegionDataEntries[] = {
+    /* Six Goron wall-break records contain pointers, not portable tile data.
+     * EU moves the table and all six target patterns by 0x8a4 bytes. */
+    { gUnk_080D8E50, 0x000D85AC, 6 * 16 },
     { gUnk_080D9328, 0x000D8A84, 0x10 },
     /* Entities_CloudTops_Bottom_0 is emitted inside the compiled-USA
      * gUnk_080DD750 blob at +0x40.  Its two FallingItemManagers carry both

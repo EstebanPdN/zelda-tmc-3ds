@@ -193,7 +193,107 @@ static bool affine_source_at(const PpuGpu3DSCommandBuffer* command,
     return false;
 }
 
+/* Invert emitted quad geometry, then read the source tile actually addressed
+ * by the atlas. Compare it with independent integer GBA matrix evaluation. */
+static bool obj_source_at(const PpuGpu3DSCommandBuffer* command,
+                          const PpuGpu3DSCache* cache, const PpuGpu3DSBatch* batch,
+                          unsigned width, unsigned height, int x, int y, int* sx, int* sy) {
+    for (size_t i = batch->firstIndex; i < batch->firstIndex + batch->indexCount; i += 6) {
+        const PpuGpu3DSVertex* q = &command->vertices[command->indices[i]];
+        const float x0 = vertex_screen_x(q, width), y0 = vertex_screen_y(q, height);
+        const float ax = vertex_screen_x(q+1, width)-x0, ay = vertex_screen_y(q+1,height)-y0;
+        const float bx = vertex_screen_x(q+3, width)-x0, by = vertex_screen_y(q+3,height)-y0;
+        const float dx = x + 0.5f - x0, dy = y + 0.5f - y0, det = ax*by-ay*bx;
+        if (det == 0) continue;
+        const float a = (dx*by-dy*bx)/det, b = (ax*dy-ay*dx)/det;
+        if (a < 0 || a >= 1 || b < 0 || b >= 1) continue;
+        const float u0 = PpuGpu3DS_UnpackUV(q[0].u), v0 = PpuGpu3DS_UnpackUV(q[0].v);
+        const float u = u0+(PpuGpu3DS_UnpackUV(q[1].u)-u0)*a+(PpuGpu3DS_UnpackUV(q[3].u)-u0)*b;
+        const float v = v0+(PpuGpu3DS_UnpackUV(q[1].v)-v0)*a+(PpuGpu3DS_UnpackUV(q[3].v)-v0)*b;
+        const unsigned tx = (unsigned)(u*PPU_GPU3DS_ATLAS_SIDE);
+        const unsigned ty = (unsigned)((1-v)*PPU_GPU3DS_ATLAS_SIDE);
+        const unsigned slot = (ty/8)*(PPU_GPU3DS_ATLAS_SIDE/8)+tx/8;
+        if (slot >= PPU_GPU3DS_SLOT_COUNT || !cache->entries[slot].valid) return false;
+        const unsigned tile = (cache->entries[slot].key.vramOffset - 0x10000)/32;
+        *sx = (tile%4)*8 + tx%8; *sy = (tile/4)*8 + ty%8;
+        return true;
+    }
+    return false;
+}
+static int test_affine_obj_texel_boundaries(void) {
+    static uint8_t vram[MODE1_VRAM_SIZE], io[MODE1_IO_MEM_SIZE*MODE1_GBA_HEIGHT];
+    static uint16_t palette[MODE1_PALETTE_COLORS], oam[512], dispcnt[MODE1_GBA_HEIGHT];
+    static uint16_t atlas[PPU_GPU3DS_ATLAS_PIXELS], indices[49152];
+    static PpuGpu3DSCache cache;
+    static PpuGpu3DSVertex vertices[32768];
+    static PpuGpu3DSBatch batches[512];
+    const int matrices[][4] = {
+        {256,0,0,256}, {136,0,0,136}, {-182,-182,181,-182},
+        {181,-181,181,181}, {0,256,-256,0}, {-256,0,0,256},
+        {93,37,-45,201}, {511,-128,64,257}, {16,0,0,16}, {320,0,0,320}
+    };
+    memset(vram+0x10000,0x11,32*16); palette[1]=0x7fff;
+    for (unsigned i=0; i<128; ++i) oam[i*4]=0x0200;
+    set_oam(oam,0,40|(3u<<8),50|(2u<<14),0); /* 32x32, double-size bounds. */
+    for (unsigned i=0; i<MODE1_GBA_HEIGHT; ++i) dispcnt[i]=MODE1_DISP_OBJ_ON|MODE1_DISP_OBJ_1D;
+    PpuGpu3DSFrameView frame = { .height=160, .ioUniform=true,
+        .frameDispcnt=MODE1_DISP_OBJ_ON|MODE1_DISP_OBJ_1D,
+        .memory={io,vram,palette,palette,oam}, .ioPerLine=io, .dispcntPerLine=dispcnt };
+    for (unsigned bg=0;bg<4;++bg) frame.wsShadowBaseTile[bg]=-1;
+    PpuGpu3DS_FillStaticIndices(indices,49152);
+    for (unsigned mode=0;mode<2;++mode) {
+        frame.width=mode ? 266 : 240;
+        for (unsigned m=0;m<sizeof(matrices)/sizeof(matrices[0]);++m) {
+            for (unsigned j=0;j<4;++j) oam[3+j*4]=(uint16_t)matrices[m][j];
+            PpuGpu3DS_CacheInit(&cache);
+            PpuGpu3DS_CacheBeginFrame(&cache,palette,palette,m+1);
+            PpuGpu3DSCommandBuffer cmd;
+            PpuGpu3DS_CommandInit(&cmd,vertices,32768,indices,49152,batches,512);
+            if (!PpuGpu3DS_BuildCommands(&frame,&cache,atlas,&cmd)) { fprintf(stderr,"affine build failure=%u vertices=%zu indices=%zu batches=%zu\n",cmd.failReason,cmd.vertexCount,cmd.indexCount,cmd.batchCount); return 1; }
+            size_t bi=find_batch(&cmd,PPU_GPU3DS_OBJ,0); CHECK(bi!=SIZE_MAX);
+            for (int y=40;y<104;++y) for (int x=50;x<114;++x) {
+                int a=matrices[m][0]*(x-82)+matrices[m][1]*(y-72);
+                int b=matrices[m][2]*(x-82)+matrices[m][3]*(y-72);
+                int ex=(a>=0 ? a/256 : -((-a+255)/256))+16;
+                int ey=(b>=0 ? b/256 : -((-b+255)/256))+16;
+                int sx=-1,sy=-1;
+                bool visible=obj_source_at(&cmd,&cache,&batches[bi],frame.width,frame.height,x,y,&sx,&sy);
+                bool expected=ex>=0&&ex<32&&ey>=0&&ey<32;
+                if (visible!=expected || (visible&&(sx!=ex||sy!=ey))) {
+                    fprintf(stderr,"affine matrix=%u width=%u at=%d,%d expected=%d,%d/%d got=%d,%d/%d\n",
+                        m,frame.width,x,y,ex,ey,expected,sx,sy,visible);
+                    return 1;
+                }
+            }
+        }
+    }
+    /* Seamless BG3 extends through the same GPU geometry path in Wide mode. */
+    memset(vram+32,0x11,32);
+    for (unsigned i=0;i<1024;++i) write16(vram,0x800+i*2,1);
+    write16(io,MODE1_IO_BG3CNT,1u<<8);
+    frame.frameDispcnt=MODE1_DISP_BG3_ON;
+    for (unsigned i=0;i<MODE1_GBA_HEIGHT;++i) dispcnt[i]=MODE1_DISP_BG3_ON;
+    for (unsigned repeat=0;repeat<2;++repeat) {
+        frame.bg3Repeat=repeat!=0;
+        PpuGpu3DS_CacheInit(&cache);
+        PpuGpu3DS_CacheBeginFrame(&cache,palette,palette,repeat+1);
+        PpuGpu3DSCommandBuffer cmd;
+        PpuGpu3DS_CommandInit(&cmd,vertices,32768,indices,49152,batches,512);
+        CHECK(PpuGpu3DS_BuildCommands(&frame,&cache,atlas,&cmd));
+        size_t bi=find_batch(&cmd,PPU_GPU3DS_BG3,UINT8_MAX); CHECK(bi!=SIZE_MAX);
+        float right=0;
+        for (size_t i=batches[bi].firstIndex;i<batches[bi].firstIndex+batches[bi].indexCount;++i) {
+            float x=vertex_screen_x(&vertices[indices[i]],frame.width);
+            if(x>right) right=x;
+        }
+        const float expected=repeat ? 266.0f : 240.0f;
+        CHECK(right>expected-0.01f && right<expected+0.01f);
+    }
+    puts("affine OBJ: 81,920 integer texel/bounds checks passed"); return 0;
+}
+
 int main(void) {
+    CHECK(test_affine_obj_texel_boundaries() == 0);
     static uint8_t vram[MODE1_VRAM_SIZE];
     static uint16_t bg[MODE1_PALETTE_COLORS];
     static uint16_t obj[MODE1_PALETTE_COLORS];

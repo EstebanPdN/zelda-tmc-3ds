@@ -91,6 +91,8 @@ extern uint8_t virtuappu_mode1_ws_shadow_cols[MODE1_GBA_BG_COUNT];
 extern uint8_t virtuappu_mode1_ws_shadow_stride[MODE1_GBA_BG_COUNT];
 extern int virtuappu_mode1_ws_full_view;
 extern bool virtuappu_mode1_bg3_hdma_native_bounds;
+/* Repeat a known seamless BG3 overlay beyond the native 240px canvas. */
+extern bool virtuappu_mode1_bg3_repeat;
 
 /* Staged alongside the engine OAM mirror, then committed with its VBlank DMA.
  * Raw OAM Y=160..239 is otherwise ambiguous in a 240-line viewport. */

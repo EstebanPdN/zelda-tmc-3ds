@@ -194,6 +194,36 @@ static void SeedSave(u32 fuserId, u8 offer) {
     gSave.kinstones.fuserOffers[fuserId] = offer;
 }
 
+static void TestEenieCancellationRecovery(void) {
+    Entity entity = {0};
+    sFuserId = 0x3f;
+    gActiveRegion = TMC_REGION_EU;
+    sRandomizerEnabled = false;
+    sRandomValue = 0;
+    InstallRecord(PORT_FUSER_FUSION_PTRS_EU, sFuserId, 0x6800, 100, 0x29);
+    ActivateBlankProfile("tmc_kinstone_eenie.sav");
+    SeedSave(sFuserId, KINSTONE_FUSER_DONE);
+    CHECK(GetFusionToOffer(&entity) == 0x29, "cancelled EU Eenie fusion becomes available");
+    CHECK(FileIsBlankProfile("tmc_kinstone_eenie.sav.pre-fuser-repair.bak"), "Eenie repair preserves raw profile");
+    SeedSave(sFuserId, KINSTONE_FUSER_DONE);
+    gSave.kinstones.fusedKinstones[0x29 / 8] |= 1u << (0x29 % 8);
+    SaveFile before = gSave;
+    CHECK(GetFusionToOffer(&entity) == KINSTONE_NONE, "completed Eenie stays done");
+    CHECK(memcmp(&before, &gSave, sizeof(before)) == 0, "completed Eenie is unchanged");
+    SeedSave(sFuserId, KINSTONE_FUSER_DONE);
+    before = gSave;
+    sRandomizerEnabled = true;
+    CHECK(GetFusionToOffer(&entity) == KINSTONE_NONE, "randomizer Eenie is not migrated");
+    CHECK(memcmp(&before, &gSave, sizeof(before)) == 0, "randomizer sentinel preserved");
+    sRandomizerEnabled = false;
+    ActivateBlankProfile("tmc_kinstone_eenie-unavailable.sav");
+    remove("tmc_kinstone_eenie-unavailable.sav");
+    SeedSave(sFuserId, KINSTONE_FUSER_DONE);
+    before = gSave;
+    CHECK(GetFusionToOffer(&entity) == KINSTONE_NONE, "unbacked Eenie repair rejected");
+    CHECK(memcmp(&before, &gSave, sizeof(before)) == 0, "failed backup leaves Eenie unchanged");
+}
+
 static void TestAllEuE1Repairs(void) {
     Entity entity;
     size_t i;
@@ -367,6 +397,7 @@ int main(void) {
     TestNoMutationControls();
     TestBackupFailureIsTransactional();
     TestRetailFicklenessKeepsOffer();
+    TestEenieCancellationRecovery();
 
     RemoveTestDirectory(tempDirectory, oldDirectory);
     if (sFailures != 0) return 1;

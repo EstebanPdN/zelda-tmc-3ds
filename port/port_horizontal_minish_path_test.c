@@ -4,6 +4,7 @@
 #include "global.h"
 
 void sub_08058034(void);
+void sub_08058004(u32 scroll, void* src, void* dest);
 
 u16 gMapDataTopSpecial[0x4000];
 u8 gUnk_02006F00[0x4000];
@@ -35,9 +36,40 @@ int main(void) {
     for (u32 i = 0x2000u; i < 0x4000u; ++i) {
         gMapDataTopSpecial[i] = 0xD00Du;
     }
+
     memset(gUnk_02006F00, 0, sizeof(gUnk_02006F00));
 
     sub_08058034();
+
+    /* Exercise the scrolling consumer as well as the layout producer.
+     * Every valid 16-pixel page must update both layers through the last
+     * source row, including the second layer at the end of the allocation. */
+    for (u32 layer = 0; layer < 2; ++layer) {
+        for (u32 page = 0; page <= 48; ++page) {
+            u16 actual[0x400];
+            memset(actual, 0xCD, sizeof(actual));
+            sub_08058004(page * 16u, gUnk_02006F00 + layer * 0x2000u, actual);
+            for (u32 row = 0; row < 32; ++row) {
+                if (memcmp(actual + row * 32u,
+                           gUnk_02006F00 + layer * 0x2000u + page * 4u + row * 0x100u, 64) != 0) {
+                    fprintf(stderr, "FAIL: scrolling layer %u page %u row %u was not copied\n", layer, page, row);
+                    ++failures;
+                    break;
+                }
+            }
+        }
+    }
+    {
+        u16 actual[0x400], unchanged[0x400];
+        memset(actual, 0xCD, sizeof(actual));
+        memcpy(unchanged, actual, sizeof(actual));
+        sub_08058004(49u * 16u, gUnk_02006F00 + 0x2000u, actual);
+        sub_08058004(UINT32_MAX, gUnk_02006F00, actual);
+        if (memcmp(actual, unchanged, sizeof(actual)) != 0) {
+            fputs("FAIL: out-of-range scrolling changed the destination\n", stderr);
+            ++failures;
+        }
+    }
 
     for (u32 layer = 0; layer < 2u; ++layer) {
         for (u32 quadrant = 0; quadrant < 4u; ++quadrant) {

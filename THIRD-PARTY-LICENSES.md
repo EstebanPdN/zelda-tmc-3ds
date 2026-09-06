@@ -108,3 +108,10 @@ a legitimately-owned ROM is required to extract assets and run the game.
 
 *Generated as part of license review. If you add or remove a dependency, update
 this file and `LICENSE` accordingly.*
+
+## European gameplay backport reference
+
+[Prof9's Minish Cap EU Backport](https://github.com/Prof9/Minish-Cap-EU-Backport)
+(Unlicense) documents the Eenie, Stockwell bomb bag, and Wind Tribe roof fixes
+implemented natively in this port. See [Native European compatibility fixes](docs/eu-backport.md).
+The port does not redistribute its ROM patch or ROM-derived assets.
