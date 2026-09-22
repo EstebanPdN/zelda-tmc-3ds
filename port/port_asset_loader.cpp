@@ -1507,7 +1507,7 @@ extern "C" bool32 Port_LoadGfxGroupFromAssets(u32 group) {
 }
 
 extern "C" bool32 Port_LoadAreaTablesFromAssets(void) {
-    if (gRomRegion != ROM_REGION_USA)
+    if (!Port_ShouldUseAreaAssetCacheForRegion(gRomRegion))
         return FALSE;
     if (!EnsureAssetGroupCache() || !gAssetGroupCache.hasAreaData) {
         return FALSE;
@@ -1768,7 +1768,7 @@ extern "C" bool32 Port_AreSpritePtrsLoadedFromAssets(void) {
 }
 
 extern "C" bool32 Port_RefreshAreaDataFromAssets(u32 area) {
-    if (gRomRegion == ROM_REGION_JP)
+    if (!Port_ShouldUseAreaAssetCacheForRegion(gRomRegion))
         return FALSE;
     if (!EnsureAssetGroupCache() || !gAssetGroupCache.hasAreaData || area >= kAreaCount) {
         return FALSE;

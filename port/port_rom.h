@@ -1,5 +1,6 @@
 #pragma once
 #include <string.h>
+#include "port_config.h"
 #include "port_types.h"
 #include "structures.h"
 #include "map.h"
@@ -89,6 +90,10 @@ void Port_PrintRomAccessSummary(void);
  * pointers (bit 0 set) which can't be called on PC.
  */
 void* Port_ReadPackedRomPtr(const void* base, u32 index);
+
+/* Read one entry from a region-selected packed pointer table in the active
+ * ROM. tableOffset is a RomOffsets field, not a compiled USA symbol. */
+void* Port_ReadActiveRomPtrTable(u32 tableOffset, u32 index);
 
 /**
  * Resolve a GBA ROM data address to a native PC pointer.

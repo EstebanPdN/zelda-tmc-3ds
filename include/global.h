@@ -86,10 +86,12 @@
 #endif
 
 #if defined(PC_PORT) && (__SIZEOF_POINTER__ == 8)
+#define PORT_POINTERS_ARE_64_BIT 1
 #define PORT_STATIC_ASSERT_SIZE(type, gba_size, pc_size, msg) static_assert(sizeof(type) == (pc_size), msg)
 #define PORT_STATIC_ASSERT_EXPR(expr, gba_size, pc_size, msg) static_assert((expr) == (pc_size), msg)
 #define PORT_STATIC_ASSERT_OFFSET(type, field, gba_off, pc_off, msg) static_assert(offsetof(type, field) == (pc_off), msg)
 #else
+#define PORT_POINTERS_ARE_64_BIT 0
 #define PORT_STATIC_ASSERT_SIZE(type, gba_size, pc_size, msg) static_assert(sizeof(type) == (gba_size), msg)
 #define PORT_STATIC_ASSERT_EXPR(expr, gba_size, pc_size, msg) static_assert((expr) == (gba_size), msg)
 #define PORT_STATIC_ASSERT_OFFSET(type, field, gba_off, pc_off, msg) static_assert(offsetof(type, field) == (gba_off), msg)

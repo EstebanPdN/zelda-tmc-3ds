@@ -26,11 +26,12 @@ void Object70_Init(Entity* this) {
     this->frameIndex = this->type + 0xb;
     if (this->type != 0) {
         SnapToTile(this);
-#ifdef PC_PORT
-        /* Object70's head-overlay sprite isn't wired up on PC yet, so flipY=3
+#if defined(PC_PORT) && !defined(TMC_3DS) && !defined(TMC_N64)
+        /* Object70's head-overlay sprite isn't wired up on desktop yet, so flipY=3
          * (OBJ priority 3, behind the BG) hides Link entirely with no head
          * drawn on top -> fully invisible on the stairs / during the swamp
-         * sink. Use flipY=2 to keep him visible until the overlay renders. */
+         * sink. Use flipY=2 there until the overlay renders. Native ports keep
+         * the production priority sequence and render Object70 above Link. */
         gPlayerEntity.base.spriteOrientation.flipY = 2;
 #else
         gPlayerEntity.base.spriteOrientation.flipY = 3;
@@ -60,8 +61,8 @@ void Object70_Action1(Entity* this) {
         this->x = gPlayerEntity.base.x;
         this->y = gPlayerEntity.base.y;
         if (gPlayerState.jump_status == 0) {
-#ifdef PC_PORT
-            gPlayerEntity.base.spriteOrientation.flipY = 2; /* see Object70_Init: head overlay unwired on PC */
+#if defined(PC_PORT) && !defined(TMC_3DS) && !defined(TMC_N64)
+            gPlayerEntity.base.spriteOrientation.flipY = 2; /* see Object70_Init: desktop overlay unwired */
 #else
             gPlayerEntity.base.spriteOrientation.flipY = 3;
 #endif

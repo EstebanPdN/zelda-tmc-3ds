@@ -12,7 +12,7 @@
 typedef struct Temp {
     void* prev;
     void* next;
-#ifdef PC_PORT
+#if PORT_POINTERS_ARE_64_BIT
     /*
      * 64-bit: Must be large enough for the biggest manager struct.
      * FightManagerHelper / EnemyInteractionManager have Entity* enemies[8]
@@ -24,6 +24,8 @@ typedef struct Temp {
     u8 _0[0x38];
 #endif
 } Temp;
+
+PORT_STATIC_ASSERT_SIZE(Temp, 0x40, 0x80, "Manager pool slot size incorrect");
 
 #ifdef PC_PORT
 Temp gUnk_02033290[32] __attribute__((aligned(8)));
@@ -86,16 +88,16 @@ int Port_IsValidEntityAddr(const void* p) {
         return 1;
     if (a >= (uintptr_t)(void*)&gEntityLists[0] && a < (uintptr_t)(void*)&gEntityLists[9])
         return 1;
-    /* Manager pool — gUnk_02033290 holds 32 Temp entries of 128 bytes
-     * each on PC (4096 bytes total). Without this entry the entity-list
+    /* Manager pool — use the actual Temp array extent. A 64-bit host uses
+     * 128-byte slots; 32-bit native ports retain the 64-byte GBA slots.
+     * Without this entry the entity-list
      * walker mis-classifies live managers (TempleOfDropletsManager etc.)
      * as out-of-pool garbage and resets the lists, orphaning them out
      * of the pool. Manifested as Temple of Droplets sunbeam never
      * appearing in room 0x21 (#75). */
     {
-        extern Temp gUnk_02033290[32];
         const uintptr_t mgrBase = (uintptr_t)(void*)&gUnk_02033290;
-        const uintptr_t mgrEnd = mgrBase + 32u * 128u;
+        const uintptr_t mgrEnd = mgrBase + sizeof(gUnk_02033290);
         if (a >= mgrBase && a < mgrEnd)
             return 1;
     }
@@ -343,7 +345,7 @@ void EraseAllEntities(void) {
     MemClear(&gPlayerEntity.base, 10880);
 #endif
 #ifdef PC_PORT
-    MemClear(&gUnk_02033290, 32 * sizeof(Temp)); /* 32 * 128 = 4096 on 64-bit */
+    MemClear(&gUnk_02033290, sizeof(gUnk_02033290));
 #else
     MemClear(&gUnk_02033290, 2048);
 #endif

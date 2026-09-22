@@ -82,9 +82,9 @@ Entity* LoadRoomEntity(const EntityData* dat) {
         entity->id = dat->id;
         entity->type = dat->type;
         RegisterRoomEntity(entity, dat);
-#ifdef PC_PORT
+#if PORT_POINTERS_ARE_64_BIT
         /* Issue #75 — TempleOfDropletsManager fields after Manager.base
-         * get mis-mapped on PC by the manager-spawn MemCopy in
+         * get mis-mapped on 64-bit hosts by the manager-spawn MemCopy in
          * RegisterRoomEntity. Done AFTER RegisterRoomEntity so the
          * MemCopy doesn't clobber our writes.
          *
@@ -94,7 +94,7 @@ Entity* LoadRoomEntity(const EntityData* dat) {
          * spritePtr halves in flag/localFlag — the layout the manager's
          * update logic expects.
          *
-         * On PC, Manager grew from 0x20 to 0x38 (prev/next/parent/child
+         * On 64-bit hosts, Manager grew from 0x20 to 0x38 (prev/next/parent/child
          * widened 4→8) AND TempleOfDropletsManager's own void* unk_28
          * grew 4→8. The RegisterRoomEntity PC fork copies to
          * sizeof(Manager_PC) + 0x10 = 0x48, but the additional 4-byte
@@ -117,7 +117,7 @@ Entity* LoadRoomEntity(const EntityData* dat) {
          * it → no sunbeam.
          *
          * Fix: re-write each of the six fields from the source
-         * EntityData at the right PC offset. Gated on id == 0x15 (=
+         * EntityData at the right 64-bit offset. Gated on id == 0x15 (=
          * TempleOfDropletsManager) so other managers using the same
          * MemCopy aren't disturbed. */
         if (kind == 9 && dat->id == 0x15) {
@@ -195,8 +195,7 @@ void RegisterRoomEntity(Entity* ent, const EntityData* dat) {
         }
     }
     if (kind == MANAGER) {
-#ifdef PC_PORT
-
+#if PORT_POINTERS_ARE_64_BIT
         MemCopy(dat, (u8*)ent + sizeof(Manager) + 0x10, sizeof(EntityData));
 #else
         MemCopy(dat, &ent->y, sizeof(EntityData));
@@ -218,15 +217,15 @@ void RegisterRoomEntity(Entity* ent, const EntityData* dat) {
         GE_FIELD(ent, field_0x82)->HWORD = dat->yPos;
         GE_FIELD(ent, cutsceneBeh)->HWORD = (u16)(spritePtr & 0xFFFF);
         GE_FIELD(ent, field_0x86)->HWORD = (u16)(spritePtr >> 16);
-#ifdef PC_PORT
-        /* GenericEntity's cutsceneBeh/field_0x86 union is void*-aligned,
-         * so it sits at PC offset 0xB0/0xB2 — but most entity subclass
+#if PORT_POINTERS_ARE_64_BIT
+        /* GenericEntity's cutsceneBeh/field_0x86 union is 8-byte aligned,
+         * so it sits at 64-bit offset 0xB0/0xB2 — but most entity subclass
          * structs (WarpPointEntity, HeartContainerEntity, GentariCurtain,
          * lots of others) lay out a `flag` field at GBA 0x86 without
          * the void* trick, landing at PC 0xAE. Mirror the spritePtr
          * halves to those natural-aligned bytes too so subclass reads
          * pick up the right value. The mirrored bytes lie in
-         * GenericEntity's pre-union padding (0xAC-0xAF), so cutscene
+         * the 64-bit GenericEntity's pre-union padding (0xAC-0xAF), so cutscene
          * entities are unaffected — StartCutscene's later 8-byte
          * scriptContext write at 0xB0 supersedes it. */
         if (kind != ENEMY) {

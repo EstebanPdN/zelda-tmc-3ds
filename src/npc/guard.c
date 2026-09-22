@@ -304,9 +304,10 @@ void sub_08063D44(Entity* this) {
 
     InitializeAnimation(this, 4);
 #ifdef PC_PORT
-    /* gUnk_0810F6BC is a table of packed 4-byte GBA ROM pointers;
-     * on 64-bit, we must read them as u32 and resolve to native pointers. */
-    sub_0806EE04(this, Port_ReadPackedRomPtr(gUnk_0810F6BC, this->type), 0);
+    /* The compiled symbol contains USA pointers. Read the corresponding table
+     * from the active ROM so EU guards receive their region-native behavior
+     * data instead of valid-looking bytes at stale USA addresses. */
+    sub_0806EE04(this, Port_ReadActiveRomPtrTable(gRomOffsets ? gRomOffsets->guardPatrolData : 0, this->type), 0);
 #else
     sub_0806EE04(this, gUnk_0810F6BC[this->type], 0);
 #endif

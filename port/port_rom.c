@@ -501,6 +501,15 @@ const RomOffsets kRomOffsets_USA = {
     .bgAnimTable = 0x0B755C,
     .localFlagBanks = 0x11E454,
     .townspersonSpriteLoadPtrs = 0x10B6EC,
+    .guardPatrolData = 0x10F6BC,
+    .innWestEntities = 0x0D6A74,
+    .innMiddleEntities = 0x0D6B18,
+    .innEastEntities = 0x0D6BB8,
+    .simonEntityLists = 0x0F0CB8,
+    .simonEnemyPatterns = 0x0F0D58,
+    .simonChestPatterns = 0x0F0E08,
+    .gustJarAnimTable = 0x132714,
+    .gustJarHitbox = 0x132B28,
     .gfxGroupsCount = 133,
     .paletteGroupsCount = 208,
     .objPalettesCount = 360,
@@ -559,6 +568,15 @@ const RomOffsets kRomOffsets_EU = {
     .bgAnimTable = 0x0B6C84,
     .localFlagBanks = 0x11DB9C,
     .townspersonSpriteLoadPtrs = 0x10AE40,
+    .guardPatrolData = 0x10EE10,
+    .innWestEntities = 0x0D61D0,
+    .innMiddleEntities = 0x0D6274,
+    .innEastEntities = 0x0D6314,
+    .simonEntityLists = 0x0F02EC,
+    .simonEnemyPatterns = 0x0F038C,
+    .simonChestPatterns = 0x0F043C,
+    .gustJarAnimTable = 0x131D64,
+    .gustJarHitbox = 0x132178,
     .gfxGroupsCount = 133,
     .paletteGroupsCount = 207,
     .objPalettesCount = 360,
@@ -628,6 +646,15 @@ const RomOffsets kRomOffsets_JP = {
     .bgAnimTable = 0xB72FC,
     .localFlagBanks = 0x11E118,
     .townspersonSpriteLoadPtrs = 0x10B3B0,
+    .guardPatrolData = 0,
+    .innWestEntities = 0,
+    .innMiddleEntities = 0,
+    .innEastEntities = 0,
+    .simonEntityLists = 0,
+    .simonEnemyPatterns = 0,
+    .simonChestPatterns = 0,
+    .gustJarAnimTable = 0,
+    .gustJarHitbox = 0,
     .gfxGroupsCount = 133,
     .paletteGroupsCount = 208,
     .objPalettesCount = 360,
@@ -1009,6 +1036,22 @@ void* Port_ReadPackedRomPtr(const void* base, u32 index) {
         return NULL;
     raw &= ~1u;
     return ResolveRomPtr(raw);
+}
+
+/* Read a packed-pointer table whose base is selected from RomOffsets for the
+ * active retail ROM. Unlike Port_ReadPackedRomPtr on a compiled `.rodata`
+ * stub, both the table and its entries therefore have regional provenance. */
+void* Port_ReadActiveRomPtrTable(u32 tableOffset, u32 index) {
+    u32 bytesAvailable;
+
+    if (gRomData == NULL || tableOffset == 0 || tableOffset > gRomSize) {
+        return NULL;
+    }
+    bytesAvailable = gRomSize - tableOffset;
+    if (bytesAvailable < sizeof(u32) || index > (bytesAvailable - sizeof(u32)) / sizeof(u32)) {
+        return NULL;
+    }
+    return Port_ReadPackedRomPtr(gRomData + tableOffset, index);
 }
 
 static void* Port_ResolveAreaFirstLevelTable(u32 tableOffset, u32 area) {

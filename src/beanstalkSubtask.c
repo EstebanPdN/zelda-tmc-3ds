@@ -41,6 +41,9 @@ extern const u8 gEntityListLUT[];
 
 #ifdef PC_PORT
 #include "port_asset_loader.h"
+#ifdef TMC_3DS
+#include "port_door_transition.h"
+#endif
 #include "port_gba_mem.h"
 #include "port_rom.h"
 #include <string.h>
@@ -343,6 +346,9 @@ u32 UpdatePlayerCollision(void) {
     u32 tmp2;
     u32 tmp3;
     u32 edgeCollision;
+#ifdef TMC_3DS
+    u32 doorEdgeOpportunity;
+#endif
     // There are some weird assignment necessary to access gPlayerEntity.base.animationState correctly.
     u32 animationState1;
     u32 animationState2;
@@ -368,12 +374,50 @@ u32 UpdatePlayerCollision(void) {
     } else {
         direction = gPlayerState.direction;
     }
-    if (((direction & (DIR_NOT_MOVING_CHECK | 0x3)) == 0) && (gPlayerState.field_0xa == 0)) {
-        index = sub_0807BDB8(&gPlayerEntity.base, direction >> 2);
+    index = 0xff;
+#ifdef TMC_3DS
+    doorEdgeOpportunity = FALSE;
+#endif
+    if (gPlayerState.field_0xa == 0) {
+        if ((direction & (DIR_NOT_MOVING_CHECK | 0x3)) == 0) {
+            index = sub_0807BDB8(&gPlayerEntity.base, direction >> 2);
+        }
+#ifdef TMC_3DS
+        /* A generated 0xff room border can stop Link before the retail
+         * 10-pixel edge band. Recover only the edge proved by all four
+         * production facts: Link is on/in front of a door floor, faces that
+         * edge, remains inside the room, and the normal explicit/adjacent
+         * resolvers below accept the result. This also handles DIR_NONE after
+         * the doorway action has consumed input, without searching unrelated
+         * edges. */
+        if (index == 0xff && gRoomControls.reload_flags == 0 && (gRoomControls.scroll_flags & 4) == 0) {
+            const u32 onDoorFloor = GetActTileAtEntity(&gPlayerEntity.base) == ACT_TILE_41 ||
+                                    GetActTileInFront(&gPlayerEntity.base) == ACT_TILE_41;
+            const u32 facingEdge = Port_SelectDoorFacingEdge(direction, gPlayerEntity.base.animationState);
+
+            index = Port_FindDoorApproachEdge(gPlayerEntity.base.x.HALF.HI - (s32)gRoomControls.origin_x,
+                                              gPlayerEntity.base.y.HALF.HI - (s32)gRoomControls.origin_y,
+                                              gRoomControls.width, gRoomControls.height, facingEdge, onDoorFloor);
+            if (index != PORT_DOOR_EDGE_NONE) {
+                /* Keep the retail ownership/order below: explicit exits are
+                 * attempted first, then sub_0807BD14 proves and starts an
+                 * adjacent-room scroll. If neither exists, normal blocking
+                 * result 3 is preserved. */
+                doorEdgeOpportunity = TRUE;
+            }
+        }
+#endif
         if (index != 0xff && (gRoomControls.scroll_flags & 4) == 0) {
             ptr1 = &gUnk_080B4490[index * 2];
-            edgeCollision = GetCollisionDataAtTilePos(COORD_TO_TILE_OFFSET(&gPlayerEntity.base, -ptr1[0], -ptr1[1]),
-                                                      gPlayerEntity.base.collisionLayer) == COLLISION_DATA_255;
+            edgeCollision = FALSE;
+#ifdef TMC_3DS
+            edgeCollision = doorEdgeOpportunity;
+#endif
+            if (!edgeCollision) {
+                edgeCollision =
+                    GetCollisionDataAtTilePos(COORD_TO_TILE_OFFSET(&gPlayerEntity.base, -ptr1[0], -ptr1[1]),
+                                              gPlayerEntity.base.collisionLayer) == COLLISION_DATA_255;
+            }
 #ifdef PC_PORT
             /* The retail edge-scroll gate starts once Link's origin is inside
              * the 10 px room-edge band, but the GBA probe table can still look

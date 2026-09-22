@@ -46,6 +46,14 @@ int main(void) {
              "EU HUD button sprite uses its shifted entry");
     CHECK_EQ(Port_RemapFixedUiSpriteIndexForRegion(ROM_REGION_EU, 506u), 506u,
              "EU fixed UI remap is not a broad late-sprite shift");
+    CHECK_EQ(Port_ShouldUseAreaAssetCacheForRegion(ROM_REGION_USA), 1u,
+             "USA may use its matching extracted area-table cache");
+    CHECK_EQ(Port_ShouldUseAreaAssetCacheForRegion(ROM_REGION_EU), 0u,
+             "EU keeps region-native room properties from the active ROM");
+    CHECK_EQ(Port_ShouldUseAreaAssetCacheForRegion(ROM_REGION_JP), 0u,
+             "JP keeps region-native room properties from the active ROM");
+    CHECK_EQ(Port_ShouldUseAreaAssetCacheForRegion(ROM_REGION_UNKNOWN), 0u,
+             "unknown regions fail closed to the active-ROM path");
 
     CHECK_EQ(Port_ApplyCollisionLayerTransition(2u, 2u, 1u), 2u,
              "transition tile preserves its guarded upper layer");

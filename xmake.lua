@@ -1199,6 +1199,20 @@ target_end()
 
 
 -- ====================
+-- Door-to-adjacent-room geometry regression test.
+-- ====================
+target("door_transition_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_files("port/port_door_transition_test.c")
+target_end()
+
+
+-- ====================
 -- Multi-region language-slot regression test.
 -- ====================
 target("region_language_test")

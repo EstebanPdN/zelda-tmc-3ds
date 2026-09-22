@@ -22,6 +22,14 @@ typedef enum {
     ROM_REGION_JP,  /* Game code: BZMJ — offsets UNVERIFIED (ROM-gated) */
 } RomRegion;
 
+/* The checked-in area-table asset index is generated from the USA layout.
+ * Other regions must keep the active ROM as the authority: identical logical
+ * room properties can live at different offsets, and USA-indexed extraction
+ * can otherwise turn valid regional data slots into NULL callbacks/data. */
+static inline u32 Port_ShouldUseAreaAssetCacheForRegion(RomRegion region) {
+    return region == ROM_REGION_USA;
+}
+
 /* Packed u32 pointers to the 40 pixel-level collision masks used by
  * sub_080086D8. The mask payloads are identical between USA and EU, but the
  * EU linker moves both this table and every target by 0x98 bytes. */
@@ -93,6 +101,15 @@ typedef struct {
     u32 townspersonSpriteLoadPtrs; /* gUnk_0810B6EC — SpriteLoadData* table (21 entries) for
                                     * Hyrule-Town NPCs. Region-relocated; a USA-pinned offset
                                     * yields all-NULL ptrs on JP/EU → NULL deref crash on town entry. */
+    u32 guardPatrolData;    /* gUnk_0810F6BC — packed pointers for non-scripted guard behavior */
+    u32 innWestEntities;    /* gUnk_080D6A74 — packed room-entity-list pointers */
+    u32 innMiddleEntities;  /* gUnk_080D6B18 — packed room-entity-list pointers */
+    u32 innEastEntities;    /* gUnk_080D6BB8 — packed room-entity-list pointers */
+    u32 simonEntityLists;   /* gUnk_080F0CB8 — packed simulation entity-list pointers */
+    u32 simonEnemyPatterns; /* gUnk_080F0D58 — packed simulation pattern pointers */
+    u32 simonChestPatterns; /* gUnk_080F0E08 — packed simulation chest-pattern pointers */
+    u32 gustJarAnimTable;   /* gUnk_08132714 — packed animation-data pointers */
+    u32 gustJarHitbox;      /* gUnk_08132B28 — Hitbox */
 
     /* Table counts (same for both regions, but kept per-region for safety) */
     u32 gfxGroupsCount;
