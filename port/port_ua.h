@@ -1,0 +1,70 @@
+/**
+ * @file port_ua.h
+ * @brief Ukrainian localization (tloz-tmc-ua) hooks for the native port.
+ *
+ * The Ukrainian translation is distributed as a modified USA ROM (game code
+ * BZME) whose data layout is byte-identical to the retail USA ROM. Dialogue,
+ * the font, the title logo and the GAME OVER letter art are all ROM data, so the
+ * port picks them up through its normal ROM/asset pipeline with no code changes.
+ *
+ * Only behaviour that lives in *code* in the original game needs a hook here.
+ * Every hook is gated on Port_IsUkrainianRom(), so English/EU/JP ROMs run
+ * exactly the upstream code paths.
+ *
+ * ROM marker (written by tloz-tmc-ua/build-port-rom.py):
+ *   offset 0xFFFFF0, 8 bytes: "TMC-UA" '\0' <format version>
+ * The area is 0xFF padding in the retail ROM and is never read by the game.
+ *
+ * Keep all Ukrainian-specific logic in this header so upstream merges only
+ * ever touch the small, clearly marked call sites in src/.
+ */
+#ifndef PORT_UA_H
+#define PORT_UA_H
+
+#ifdef PC_PORT
+
+#include <string.h>
+
+#include "gba/types.h"
+#include "port_rom.h"
+
+#define PORT_UA_MARKER_OFFSET 0xFFFFF0u
+#define PORT_UA_MARKER "TMC-UA"
+#define PORT_UA_MARKER_LEN 6u
+
+/** True when the loaded ROM is the tloz-tmc-ua Ukrainian build. */
+static inline bool32 Port_IsUkrainianRom(void) {
+    return gRomData != NULL && gRomSize >= PORT_UA_MARKER_OFFSET + PORT_UA_MARKER_LEN &&
+           memcmp(gRomData + PORT_UA_MARKER_OFFSET, PORT_UA_MARKER, PORT_UA_MARKER_LEN) == 0;
+}
+
+/**
+ * GAME OVER screen ("КІНЕЦЬ ГРИ"), see src/gameOverTask.c DrawGameOverText().
+ *
+ * The Ukrainian ROM redraws the eight letter sprites of "GAME OVER" (sprite
+ * 0x1fd, frames 0..7) as the Ukrainian phrase. It needs different x positions,
+ * and frames 3 and 6 carry no letter and must not be drawn.
+ * Mirrors tloz-tmc-ua/tmc/src/gameOverTask.c.
+ *
+ * @param i  letter slot 0..7
+ * @param x  in: upstream x position, out: x position to use
+ * @return   FALSE when this slot must be skipped
+ */
+static inline bool32 Port_UA_GameOverLetter(u32 i, s16* x) {
+    static const u8 sUaOffsets[] = {
+        40, 72, 104, 108, 136, 168, 174, 200,
+    };
+
+    if (!Port_IsUkrainianRom() || i >= sizeof(sUaOffsets)) {
+        return TRUE;
+    }
+    if (i == 3 || i == 6) {
+        return FALSE;
+    }
+    *x = sUaOffsets[i];
+    return TRUE;
+}
+
+#endif /* PC_PORT */
+
+#endif /* PORT_UA_H */
