@@ -64,6 +64,9 @@ static void HandleTitlescreenAnimationIntro(void);
 static u32 GetAdvanceState(void);
 static void UpdateLightRays(void);
 static void UpdatePressStartIcon(void);
+#ifdef PC_PORT
+static bool32 Port_UA_HandleTitlescreen(void); /* tloz-tmc-ua: Ukrainian title, port/port_ua_title.inc */
+#endif
 
 static void (*const sIntroSequenceHandlers[])(void) = {
     HandleNintendoCapcomLogos,
@@ -203,6 +206,11 @@ static void HandleTitlescreen(void) {
     int advance;
     u32 paletteGroup;
 
+#ifdef PC_PORT
+    if (Port_UA_HandleTitlescreen()) { /* tloz-tmc-ua */
+        return;
+    }
+#endif
     gIntroState.counter++;
     switch (gIntroState.state) {
         case 0:
@@ -461,3 +469,7 @@ static void UpdateLightRays(void) {
         gScreen.controls.alphaBlend = sLightRaysAlphaBlends[gIntroState.lightRaysAlphaBlendIndex];
     }
 }
+
+#ifdef PC_PORT
+#include "port_ua_title.inc" /* tloz-tmc-ua */
+#endif

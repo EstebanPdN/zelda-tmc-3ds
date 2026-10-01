@@ -12,15 +12,24 @@ grep -q 'port_ua.h' src/gameOverTask.c || fail "src/gameOverTask.c lost #include
 grep -q 'Port_UA_GameOverLetter' src/gameOverTask.c || fail "src/gameOverTask.c lost the Port_UA_GameOverLetter() hook"
 [ "$(grep -c 'PORT_UA_PANEL_TEXT' port/port_second_screen_theme.c)" = "4" ] || fail "port/port_second_screen_theme.c must call PORT_UA_PANEL_TEXT in exactly 4 places (TextWidth, DrawText, BigTextWidth, DrawBigTextPal)"
 grep -q 'Port_UA_MessageGlyphHigh' port/port_second_screen_theme.c || fail "port/port_second_screen_theme.c lost the bank-2 glyph hook in GlyphData()"
+grep -q 'Port_UA_HandleTitlescreen()' src/title.c || fail "src/title.c lost the Port_UA_HandleTitlescreen() hook"
+grep -q 'port_ua_title.inc' src/title.c || fail "src/title.c lost #include \"port_ua_title.inc\""
+grep -q 'Port_UA_TitleScreenObject(this)' src/object/titleScreenObject.c || fail "titleScreenObject.c lost its tloz-tmc-ua hook"
+grep -q 'Port_UA_JapaneseSubtitle(this)' src/object/japaneseSubtitle.c || fail "japaneseSubtitle.c lost its tloz-tmc-ua hook"
+grep -q 'Port_UA_KinstoneFuserName' src/menu/kinstoneMenu.c || fail "kinstoneMenu.c lost the Port_UA_KinstoneFuserName hook"
+grep -q 'Port_UA_KinstoneHeaderX' src/menu/pauseMenu.c || fail "pauseMenu.c lost the Port_UA_KinstoneHeaderX hook"
 
 # 2. Compile the touched game file with the 3DS build's defines (see platform/3ds/CMakeLists.txt).
 DEFS="-DPC_PORT -DNON_MATCHING -DUSE_HDMA -DTMC_3DS -DMULTI_REGION -DUSA -DENGLISH -DREVISION=0 -DMODE1_GBA_WIDTH=400 -DMODE1_GBA_HEIGHT=240"
 INC="-I. -Iinclude -Iport -Iport/ppu/include -Ibuild/USA"
 OUT="$(mktemp -d)"
 trap 'rm -rf "$OUT"' EXIT
-${CC:-gcc} -std=gnu11 -fsyntax-only -include region.h $DEFS $INC -Wall -Wno-unused -Wno-multichar -Wno-pointer-sign \
-    src/gameOverTask.c
-echo "PASS compile src/gameOverTask.c"
+for f in src/gameOverTask.c src/title.c src/object/titleScreenObject.c src/object/japaneseSubtitle.c \
+         src/menu/kinstoneMenu.c src/menu/pauseMenu.c; do
+    ${CC:-gcc} -std=gnu11 -fsyntax-only -include region.h $DEFS $INC -Wall -Wno-unused -Wno-multichar -Wno-pointer-sign \
+        -Wno-int-to-pointer-cast -Wno-sign-compare -Werror=implicit-function-declaration "$f"
+    echo "PASS compile $f"
+done
 ${CC:-gcc} -std=gnu11 -fsyntax-only -include region.h $DEFS $INC -Ilibs/agbplay_core -Iplatform/3ds/source \
     -Wall -Wextra -Wno-unused -Wno-unused-parameter -Wno-missing-field-initializers port/port_second_screen_theme.c
 echo "PASS compile port/port_second_screen_theme.c"

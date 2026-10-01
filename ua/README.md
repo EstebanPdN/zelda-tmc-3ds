@@ -16,6 +16,10 @@ USA-рому. Тому майже вся локалізація живе в **р
 | Лого «Диво-Ковпак», «НАТИСНИ START» | графіка в ромі | не потрібні |
 | Літери «КІНЕЦЬ ГРИ» | графіка в ромі | не потрібні |
 | Розташування літер «КІНЕЦЬ ГРИ» | **код** (`DrawGameOverText`) | `port/port_ua.h` + хук у `src/gameOverTask.c` |
+| Заставка: лого й підзаголовок виїжджають знизу, без меча, «НАТИСНИ START» вище | **код** (`title.c`, `titleScreenObject.c`, `japaneseSubtitle.c`) | `port/port_ua_title*.inc`, `port/port_ua_japanese_subtitle.inc` + хуки |
+| «Лінк» замість імені файлу в меню злиття Дивокаменів | **код** (`kinstoneMenu.c`) | `Port_UA_KinstoneFuserName` у `port/port_ua.h` + хук |
+| Зсув заголовка «УЛАМКИ ДИВОКАМЕНІВ» у меню паузи | **код** (`pauseMenu.c`) | `Port_UA_KinstoneHeaderX` у `port/port_ua.h` + хук |
+| Фікс перевірки контрольної суми збереження (ARHafer) | код (`save.c`) | уже є в апстрімі порту, нічого не треба |
 | Написи самого порту (нижній екран, налаштування, оновлювач) | **код** порту, англійські рядки | `port/port_ua_panel.h` + 4 хуки в `port/port_second_screen_theme.c` |
 
 Ром для порту збирається в репозиторії tloz-tmc-ua командою `bash make-port.sh` →
@@ -33,6 +37,14 @@ USA-рому. Тому майже вся локалізація живе в **р
   малюються — так само, як у `tloz-tmc-ua/tmc/src/gameOverTask.c`).
 - `src/gameOverTask.c` — два невеликі блоки під `#ifdef PC_PORT`, позначені
   коментарем `tloz-tmc-ua` (include і виклик `Port_UA_GameOverLetter`).
+- `port/port_ua_title.inc`, `port/port_ua_title_object.inc`,
+  `port/port_ua_japanese_subtitle.inc` — **нові файли** із заставкою в стилі
+  tloz-tmc-ua (дзеркало `tmc/src/title.c`, `object/titleScreenObject.c`,
+  `object/japaneseSubtitle.c` з GitLab). Підключаються `#include` наприкінці
+  відповідних файлів у `src/`, бо користуються їхніми static-функціями; у
+  кожному з трьох файлів — прототип, 3-рядковий хук на початку головної функції
+  та `#include` в кінці, усе з позначкою `tloz-tmc-ua`.
+- `src/menu/kinstoneMenu.c`, `src/menu/pauseMenu.c` — по одному рядку з хуком.
 - `port/port_ua_panel.h` — **новий файл**: українські написи панелі порту.
   Порт малює свої написи шрифтами з рому (дрібний шрифт повідомлень і великий
   «банерний»), а в українському ромі на місці латиниці стоїть кирилиця — тому
@@ -58,9 +70,10 @@ git merge upstream/main        # або: git rebase upstream/main
 bash ua/check.sh               # хук на місці, компілюється, тест поведінки проходить
 ```
 
-Конфлікти можливі лише в `src/gameOverTask.c` (якщо апстрім змінить саму
-`DrawGameOverText()`) та в `port/port_second_screen_theme.c` (якщо зміняться
-функції `TextWidth`/`DrawText`/`BigTextWidth`/`DrawBigTextPal` або `GlyphData`).
+Конфлікти можливі лише біля хуків: `src/gameOverTask.c` (`DrawGameOverText()`),
+`src/title.c` (`HandleTitlescreen()`), `src/object/titleScreenObject.c`,
+`src/object/japaneseSubtitle.c`, `src/menu/kinstoneMenu.c`, `src/menu/pauseMenu.c`
+та `port/port_second_screen_theme.c` (функції тексту й `GlyphData`).
 Тоді досить повернути рядки з позначкою `tloz-tmc-ua` і знову запустити
 `ua/check.sh` — він впаде, якщо якийсь хук загубився. Нові англійські написи,
 що з'являться в апстрімі, просто додайте до `kPortUaStrings`.
@@ -88,5 +101,7 @@ bash ua/check.sh               # хук на місці, компілюєтьс�
   повернеться англійська розкладка «КІНЕЦЬ ГРИ». Якщо українські збірки
   публікуватимуться в окремому репозиторії, варто спрямувати `UPDATE_REPOSITORY`
   туди.
-- Переробка титульного екрана з Redux-збірки (`tloz-tmc-ua/tmcr`) сюди не
-  переноситься: порт побудований на vanilla-грі, і лого в ній приходить з рому.
+- Заставка перенесена з vanilla-`tmc` на GitLab (`origin/main`, v1.3); графіка
+  лого та підзаголовка приходить з `tmc-ua-port.gba`, зібраного з того ж
+  `baserom_ukr_newfont.gba`. Збірка на 3DS/в Azahar ще не перевірена — після
+  першої збірки порівняйте з `ultimate_auto.gba` в mGBA.

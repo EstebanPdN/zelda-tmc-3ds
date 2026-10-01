@@ -65,6 +65,26 @@ static inline bool32 Port_UA_GameOverLetter(u32 i, s16* x) {
     return TRUE;
 }
 
+/**
+ * Kinstone fusion menu, see src/menu/kinstoneMenu.c KinstoneMenu_080A4494():
+ * the Ukrainian ROM prints "Лінк" instead of the save-file name (the name
+ * entry screen has no Cyrillic). Bytes are Ukrainian font codes.
+ * Mirrors tloz-tmc-ua/tmc/src/menu/kinstoneMenu.c.
+ */
+static inline u8* Port_UA_KinstoneFuserName(u8* saveName) {
+    static u8 sUaLink[] = { 0x50, 0x6c, 0x72, 0x6f, ' ', ' ', 0 }; /* "Лінк  " */
+    return Port_IsUkrainianRom() ? sUaLink : saveName;
+}
+
+/**
+ * Pause menu, kinstone pieces screen (src/menu/pauseMenu.c sub_080A5128):
+ * the Ukrainian header "УЛАМКИ ДИВОКАМЕНІВ" is wider, so it starts further right.
+ * Mirrors tloz-tmc-ua/tmc/src/menu/pauseMenu.c.
+ */
+static inline int Port_UA_KinstoneHeaderX(int upstreamX) {
+    return Port_IsUkrainianRom() ? 0x66 : upstreamX;
+}
+
 #endif /* PC_PORT */
 
 #endif /* PORT_UA_H */

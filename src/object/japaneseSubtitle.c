@@ -16,10 +16,18 @@ void JapaneseSubtitle_Type0(Entity*);
 void JapaneseSubtitle_Type1(Entity*);
 void JapaneseSubtitle_Type2(Entity*);
 void JapaneseSubtitle_Type3(Entity*);
+#ifdef PC_PORT
+static bool32 Port_UA_JapaneseSubtitle(Entity*); /* tloz-tmc-ua: port/port_ua_japanese_subtitle.inc */
+#endif
 
 const u16 gUnk_08124B10[] = { 0x40, 0x58, 0x68, 0x80, 0x94, 0xA8, 0xB0, 0x0 };
 
 void JapaneseSubtitle(Entity* this) {
+#ifdef PC_PORT
+    if (Port_UA_JapaneseSubtitle(this)) { /* tloz-tmc-ua */
+        return;
+    }
+#endif
     static void (*const JapaneseSubtitle_Types[])(Entity*) = {
         JapaneseSubtitle_Type0,
         JapaneseSubtitle_Type1,
@@ -138,3 +146,7 @@ void JapaneseSubtitle_Type3(Entity* this) {
         this->frameIndex = 15;
     }
 }
+
+#ifdef PC_PORT
+#include "port_ua_japanese_subtitle.inc" /* tloz-tmc-ua */
+#endif

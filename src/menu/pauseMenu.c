@@ -5,6 +5,9 @@
  * @brief Pause Menu Subtask
  */
 #include "pauseMenu.h"
+#ifdef PC_PORT
+#include "port_ua.h" /* tloz-tmc-ua */
+#endif
 
 #include "common.h"
 #include "game.h"
@@ -223,6 +226,9 @@ void sub_080A5128(void) {
         case PauseMenuScreen_7:
         case PauseMenuScreen_8:
             p[0].x = 0x60;
+#ifdef PC_PORT
+            p[0].x = Port_UA_KinstoneHeaderX(p[0].x); /* tloz-tmc-ua */
+#endif
             p[0].y = 0x18;
             p[1].x = -0x10;
             p[1].y = 0x48;
