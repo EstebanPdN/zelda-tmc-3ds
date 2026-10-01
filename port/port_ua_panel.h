@@ -21,7 +21,12 @@
  *
  * Translations are a first draft — edit kPortUaStrings / kPortUaWords freely.
  * Keep the Ukrainian in the same case as the English (the banner font is
- * used upper-case) and remember the panel buttons shrink long labels.
+ * used upper-case). The Ukrainian banner font is wider than the English one:
+ * buttons and value chips adapt, but settings rows (label + value), the
+ * developer rows and the dialog lines have a fixed scale, so keep those no
+ * wider than the English text (ua/measure_panel.py reports overflows).
+ * The banner font has no Latin glyphs (Latin codes hold Cyrillic), so Latin
+ * words such as "FPS" cannot be shown in it — translate them instead.
  */
 #ifndef PORT_UA_PANEL_H
 #define PORT_UA_PANEL_H
@@ -46,7 +51,7 @@ static const PortUaPanelEntry kPortUaStrings[] = {
     { "SETTINGS", "НАЛАШТУВАННЯ" },
     { "SCREEN", "ЕКРАН" },
     { "GAMEPLAY", "ГРА" },
-    { "DEVELOPER", "РОЗРОБНИК" },
+    { "DEVELOPER", "ІНСТРУМЕНТИ" },
     { "OVERLAY", "НАКЛАДКА" },
     { "RANDOMIZER", "РАНДОМАЙЗЕР" },
     { "UPDATE", "ОНОВЛЕННЯ" },
@@ -56,11 +61,11 @@ static const PortUaPanelEntry kPortUaStrings[] = {
     { "CANCEL", "СКАСУВАТИ" },
     { "CONTINUE", "ПРОДОВЖИТИ" },
     { "DONE", "ГОТОВО" },
-    { "RESTART", "ПЕРЕЗАПУСК" },
-    { "LOAD", "ЗАВАНТАЖИТИ" },
-    { "LOAD STATE", "ЗАВАНТАЖИТИ СТАН" },
-    { "WRITE", "ЗАПИСАТИ" },
-    { "MEM DUMP", "ДАМП ПАМ'ЯТІ" },
+    { "RESTART", "РЕСТАРТ" },
+    { "LOAD", "ВІДНОВИТИ" },
+    { "LOAD STATE", "ВІДНОВИТИ ГРУ" },
+    { "WRITE", "ЗБЕРЕГТИ" },
+    { "MEM DUMP", "ЗБЕРЕГТИ ГРУ" },
     { "ENABLE RANDOMIZER", "УВІМКНУТИ РАНДОМАЙЗЕР" },
     { "DISABLE RANDOMIZER", "ВИМКНУТИ РАНДОМАЙЗЕР" },
     { "NEXT", "ДАЛІ" },
@@ -70,17 +75,17 @@ static const PortUaPanelEntry kPortUaStrings[] = {
     { "WIDESCREEN", "ШИРОКИЙ ЕКРАН" },
     { "FOLLOW CAM", "КАМЕРА СТЕЖИТЬ" },
     { "WINDCREST PINS", "МІТКИ ГЕРБІВ ВІТРУ" },
-    { "FLOOR AUTO RETURN", "АВТОПОВЕРНЕННЯ ПОВЕРХУ" },
+    { "FLOOR AUTO RETURN", "ПОВЕРНЕННЯ ПОВЕРХУ" },
     { "TURBO SPEED", "ШВИДКІСТЬ ТУРБО" },
     { "MASTER VOLUME", "ГУЧНІСТЬ" },
     { "AUTOSAVE", "АВТОЗБЕРЕЖЕННЯ" },
     { "COLOR CORRECTION", "КОРЕКЦІЯ КОЛЬОРУ" },
-    { "SHOW FPS", "ПОКАЗУВАТИ FPS" },
-    { "HOLD TO ADVANCE TEXT", "ГОРТАТИ ТЕКСТ УТРИМАННЯМ" },
+    { "SHOW FPS", "ЛІЧИЛЬНИК КАДРІВ" },
+    { "HOLD TO ADVANCE TEXT", "ТЕКСТ УТРИМАННЯМ" },
     { "PANEL BACKDROP", "ТЛО ПАНЕЛІ" },
     { "SWAP SCREENS", "ПОМІНЯТИ ЕКРАНИ" },
     { "ASPECT RATIO", "СПІВВІДНОШЕННЯ" },
-    { "DISPLAY STYLE", "СТИЛЬ ЗОБРАЖЕННЯ" },
+    { "DISPLAY STYLE", "ФІЛЬТР" },
     /* settings values */
     { "ON", "УВІМК" },
     { "OFF", "ВИМК" },
@@ -103,26 +108,35 @@ static const PortUaPanelEntry kPortUaStrings[] = {
     /* diagnostics */
     { "VERSION", "ВЕРСІЯ" },
     { "MODEL", "МОДЕЛЬ" },
-    { "FPS NOW", "FPS ЗАРАЗ" },
-    { "FPS AVG", "FPS СЕРЕДН." },
+    { "FPS NOW", "КАДРИ ЗАРАЗ" },
+    { "FPS AVG", "КАДРИ СЕРЕД." },
     { "CORE1", "ЯДРО1" },
     { "AREA", "ОБЛАСТЬ" },
     { "ROOM", "КІМНАТА" },
     { "NEW 3DS", "НОВА 3DS" },
     { "OLD 3DS", "СТАРА 3DS" },
     /* multi-line messages (one entry per line, in the order the port draws them) */
-    { "LOAD LATEST DUMP?", "ЗАВАНТАЖИТИ ОСТАННІЙ ДАМП?" },
-    { "THE LATEST DUMP IN THE", "ОСТАННІЙ ДАМП ІЗ" },
-    { "DUMPS FOLDER WILL REPLACE", "ТЕКИ ДАМПІВ ЗАМІНИТЬ" },
-    { "THE CURRENT GAME STATE.", "ПОТОЧНИЙ СТАН ГРИ." },
-    { "UNSAVED PROGRESS MAY BE LOST.", "НЕЗБЕРЕЖЕНИЙ ПРОГРЕС БУДЕ ВТРАЧЕНО." },
-    { "UNSAVED PROGRESS IS LOST", "НЕЗБЕРЕЖЕНИЙ ПРОГРЕС ВТРАЧЕНО" },
-    { "RANDOMIZER REQUIRES A NEW GAME.", "РАНДОМАЙЗЕР ПОТРЕБУЄ НОВОЇ ГРИ." },
+    { "LOAD LATEST DUMP?", "ВІДНОВИТИ ГРУ?" },
+    { "THE LATEST DUMP IN THE", "ПОТОЧНИЙ СТАН ГРИ" },
+    { "DUMPS FOLDER WILL REPLACE", "ЗАМІНИТЬСЯ ОСТАННІМ" },
+    { "THE CURRENT GAME STATE.", "ЗБЕРЕЖЕННЯМ." },
+    { "UNSAVED PROGRESS MAY BE LOST.", "НЕЗБЕРЕЖЕНЕ БУДЕ ВТРАЧЕНО." },
+    { "UNSAVED PROGRESS IS LOST", "НЕЗБЕРЕЖЕНЕ ВТРАЧЕНО" },
+    { "RANDOMIZER REQUIRES A NEW GAME.", "ПОТРІБНА НОВА ГРА." },
     { "THE ACTIVE PROFILE SAVE,", "ЗБЕРЕЖЕННЯ ПРОФІЛЮ," },
     { "AUTOSAVES, SAVESTATES, AND", "АВТОЗБЕРЕЖЕННЯ, СТАНИ ТА" },
     { "RANDOMIZER DATA WILL BE", "ДАНІ РАНДОМАЙЗЕРА БУДЕ" },
     { "DELETED. THE ROM IS KEPT.", "ВИДАЛЕНО. ROM ЗАЛИШИТЬСЯ." },
     { "THE GAME WILL RESTART.", "ГРА ПЕРЕЗАПУСТИТЬСЯ." },
+    /* developer-row results (port/port_dump_state.c Port_DumpState_ResultLabel) */
+    { "LOADED", "ВІДНОВЛЕНО" },
+    { "LEGACY", "СТАРИЙ" },
+    { "NO DUMP", "НЕМАЄ" },
+    { "NO STATE", "НЕМАЄ" },
+    { "INVALID", "ПОМИЛКА" },
+    { "WRONG ROM", "ІНШИЙ ROM" },
+    { "I O ERROR", "ПОМИЛКА" },
+    { "ERROR", "ПОМИЛКА" },
     /* R-button prompt stand-ins (kRActionWords) */
     { "DROP", "КИНУТИ" },
     { "THROW", "ЖБУРНУТИ" },
