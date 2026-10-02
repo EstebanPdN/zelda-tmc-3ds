@@ -165,6 +165,7 @@ static const PortUaPanelEntry kPortUaStrings[] = {
     { "PLEASE WAIT", "ЗАЧЕКАЙТЕ" },
     { "TAP RELEASE FOR CHANGELOG", "ТОРКНІТЬСЯ РЕЛІЗУ ДЛЯ ЗМІН" },
     { "CHANGELOG ON TOP SCREEN", "ЗМІНИ НА ВЕРХНЬОМУ ЕКРАНІ" },
+    { "Changelog", "Зміни" }, /* the "## Changelog" line of release notes */
     { "UPDATE INSTALLED", "ОНОВЛЕННЯ ВСТАНОВЛЕНО" },
     { "3DSX LAUNCH PATH UNKNOWN", "ШЛЯХ ЗАПУСКУ 3DSX НЕВІДОМИЙ" },
     { "CANNOT SAVE UPDATE CHANNEL", "НЕ ВДАЛОСЯ ЗБЕРЕГТИ КАНАЛ" },
@@ -313,6 +314,8 @@ static inline void Port_UA_EncodeText(const char* utf8, char* out, size_t cap, i
             code = 0x27;
         } else if (cp == 0x2013 || cp == 0x2014) { /* – — */
             code = '-';
+        } else if (cp == 0x00AB || cp == 0x00BB || cp == 0x201C || cp == 0x201D || cp == 0x201E) { /* « » “ ” „ */
+            code = '"';
         } else {
             code = '?';
         }

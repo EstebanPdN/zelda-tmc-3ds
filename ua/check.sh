@@ -55,6 +55,7 @@ grep -q '^CHANNEL: STABLE	4f415241503a20565741424c50c7524b4e$' "$OUT/big.txt" ||
 grep -q '^NEW 3DS	5253434120334656$' "$OUT/big.txt" || fail "NEW 3DS whole-string translation broke"
 grep -q '^Version v2.1	8c67f4f66c737420f9322e31$' "$OUT/small.txt" || fail "Latin fallback for the message font broke"
 printf 'BACK\n' | "$OUT/test_panel_text" big off | grep -q '^BACK	4241434b$' || fail "non-UA ROM must leave panel text untouched"
+printf '«Кінець»\n' | "$OUT/test_panel_text" small | grep -q '	22' || fail "« » must encode as a plain double quote"
 echo "PASS panel text translation/encoding"
 # 5. Boot splash: only a .gba with the TMC-UA marker selects the Ukrainian logo.
 cat > "$OUT/test_splash.c" <<'C'
