@@ -1,6 +1,7 @@
 /* Included by the existing compositor: reuse Minish Cap's runtime-decoded
  * stone plate, red header chip, pale buttons and native message fonts. */
 #include "updater.h"
+#include "port_ua.h" /* tloz-tmc-ua: Update_FormatNotesUtf8 for Cyrillic changelogs */
 #include <ctype.h>
 
 static bool sUpdateConfirm, sUpdateNotes;
@@ -155,7 +156,7 @@ bool Port_SecondScreen_3DS_PaintUpdateTop(uint32_t* pixels, int stride) {
         static char body[12289], formatted[512][43];
         if (notes && st.version[0]) Updater_GetNotes(body,sizeof(body));
         else snprintf(body,sizeof(body),"Installed: v%s\n\n%s\n\nSelect a release below to read its changelog.\nChoose Stable or Pre-release to check that channel.",TMC_PORT_VERSION,st.message);
-        unsigned n = Update_FormatNotes(body,formatted,512);
+        unsigned n = Update_FormatNotesUtf8(body,formatted,512,Port_IsUkrainianRom()); /* tloz-tmc-ua */
         count = 0;
         for (unsigned i=0; i<n && count<512; i++) {
             const char* text = formatted[i];

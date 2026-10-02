@@ -101,6 +101,11 @@ int Update_ParseRelease(const char *data, size_t size, bool pre, bool homebrew, 
 // Plain-text, word-wrapped release body for a 42-column handheld display.
 // Image/link destinations and Markdown markers are presentation, never actions.
 unsigned Update_FormatNotes(const char *md, char lines[][43], unsigned capacity) {
+  return Update_FormatNotesUtf8(md, lines, capacity, false);
+}
+// tloz-tmc-ua: utf8 keeps non-ASCII bytes (the Ukrainian panel font can draw
+// Cyrillic) and never splits a UTF-8 sequence when wrapping.
+unsigned Update_FormatNotesUtf8(const char *md, char lines[][43], unsigned capacity, bool utf8) {
   char clean[12289]; size_t n = 0;
   // TMC release bodies start with an experimental notice and QR. The handheld
   // changelog begins at the explicitly labelled section when one is present.
@@ -123,7 +128,7 @@ unsigned Update_FormatNotes(const char *md, char lines[][43], unsigned capacity)
     }
     unsigned char c = md[i++];
     if (c == '*' || c == '`' || c == '#' || c == '\r') continue;
-    if (c >= 128) continue;
+    if (c >= 128 && !utf8) continue; // tloz-tmc-ua
     clean[n++] = c;
   }
   clean[n] = 0;
@@ -137,6 +142,7 @@ unsigned Update_FormatNotes(const char *md, char lines[][43], unsigned capacity)
       take = 42;
       while (take && p[take] != ' ') take--;
       if (!take) take = 42;
+      while (utf8 && take > 1 && ((unsigned char)p[take] & 0xC0) == 0x80) take--; // tloz-tmc-ua
     }
     memcpy(lines[count], p, take); lines[count++][take] = 0;
     p += take; if (*p == '\n') p++;

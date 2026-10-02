@@ -19,6 +19,7 @@ grep -q 'Port_UA_JapaneseSubtitle(this)' src/object/japaneseSubtitle.c || fail "
 grep -q 'Port_UA_KinstoneFuserName' src/menu/kinstoneMenu.c || fail "kinstoneMenu.c lost the Port_UA_KinstoneFuserName hook"
 grep -q 'Port_UA_KinstoneHeaderX' src/menu/pauseMenu.c || fail "pauseMenu.c lost the Port_UA_KinstoneHeaderX hook"
 grep -q 'Port_UA_SplashPath' platform/3ds/source/platform_3ds.c || fail "platform_3ds.c lost the Port_UA_SplashPath() splash hook"
+grep -q 'Update_FormatNotesUtf8(body,formatted,512,Port_IsUkrainianRom())' platform/3ds/source/update_ui_3ds.inc || fail "update_ui_3ds.inc lost the Cyrillic changelog hook"
 grep -q 'splash-ua.rgb565' platform/3ds/CMakeLists.txt || fail "platform/3ds/CMakeLists.txt no longer copies romfs/splash-ua.rgb565"
 [ "$(stat -c %s platform/3ds/romfs/splash-ua.rgb565)" = "192000" ] || fail "romfs/splash-ua.rgb565 must be 400x240 RGB565 (192000 bytes); run ua/make_splash.py"
 
@@ -65,4 +66,37 @@ python3 -c 'import sys; d = bytearray(b"\xff" * 0x1000000); d[0xFFFFF0:0xFFFFF8]
 ! "$OUT/test_splash" "$OUT/retail.gba" || fail "retail ROM must keep the upstream splash"
 ! "$OUT/test_splash" "$OUT/missing.gba" || fail "missing ROM must keep the upstream splash"
 echo "PASS boot splash selection"
+# 6. Changelog: Cyrillic survives only in UTF-8 mode, and wrapping never splits a letter.
+if echo '#include <jansson.h>' | ${CC:-gcc} -E -x c - >/dev/null 2>&1; then
+    cat > "$OUT/test_notes.c" <<'C'
+#include <stdio.h>
+#include <string.h>
+#include "update_manifest.h"
+int main(void) {
+    static char lines[16][43];
+    const char* ua = "Українська збірка порту на основі офіційної версії";
+    unsigned n = Update_FormatNotes(ua, lines, 16);
+    for (unsigned i = 0; i < n; i++)
+        for (const char* c = lines[i]; *c; c++) if ((unsigned char)*c >= 0x80) return puts("ASCII mode must drop Cyrillic"), 1;
+    n = Update_FormatNotesUtf8(ua, lines, 16, true);
+    char joined[256] = "";
+    for (unsigned i = 0; i < n; i++) {
+        size_t len = strlen(lines[i]);
+        if (!len || (lines[i][len - 1] & 0xC0) == 0xC0 || (lines[i][0] & 0xC0) == 0x80) return puts("split UTF-8"), 1;
+        if (i) strcat(joined, " ");
+        strcat(joined, lines[i]);
+    }
+    if (strcmp(joined, ua)) return printf("lost text: %s\n", joined), 1;
+    n = Update_FormatNotesUtf8("ААААААААААААААААААААААААААААААААААААААААААААААААА", lines, 16, true);
+    for (unsigned i = 0; i < n; i++) if (strlen(lines[i]) % 2) return puts("split UTF-8 without spaces"), 1;
+    return 0;
+}
+C
+    ${CC:-gcc} -std=gnu11 -Wall -Werror -Iplatform/3ds/source "$OUT/test_notes.c" platform/3ds/source/update_manifest.c \
+        -ljansson -o "$OUT/test_notes"
+    "$OUT/test_notes" || fail "Cyrillic changelog formatting broke"
+    echo "PASS changelog UTF-8 formatting"
+else
+    echo "SKIP changelog UTF-8 formatting (no jansson headers: apt install libjansson-dev)"
+fi
 echo "All tloz-tmc-ua checks passed."
