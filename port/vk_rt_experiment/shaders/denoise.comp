@@ -1,0 +1,169 @@
+/* port/vk_rt_experiment/shaders/denoise.comp
+ *
+ * Slice-7 edge-stopping a-trous wavelet denoiser. Single shader is
+ * dispatched 3 times with strides 1, 2, 4 (à-la SVGF) to clean up
+ * the noise from one-sample-per-pixel path tracing while preserving
+ * geometric and material edges.
+ *
+ * Weights per neighbour sample (j) relative to the centre pixel (i):
+ *   w_color  = exp( -|c_i - c_j|^2 / sigma_c^2 )    — edge in shading
+ *   w_normal = max(0, n_i · n_j)^sigma_n            — edge in normal
+ *   w_pos    = exp( -|p_i - p_j|^2 / sigma_p^2 )    — edge in geometry
+ *
+ * w_total = w_color * w_normal * w_pos
+ * out_i = (sum over j of w_total * c_j) / (sum w_total)
+ *
+ * The colour reference (c) used for w_color is the *original* accum-
+ * image value at both the centre and the neighbour, never the
+ * previous-pass output — that way successive passes don't drift the
+ * weights and over-blur. The "smoothed" colour comes from the src
+ * binding which IS the previous-pass output.
+ *
+ * Final pass (push.finalPass == 1) applies Reinhard tonemap before
+ * writing — earlier passes stay HDR for further filtering.
+ */
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, rgba32f) uniform image2D srcImage;
+layout(set = 0, binding = 1, rgba32f) uniform image2D dstImage;
+layout(set = 0, binding = 2, rgba32f) uniform image2D gNormal;
+layout(set = 0, binding = 3, rgba32f) uniform image2D gHitPos;
+layout(set = 0, binding = 4, rgba32f) uniform image2D accumRef;
+
+layout(push_constant) uniform PushConstants {
+    uint  stride;       /* 1, 2, 4, ... for successive wavelet passes */
+    float exposure;     /* tonemap exposure on the final pass */
+    uint  finalPass;    /* 1 → apply Reinhard + write to RGBA8-ish range */
+    uint  pad;
+} pc;
+
+const float kSigmaC = 0.6;
+const float kSigmaP = 1.0;
+const float kSigmaN = 32.0;
+
+/* 5×5 stencil with binomial weights — same as the SVGF reference. */
+const float kKernel5x5[25] = float[25](
+    1.0/256.0, 4.0/256.0, 6.0/256.0, 4.0/256.0, 1.0/256.0,
+    4.0/256.0,16.0/256.0,24.0/256.0,16.0/256.0, 4.0/256.0,
+    6.0/256.0,24.0/256.0,36.0/256.0,24.0/256.0, 6.0/256.0,
+    4.0/256.0,16.0/256.0,24.0/256.0,16.0/256.0, 4.0/256.0,
+    1.0/256.0, 4.0/256.0, 6.0/256.0, 4.0/256.0, 1.0/256.0
+);
+
+void main() {
+    ivec2 px   = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(dstImage);
+    if (px.x >= size.x || px.y >= size.y) return;
+
+    vec3  centreCol = imageLoad(accumRef, px).rgb;
+    vec3  centreN   = imageLoad(gNormal, px).rgb;
+    vec3  centreP   = imageLoad(gHitPos, px).rgb;
+
+    /* If the primary ray missed (no normal stored), gNormal stays at
+     * the rgen-init value (0,0,-1) but gHitPos is (0,0,0).  In that
+     * case skip filtering and pass the source through directly so the
+     * sky stays clean. */
+    bool primaryMissed = length(centreP) < 0.0001;
+
+    vec3  sumCol = vec3(0.0);
+    float sumW   = 0.0;
+
+    if (primaryMissed) {
+        sumCol = imageLoad(srcImage, px).rgb;
+        sumW   = 1.0;
+    } else {
+        const int kRadius = 2;
+        int idx = 0;
+        for (int dy = -kRadius; dy <= kRadius; ++dy) {
+            for (int dx = -kRadius; dx <= kRadius; ++dx, ++idx) {
+                ivec2 q = px + ivec2(dx, dy) * int(pc.stride);
+                if (q.x < 0 || q.y < 0 || q.x >= size.x || q.y >= size.y) continue;
+
+                vec3 qCol = imageLoad(accumRef, q).rgb;
+                vec3 qN   = imageLoad(gNormal, q).rgb;
+                vec3 qP   = imageLoad(gHitPos, q).rgb;
+
+                /* Reject samples where the primary ray missed at that
+                 * neighbour — they hold meaningless guide data. */
+                if (length(qP) < 0.0001) continue;
+
+                vec3  dC = centreCol - qCol;
+                float wC = exp(-dot(dC, dC) / (kSigmaC * kSigmaC + 1e-4));
+
+                vec3  dP = centreP - qP;
+                float wP = exp(-dot(dP, dP) / (kSigmaP * kSigmaP + 1e-4));
+
+                float nDot = max(0.0, dot(centreN, qN));
+                float wN = pow(nDot, kSigmaN);
+
+                float w = wC * wP * wN * kKernel5x5[idx];
+
+                /* Use the SOURCE (previous-pass) colour for the weighted
+                 * blur output, not the reference accum.  The accum ref
+                 * only feeds the edge-stop weights. */
+                vec3 src = imageLoad(srcImage, q).rgb;
+                sumCol += w * src;
+                sumW   += w;
+            }
+        }
+        if (sumW <= 0.0) {
+            sumCol = imageLoad(srcImage, px).rgb;
+            sumW   = 1.0;
+        }
+    }
+
+    vec3 filtered = sumCol / sumW;
+
+    /* Final pass: bloom gather + Reinhard tonemap + dither → LDR.
+     * Intermediate passes keep HDR so successive wavelet passes don't
+     * truncate signal. */
+    if (pc.finalPass != 0u) {
+        /* Slice-13 bloom: sample the partially-denoised srcImage
+         * (not the raw accumRef — that's the noisy 1spp signal and
+         * threshold-based bloom would flicker in/out per frame).
+         * Add the OVER-bright portion of each neighbour back with a
+         * Gaussian falloff so emissives glow into surrounding tiles.
+         * High threshold (>1.5) + low strength (0.10) keeps the
+         * effect subtle on UI/text — the user reported "noise on
+         * title screen" when this was aggressive. */
+        const int kBloomRadius = 6;
+        const float kBloomThreshold = 1.5;
+        vec3 bloom = vec3(0.0);
+        float bloomW = 0.0;
+        for (int dy = -kBloomRadius; dy <= kBloomRadius; dy += 2) {
+            for (int dx = -kBloomRadius; dx <= kBloomRadius; dx += 2) {
+                ivec2 q = px + ivec2(dx, dy);
+                if (q.x < 0 || q.y < 0 || q.x >= size.x || q.y >= size.y) continue;
+                vec3 c = imageLoad(srcImage, q).rgb;
+                float over = max(0.0, max(max(c.r, c.g), c.b) - kBloomThreshold);
+                if (over <= 0.0) continue;
+                float d2 = float(dx * dx + dy * dy);
+                float w  = exp(-d2 / (2.0 * float(kBloomRadius * kBloomRadius)));
+                bloom  += c * over * w;
+                bloomW += w;
+            }
+        }
+        if (bloomW > 0.0) bloom /= bloomW;
+
+        /* Reinhard tonemap with exposure. */
+        vec3 hdr = (filtered + bloom * 0.10) * pc.exposure;
+        vec3 ldr = hdr / (hdr + vec3(1.0));
+
+        /* Slice-13 dithering: small per-pixel offset breaks up the
+         * 1-bit gradient banding Reinhard introduces in dark/uniform
+         * regions.  Amplitude ±0.25/255 (half a quantisation step) —
+         * just enough to dither the boundary without becoming
+         * visible as grain on flat UI. */
+        uvec2 hp  = uvec2(px);
+        uint  hash = (hp.x * 1973u + hp.y * 9277u);
+        hash = (hash ^ (hash >> 13)) * 277803737u;
+        float dither = (float(hash & 0xFFu) / 255.0 - 0.5) / 510.0;
+        ldr += vec3(dither);
+
+        imageStore(dstImage, px, vec4(ldr, 1.0));
+    } else {
+        imageStore(dstImage, px, vec4(filtered, 1.0));
+    }
+}

@@ -1,0 +1,516 @@
+/* port/vk_rt_experiment/shaders/path_trace.rgen
+ *
+ * Multi-bounce path tracer for the pseudo-3D-projected GBA scene.
+ * Bounces a ray off opaque surfaces up to kMaxBounces times,
+ * accumulating emissive radiance × throughput at each hit. Includes
+ * a PCG-hash RNG seeded by pixel + frame for Monte-Carlo integration
+ * and a progressive-accumulation buffer (bound at set 0 binding 6)
+ * for noise reduction across frames.
+ *
+ * Pairs with path_trace.rchit, which writes the per-hit material
+ * data into the PathPayload struct. The two files MUST keep the
+ * payload struct identical — any change here needs the same change
+ * in the rchit.
+ *
+ * Host-side requirements (not yet wired in the current scaffold):
+ *   - set 0 binding 6: accumImage (storage_image, rgba16f recommended)
+ *   - push constant `pc.params.w` = 1.0 on the first frame after a
+ *     scene change (clears the accumulation), 0.0 thereafter
+ *   - Vertex layout extended with material flags and normals (the
+ *     rchit reads them; this rgen just consumes the payload)
+ */
+#version 460
+#extension GL_EXT_ray_tracing : require
+#extension GL_EXT_nonuniform_qualifier : require
+
+/* Payload struct — written by path_trace.rchit, read here.
+ * Keep this byte-identical between the two files. */
+struct PathPayload {
+    vec3  radiance;       /* emissive radiance picked up at this hit */
+    vec3  albedo;         /* surface diffuse colour */
+    vec3  hitPos;         /* world-space hit position (for next bounce origin) */
+    vec3  normal;         /* world-space surface normal */
+    float hitDistance;    /* gl_HitTEXT on hit, <0 on miss */
+    uint  materialFlags;  /* bit 0: translucent  bit 1: emissive */
+    vec3  scatterDir;     /* if translucent, the forward-scatter direction */
+};
+
+layout(location = 0) rayPayloadEXT PathPayload payload;
+
+/* Descriptor bindings — match RayTracingPipeline.cpp's layout. */
+layout(set = 0, binding = 0) uniform accelerationStructureEXT topLevelAS;
+/* outputImage is the swap-bound RGBA8 surface; tonemap to LDR
+ * before writing. accumImage stays HDR via rgba32f so progressive
+ * accumulation doesn't bias toward bright. */
+layout(set = 0, binding = 1, rgba8)   uniform image2D outputImage;
+layout(set = 0, binding = 6, rgba32f) uniform image2D accumImage;
+/* Slice-7 denoiser guides — the rgen writes the primary hit's
+ * world-space normal and position so the compute filter can use
+ * them as edge-stopping references. */
+layout(set = 0, binding = 10, rgba32f) uniform image2D gNormalImage;
+layout(set = 0, binding = 11, rgba32f) uniform image2D gHitPosImage;
+
+/* Slice-6 point lights — extracted from the OAM-only sprite plane on
+ * the CPU side per frame.  Layout MUST match RayTracingPipeline::Light. */
+struct PointLight {
+    vec3  pos;       /* world-space centre of the bright cluster */
+    float radius;    /* falloff distance (world units) */
+    vec3  color;     /* normalized [0,1] colour from the sprite texel */
+    float intensity; /* HDR scale; tonemap brings back into LDR */
+};
+layout(set = 0, binding = 9, std430) readonly buffer Lights {
+    PointLight l[];
+} lights;
+
+layout(push_constant) uniform PushConstants {
+    vec4 params;     /* x=frameIndex y=time z=exposure w=resetAccum */
+    uint numLights;  /* slice 6: active entries in `lights` */
+} pc;
+
+/* Material-flag bits (kept in sync with rchit). */
+const uint kMaterialTranslucent = 1u;
+const uint kMaterialEmissive    = 2u;
+const uint kMaterialReflective  = 4u;  /* slice 8 — water; slice 9 — metal */
+const uint kMaterialLava        = 8u;  /* slice 9 — animated shimmer + glow */
+
+/* Path-tracing constants. kMaxBounces = 3 covers direct + 2 indirect
+ * bounces — enough for visible colour bleeding without exploding
+ * the per-pixel ray count. Russian roulette below trims branches
+ * with small throughput. */
+const int   kMaxBounces        = 3;
+const int   kSamplesPerPixel   = 1;     /* per frame; accumulation handles noise */
+const float kRayEpsilon        = 0.001;
+const float kPI                = 3.14159265358979323846;
+const float kInf               = 1.0e30;
+
+/* ---- PCG hash RNG ---- */
+/* O'Neill's PCG (XSH-RR variant), 32-bit state, returns uniform u32. */
+uint pcgHash(uint state) {
+    state = state * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+uint   rngState = 0u;
+float  rand() {
+    rngState = pcgHash(rngState);
+    return float(rngState) * (1.0 / 4294967296.0);
+}
+
+/* Seed the RNG with pixel + frame + an extra salt so rays per
+ * bounce don't reuse the same 2D point. */
+void seedRng(uvec2 pixel, uint frameIdx, uint salt) {
+    rngState = pixel.x * 1973u + pixel.y * 9277u + frameIdx * 26699u + salt;
+    rngState = pcgHash(rngState);
+    rngState = pcgHash(rngState);  /* one extra round so close pixels diverge */
+}
+
+/* ---- Hemisphere sampling ---- */
+/* Cosine-weighted hemisphere sample in TANGENT space (z = up). The
+ * PDF is cos(theta)/PI — which exactly cancels the Lambertian cosine
+ * term in the path-tracing integral, so we don't need to multiply or
+ * divide by it explicitly when accumulating throughput. */
+vec3 cosineSampleHemisphere(float u1, float u2) {
+    float r   = sqrt(u1);
+    float phi = 2.0 * kPI * u2;
+    return vec3(r * cos(phi), r * sin(phi), sqrt(max(0.0, 1.0 - u1)));
+}
+
+/* Build an orthonormal tangent frame around `n`. Pixar's "Building an
+ * Orthonormal Basis from a Unit Vector": branchless, single sqrt.
+ * Output is t, b, n forming a right-handed basis. */
+void buildTangentFrame(vec3 n, out vec3 t, out vec3 b) {
+    float sign = n.z >= 0.0 ? 1.0 : -1.0;
+    float a    = -1.0 / (sign + n.z);
+    float c    = n.x * n.y * a;
+    t = vec3(1.0 + sign * n.x * n.x * a, sign * c, -sign * n.x);
+    b = vec3(c, sign + n.y * n.y * a, -n.y);
+}
+
+/* ---- Environment / sky ---- */
+/* Cheap analytic sky: vertical gradient from horizon (warm) to
+ * zenith (cool). Half-intensity so it doesn't dominate emissives. */
+vec3 sampleSky(vec3 dir) {
+    float t = clamp(0.5 + 0.5 * dir.y, 0.0, 1.0);
+    return mix(vec3(0.45, 0.55, 0.72), vec3(0.85, 0.88, 0.95), t) * 0.5;
+}
+
+/* ---- Main ---- */
+void main() {
+    const uvec2 pixel = gl_LaunchIDEXT.xy;
+    const uvec2 size  = gl_LaunchSizeEXT.xy;
+    const uint  frameIdx = uint(pc.params.x);
+
+
+    /* Orthographic camera over the GBA playfield (240×160 world
+     * units). Camera at z=-1.0, looking +z. Each launch ID maps 1:1
+     * to a swapchain pixel; the trace's world coords are scaled from
+     * the launch ratio. */
+    vec2 uvPix   = (vec2(pixel) + 0.5) / vec2(size);
+    vec2 worldXY = uvPix * vec2(240.0, 160.0);
+
+    vec3 sampleAccum = vec3(0.0);
+
+    for (int s = 0; s < kSamplesPerPixel; ++s) {
+        seedRng(pixel, frameIdx, uint(s));
+
+        /* Optional sub-pixel jitter for anti-aliasing. Keep it small
+         * so the pixel-art aesthetic isn't smeared. */
+        vec2 jitter = vec2(rand(), rand()) - 0.5;
+        vec2 origXY = worldXY + jitter * (vec2(240.0, 160.0) / vec2(size));
+
+        vec3 rayOrigin = vec3(origXY, -1.0);
+        vec3 rayDir    = vec3(0.0, 0.0, 1.0);
+
+        /* RTX direct-lighting + multi-sample AO + emissive-GI
+         * model for the stacked-quad scene. Per pixel:
+         *   1 primary ray   — gets surface albedo, normal, mat
+         *   4 shadow rays   — jittered cone around sun, soft shadow
+         *   4 AO rays       — short hemisphere, crevice darkening
+         *   1 emissive-GI   — random hemisphere, picks up emissive
+         *                     lighting on nearby glowing sprites
+         * Then progressive temporal accumulation (low-alpha blend)
+         * for noise reduction without ghosting on moving content. */
+        payload.radiance      = vec3(0.0);
+        payload.albedo        = vec3(0.0);
+        payload.hitPos        = vec3(0.0);
+        payload.normal        = vec3(0.0, 0.0, -1.0);
+        payload.hitDistance   = -1.0;
+        payload.materialFlags = 0u;
+        payload.scatterDir    = vec3(0.0);
+        traceRayEXT(
+            topLevelAS, gl_RayFlagsNoneEXT, 0xFF, 0, 0, 0,
+            rayOrigin, kRayEpsilon, rayDir, kInf, 0
+        );
+
+        /* Capture guide data BEFORE secondary rays overwrite payload.
+         * On miss: write (0,0,-1) normal and (0,0,0) position so the
+         * denoise compute shader can detect "no primary hit" via
+         * length(gHitPos) < epsilon and skip filtering for the sky. */
+        if (payload.hitDistance < 0.0) {
+            imageStore(gNormalImage, ivec2(pixel), vec4(0.0, 0.0, -1.0, 0.0));
+            imageStore(gHitPosImage, ivec2(pixel), vec4(0.0));
+        } else {
+            imageStore(gNormalImage, ivec2(pixel), vec4(payload.normal, 0.0));
+            imageStore(gHitPosImage, ivec2(pixel), vec4(payload.hitPos, 1.0));
+        }
+
+        if (payload.hitDistance < 0.0) {
+            sampleAccum = sampleSky(rayDir);
+        } else {
+            const vec3 albedo     = payload.albedo;
+            const vec3 hitPos     = payload.hitPos;
+            const vec3 hitN       = payload.normal;
+            const bool isEmissive = (payload.materialFlags & kMaterialEmissive) != 0u;
+            const bool isLava     = (payload.materialFlags & kMaterialLava)     != 0u;
+
+            if (isLava) {
+                /* Lava: very strong emissive radiance + animated
+                 * shimmer driven by world-position and time, so the
+                 * surface visibly pulses and ripples. Stronger
+                 * radiance multiplier than regular emissives so the
+                 * GI bounce lights neighbouring walls noticeably. */
+                float t       = pc.params.y;
+                float ripple1 = sin(hitPos.x * 0.32 + t * 2.7) *
+                                cos(hitPos.y * 0.27 - t * 2.1);
+                float ripple2 = sin(hitPos.x * 0.11 - hitPos.y * 0.09 + t * 1.3);
+                float shimmer = 0.85 + 0.30 * ripple1 + 0.20 * ripple2;
+                sampleAccum = albedo * vec3(5.0, 3.0, 1.2) * shimmer;
+            } else if (isEmissive) {
+                /* Regular emissive (lit sprite pixels — fire bulb,
+                 * sparkle, lantern flame).  Warm, overexposed self-
+                 * glow.  Tonemap pulls it toward white but it stays
+                 * warm. */
+                sampleAccum = albedo * vec3(3.5, 3.0, 2.5);
+            } else {
+                /* --- Direct sun via soft shadow (4 jittered samples) --- */
+                const vec3 sunDir = normalize(vec3(0.80, -0.60, -0.02));
+                const int  kShadowSamples = 4;
+                float litFrac = 0.0;
+                for (int s = 0; s < kShadowSamples; ++s) {
+                    vec3 j  = vec3(rand() - 0.5, rand() - 0.5, rand() - 0.5);
+                    vec3 sd = normalize(sunDir + j * 0.06);
+                    payload.hitDistance = -1.0;
+                    traceRayEXT(topLevelAS,
+                        gl_RayFlagsTerminateOnFirstHitEXT,
+                        0xFF, 0, 0, 0,
+                        hitPos + sd * (kRayEpsilon * 4.0),
+                        kRayEpsilon, sd, kInf, 0);
+                    if (payload.hitDistance < 0.0) litFrac += 1.0;
+                }
+                litFrac /= float(kShadowSamples);
+
+                /* --- Multi-bounce indirect lighting ---
+                 * Replace AO + emissive-GI with a true path-traced
+                 * indirect light integrator.  Two bounces, one sample
+                 * each, cosine-weighted hemisphere.  Lambertian BRDF
+                 * (albedo/π) cancels the cos·1/π in the cosine-PDF,
+                 * leaving a clean `throughput *= hit_albedo` update
+                 * per bounce.
+                 *
+                 * Each bounce hit contributes:
+                 *   direct: sun · hit_albedo · max(N·L, 0) · shadow
+                 *   emissive: emissive_radiance (if tagged)
+                 *   indirect: → recurse via throughput
+                 *
+                 * Russian roulette terminates paths whose throughput
+                 * has collapsed below the survival threshold so we
+                 * don't waste samples on dim contributors.
+                 *
+                 * Coordinates from the primary hit's normal + the
+                 * captured local frame; subsequent bounces rebuild
+                 * a fresh frame at each new hit. */
+                vec3 tang, bitan;
+                buildTangentFrame(hitN, tang, bitan);
+
+                vec3 indirect   = vec3(0.0);
+                vec3 throughput = albedo;       /* primary surface BRDF */
+                vec3 curOrigin  = hitPos;
+                vec3 curNormal  = hitN;
+                vec3 curTang    = tang;
+                vec3 curBitan   = bitan;
+
+                const int kBounces = 2;
+                for (int b = 0; b < kBounces; ++b) {
+                    /* Cosine-weighted hemisphere sample around current normal. */
+                    vec3 local = cosineSampleHemisphere(rand(), rand());
+                    vec3 wi    = normalize(local.x * curTang +
+                                           local.y * curBitan +
+                                           local.z * curNormal);
+                    payload.hitDistance   = -1.0;
+                    payload.albedo        = vec3(0.0);
+                    payload.materialFlags = 0u;
+                    traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, 0xFF, 0, 0, 0,
+                                curOrigin + curNormal * (kRayEpsilon * 4.0),
+                                kRayEpsilon, wi, 200.0, 0);
+
+                    if (payload.hitDistance < 0.0) {
+                        /* Sky contribution at the end of the chain. */
+                        indirect += throughput * sampleSky(wi);
+                        break;
+                    }
+
+                    vec3 bAlbedo = payload.albedo;
+                    vec3 bPos    = payload.hitPos;
+                    vec3 bN      = payload.normal;
+                    bool bEmit   = (payload.materialFlags & kMaterialEmissive) != 0u;
+
+                    /* Emissive surface — pure radiance contribution.
+                     * Stop the chain (emitter terminates the bounce). */
+                    if (bEmit) {
+                        indirect += throughput * bAlbedo * vec3(3.5, 3.0, 2.5);
+                        break;
+                    }
+
+                    /* Direct sun at this bounce hit (one shadow ray, NdotL). */
+                    float NdotL = max(dot(bN, sunDir), 0.0);
+                    if (NdotL > 0.0) {
+                        payload.hitDistance = -1.0;
+                        traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT,
+                                    0xFF, 0, 0, 0,
+                                    bPos + sunDir * (kRayEpsilon * 4.0),
+                                    kRayEpsilon, sunDir, kInf, 0);
+                        if (payload.hitDistance < 0.0) {
+                            indirect += throughput * bAlbedo * NdotL *
+                                        vec3(1.55, 1.40, 1.10);
+                        }
+                    }
+
+                    /* Update throughput for the next bounce.  Lambertian
+                     * absorbs into the BRDF·cos·1/PDF = albedo cancel. */
+                    throughput *= bAlbedo;
+
+                    /* Russian roulette — kill paths whose throughput is
+                     * too dim to pay for another bounce.  Threshold 0.08
+                     * keeps the brightest 90%-ish of contributors.  Skip
+                     * RR on the last bounce since we'd just break anyway. */
+                    float survival = max(max(throughput.r, throughput.g), throughput.b);
+                    if (b < kBounces - 1 && survival < 0.08) break;
+
+                    /* Re-orient for next bounce. */
+                    curOrigin = bPos;
+                    curNormal = bN;
+                    buildTangentFrame(bN, curTang, curBitan);
+                }
+
+                /* --- Slice 6: direct point-light contribution ---
+                 * Importance-sample ONE of the extracted point lights
+                 * (per-pixel random pick) and weight by 1/p = N.  This
+                 * keeps per-pixel cost flat regardless of light count
+                 * — temporal accumulation averages the picks across
+                 * frames so all lights contribute correctly.  Cast a
+                 * shadow ray to the light; skip if blocked. */
+                vec3 ptLight = vec3(0.0);
+                if (pc.numLights > 0u) {
+                    uint pick = uint(floor(rand() * float(pc.numLights)));
+                    if (pick >= pc.numLights) pick = pc.numLights - 1u;
+                    PointLight L = lights.l[pick];
+
+                    vec3  ldir   = L.pos - hitPos;
+                    float dist   = length(ldir);
+                    vec3  lwi    = ldir / max(dist, 1e-6);
+
+                    /* Inverse-square-ish falloff with smooth cutoff at L.radius. */
+                    float falloff = max(0.0, 1.0 - dist / L.radius);
+                    falloff = falloff * falloff;
+                    float NdotL = max(dot(hitN, lwi), 0.0);
+
+                    if (NdotL > 0.0 && falloff > 0.0) {
+                        payload.hitDistance = -1.0;
+                        traceRayEXT(topLevelAS,
+                            gl_RayFlagsTerminateOnFirstHitEXT,
+                            0xFF, 0, 0, 0,
+                            hitPos + lwi * (kRayEpsilon * 4.0),
+                            kRayEpsilon, lwi, dist - kRayEpsilon, 0);
+                        if (payload.hitDistance < 0.0) {
+                            ptLight = albedo * L.color * L.intensity
+                                      * NdotL * falloff
+                                      * float(pc.numLights);  /* 1/p compensation */
+                        }
+                    }
+                }
+
+                /* --- Slice 8: water-tile mirror reflection ---
+                 * For surfaces flagged reflective (water), cast a
+                 * single reflection ray.  Use a slightly tilted
+                 * normal (not the geometric +Z) so the reflection
+                 * picks up sprites above the water position in
+                 * screen space — gives the classic Zelda "Link's
+                 * reflection in the lake" effect on top of the
+                 * diffuse water colour.  Mix by a Fresnel-ish
+                 * factor so glancing pixels reflect more strongly.
+                 */
+                vec3 reflection = vec3(0.0);
+                float reflWeight = 0.0;
+                vec3 caustics = vec3(0.0);
+                if ((payload.materialFlags & kMaterialReflective) != 0u) {
+                    /* Slice 10: time-driven ripple noise on the reflection
+                     * normal — gives the surface a moving "broken-mirror"
+                     * shimmer instead of a static parallax illusion.  Two
+                     * octaves of sin/cos at offset world positions blend
+                     * cleanly without obvious patterns. */
+                    float t = pc.params.y;
+                    float wave1x = sin(hitPos.x * 0.42 + t * 1.7) *
+                                   cos(hitPos.y * 0.31 - t * 1.3);
+                    float wave1y = cos(hitPos.x * 0.37 - t * 1.5) *
+                                   sin(hitPos.y * 0.46 + t * 1.9);
+                    float wave2x = sin(hitPos.x * 0.18 + hitPos.y * 0.21 + t * 0.9);
+                    float wave2y = cos(hitPos.x * 0.22 - hitPos.y * 0.17 - t * 1.1);
+                    /* Amplitude ~0.08 keeps the ripple subtle — the
+                     * underlying tilted-toward-Y normal still dominates
+                     * so Link's reflection stays recognisably "above"
+                     * the water surface rather than dancing wildly. */
+                    vec3 ripple = vec3(0.08 * wave1x + 0.04 * wave2x,
+                                       -0.3 + 0.08 * wave1y + 0.04 * wave2y,
+                                       -0.95);
+                    vec3 wN = normalize(ripple);
+                    vec3 r  = reflect(rayDir, wN);
+                    payload.hitDistance = -1.0;
+                    payload.albedo      = vec3(0.0);
+                    traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, 0xFF, 0, 0, 0,
+                                hitPos + r * (kRayEpsilon * 4.0),
+                                kRayEpsilon, r, 200.0, 0);
+                    if (payload.hitDistance > 0.0) {
+                        reflection = payload.albedo;
+                    } else {
+                        reflection = sampleSky(r);
+                    }
+                    /* Slice 10: caustic overlay — bright moving spots
+                     * approximating focused sunlight through wave crests.
+                     * Higher-frequency animated voronoi-ish pattern; the
+                     * pow() concentrates the bright peaks while keeping
+                     * the troughs dark, so the water surface looks like
+                     * it has sparkling highlights.  Tinted warm (sun
+                     * colour passing through water adds a slight yellow
+                     * tint). */
+                    float c1 = sin(hitPos.x * 0.62 + t * 2.4) *
+                               cos(hitPos.y * 0.55 - t * 1.8);
+                    float c2 = cos(hitPos.x * 0.83 - hitPos.y * 0.71 + t * 2.9);
+                    float causticIntensity = clamp(c1 * c1 * c2 * c2, 0.0, 1.0);
+                    causticIntensity = pow(causticIntensity, 4.0);  /* sharpen */
+                    caustics = vec3(1.30, 1.20, 0.90) * causticIntensity * litFrac;
+                    /* Schlick-style Fresnel approximation. */
+                    reflWeight = 0.45;
+                }
+
+                /* Combine direct sun + direct point-lights + indirect.
+                 * Sun uses the warm tint; shadowed surfaces fall back
+                 * to cool shadowTint so the warm/cool contrast still
+                 * shows. Indirect and point-light contributions
+                 * carry their own colour. For water, the reflection
+                 * blends with the direct colour by reflWeight. */
+                const vec3 sunTint    = vec3(1.55, 1.40, 1.10);
+                const vec3 shadowTint = vec3(0.30, 0.38, 0.62);
+                vec3 direct = albedo * mix(shadowTint, sunTint, litFrac);
+                vec3 baseShading = direct + ptLight + indirect;
+                /* Water: blend reflection + add caustics on top.
+                 * Non-water surfaces: caustics = 0 (no contribution). */
+                sampleAccum = mix(baseShading, baseShading + reflection, reflWeight)
+                              + caustics;
+
+                /* --- Slice 12: volumetric fog / god rays ---
+                 * March a FIXED depth slice from camera toward the
+                 * back layer, casting a shadow ray to the sun at each
+                 * step.  Using a constant march distance (rather than
+                 * camera→hit) keeps the per-pixel fog contribution
+                 * uniform whether the primary ray hit a near sprite
+                 * or the far BG composite — without that, Link would
+                 * appear in a "clear zone" (less fog accumulated)
+                 * surrounded by foggier BG, which read as a halo
+                 * ring around him.
+                 *
+                 * 6 steps at a constant 0.9-unit span (camera at -1.0,
+                 * stops at z≈-0.1 — just in front of the sprite layer
+                 * at z=0.2, so the march fog doesn't contribute past
+                 * any visible surface).  Per-pixel jitter randomises
+                 * sample positions so temporal accumulation gathers
+                 * different scene regions → less visible banding. */
+                {
+                    const vec3 sunDir = normalize(vec3(0.80, -0.60, -0.02));
+                    const int   kFogSteps = 6;
+                    const float kFogSpan  = 0.9;
+                    const float kFogDensity = 0.015;
+                    const vec3  kFogLitTint = vec3(1.10, 0.90, 0.55);
+
+                    vec3 fogAccum = vec3(0.0);
+                    float stepLen = kFogSpan / float(kFogSteps);
+                    float jitter  = rand();
+                    for (int s = 0; s < kFogSteps; ++s) {
+                        float t = (float(s) + jitter) * stepLen;
+                        vec3  pSample = rayOrigin + rayDir * t;
+                        payload.hitDistance = -1.0;
+                        traceRayEXT(topLevelAS,
+                            gl_RayFlagsTerminateOnFirstHitEXT,
+                            0xFF, 0, 0, 0,
+                            pSample, kRayEpsilon, sunDir, kInf, 0);
+                        if (payload.hitDistance < 0.0) {
+                            fogAccum += kFogLitTint * kFogDensity * stepLen;
+                        }
+                    }
+                    sampleAccum += fogAccum;
+                }
+            }
+        }
+
+        /* --- Temporal accumulation ---
+         * Live producer is animated, so straight averaging would
+         * ghost. Use a low-alpha blend (0.35) so the running mean
+         * catches up in ~3-4 frames — still smooths the AO/shadow
+         * noise without locking in old geometry. params.w == 1.0
+         * forces a hard reset (caller pushes that on scene
+         * change). */
+        vec3 final;
+        if (pc.params.w > 0.5) {
+            final = sampleAccum;
+        } else {
+            vec3 prev = imageLoad(accumImage, ivec2(pixel)).rgb;
+            const float kBlendAlpha = 0.35;
+            final = mix(prev, sampleAccum, kBlendAlpha);
+        }
+        imageStore(accumImage, ivec2(pixel), vec4(final, 1.0));
+        /* The denoise compute pipeline (slice 7) consumes accumImage
+         * via a 3-pass a-trous wavelet, applies the Reinhard tonemap
+         * on the final pass, and writes the LDR result into
+         * outputImage.  The rgen no longer touches outputImage. */
+    }
+}

@@ -1,0 +1,55 @@
+name: Build 3DS
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Nintendo 3DS packages
+    runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkitarm:latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install host tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends cmake make pkg-config zip
+          if ! dkp-pacman -Sy --noconfirm --needed 3dstools; then
+            echo "::warning::devkitPro package sync is unavailable; continuing with the tools bundled in the container."
+          fi
+
+      - name: Build universal CIA and 3DSX
+        run: ./platform/3ds/build.sh
+
+      - name: Verify build outputs and legal files
+        run: |
+          VERSION="$(tr -d '\r\n' < platform/3ds/version.txt)"
+          test ! -f baserom.gba
+          ! git ls-files | grep -Ei '(^|/)([^/]*\.gba|[^/]*\.sav|[^/]*\.ppu1|tmc3ds\.log|bugreport_.*)(/|$)'
+          ! git ls-files | grep -E '(^|/)(AGENTS\.md|PROTOCOL\.md|WORKFLOW\.md|GITHUB_RELEASE_WORKFLOW\.md)$'
+          test -f "build-3ds/game/tmc-3ds-v${VERSION}.3dsx"
+          if [ -f "build-3ds/game/tmc-3ds-v${VERSION}.cia" ]; then
+            echo "CIA package was built."
+          else
+            echo "CIA package skipped because makerom/bannertool are unavailable in CI."
+          fi
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: tmc-3ds-packages
+          if-no-files-found: error
+          path: |
+            build-3ds/game/tmc-3ds-v*.3dsx
+            build-3ds/game/tmc-3ds-v*.cia

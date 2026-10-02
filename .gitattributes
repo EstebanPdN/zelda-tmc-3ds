@@ -1,0 +1,28 @@
+*.pal text eol=crlf
+
+*.s text eol=lf
+*.txt text eol=lf
+Makefile text eol=lf
+*.mk text eol=lf
+*.c text eol=lf
+*.h text eol=lf
+*.pl text eol=lf
+*.inc text eol=lf
+*.sha1 text eol=lf
+*.sed text eol=lf
+*.sh text eol=lf
+android/gradlew text eol=lf
+*.json text eol=lf
+*.patch text eol=lf
+*.lua text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+
+*.png binary
+*.bin binary
+*.pcm binary
+
+*.h linguist-language=C
+*.inc linguist-language=Assembly
+data/** linguist-language=data
+tools/** linguist-vendored

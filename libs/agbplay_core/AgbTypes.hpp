@@ -1,0 +1,6 @@
+#pragma once
+
+#define AGB_MAP_ROM     0x08000000
+#define AGB_MAP_ROM_END 0x0A000000
+
+#define AGB_ROM_SIZE (AGB_MAP_ROM_END - AGB_MAP_ROM)

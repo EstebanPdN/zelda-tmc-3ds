@@ -1,0 +1,83 @@
+plugins { id "com.android.application" }
+
+// Version from the single source of truth (repo-root xmake.lua TMC_PC_VERSION).
+def tmcVersion = "0.0.0"
+def xmakeLua = file("${rootDir}/../xmake.lua")
+if (xmakeLua.exists()) {
+    def m = xmakeLua.readLines().find { it.contains("TMC_PC_VERSION =") }
+    if (m) {
+        def mm = (m =~ /"([^"]+)"/)
+        if (mm.find()) tmcVersion = mm.group(1)
+    }
+}
+
+// Monotonic versionCode from the dotted version so sideload upgrades install
+// without uninstall: a.b.c[.d] -> a*1_000_000 + b*10_000 + c*100 + d
+// (0.7.1.1 -> 70101, 0.8.0 -> 80000). Each component must stay < 100.
+def vparts = tmcVersion.tokenize('.').collect { it.isInteger() ? it.toInteger() : 0 }
+while (vparts.size() < 4) vparts << 0
+def tmcVersionCode = Math.max(1,
+    vparts[0] * 1000000 + vparts[1] * 10000 + vparts[2] * 100 + vparts[3])
+
+android {
+    namespace "dev.picori.tmc"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "dev.picori.tmc"
+        // SDL3 requires API 21+; the native lib is built for android-21.
+        minSdk 21
+        targetSdk 34
+        versionCode tmcVersionCode
+        versionName tmcVersion
+        // ABIs come from whatever xmake produced into ../build/android/<abi>/
+        // (see jniLibs sourceSets below) — no externalNativeBuild: the native
+        // lib is built by xmake, Gradle only packages it.
+    }
+
+    sourceSets {
+        main {
+            // xmake drops libmain.so into build/android/<abi>/ at repo root;
+            // point jniLibs straight at it so there is no copy step to forget.
+            jniLibs.srcDirs = ["${rootDir}/../build/android"]
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    // Release signing: CI provides a persistent keystore via env vars
+    // (TMC_KEYSTORE_FILE / TMC_KEYSTORE_PASSWORD, decoded from the
+    // ANDROID_KEYSTORE_B64 GitHub secret) so every release APK carries the
+    // same signature and upgrades install over each other. Without the env
+    // vars (local builds, forks without the secret) release falls back to
+    // the debug keystore — still a valid, installable signature, just not
+    // upgrade-stable across machines.
+    def ksFile = System.getenv("TMC_KEYSTORE_FILE")
+    def ksPass = System.getenv("TMC_KEYSTORE_PASSWORD")
+    if (ksFile != null && !ksFile.isEmpty()) {
+        signingConfigs {
+            picoriRelease {
+                storeFile file(ksFile)
+                storePassword ksPass
+                keyAlias System.getenv("TMC_KEY_ALIAS") ?: "tmc"
+                keyPassword System.getenv("TMC_KEY_PASSWORD") ?: ksPass
+            }
+        }
+    }
+    buildTypes {
+        debug { debuggable true }
+        release {
+            minifyEnabled false
+            signingConfig((ksFile != null && !ksFile.isEmpty())
+                ? signingConfigs.picoriRelease : signingConfigs.debug)
+        }
+    }
+    // libmain.so is ~50 MB with debug info; don't compress native libs
+    // (Android extracts uncompressed pages directly, required for 16 KB
+    // page alignment to survive packaging).
+    packagingOptions {
+        jniLibs { useLegacyPackaging false }
+    }
+}

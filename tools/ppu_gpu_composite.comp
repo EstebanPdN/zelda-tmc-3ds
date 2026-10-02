@@ -1,0 +1,52 @@
+#version 450
+/*
+ * ppu_gpu_composite.comp — GPU port of the priority-resolution core of
+ * virtuappu_mode1_composite_line (Phase 6b, increment 1: windows off, blend
+ * off). One invocation per pixel: scan priority 0..3, at each level OBJ first
+ * then BGs in priority-sorted order, take the first visible non-transparent
+ * layer (== the CPU's found_top). Output that colour, else the backdrop.
+ * Windows and blend (alpha/brighten/darken, semi-transparent OBJ) are later
+ * increments. Validated bit-exact vs the CPU oracle by ppu_gpu_composite_poc.c.
+ */
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, set = 0, binding = 0) readonly buffer BG   { uint bg[]; };      /* [b*width + x] */
+layout(std430, set = 0, binding = 1) readonly buffer OBJ  { uint objc[]; };    /* [x] */
+layout(std430, set = 0, binding = 2) readonly buffer OBJP { uint objp[]; };    /* [x] priority */
+layout(std430, set = 1, binding = 0) writeonly buffer OUT { uint outp[]; };
+
+layout(set = 2, binding = 0) uniform U {
+    ivec4 bg_enabled;     /* per BG index: 0/1 */
+    ivec4 bg_order;       /* priority-sorted BG indices */
+    ivec4 bg_order_pri;   /* per BG index: priority 0..3 */
+    int   width;
+    int   obj_enabled;
+    uint  backdrop;
+    int   _pad;
+} u;
+
+void main() {
+    int x = int(gl_GlobalInvocationID.x);
+    if (x >= u.width) return;
+
+    uint result = u.backdrop;
+    bool found = false;
+    for (int p = 0; p < 4 && !found; ++p) {
+        if (u.obj_enabled != 0 && objc[x] != 0u && int(objp[x]) == p) {
+            result = objc[x];
+            found = true;
+            break;
+        }
+        for (int oi = 0; oi < 4; ++oi) {
+            int b = u.bg_order[oi];
+            if (u.bg_enabled[b] == 0) continue;
+            if (u.bg_order_pri[b] != p) continue;
+            uint c = bg[b * u.width + x];
+            if (c == 0u) continue;
+            result = c;
+            found = true;
+            break;
+        }
+    }
+    outp[x] = result;
+}

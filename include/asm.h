@@ -1,0 +1,130 @@
+#ifndef ASM_H
+#define ASM_H
+
+#include "global.h"
+
+extern u32 Random(void);
+extern u32 GetRandomByWeight(const u8*);
+extern void CloneTile(u32, u32, u32);
+
+extern void SetTile(u32 tileIndex, u32 tilePos, u32 layer);
+
+extern void UpdateScrollVram(void);
+extern u32 sub_080B1BA4(u32, u32, u32);
+extern void LoadResourceAsync(const void* src, void* dest, u32 size);
+/* Issue #142 (talking to Tingle crashes): GetFuserId packs two results — the
+ * fuser id (low 32) and the fuser text id (high 32). On GBA it's declared u32
+ * (upstream zeldaret/tmc), so the simple callers `gSave.kinstones.fuserProgress[
+ * GetFuserId(this)]` (tingleSiblings/din/farore/nayru) index with just the
+ * fuser id. A port commit (7ccca6769) widened this to u64; on 64-bit PC the
+ * un-truncated index then includes the non-zero high half (text id), so the
+ * array subscript lands ~2.7 TB out of range and SIGSEGVs. On GBA the index is
+ * 32-bit regardless, so it never showed there. Restore the u32 declaration to
+ * match upstream — callers needing both halves use GetFuserIdAndFuserTextId,
+ * which reinterpret-casts the function pointer and is unaffected by this type. */
+extern u32 GetFuserId(struct Entity_*);
+#ifdef PC_PORT
+extern u64 Port_GetFuserIdAndTextId(struct Entity_*);
+#define GetFuserIdAndFuserTextId(ent) ((union SplitDWord)Port_GetFuserIdAndTextId(ent))
+#else
+#define GetFuserIdAndFuserTextId(ent) ((union SplitDWord)(*(MultiReturnTypeSingleEntityArg)(&GetFuserId))(ent))
+#endif
+extern u32 CheckPlayerInRegion(u32 centerX, u32 centerY, u32 radiusX, u32 radiusY);
+extern u32 GravityUpdate(struct Entity_* entity, u32 gravity);
+enum {
+    BOUNCE_DONE_ALL,
+    BOUNCE_INIT_NEXT,
+    BOUNCE_AIRBORNE,
+};
+u32 BounceUpdate(struct Entity_*, u32 acceleration);
+extern u32 CheckOnScreen(struct Entity_*);
+extern bool32 EntityInRectRadius(struct Entity_*, struct Entity_*, u32, u32);
+extern void UpdateAnimationVariableFrames(struct Entity_*, u32);
+extern u32 GetTileHazardType(struct Entity_*);
+/**
+ * Basic collision, only used between player and dazed enemies.
+ * (Probablity leftover from Four Swords)
+ */
+extern void CalcCollisionStaticEntity(struct Entity_*, struct Entity_*);
+extern void ResetCollisionLayer(struct Entity_*);
+extern void sub_08004596(struct Entity_*, u32);
+extern u32 sub_080045B4(struct Entity_*, u32, u32);
+extern u32 CalculateDirectionTo(u32, u32, u32, u32);
+extern u32 CalculateDirectionFromOffsets(s32, s32);
+extern void sub_0800417E(struct Entity_*, u32);
+extern u32 sub_0800442E(struct Entity_*);
+extern void SoundReqClipped(struct Entity_*, u32);
+
+extern u32 sub_0800445C(struct Entity_*);
+extern u32 CheckRectOnScreen(s32, s32, u32, u32);
+
+extern u32 GetTileTypeRelativeToEntity(struct Entity_* entity, s32 xOffset, s32 yOffset);
+extern u32 GetTileTypeAtEntity(struct Entity_* entity);
+extern u32 GetTileTypeAtWorldCoords(s32 worldX, s32 worldY, u32 layer);
+extern u32 GetTileTypeAtRoomCoords(u32 roomX, u32 roomY, u32 layer);
+extern u32 GetTileTypeAtTilePos(u32 tilePos, u32 layer);
+
+extern u32 GetActTileRelativeToEntity(struct Entity_* entity, s32 xOffset, s32 yOffset);
+extern u32 GetActTileAtEntity(struct Entity_* entity);
+extern u32 GetActTileAtWorldCoords(u32 worldX, u32 worldY, u32 layer);
+extern u32 GetActTileAtRoomCoords(u32 roomX, u32 roomY, u32 layer);
+extern u32 GetActTileAtRoomTile(u32 roomTileX, u32 roomTileY, u32 layer);
+extern u32 GetActTileAtTilePos(u16 tilePos, u8 layer);
+
+/**
+ * Sets actTile for a tilePos.
+ */
+extern void SetActTileAtTilePos(u32 actTile, u32 tilePos, u32 layer);
+
+// Get CollisionData for entity (relative to entity?)
+extern u32 GetCollisionDataRelativeTo(struct Entity_* entity, s32 xOffset, s32 yOffset);
+
+extern u32 GetCollisionDataAtEntity(struct Entity_* entity);
+/**
+ * Returns the collision data for one tile. (x, y in pixels relative to the world)
+ */
+extern u32 GetCollisionDataAtWorldCoords(u32 worldX, u32 worldY, u32 layer);
+/**
+ * Returns the collision data for one tile. (x, y in pixels relative to the room)
+ */
+extern u32 GetCollisionDataAtRoomCoords(u32 roomX, u32 roomY, u32 layer);
+/**
+ * Returns the collision data for one tile. (x, y in tiles relative to the room)
+ */
+extern u32 GetCollisionDataAtRoomTile(u32 roomTileX, u32 roomTileY, u32 layer);
+/**
+ * Returns the collision data for one tile.
+ */
+extern u32 GetCollisionDataAtTilePos(u32 tilePos, u32 layer);
+
+/**
+ * Sets the collision data for one tile.
+ */
+extern void SetCollisionData(u32 collisionData, u32 tilePos, u32 layer);
+
+extern u32 GetActTileForTileType(u32 tileType);
+
+typedef struct {
+    u16 key;
+    u16 value;
+} KeyValuePair ALIGNED(2);
+
+/**
+ * Searches for a KeyValuePair with the key in the keyValuePairList and returns its value.
+ * Returns 0 if the key is not found.
+ */
+extern u32 FindValueForKey(u32 key, const KeyValuePair* keyValuePairList);
+
+extern u32 GetTileIndex(u32 tilePos, u32 layer);
+extern void LinearMoveDirectionOLD(struct Entity_*, u32, u32);
+extern void sub_080028E0(struct Entity_*);
+extern void SnapToTile(struct Entity_*);
+extern u32 sub_0800419C(struct Entity_*, struct Entity_*, u32, u32);
+extern u32 sub_080041DC(struct Entity_*, u32, u32);
+extern void sub_080042BA(struct Entity_*, u32);
+extern void sub_080042D0(struct Entity_*, u32, u16);
+extern void sub_080044AE(struct Entity_*, u32, u32);
+extern void sub_0800451C(struct Entity_*);
+extern void sub_08004542(struct Entity_*);
+
+#endif // ASM_H

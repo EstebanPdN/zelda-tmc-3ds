@@ -1,0 +1,14 @@
+# Third-party notice: agbplay
+
+`libs/agbplay_core` contains code derived from:
+
+- Project: agbplay
+- Repository: https://github.com/ipatix/agbplay
+- Author: ipatix and contributors
+- License: GNU Lesser General Public License v3.0
+
+The original agbplay project is licensed under the LGPL-3.0. The copied and
+modified files in this directory remain under that license.
+
+The rest of this repository is not automatically relicensed as LGPL-3.0 solely
+because it links to or uses this LGPL component.

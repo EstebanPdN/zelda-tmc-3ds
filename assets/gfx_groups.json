@@ -1,0 +1,2874 @@
+{
+    "1": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_31f400_96x88_4bpp_uncompressed.bin",
+            "size": 3936,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_320360_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "10": [
+        {
+            "compressed": false,
+            "dest": 33561152,
+            "file": "gfx/gfx_358fe0_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 1
+        },
+        {
+            "compressed": false,
+            "dest": 0,
+            "file": null,
+            "size": 0,
+            "terminator": true,
+            "unknown": 13
+        }
+    ],
+    "100": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3bd360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_399c60_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_39d360_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "101": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3c5360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_399c60_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_39db60_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "102": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3cd360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_398d60_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_39e360_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "103": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3bd360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_398360_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_39eb60_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "104": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3cd360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_398360_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_39f360_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "105": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3c5360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_399760_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_3a0360_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "106": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3b5360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_399c60_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_3a0b60_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "107": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3d5360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_39a160_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_3a1b60_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "108": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3d5360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_399c60_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_3a2360_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "109": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3ed360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_398360_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_3a3b60_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "11": [
+        {
+            "compressed": false,
+            "dest": 0,
+            "file": null,
+            "size": 0,
+            "terminator": true,
+            "unknown": 13
+        }
+    ],
+    "110": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3f5360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_39a660_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_3a4360_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "111": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3fd360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_398360_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_3a4b60_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "112": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3cd360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_398360_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_39fb60_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "113": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3b5360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_399c60_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_3a1360_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "114": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3ed360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_398360_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_3a3b60_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "115": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3dd360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_398360_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_3a2b60_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "116": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3e5360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_398360_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_3a3360_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "117": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_408e20_152x144_4bpp_uncompressed.bin",
+            "size": 10880,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100750336,
+            "file": "gfx/gfx_28180_56x56_4bpp_uncompressed.bin",
+            "size": 1536,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_40b8a0_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100730880,
+            "file": "gfx/gfx_406560_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 1
+        },
+        {
+            "compressed": false,
+            "dest": 100736000,
+            "file": "gfx/gfx_408da0_16x16_4bpp_uncompressed.bin",
+            "size": 128,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "118": [
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_40bda0_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "119": [
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_40c2a0_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "12": [
+        {
+            "compressed": false,
+            "dest": 33693680,
+            "file": "gfx/gfx_33f760_48x48_4bpp_uncompressed.bin",
+            "size": 1024,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768816,
+            "file": "gfx/gfx_33ff60_48x48_4bpp_uncompressed.bin",
+            "size": 1024,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "120": [
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_40c7a0_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "121": [
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_40cca0_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "122": [
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_40d1a0_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "123": [
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_40d6a0_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "124": [
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_40dba0_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "125": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3777a0_176x168_4bpp_uncompressed.bin",
+            "size": 14336,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_37afa0_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100730880,
+            "file": "gfx/gfx_37bd20_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 1
+        },
+        {
+            "compressed": false,
+            "dest": 100732928,
+            "file": "gfx/gfx_37b4a0_16x16_4bpp_uncompressed.bin",
+            "size": 128,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "126": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_37e520_176x168_4bpp_uncompressed.bin",
+            "size": 14656,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_381e60_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_382360_160x160_4bpp_uncompressed.bin",
+            "size": 12544,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100741120,
+            "file": "gfx/gfx_385460_32x32_4bpp_uncompressed.bin",
+            "size": 512,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100742144,
+            "file": "gfx/gfx_385660_32x32_4bpp_uncompressed.bin",
+            "size": 512,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100730880,
+            "file": "gfx/gfx_386060_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 1
+        },
+        {
+            "compressed": false,
+            "dest": 0,
+            "file": null,
+            "size": 0,
+            "terminator": true,
+            "unknown": 13
+        }
+    ],
+    "127": [
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_35d700_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 15
+        },
+        {
+            "compressed": false,
+            "dest": 100679680,
+            "file": "gfx/gfx_35e100_120x112_4bpp_uncompressed.bin",
+            "size": 6624,
+            "terminator": false,
+            "unknown": 15
+        },
+        {
+            "compressed": false,
+            "dest": 0,
+            "file": null,
+            "size": 0,
+            "terminator": true,
+            "unknown": 13
+        }
+    ],
+    "128": [
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_35dc00_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 15
+        },
+        {
+            "compressed": false,
+            "dest": 100679680,
+            "file": "gfx/gfx_35e100_120x112_4bpp_uncompressed.bin",
+            "size": 6624,
+            "terminator": false,
+            "unknown": 15
+        },
+        {
+            "compressed": false,
+            "dest": 0,
+            "file": null,
+            "size": 0,
+            "terminator": true,
+            "unknown": 13
+        }
+    ],
+    "129": [
+        {
+            "compressed": false,
+            "dest": 100730880,
+            "file": "gfx/gfx_38c960_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 1
+        },
+        {
+            "compressed": false,
+            "dest": 0,
+            "file": null,
+            "size": 0,
+            "terminator": true,
+            "unknown": 13
+        }
+    ],
+    "13": [
+        {
+            "compressed": false,
+            "dest": 33693744,
+            "file": "gfx/gfx_33fb60_48x48_4bpp_uncompressed.bin",
+            "size": 1024,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768880,
+            "file": "gfx/gfx_340360_48x48_4bpp_uncompressed.bin",
+            "size": 1024,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "130": [
+        {
+            "compressed": true,
+            "dest": 100712224,
+            "file": "gfx/gfx_40e720_24x24_4bpp_compressed.bin",
+            "size": 224,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "131": [
+        {
+            "compressed": true,
+            "dest": 100712224,
+            "file": "gfx/gfx_40e77c_24x24_4bpp_compressed.bin",
+            "size": 224,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "132": [
+        {
+            "compressed": true,
+            "dest": 100679680,
+            "file": "gfx/gfx_40e7a0_24x24_4bpp_compressed.bin",
+            "size": 256,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "14": [
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_340760_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "15": [
+        {
+            "compressed": false,
+            "dest": 100730880,
+            "file": "gfx/gfx_350de0_112x104_4bpp_uncompressed.bin",
+            "size": 5632,
+            "terminator": false,
+            "unknown": 1
+        },
+        {
+            "compressed": false,
+            "dest": 0,
+            "file": null,
+            "size": 0,
+            "terminator": true,
+            "unknown": 13
+        }
+    ],
+    "16": [
+        {
+            "compressed": false,
+            "dest": 100737024,
+            "file": "gfx/gfx_215e0_32x32_4bpp_uncompressed.bin",
+            "size": 448,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100712448,
+            "file": "gfx/gfx_207e0_88x88_4bpp_uncompressed.bin",
+            "size": 3584,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "17": [
+        {
+            "compressed": false,
+            "dest": 100743168,
+            "file": "gfx/gfx_d01c0_104x104_4bpp_uncompressed.bin",
+            "size": 5120,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100748288,
+            "file": "gfx/gfx_d15c0_120x120_4bpp_uncompressed.bin",
+            "size": 6880,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "18": [
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1e1420_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "19": [
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1e0c20_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "2": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3220e0_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_32a0e0_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_32efe0_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100696064,
+            "file": "gfx/gfx_32f4e0_184x184_4bpp_uncompressed.bin",
+            "size": 16384,
+            "terminator": false,
+            "unknown": 15
+        },
+        {
+            "compressed": false,
+            "dest": 100720640,
+            "file": "gfx/gfx_3334e0_48x48_4bpp_uncompressed.bin",
+            "size": 1024,
+            "terminator": false,
+            "unknown": 15
+        },
+        {
+            "compressed": false,
+            "dest": 0,
+            "file": null,
+            "size": 0,
+            "terminator": true,
+            "unknown": 13
+        }
+    ],
+    "20": [
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1e3c20_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "21": [
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1e4420_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "22": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_2e300_184x184_4bpp_uncompressed.bin",
+            "size": 16384,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100720640,
+            "file": "gfx/gfx_32300_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100679680,
+            "file": "gfx/gfx_33580_128x128_4bpp_uncompressed.bin",
+            "size": 8192,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_35580_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "23": [
+        {
+            "compressed": false,
+            "dest": 100728832,
+            "file": "gfx/gfx_1d7e0_128x128_4bpp_uncompressed.bin",
+            "size": 8192,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "24": [
+        {
+            "compressed": false,
+            "dest": 100734976,
+            "file": "gfx/gfx_1f7e0_24x24_4bpp_uncompressed.bin",
+            "size": 256,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "25": [
+        {
+            "compressed": false,
+            "dest": 100734976,
+            "file": "gfx/gfx_1f8e0_24x24_4bpp_uncompressed.bin",
+            "size": 256,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "26": [
+        {
+            "compressed": false,
+            "dest": 100736128,
+            "file": "gfx/gfx_1f9e0_24x24_4bpp_uncompressed.bin",
+            "size": 256,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "27": [
+        {
+            "compressed": false,
+            "dest": 100735648,
+            "file": "gfx/gfx_1fb60_16x16_4bpp_uncompressed.bin",
+            "size": 128,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "28": [
+        {
+            "compressed": false,
+            "dest": 100735648,
+            "file": "gfx/gfx_1fae0_16x16_4bpp_uncompressed.bin",
+            "size": 128,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "29": [
+        {
+            "compressed": false,
+            "dest": 100735264,
+            "file": "gfx/gfx_1fbe0_32x24_4bpp_uncompressed.bin",
+            "size": 384,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "3": [
+        {
+            "compressed": false,
+            "dest": 100728832,
+            "file": "gfx/gfx_338dc0_40x40_4bpp_uncompressed.bin",
+            "size": 768,
+            "terminator": false,
+            "unknown": 1
+        },
+        {
+            "compressed": false,
+            "dest": 100729856,
+            "file": "gfx/gfx_33a4c0_48x48_4bpp_uncompressed.bin",
+            "size": 1024,
+            "terminator": false,
+            "unknown": 1
+        },
+        {
+            "compressed": false,
+            "dest": 0,
+            "file": null,
+            "size": 0,
+            "terminator": true,
+            "unknown": 13
+        }
+    ],
+    "30": [
+        {
+            "compressed": false,
+            "dest": 100696064,
+            "file": "gfx/gfx_1b9c20_184x184_4bpp_uncompressed.bin",
+            "size": 16384,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33566464,
+            "file": "gfx/gfx_1bec20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33570560,
+            "file": "gfx/gfx_1bdc20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33574656,
+            "file": "gfx/gfx_1c0c20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33578752,
+            "file": "gfx/gfx_1bfc20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "31": [
+        {
+            "compressed": false,
+            "dest": 100696064,
+            "file": "gfx/gfx_1b9c20_184x184_4bpp_uncompressed.bin",
+            "size": 16384,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33566464,
+            "file": "gfx/gfx_1cac20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33570560,
+            "file": "gfx/gfx_1c9c20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33574656,
+            "file": "gfx/gfx_1ccc20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33578752,
+            "file": "gfx/gfx_1cbc20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "32": [
+        {
+            "compressed": false,
+            "dest": 100696064,
+            "file": "gfx/gfx_1b9c20_184x184_4bpp_uncompressed.bin",
+            "size": 16384,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33566464,
+            "file": "gfx/gfx_1c6c20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33570560,
+            "file": "gfx/gfx_1c5c20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33574656,
+            "file": "gfx/gfx_1c8c20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33578752,
+            "file": "gfx/gfx_1c7c20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "33": [
+        {
+            "compressed": false,
+            "dest": 100696064,
+            "file": "gfx/gfx_1b9c20_184x184_4bpp_uncompressed.bin",
+            "size": 16384,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33566464,
+            "file": "gfx/gfx_1c2c20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33570560,
+            "file": "gfx/gfx_1c1c20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33574656,
+            "file": "gfx/gfx_1c4c20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33578752,
+            "file": "gfx/gfx_1c3c20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "34": [
+        {
+            "compressed": false,
+            "dest": 100696064,
+            "file": "gfx/gfx_1d5c20_184x184_4bpp_uncompressed.bin",
+            "size": 16384,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33566464,
+            "file": "gfx/gfx_1dac20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33570560,
+            "file": "gfx/gfx_1d9c20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33574656,
+            "file": "gfx/gfx_1dcc20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33578752,
+            "file": "gfx/gfx_1dbc20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "35": [
+        {
+            "compressed": false,
+            "dest": 100696064,
+            "file": "gfx/gfx_1cdc20_184x184_4bpp_uncompressed.bin",
+            "size": 16384,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33566464,
+            "file": "gfx/gfx_1d2c20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33570560,
+            "file": "gfx/gfx_1d1c20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33574656,
+            "file": "gfx/gfx_1d4c20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33578752,
+            "file": "gfx/gfx_1d3c20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "36": [
+        {
+            "compressed": false,
+            "dest": 100706304,
+            "file": "gfx/gfx_16d320_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_16eb20_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "37": [
+        {
+            "compressed": false,
+            "dest": 100706304,
+            "file": "gfx/gfx_16cb20_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33561152,
+            "file": "gfx/gfx_16db20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "38": [
+        {
+            "compressed": false,
+            "dest": 100705280,
+            "file": "gfx/gfx_16cb20_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "39": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_16f320_352x352_4bpp_uncompressed.bin",
+            "size": 61440,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_17e320_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "4": [
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_35d200_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100679680,
+            "file": "gfx/gfx_35e100_120x112_4bpp_uncompressed.bin",
+            "size": 6624,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_33a8c0_88x88_4bpp_uncompressed.bin",
+            "size": 3584,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "40": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_1a6320_352x352_4bpp_uncompressed.bin",
+            "size": 61440,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1b5320_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "41": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_181d20_352x352_4bpp_uncompressed.bin",
+            "size": 61440,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_190d20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "42": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_194120_352x352_4bpp_uncompressed.bin",
+            "size": 61440,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1a3120_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "43": [
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_1e1c20_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "44": [
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_1e2420_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "45": [
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_1e2c20_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "46": [
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_1e3420_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "47": [
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1e8c20_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "48": [
+        {
+            "compressed": false,
+            "dest": 33566464,
+            "file": "gfx/gfx_1e4c20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "49": [
+        {
+            "compressed": false,
+            "dest": 33561152,
+            "file": "gfx/gfx_1e9420_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "5": [
+        {
+            "compressed": false,
+            "dest": 100679680,
+            "file": "gfx/gfx_340c60_120x120_4bpp_uncompressed.bin",
+            "size": 7136,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100747264,
+            "file": "gfx/gfx_342840_96x88_4bpp_uncompressed.bin",
+            "size": 4000,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100696064,
+            "file": "gfx/gfx_33bbc0_160x160_4bpp_uncompressed.bin",
+            "size": 12704,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_33b6c0_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "50": [
+        {
+            "compressed": false,
+            "dest": 33561152,
+            "file": "gfx/gfx_1e9c20_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "51": [
+        {
+            "compressed": false,
+            "dest": 33561152,
+            "file": "gfx/gfx_1ea420_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "52": [
+        {
+            "compressed": false,
+            "dest": 33561152,
+            "file": "gfx/gfx_1eac20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "53": [
+        {
+            "compressed": false,
+            "dest": 33561152,
+            "file": "gfx/gfx_1ebc20_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "54": [
+        {
+            "compressed": false,
+            "dest": 100679680,
+            "file": "gfx/gfx_1f0120_200x192_4bpp_uncompressed.bin",
+            "size": 18624,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33566464,
+            "file": "gfx/gfx_1f49e0_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "55": [
+        {
+            "compressed": false,
+            "dest": 100679680,
+            "file": "gfx/gfx_1f59e0_192x192_4bpp_uncompressed.bin",
+            "size": 18368,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33566464,
+            "file": "gfx/gfx_1fa1a0_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "56": [
+        {
+            "compressed": false,
+            "dest": 100679680,
+            "file": "gfx/gfx_1fb1a0_176x176_4bpp_uncompressed.bin",
+            "size": 15328,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33566464,
+            "file": "gfx/gfx_1fed80_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "57": [
+        {
+            "compressed": false,
+            "dest": 100679680,
+            "file": "gfx/gfx_1ffd80_192x192_4bpp_uncompressed.bin",
+            "size": 18176,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33566464,
+            "file": "gfx/gfx_204480_96x88_4bpp_uncompressed.bin",
+            "size": 4096,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "58": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_205480_320x312_4bpp_uncompressed.bin",
+            "size": 49152,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_211480_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "59": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_211c80_320x312_4bpp_uncompressed.bin",
+            "size": 49152,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_21dc80_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "6": [
+        {
+            "compressed": false,
+            "dest": 100751360,
+            "file": "gfx/gfx_3457e0_128x128_4bpp_uncompressed.bin",
+            "size": 8192,
+            "terminator": false,
+            "unknown": 1
+        },
+        {
+            "compressed": false,
+            "dest": 0,
+            "file": null,
+            "size": 0,
+            "terminator": true,
+            "unknown": 13
+        }
+    ],
+    "60": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_21e480_320x312_4bpp_uncompressed.bin",
+            "size": 49152,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_22a480_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "61": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_22ac80_320x312_4bpp_uncompressed.bin",
+            "size": 49152,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_236c80_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "62": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_237480_320x312_4bpp_uncompressed.bin",
+            "size": 49152,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_243480_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "63": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_243c80_320x312_4bpp_uncompressed.bin",
+            "size": 49152,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_24fc80_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "64": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_250480_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_258480_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "65": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_258c80_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_260c80_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "66": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_261480_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_269480_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "67": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_269c80_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_271c80_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "68": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_272480_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_27a480_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "69": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_27ac80_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_282c80_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "7": [
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_33ed60_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "70": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_283480_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_28b480_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "71": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_28bc80_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_293c80_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "72": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_294480_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100722688,
+            "file": "gfx/gfx_29c480_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "73": [
+        {
+            "compressed": false,
+            "dest": 100722368,
+            "file": "gfx/gfx_33300_32x24_4bpp_uncompressed.bin",
+            "size": 320,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "74": [
+        {
+            "compressed": false,
+            "dest": 100722368,
+            "file": "gfx/gfx_33440_32x24_4bpp_uncompressed.bin",
+            "size": 320,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "75": [
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1ecc20_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "76": [
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1ed420_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "77": [
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1edc20_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "78": [
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1efc20_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "79": [
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1ddc20_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "8": [
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_33f260_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "80": [
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1de420_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "81": [
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1dec20_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "82": [
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1dec20_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "83": [
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1df420_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "84": [
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1dfc20_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "85": [
+        {
+            "compressed": false,
+            "dest": 100724736,
+            "file": "gfx/gfx_1e0420_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "86": [
+        {
+            "compressed": false,
+            "dest": 100696064,
+            "file": "gfx/gfx_359ee0_128x120_4bpp_uncompressed.bin",
+            "size": 7456,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33561152,
+            "file": "gfx/gfx_35bc00_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100728832,
+            "file": "gfx/gfx_35cb00_64x56_4bpp_uncompressed.bin",
+            "size": 1792,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100737024,
+            "file": "gfx/gfx_215e0_32x32_4bpp_uncompressed.bin",
+            "size": 448,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "87": [
+        {
+            "compressed": false,
+            "dest": 100696064,
+            "file": "gfx/gfx_359ee0_128x120_4bpp_uncompressed.bin",
+            "size": 7456,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33561152,
+            "file": "gfx/gfx_35c100_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100728832,
+            "file": "gfx/gfx_35cb00_64x56_4bpp_uncompressed.bin",
+            "size": 1792,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100737024,
+            "file": "gfx/gfx_215e0_32x32_4bpp_uncompressed.bin",
+            "size": 448,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "88": [
+        {
+            "compressed": false,
+            "dest": 100696064,
+            "file": "gfx/gfx_359ee0_128x120_4bpp_uncompressed.bin",
+            "size": 7456,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33561152,
+            "file": "gfx/gfx_35c600_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100728832,
+            "file": "gfx/gfx_35cb00_64x56_4bpp_uncompressed.bin",
+            "size": 1792,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100737024,
+            "file": "gfx/gfx_215e0_32x32_4bpp_uncompressed.bin",
+            "size": 448,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "89": [
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_3665a0_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 15
+        },
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3624e0_176x176_4bpp_uncompressed.bin",
+            "size": 15296,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100696064,
+            "file": "gfx/gfx_207e0_88x88_4bpp_uncompressed.bin",
+            "size": 3584,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100728832,
+            "file": "gfx/gfx_1d7e0_128x128_4bpp_uncompressed.bin",
+            "size": 8192,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100741120,
+            "file": "gfx/gfx_366aa0_64x56_4bpp_uncompressed.bin",
+            "size": 1600,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100744192,
+            "file": "gfx/gfx_21a20_40x32_4bpp_uncompressed.bin",
+            "size": 640,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_31eb40_72x64_4bpp_uncompressed.bin",
+            "size": 2240,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "9": [
+        {
+            "compressed": false,
+            "dest": 33561152,
+            "file": "gfx/gfx_358ae0_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 1
+        },
+        {
+            "compressed": false,
+            "dest": 0,
+            "file": null,
+            "size": 0,
+            "terminator": true,
+            "unknown": 13
+        }
+    ],
+    "90": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3670e0_144x136_4bpp_uncompressed.bin",
+            "size": 9792,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_369720_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_369c20_32x32_4bpp_uncompressed.bin",
+            "size": 512,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100730880,
+            "file": "gfx/gfx_36a620_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 1
+        },
+        {
+            "compressed": false,
+            "dest": 100751360,
+            "file": "gfx/gfx_3754a0_64x56_4bpp_uncompressed.bin",
+            "size": 1792,
+            "terminator": false,
+            "unknown": 1
+        },
+        {
+            "compressed": false,
+            "dest": 0,
+            "file": null,
+            "size": 0,
+            "terminator": true,
+            "unknown": 13
+        }
+    ],
+    "91": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_36ce20_168x160_4bpp_uncompressed.bin",
+            "size": 13056,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_370120_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_370620_112x112_4bpp_uncompressed.bin",
+            "size": 6016,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100730880,
+            "file": "gfx/gfx_3725a0_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 1
+        },
+        {
+            "compressed": false,
+            "dest": 100751360,
+            "file": "gfx/gfx_3754a0_64x56_4bpp_uncompressed.bin",
+            "size": 1792,
+            "terminator": false,
+            "unknown": 1
+        },
+        {
+            "compressed": false,
+            "dest": 0,
+            "file": null,
+            "size": 0,
+            "terminator": true,
+            "unknown": 13
+        }
+    ],
+    "92": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_388860_128x128_4bpp_uncompressed.bin",
+            "size": 8192,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_38bc60_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_38a860_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100747264,
+            "file": "gfx/gfx_38f960_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 1
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_38b560_64x56_4bpp_uncompressed.bin",
+            "size": 1792,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100757504,
+            "file": "gfx/gfx_200e0_32x32_4bpp_uncompressed.bin",
+            "size": 448,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "93": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_392160_184x184_4bpp_uncompressed.bin",
+            "size": 16384,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_396160_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_396660_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33561152,
+            "file": "gfx/gfx_396b60_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_397060_104x96_4bpp_uncompressed.bin",
+            "size": 4864,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "94": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_392160_184x184_4bpp_uncompressed.bin",
+            "size": 16384,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_396160_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_396660_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_397060_104x96_4bpp_uncompressed.bin",
+            "size": 4864,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "95": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3a5360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_398360_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_39ab60_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "96": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3a5360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_398860_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_39b360_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "97": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3ad360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_398360_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_39bb60_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "98": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3ad360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_398d60_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_39c360_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ],
+    "99": [
+        {
+            "compressed": false,
+            "dest": 100663296,
+            "file": "gfx/gfx_3b5360_256x256_4bpp_uncompressed.bin",
+            "size": 32768,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33693488,
+            "file": "gfx/gfx_399c60_56x48_4bpp_uncompressed.bin",
+            "size": 1280,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 33768624,
+            "file": "gfx/gfx_39cb60_64x64_4bpp_uncompressed.bin",
+            "size": 2048,
+            "terminator": false,
+            "unknown": 7
+        },
+        {
+            "compressed": false,
+            "dest": 100745216,
+            "file": "gfx/gfx_405360_72x72_4bpp_uncompressed.bin",
+            "size": 2560,
+            "terminator": true,
+            "unknown": 7
+        }
+    ]
+}

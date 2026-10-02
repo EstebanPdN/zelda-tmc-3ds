@@ -1,0 +1,324 @@
+/**
+ * @file holeManager.c
+ * @ingroup Managers
+ *
+ * @brief Hole that you can fall into.
+ */
+#include "manager/holeManager.h"
+#include "common.h"
+#include "flags.h"
+#include "object.h"
+#include "asm.h"
+#include "player.h"
+#include "room.h"
+#include "screen.h"
+#include "game.h"
+#include "manager/lightManager.h"
+#include "assets/gfx_offsets.h"
+#include "gfx.h"
+
+typedef enum {
+    HOLE_TRANSITION_ABSOLUTE,
+    HOLE_TRANSITION_RELATIVE,
+    HOLE_TRANSITION_ABSOLUTE_MINISH,
+} HoleTransitionType;
+
+typedef struct {
+    u32 gfx;
+    u16 offset_x;
+    u16 offset_y;
+    u16 x;
+    u16 y;
+} HoleTransitionParallaxBackground;
+
+typedef struct {
+    u8 type;
+    u8 subtype;
+    u8 unk_2;
+    u8 unk_3;
+    u16 x;
+    u16 y;
+} HoleTransitionParallaxEntity;
+
+typedef struct HoleTransition {
+    u8 type;
+    u8 area;
+    u8 room;
+    u8 layer;
+    u16 x;
+    u16 y;
+    u8 hole_x;
+    u8 hole_y;
+    u8 hole_width;
+    u8 hole_height;
+    const HoleTransitionParallaxBackground* parallax_background;
+    const HoleTransitionParallaxEntity* parallax_entity;
+} HoleTransition;
+
+void HoleManager_Init(HoleManager*);
+void HoleManager_Update(HoleManager*);
+
+void (*const HoleManager_Actions[])(HoleManager*) = {
+    HoleManager_Init,
+    HoleManager_Update,
+};
+
+const HoleTransitionParallaxBackground gHoleTransitionParallaxBackgrounds[] = {
+    { offset_gfx_unknown_6, 0x00c4, 0x0030, 0x0310, 0x13c8 },
+    { offset_gfx_unknown_6 + 0x800, 0x00c4, 0x0030, 0x0310, 0x13c8 },
+    { offset_gfx_unknown_6 + 0x800 * 2, 0xfffa, 0x00de, 0x05d0, 0x0410 },
+    { offset_gfx_unknown_6 + 0x800 * 3, 0x0024, 0x0004, 0x0290, 0x04e0 },
+    { offset_gfx_unknown_6 + 0x800 * 4, 0x0058, 0x0014, 0x0280, 0x0cf0 },
+    { offset_gfx_unknown_6 + 0x800 * 5, 0x002c, 0x0004, 0x04a0, 0x0cf0 },
+    { offset_gfx_unknown_7, 0x0060, 0x0010, 0x0170, 0x08e0 },
+    { offset_gfx_unknown_7 + 0x800, 0x001c, 0x00d0, 0x05b0, 0x0e20 },
+    { offset_gfx_unknown_7 + 0x800 * 2, 0x005c, 0x00a4, 0x0290, 0x1b48 },
+};
+
+const HoleTransitionParallaxEntity gHoleTransitionParallaxEntities[] = {
+    { 0x00, 0x00, 0x00, 0x00, 0x0088, 0x0068 }, { 0x01, 0x01, 0x00, 0x00, 0x0088, 0x0068 },
+    { 0x02, 0x02, 0x00, 0x00, 0x00b8, 0x0068 }, { 0x04, 0x04, 0x00, 0x00, 0x00b8, 0x0068 },
+    { 0x05, 0x00, 0x00, 0x00, 0x0078, 0x00b8 }, { 0x06, 0x01, 0x00, 0x00, 0x0048, 0x0040 },
+    { 0x07, 0x02, 0x00, 0x00, 0x0090, 0x0040 }, { 0x07, 0x03, 0x00, 0x00, 0x0240, 0x0050 },
+    { 0x07, 0x04, 0x00, 0x00, 0x0158, 0x0100 }, { 0x08, 0x05, 0x00, 0x00, 0x007c, 0x0050 },
+    { 0x09, 0x06, 0x00, 0x00, 0x0078, 0x0070 }, { 0x0a, 0x07, 0x00, 0x00, 0x0060, 0x0058 },
+    { 0x0b, 0x08, 0x00, 0x00, 0x0081, 0x005e }, { 0x0c, 0x09, 0x00, 0x00, 0x0080, 0x0058 },
+    { 0x0d, 0x0a, 0x00, 0x00, 0x0060, 0x0038 }, { 0x0e, 0x0b, 0x00, 0x00, 0x0260, 0x0064 },
+    { 0x0f, 0x00, 0x00, 0x00, 0x00a8, 0x0148 },
+};
+
+const HoleTransition gHoleTransitions[] = {
+    { 0x00, 0x48, 0x14, 0x02, 0x00e8, 0x00c8, 0x00, 0x00, 0x00, 0x00, NULL, NULL },
+    { 0x00, 0x51, 0x00, 0x02, 0x00c0, 0x00f8, 0x00, 0x00, 0x00, 0x00, &gHoleTransitionParallaxBackgrounds[0], NULL },
+    { 0x01, 0x58, 0x1b, 0x02, 0xfeb0, 0x0000, 0x1d, 0x06, 0x05, 0x02, &gHoleTransitionParallaxBackgrounds[2], NULL },
+    { 0x01, 0x58, 0x1d, 0x01, 0xffe0, 0xff20, 0x09, 0x13, 0x03, 0x03, NULL, &gHoleTransitionParallaxEntities[16] },
+    { 0x01, 0x58, 0x1c, 0x01, 0xfff0, 0x0000, 0x08, 0x05, 0x03, 0x03, &gHoleTransitionParallaxBackgrounds[3], NULL },
+    { 0x01, 0x58, 0x20, 0x01, 0xfff0, 0x0000, 0x00, 0x00, 0x00, 0x00, &gHoleTransitionParallaxBackgrounds[4], NULL },
+    { 0x01, 0x58, 0x22, 0x01, 0xffe0, 0x0000, 0x00, 0x00, 0x00, 0x00, &gHoleTransitionParallaxBackgrounds[5], NULL },
+    { 0x00, 0x62, 0x11, 0x01, 0x00c8, 0x0038, 0x00, 0x00, 0x00, 0x00, NULL, NULL },
+    { 0x01, 0x60, 0x20, 0x01, 0x0000, 0x0000, 0x00, 0x00, 0x00, 0x00, NULL, &gHoleTransitionParallaxEntities[0] },
+    { 0x01, 0x60, 0x21, 0x01, 0x0000, 0x0000, 0x00, 0x00, 0x00, 0x00, NULL, &gHoleTransitionParallaxEntities[1] },
+    { 0x01, 0x60, 0x2e, 0x01, 0x0000, 0x0000, 0x00, 0x00, 0x00, 0x00, NULL, &gHoleTransitionParallaxEntities[2] },
+    { 0x01, 0x60, 0x11, 0x01, 0xffc0, 0x0000, 0x00, 0x00, 0x00, 0x00, NULL, &gHoleTransitionParallaxEntities[3] },
+    { 0x00, 0x60, 0x31, 0x01, 0x0078, 0x00a8, 0x00, 0x00, 0x00, 0x00, NULL, NULL },
+    { 0x00, 0x51, 0x00, 0x02, 0x00c0, 0x00f8, 0x00, 0x00, 0x00, 0x00, &gHoleTransitionParallaxBackgrounds[1], NULL },
+    { 0x01, 0x08, 0x01, 0x01, 0x0000, 0x0000, 0x1d, 0x1d, 0x03, 0x03, NULL, NULL },
+    { 0x01, 0x08, 0x02, 0x01, 0x0000, 0x0000, 0x1d, 0x1d, 0x03, 0x03, NULL, NULL },
+    { 0x01, 0x08, 0x02, 0x01, 0x0000, 0x0000, 0x23, 0x03, 0x03, 0x03, NULL, NULL },
+    { 0x01, 0x08, 0x02, 0x01, 0x0000, 0x0000, 0x32, 0x03, 0x03, 0x03, NULL, NULL },
+    { 0x01, 0x08, 0x02, 0x01, 0x0000, 0x0000, 0x03, 0x13, 0x03, 0x03, NULL, NULL },
+    { 0x01, 0x08, 0x02, 0x01, 0x0000, 0x0000, 0x37, 0x10, 0x03, 0x03, NULL, NULL },
+    { 0x01, 0x08, 0x02, 0x01, 0x0000, 0x0000, 0x2f, 0x18, 0x03, 0x03, NULL, NULL },
+    { 0x01, 0x08, 0x02, 0x01, 0x0000, 0x0000, 0x16, 0x2b, 0x03, 0x03, NULL, NULL },
+    { 0x01, 0x08, 0x02, 0x01, 0x0000, 0x0000, 0x25, 0x2c, 0x03, 0x03, NULL, NULL },
+    { 0x01, 0x08, 0x02, 0x01, 0x0000, 0x0000, 0x32, 0x2d, 0x03, 0x03, NULL, NULL },
+    { 0x01, 0x08, 0x02, 0x01, 0x0000, 0x0000, 0x0d, 0x35, 0x03, 0x03, NULL, NULL },
+    { 0x01, 0x08, 0x02, 0x01, 0x0000, 0x0000, 0x17, 0x37, 0x03, 0x03, NULL, NULL },
+    { 0x01, 0x08, 0x02, 0x01, 0x0000, 0x0000, 0x1d, 0x38, 0x03, 0x03, NULL, NULL },
+    { 0x01, 0x08, 0x02, 0x01, 0x0000, 0x0000, 0x36, 0x38, 0x03, 0x03, NULL, NULL },
+    { 0x01, 0x08, 0x02, 0x01, 0x0000, 0x0000, 0x38, 0x19, 0x03, 0x03, NULL, NULL },
+    { 0x01, 0x08, 0x02, 0x01, 0x0000, 0x0000, 0x3a, 0x2e, 0x01, 0x01, NULL, NULL },
+    { 0x01, 0x08, 0x02, 0x01, 0x0000, 0x0000, 0x30, 0x39, 0x01, 0x01, NULL, NULL },
+    { 0x00, 0x1a, 0x00, 0x01, 0x0058, 0x0048, 0x18, 0x1b, 0x03, 0x03, NULL, NULL },
+    { 0x01, 0x70, 0x0f, 0x01, 0x01e0, 0x0070, 0x08, 0x03, 0x04, 0x04, NULL, NULL },
+    { 0x01, 0x70, 0x10, 0x01, 0x0000, 0x0090, 0x14, 0x05, 0x05, 0x03, NULL, NULL },
+    { 0x01, 0x70, 0x10, 0x01, 0x0000, 0x0090, 0x21, 0x05, 0x04, 0x03, NULL, NULL },
+    { 0x00, 0x70, 0x0c, 0x01, 0x0078, 0x00a0, 0x00, 0x00, 0x00, 0x00, NULL, &gHoleTransitionParallaxEntities[4] },
+    { 0x01, 0x70, 0x15, 0x01, 0x01e0, 0x0000, 0x00, 0x00, 0x00, 0x00, NULL, &gHoleTransitionParallaxEntities[5] },
+    { 0x01, 0x70, 0x19, 0x01, 0x00f0, 0x0000, 0x05, 0x08, 0x04, 0x04, NULL, NULL },
+    { 0x01, 0x70, 0x1b, 0x01, 0x0000, 0x0000, 0x08, 0x02, 0x02, 0x04, NULL, &gHoleTransitionParallaxEntities[6] },
+    { 0x01, 0x70, 0x1d, 0x01, 0xfe30, 0x0000, 0x23, 0x02, 0x02, 0x04, NULL, &gHoleTransitionParallaxEntities[7] },
+    { 0x01, 0x70, 0x1f, 0x01, 0xff10, 0xff60, 0x13, 0x0e, 0x07, 0x04, NULL, &gHoleTransitionParallaxEntities[8] },
+    { 0x01, 0x70, 0x21, 0x01, 0x0000, 0x0090, 0x06, 0x03, 0x04, 0x04, NULL, NULL },
+    { 0x01, 0x70, 0x26, 0x01, 0x0000, 0x0000, 0x00, 0x00, 0x00, 0x00, NULL, &gHoleTransitionParallaxEntities[9] },
+    { 0x01, 0x70, 0x29, 0x01, 0x0000, 0x0000, 0x06, 0x06, 0x03, 0x02, NULL, &gHoleTransitionParallaxEntities[10] },
+    { 0x01, 0x70, 0x2c, 0x01, 0x0000, 0x0000, 0x12, 0x0c, 0x04, 0x04, NULL, NULL },
+    { 0x01, 0x70, 0x32, 0x01, 0x0000, 0x0000, 0x00, 0x00, 0x00, 0x00, NULL, &gHoleTransitionParallaxEntities[11] },
+    { 0x01, 0x70, 0x32, 0x02, 0x00f0, 0x0000, 0x07, 0x04, 0x02, 0x02, NULL, NULL },
+    { 0x01, 0x70, 0x32, 0x01, 0x00f0, 0x0000, 0x00, 0x00, 0x00, 0x00, NULL, &gHoleTransitionParallaxEntities[12] },
+    { 0x01, 0x70, 0x32, 0x01, 0x01e0, 0x0000, 0x00, 0x00, 0x00, 0x00, NULL, &gHoleTransitionParallaxEntities[13] },
+    { 0x01, 0x70, 0x32, 0x01, 0x0000, 0x00a0, 0x00, 0x00, 0x00, 0x00, NULL, &gHoleTransitionParallaxEntities[14] },
+    { 0x00, 0x31, 0x00, 0x01, 0x0078, 0x0068, 0x25, 0x04, 0x03, 0x03, NULL, &gHoleTransitionParallaxEntities[15] },
+    { 0x00, 0x70, 0x00, 0x02, 0x01d8, 0x00d8, 0x00, 0x00, 0x00, 0x00, NULL, NULL },
+    { 0x01, 0x88, 0x1e, 0x01, 0x0000, 0x0000, 0x00, 0x00, 0x00, 0x00, &gHoleTransitionParallaxBackgrounds[6], NULL },
+    { 0x01, 0x88, 0x2c, 0x01, 0x0000, 0xff30, 0x00, 0x00, 0x00, 0x00, &gHoleTransitionParallaxBackgrounds[7], NULL },
+    { 0x01, 0x88, 0x3a, 0x01, 0x0000, 0xffe0, 0x00, 0x00, 0x00, 0x00, &gHoleTransitionParallaxBackgrounds[8], NULL },
+    { 0x00, 0x88, 0x06, 0x01, 0x00a8, 0x0088, 0x00, 0x00, 0x00, 0x00, NULL, NULL },
+    { 0x02, 0x23, 0x01, 0x01, 0x0078, 0x0078, 0x00, 0x00, 0x00, 0x00, NULL, NULL },
+    { 0x02, 0x23, 0x00, 0x01, 0x00a8, 0x0060, 0x00, 0x00, 0x00, 0x00, NULL, NULL },
+    { 0x02, 0x22, 0x04, 0x01, 0x00a8, 0x0058, 0x00, 0x00, 0x00, 0x00, NULL, NULL },
+    { 0x02, 0x23, 0x03, 0x01, 0x0078, 0x0078, 0x00, 0x00, 0x00, 0x00, NULL, NULL },
+    { 0x00, 0x41, 0x01, 0x01, 0x0078, 0x0050, 0x2f, 0x27, 0x03, 0x03, NULL, NULL },
+};
+
+void HoleManager_Main(HoleManager* this) {
+    HoleManager_Actions[super->action](this);
+}
+
+bool32 IsPlayerOnHole(HoleManager*);
+void DoHoleTransition(HoleManager*);
+void HoleManager_UpdateParallaxBackground(HoleManager*);
+void HoleManager_OnEnterRoom(HoleManager*);
+
+void HoleManager_Init(HoleManager* this) {
+    const HoleTransition* transition;
+    Entity* obj;
+    SetEntityPriority((Entity*)super, PRIO_PLAYER_EVENT);
+    MemClear(&this->x, 0x20);
+    super->action = 1;
+    this->unk_3f = gRoomControls.room;
+    transition = &gHoleTransitions[super->type];
+    if (transition->hole_width == 0) {
+        this->x = gRoomControls.origin_x;
+        this->y = gRoomControls.origin_y;
+        this->width = gRoomControls.width;
+        this->height = gRoomControls.height;
+    } else {
+        this->x = (transition->hole_x << 4) + gRoomControls.origin_x;
+        this->y = (transition->hole_y << 4) + gRoomControls.origin_y;
+        this->width = (transition->hole_width << 4);
+        this->height = (transition->hole_height << 4);
+    }
+    super->type2 = transition->parallax_background != NULL;
+    if (super->type2) {
+        super->flags |= ENT_PERSIST;
+        this->persistance_offset_x = transition->parallax_background->offset_x;
+        this->persistance_offset_y = transition->parallax_background->offset_y;
+        this->persistance_x = transition->parallax_background->x;
+        this->persistance_y = transition->parallax_background->y;
+        UnDarkRoom();
+        HoleManager_UpdateParallaxBackground(this);
+        HoleManager_OnEnterRoom(this);
+        RegisterTransitionHandler(this, HoleManager_OnEnterRoom, NULL);
+    }
+    if (!transition->parallax_entity)
+        return;
+    obj = CreateObject(PARALLAX_ROOM_VIEW, transition->parallax_entity->type, transition->parallax_entity->subtype);
+    if (obj) {
+        obj->x.HALF.HI = transition->parallax_entity->x + gRoomControls.origin_x;
+        obj->y.HALF.HI = transition->parallax_entity->y + gRoomControls.origin_y;
+    }
+    if (super->type != 0xa || CheckLocalFlagB(0x4B))
+        return;
+    obj = CreateObject(PARALLAX_ROOM_VIEW, 3, 3);
+    if (obj) {
+        obj->x.HALF.HI = transition->parallax_entity->x + gRoomControls.origin_x;
+        obj->y.HALF.HI = transition->parallax_entity->y + gRoomControls.origin_y;
+    }
+}
+
+void HoleManager_Update(HoleManager* this) {
+    if (IsPlayerOnHole(this)) {
+        DoHoleTransition(this);
+        DeleteThisEntity();
+        return;
+    }
+    HoleManager_UpdateParallaxBackground(this);
+    if (gRoomControls.reload_flags == 1) {
+        super->subAction = 1;
+        return;
+    }
+    if (super->subAction == 0)
+        return;
+    super->subAction = 0;
+    if (this->unk_3f == gRoomControls.room)
+        return;
+    if (super->type2) {
+        gScreen.lcd.displayControl &= ~0x800;
+    }
+    DeleteThisEntity();
+}
+
+bool32 IsPlayerOnHole(HoleManager* this) {
+    bool32 re = FALSE;
+    if (CheckPlayerProximity(this->x, this->y, this->width, this->height)) {
+        if ((gPlayerState.flags & PL_DROWNING) && (gPlayerState.flags & PL_BUSY)) {
+            gPlayerState.flags |= PL_PIT_IS_EXIT;
+        } else if (gPlayerState.flags & PL_PIT_IS_EXIT) {
+            re = TRUE;
+        }
+    }
+    return re;
+}
+
+void DoHoleTransition(HoleManager* this) {
+    const HoleTransition* transition;
+    gRoomTransition.transitioningOut = 1;
+    gRoomTransition.type = TRANSITION_CUT;
+    gRoomTransition.player_status.start_anim = 4;
+    transition = &gHoleTransitions[super->type];
+    gRoomTransition.player_status.area_next = transition->area;
+    gRoomTransition.player_status.room_next = transition->room;
+    gRoomTransition.player_status.layer = transition->layer;
+    if (gPlayerState.flags & PL_MINISH) {
+        gRoomTransition.player_status.spawn_type = PL_SPAWN_DROP_MINISH;
+    } else {
+        gRoomTransition.player_status.spawn_type = PL_SPAWN_DROP;
+    }
+    switch (transition->type) {
+        case HOLE_TRANSITION_ABSOLUTE:
+            gRoomTransition.player_status.start_pos_x = transition->x;
+            gRoomTransition.player_status.start_pos_y = transition->y;
+            break;
+        case HOLE_TRANSITION_RELATIVE:
+            gRoomTransition.player_status.start_pos_x =
+                gPlayerEntity.base.x.HALF.HI - gRoomControls.origin_x + transition->x;
+            gRoomTransition.player_status.start_pos_y =
+                gPlayerEntity.base.y.HALF.HI - gRoomControls.origin_y + transition->y;
+            break;
+        case HOLE_TRANSITION_ABSOLUTE_MINISH:
+            gRoomTransition.player_status.start_pos_x = transition->x;
+            gRoomTransition.player_status.start_pos_y = transition->y;
+            gRoomTransition.player_status.spawn_type = PL_SPAWN_DROP_MINISH;
+            break;
+        default:
+            break;
+    }
+}
+
+void HoleManager_UpdateParallaxBackground(HoleManager* this) {
+    s32 x, y;
+    if (!super->type2)
+        return;
+    x = (this->persistance_x - gRoomControls.scroll_x) / 4;
+    y = (this->persistance_y - gRoomControls.scroll_y) / 4;
+    if (x < -12) {
+        x = -12;
+    }
+    if (x > 12) {
+        x = 12;
+    }
+    if (y < -12) {
+        y = -12;
+    }
+    if (y > 12) {
+        y = 12;
+    }
+    gScreen.lcd.displayControl |= DISPCNT_BG3_ON;
+
+    gScreen.bg3.xOffset = gRoomControls.bg3OffsetX.HALF.HI = gRoomControls.scroll_x + this->persistance_offset_x + x;
+    gScreen.bg3.yOffset = gRoomControls.bg3OffsetY.HALF.HI = gRoomControls.scroll_y + this->persistance_offset_y + y;
+}
+
+void HoleManager_OnEnterRoom(HoleManager* this) {
+    const HoleTransition* transition;
+    if (!super->type2)
+        return;
+    transition = &gHoleTransitions[super->type];
+    LoadResourceAsync(&gGlobalGfxAndPalettes[transition->parallax_background->gfx], BG_SCREEN_ADDR(30), BG_SCREEN_SIZE);
+    gScreen.bg3.control = 0x1E07;
+    gScreen.lcd.displayControl |= DISPCNT_BG3_ON;
+    gScreen.bg3.xOffset = gRoomControls.bg3OffsetX.HALF.HI;
+    gScreen.bg3.yOffset = gRoomControls.bg3OffsetY.HALF.HI;
+    gScreen.controls.layerFXControl &= ~0x8;
+}
+
+void CreateHoleManager(u32 type) {
+    Manager* tmp = GetEmptyManager();
+    if (!tmp)
+        return;
+    tmp->kind = MANAGER;
+    tmp->id = HOLE_MANAGER;
+    tmp->type = type;
+    AppendEntityToList((Entity*)tmp, 6);
+}

@@ -1,0 +1,1 @@
+You are my assistant. You will write comments for my code and rename functions and variables if the names are inappropriate. You will ignore anything marked as a "TODO". You will give me a report of what you have renamed.

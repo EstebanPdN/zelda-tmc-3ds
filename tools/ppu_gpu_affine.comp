@@ -1,0 +1,117 @@
+#version 450
+/*
+ * ppu_gpu_affine.comp — GPU port of virtuappu_mode1_render_affine_obj_overlay
+ * (Phase 6 PoC). One invocation per output sub-pixel; replicates the CPU
+ * oracle's integer inverse-map exactly (arithmetic >>, truncating /), so the
+ * result is bit-identical. Iterates OAM 0..127 and takes the lowest-index
+ * affine sprite that covers the pixel with a non-zero colour (== the CPU's
+ * 127->0 overwrite order). SDL_GPU compute binding model: read-only storage
+ * buffers in set 0, read-write in set 1, uniforms in set 2.
+ */
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std430, set = 0, binding = 0) readonly buffer OAM  { uint oam[]; };   /* one u16 per uint */
+layout(std430, set = 0, binding = 1) readonly buffer VRAM { uint vram[]; };  /* 4 bytes per uint */
+layout(std430, set = 0, binding = 2) readonly buffer PAL  { uint pal[]; };   /* one u16 per uint */
+layout(std430, set = 1, binding = 0) writeonly buffer OUT { uint outp[]; };  /* ABGR8888 */
+
+layout(set = 2, binding = 0) uniform U {
+    int scale; int dst_w; int dst_h; int viewport_width; int obj_1d; int obj_tile_base;
+} u;
+
+const int W[12] = int[12](8,16,32,64, 16,32,32,64, 8,8,16,32);   /* [shape*4+size] */
+const int Hh[12] = int[12](8,16,32,64, 8,8,16,32, 16,32,32,64);
+
+int oam16(int k) { return int(oam[k] & 0xFFFFu); }
+int pal16(int k) { return int(pal[k] & 0xFFFFu); }
+int vram8(int addr) { return int((vram[addr >> 2] >> ((uint(addr) & 3u) * 8u)) & 0xFFu); }
+int s16(int v) { return (v >= 32768) ? v - 65536 : v; }
+
+uint rgb555_to_abgr(int c) {
+    int r = (c & 0x1F) << 3;
+    int g = ((c >> 5) & 0x1F) << 3;
+    int b = ((c >> 10) & 0x1F) << 3;
+    return 0xFF000000u | (uint(b) << 16) | (uint(g) << 8) | uint(r);
+}
+
+void main() {
+    int X = int(gl_GlobalInvocationID.x);
+    int Y = int(gl_GlobalInvocationID.y);
+    if (X >= u.dst_w || Y >= u.dst_h) return;
+
+    uint result = 0u; /* uncovered pixels stay 0 (CPU leaves them untouched; harness clears to 0) */
+
+    for (int i = 0; i < 128; ++i) {
+        int a0 = oam16(i * 4 + 0);
+        int a1 = oam16(i * 4 + 1);
+        int a2 = oam16(i * 4 + 2);
+
+        bool affine = ((a0 >> 8) & 1) != 0;
+        if (!affine) continue;                 /* overlay only draws affine OBJ */
+
+        int shape = (a0 >> 14) & 3;
+        int size  = (a1 >> 14) & 3;
+        if (shape > 2) continue;
+        int obj_w = W[shape * 4 + size];
+        int obj_h = Hh[shape * 4 + size];
+        bool dbl = ((a0 >> 9) & 1) != 0;
+        int bounds_w = dbl ? obj_w * 2 : obj_w;
+        int bounds_h = dbl ? obj_h * 2 : obj_h;
+
+        int obj_y = a0 & 0xFF;            if (obj_y >= 160) obj_y -= 256;
+        int obj_x = a1 & 0x1FF;           if (obj_x >= u.viewport_width) obj_x -= 512;
+
+        int sprite_top_sub  = obj_y * u.scale;
+        int sprite_left_sub = obj_x * u.scale;
+        int sy_sub = Y - sprite_top_sub;
+        int sx_sub = X - sprite_left_sub;
+        if (sy_sub < 0 || sy_sub >= bounds_h * u.scale) continue;
+        if (sx_sub < 0 || sx_sub >= bounds_w * u.scale) continue;
+
+        bool bpp8 = ((a0 >> 13) & 1) != 0;
+        int base_tile = a2 & 0x3FF;
+        int tiles_w = obj_w / 8;
+        int grp = (a1 >> 9) & 0x1F;
+        int pa = s16(oam16(grp * 16 + 3));
+        int pb = s16(oam16(grp * 16 + 7));
+        int pc = s16(oam16(grp * 16 + 11));
+        int pd = s16(oam16(grp * 16 + 15));
+
+        int half_w = bounds_w / 2, half_h = bounds_h / 2;
+        int sprite_half_w = obj_w / 2, sprite_half_h = obj_h / 2;
+        int irx = sx_sub - half_w * u.scale;
+        int iry = sy_sub - half_h * u.scale;
+        int tex_x = (((pa * irx + pb * iry) >> 8) / u.scale) + sprite_half_w;
+        int tex_y = (((pc * irx + pd * iry) >> 8) / u.scale) + sprite_half_h;
+        if (tex_x < 0 || tex_x >= obj_w || tex_y < 0 || tex_y >= obj_h) continue;
+
+        int tile_row = tex_y / 8, pixel_y = tex_y % 8;
+        int tile_col = tex_x / 8, pixel_x = tex_x % 8;
+
+        int tile_index;
+        if (u.obj_1d != 0) {
+            tile_index = bpp8 ? (base_tile + (tile_row * tiles_w + tile_col) * 2)
+                              : (base_tile + tile_row * tiles_w + tile_col);
+        } else {
+            tile_index = bpp8 ? (base_tile + tile_row * 32 + tile_col * 2)
+                              : (base_tile + tile_row * 32 + tile_col);
+        }
+
+        int ci;
+        if (bpp8) {
+            int addr = u.obj_tile_base + tile_index * 32 + pixel_y * 8 + pixel_x;
+            ci = (addr < 0x18000) ? vram8(addr) : 0;
+        } else {
+            int addr = u.obj_tile_base + tile_index * 32 + pixel_y * 4 + (pixel_x / 2);
+            int packed = (addr < 0x18000) ? vram8(addr) : 0;
+            ci = ((pixel_x & 1) != 0) ? (packed >> 4) : (packed & 0xF);
+        }
+        if (ci == 0) continue;
+
+        int rgb555 = bpp8 ? pal16(ci) : pal16(((a2 >> 12) & 0xF) * 16 + ci);
+        result = rgb555_to_abgr(rgb555);
+        break; /* lowest-index covering sprite wins (== CPU 127->0 overwrite) */
+    }
+
+    outp[Y * u.dst_w + X] = result;
+}
