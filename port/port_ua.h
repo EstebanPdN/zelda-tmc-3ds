@@ -50,9 +50,11 @@ static inline float Port_UA_QuestTabExtra(float u) {
 /**
  * Red/dark name chips (panel headers, settings values), see
  * port/port_second_screen.c DrawPanelHeaderChip() / DrawSettingsValueRow().
- * The Ukrainian banner letters are wider and bolder than the English ones and
- * touch the chip rim at the upstream padding; give them 6u (2 px on 3DS) more
- * on each side.
+ * The Ukrainian banner letters are wider than the English ones and taller
+ * (ink rows 1..15 instead of 2..14), so they ran over the chip's white inner
+ * ring. Header chips get 6u (2 px on 3DS) more on each side and 2 px more
+ * above and below; settings-value chips sit in rows too short for the ring,
+ * so they are drawn as a flat rounded fill without it.
  */
 static inline float Port_UA_ChipPad(float u) {
     return Port_IsUkrainianRom() ? 6.0f * u : 0.0f;

@@ -681,6 +681,8 @@ static void DrawPanelHeaderChip(const SSurf* s, float cx, float topY, const char
     int32_t tw = MenuTextWidth(title, ms);
     float h = MENU_TEXT_BOX * ms + 24 * u;
     float pad = 24 * u + Port_UA_ChipPad(u); /* tloz-tmc-ua */
+    h += 2 * Port_UA_ChipPad(u);             /* tloz-tmc-ua: same centre, taller ring */
+    topY -= Port_UA_ChipPad(u);
     float x0 = cx - tw / 2.0f - pad, x1 = cx + tw / 2.0f + pad;
     int32_t cts = (int32_t)(h / 26.0f);
     if (cts < 1) cts = 1;
@@ -2029,8 +2031,15 @@ static void DrawSettingsValueRow(const SSurf* s, TargetList* tl, float x0, float
     float cy0 = (y0 + y1 - ch) / 2;
     int32_t cts = (int32_t)(ch / 24.0f);
     if (cts < 1) cts = 1;
-    Port_SecondScreenTheme_DrawChip(s->px, s->w, s->h, s->stride, (int32_t)cx0, (int32_t)cy0,
-                                    (int32_t)cw, (int32_t)ch, cts, on ? SS_CHIP_RED : SS_CHIP_DARK);
+    if (Port_UA_ChipPad(u) > 0) { /* tloz-tmc-ua: flat chip, see Port_UA_ChipPad() */
+        const uint32_t fill = Port_SecondScreenTheme_Color(on ? SSC_MENU_RED : SSC_MENU_BLACK);
+        const int32_t fx0 = (int32_t)cx0, fy0 = (int32_t)cy0, fx1 = (int32_t)(cx0 + cw), fy1 = (int32_t)(cy0 + ch);
+        FillRect(s, fx0 + 1, fy0, fx1 - 1, fy1, fill);
+        FillRect(s, fx0, fy0 + 1, fx1, fy1 - 1, fill);
+    } else {
+        Port_SecondScreenTheme_DrawChip(s->px, s->w, s->h, s->stride, (int32_t)cx0, (int32_t)cy0,
+                                        (int32_t)cw, (int32_t)ch, cts, on ? SS_CHIP_RED : SS_CHIP_DARK);
+    }
     MenuTextCentered(s, val, (cx0 + cx1) / 2, cy0 + ch / 2, ms, SS_TEXT_WHITE);
 
     MenuTextDraw(s, kSettingLabels[setting], (int32_t)(x0 + 18 * u),
