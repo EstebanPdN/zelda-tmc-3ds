@@ -1,0 +1,24 @@
+FROM debian
+
+RUN apt update && apt upgrade -y && apt install -y --no-install-recommends \
+    ca-certificates \
+    cmake \
+    g++ \
+    gcc \
+    gcc-arm-none-eabi \
+    git \
+    libpng-dev \
+    make \
+    python3 \
+    python3-pycparser \
+    ssh-client \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone https://github.com/pret/agbcc.git /agbcc
+
+RUN cd /agbcc && \
+    ./build.sh && \
+    mkdir -p /agbcc-install && \
+    ./install.sh /agbcc-install
+
+ENV AGBCC_PATH=/agbcc-install/tools/agbcc

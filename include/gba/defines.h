@@ -1,0 +1,142 @@
+#ifndef GUARD_GBA_DEFINES
+#define GUARD_GBA_DEFINES
+
+#include <stddef.h>
+
+#define TRUE 1
+#define FALSE 0
+
+#if defined(_MSC_VER) && !defined(__clang__) && !defined(__GNUC__)
+/* MSVC: GBA IWRAM/EWRAM sections are meaningless on PC; map to no-op so
+ * any code that retained these attributes compiles cleanly. */
+#define IWRAM_DATA
+#define EWRAM_DATA
+#elif defined(__APPLE__)
+#define IWRAM_DATA __attribute__((section("__DATA,iwram_data")))
+#define EWRAM_DATA __attribute__((section("__DATA,ewram_data")))
+#else
+#define IWRAM_DATA __attribute__((section("iwram_data")))
+#define EWRAM_DATA __attribute__((section("ewram_data")))
+#endif
+
+#if defined(_MSC_VER) && !defined(__clang__) && !defined(__GNUC__)
+#define NAKED __declspec(naked)
+#define UNUSED
+#else
+#define NAKED __attribute__((naked))
+#define UNUSED __attribute__((unused))
+#endif
+#ifdef __CLION_IDE__
+#define PACKED
+#define ALIGNED(n)
+#define MAY_ALIAS
+#define PACKED_STRUCT_BEGIN
+#define PACKED_STRUCT_END
+#elif defined(_MSC_VER) && !defined(__clang__) && !defined(__GNUC__)
+/* MSVC has no trailing-attribute equivalent of __attribute__((packed)).
+ * The cross-platform pattern is to wrap the struct definition with
+ *   PACKED_STRUCT_BEGIN  struct Foo { ... } PACKED_STRUCT_END;
+ * but most existing call sites use the trailing form, so expand PACKED
+ * to nothing on MSVC and emit a diagnostic if any struct actually relies
+ * on byte packing (those sites need converting to PACKED_STRUCT_BEGIN/END). */
+#define PACKED
+#define ALIGNED(n) __declspec(align(n))
+#define MAY_ALIAS
+#define PACKED_STRUCT_BEGIN __pragma(pack(push, 1))
+#define PACKED_STRUCT_END   __pragma(pack(pop))
+#else
+#define PACKED __attribute__((packed))
+#define ALIGNED(n) __attribute__((aligned(n)))
+#if defined(__GNUC__) && (__GNUC__ >= 3)
+#define MAY_ALIAS __attribute__((__may_alias__))
+#else
+#define MAY_ALIAS
+#endif
+#define PACKED_STRUCT_BEGIN
+#define PACKED_STRUCT_END
+#endif
+
+#ifdef PC_PORT
+#include <stdint.h>
+extern uint16_t gPortIntrCheck;
+extern void* gPortIntrVector;
+extern struct SoundInfo* gPortSoundInfoPtr;
+#define SOUND_INFO_PTR gPortSoundInfoPtr
+#define INTR_CHECK gPortIntrCheck
+#define INTR_VECTOR gPortIntrVector
+#else
+#define SOUND_INFO_PTR (*(struct SoundInfo**)0x3007FF0)
+#define INTR_CHECK (*(u16*)0x3007FF8)
+#define INTR_VECTOR (*(void**)0x3007FFC)
+#endif
+
+#define EWRAM_START 0x02000000
+#define EWRAM_END (EWRAM_START + 0x40000)
+#define IWRAM_START 0x03000000
+#define IWRAM_END (IWRAM_START + 0x8000)
+
+#define PLTT 0x5000000
+#define PLTT_SIZE 0x400
+#define PAL_RAM ((u8*)(PLTT))
+
+#define BG_PLTT PLTT
+#define BG_PLTT_SIZE 0x200
+
+#define OBJ_PLTT (PLTT + 0x200)
+#define OBJ_PLTT_SIZE 0x200
+
+#define VRAM 0x6000000
+#define VRAM_SIZE 0x18000
+
+#define BG_VRAM VRAM
+#define BG_VRAM_SIZE 0x10000
+#define BG_CHAR_SIZE 0x4000
+#define BG_SCREEN_SIZE 0x800
+#define BG_CHAR_ADDR(n) (void*)(BG_VRAM + (BG_CHAR_SIZE * (n)))
+#define BG_SCREEN_ADDR(n) (void*)(BG_VRAM + (BG_SCREEN_SIZE * (n)))
+#define BG_TILE_ADDR(n) (void*)(BG_VRAM + (0x80 * (n)))
+
+#define BG_TILE_H_FLIP(n) (0x400 + (n))
+#define BG_TILE_V_FLIP(n) (0x800 + (n))
+
+// text-mode BG
+#define OBJ_VRAM0 (void*)(VRAM + 0x10000)
+#define OBJ_VRAM0_SIZE 0x8000
+
+// bitmap-mode BG
+#define OBJ_VRAM1 (void*)(VRAM + 0x14000)
+#define OBJ_VRAM1_SIZE 0x4000
+
+#define OAM 0x7000000
+#define OAM_SIZE 0x400
+
+#define ROM_HEADER_SIZE 0xC0
+
+#define DISPLAY_WIDTH 240
+#define DISPLAY_HEIGHT 160
+
+#define TILE_SIZE_4BPP 32
+#define TILE_SIZE_8BPP 64
+
+#define TILE_OFFSET_4BPP(n) ((n) * TILE_SIZE_4BPP)
+#define TILE_OFFSET_8BPP(n) ((n) * TILE_SIZE_8BPP)
+
+#define TOTAL_OBJ_TILE_COUNT 1024
+
+#define RGB(r, g, b) ((r) | ((g) << 5) | ((b) << 10))
+#define RGB2(r, g, b) (((b) << 10) | ((g) << 5) | (r))
+#define _RGB(r, g, b) ((((b) & 0x1F) << 10) + (((g) & 0x1F) << 5) + ((r) & 0x1F))
+
+#define RGB_BLACK RGB(0, 0, 0)
+#define RGB_WHITE RGB(31, 31, 31)
+#define RGB_RED RGB(31, 0, 0)
+#define RGB_GREEN RGB(0, 31, 0)
+#define RGB_BLUE RGB(0, 0, 31)
+#define RGB_YELLOW RGB(31, 31, 0)
+#define RGB_MAGENTA RGB(31, 0, 31)
+#define RGB_CYAN RGB(0, 31, 31)
+#define RGB_WHITEALPHA (RGB_WHITE | 0x8000)
+
+#define SYSTEM_CLOCK (16 * 1024 * 1024) // System Clock
+
+#endif // GUARD_GBA_DEFINES

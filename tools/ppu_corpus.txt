@@ -1,0 +1,36 @@
+# tools/ppu_corpus.txt — PPU parity scene corpus (consumed by ppu_parity_check.sh)
+#
+# Format (tab-separated):   name <TAB> regions <TAB> spec <TAB> description
+#   regions = all | comma-list (usa,eu,jp)   — scene is checked only for these
+#   spec    = atframe=N                       (capture at frame N, no warp/mash)
+#           | warp=AREA,ROOM,X,Y,LAYER        (deterministic warp+settle; gameplay)
+#
+# Each scene is captured headless and hashed two ways:
+#   Tier A = tools/ppu_parity static render of the memory snapshot (mode1/mode2)
+#   Tier B = the live end-to-end frame perfcap emits (covers HDMA + composite)
+# against tools/ppu_golden_hashes.txt. The renderer is integer-only, so hashes
+# are portable across compilers/CPUs. ROM-derived snapshots are NEVER committed
+# — only the hashes are.
+#
+# PORTABILITY: this committed corpus holds only HERMETIC scenes (atframe boot/
+# title screens — no save, no warp), so the golden is reproducible on any
+# machine incl. CI. Warp/gameplay scenes depend on a save state and are NOT
+# portable; use them via a local override for same-machine phase verification:
+#     PPU_CORPUS=tools/ppu_corpus.local.txt PPU_GOLDEN=/tmp/ppu_golden.local \
+#         tools/ppu_parity_check.sh --update   # before a phase
+#     ...refactor...
+#     PPU_CORPUS=tools/ppu_corpus.local.txt PPU_GOLDEN=/tmp/ppu_golden.local \
+#         tools/ppu_parity_check.sh            # after — must still PASS
+#
+# --- portable scenes (committed + CI-gated) ---
+intro_logo	all	atframe=150	intro logo — GBA mode0 (VPPU mode1): BG0+BG2 text
+title	all	atframe=300	title screen — GBA mode1 affine (VPPU mode2): BG0/BG1 text + BG2 affine + OBJ
+#
+# --- local gameplay scenes (copy into ppu_corpus.local.txt; need a dev save) ---
+# Tune warp coords in-game (F-menu), confirm they settle, then use locally.
+# braziers_139   usa  warp=...   #139 equal-priority BG sort (ToGrimblade)
+# litarea_138    usa  warp=12,44,...  #138/#79 OBJ-window dark-room reveal
+# barrel_132     usa  warp=...   #132 mode2 affine latch + BG2PA HBlank-DMA (Deepwood)
+# digcave_winv   usa  warp=...   WIN0 vertical wrap (digging-cave iris)
+# swamp_sink     usa  warp=4,...  obj-clip-y waterline + priority (Castor Wilds)
+# semitrans_obj  usa  warp=...   semi-transparent OBJ (attr0 mode 1)

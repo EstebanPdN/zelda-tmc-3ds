@@ -1,0 +1,6 @@
+{
+    "name": "zeldaret/tmc-dev",
+    "build": {
+        "dockerfile": "Containerfile"
+    }
+}

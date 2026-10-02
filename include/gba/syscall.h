@@ -1,0 +1,77 @@
+#ifndef SYSCALL_H
+#define SYSCALL_H
+
+#include "types.h"
+
+#define RESET_EWRAM 0x01
+#define RESET_IWRAM 0x02
+#define RESET_PALETTE 0x04
+#define RESET_VRAM 0x08
+#define RESET_OAM 0x10
+#define RESET_SIO_REGS 0x20
+#define RESET_SOUND_REGS 0x40
+#define RESET_REGS 0x80
+#define RESET_ALL 0xFF
+#ifdef PC_PORT
+// TODO: Implement Stop for PC port
+#define Stop() \
+    {}
+#else
+#define SystemCall(x) \
+    { asm("svc " #x); }
+
+extern void SoundBiasReset();
+extern void SoundBiasSet();
+
+#define Stop()            \
+    {                     \
+        SoundBiasReset(); \
+        SystemCall(3);    \
+        SoundBiasSet();   \
+    }
+#endif
+
+void SoftReset(u32 resetFlags);
+
+void RegisterRamReset(u32 resetFlags);
+
+void VBlankIntrWait(void);
+
+u16 Sqrt(u32 num);
+
+u16 ArcTan2(s16 x, s16 y);
+
+#define CPU_SET_SRC_FIXED 0x01000000
+#define CPU_SET_16BIT 0x00000000
+#define CPU_SET_32BIT 0x04000000
+
+void CpuSet(const void* src, void* dest, u32 control);
+
+#define CPU_FAST_SET_SRC_FIXED 0x01000000
+
+void CpuFastSet(const void* src, void* dest, u32 control);
+
+void BgAffineSet(struct BgAffineSrcData* src, struct BgAffineDstData* dest, s32 count);
+
+void ObjAffineSet(struct ObjAffineSrcData* src, void* dest, s32 count, s32 offset);
+
+void LZ77UnCompWram(const void* src, void* dest);
+
+void LZ77UnCompVram(const void* src, void* dest);
+
+void RLUnCompWram(const void* src, void* dest);
+
+void RLUnCompVram(const void* src, void* dest);
+
+int MultiBoot(struct MultiBootParam* mp);
+
+s32 Div(s32 num, s32 denom);
+
+#ifdef PC_PORT
+u64 DivAndModCombined(s32 num, s32 denom);
+#define DivAndMod(num, denom) ((union SplitDWord){ .DWORD_U = DivAndModCombined((num), (denom)) })
+#else
+#define DivAndMod(num, denom) ((union SplitDWord)(*(MultiReturnTypeTwoS32Arg)(&Div))(num, denom))
+#endif
+
+#endif // SYSCALL_H

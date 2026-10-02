@@ -1,0 +1,216 @@
+/**
+ * @file itemForSale.c
+ * @ingroup Objects
+ *
+ * @brief Item for Sale object
+ */
+#include "object/itemForSale.h"
+
+#include "hitbox.h"
+#include "message.h"
+#include "scroll.h"
+#include "asm.h"
+#include "ui.h"
+#include "room.h"
+#include "player.h"
+#include "manager/goronMerchantShopManager.h"
+
+typedef struct {
+    u8 before[0x20];
+    u8 unk_20[0x4]; // TODO for Entity this is zVelocity which is not an array. spriteAnimation[super->subtimer-6] does
+                    // not match.
+} ModifiedParentEntity;
+
+extern u32 AddInteractableShopItem(Entity*);
+extern void* sub_080784E4(void);
+
+void ItemForSale_Init(ItemForSaleEntity*);
+void ItemForSale_Action1(ItemForSaleEntity*);
+void ItemForSale_Action2(ItemForSaleEntity*);
+void ItemForSale_Action3(ItemForSaleEntity*);
+void ItemForSale_MakeInteractable(ItemForSaleEntity*);
+void sub_080819B4(ItemForSaleEntity*);
+void sub_08081AB0(void);
+
+void ItemForSale(ItemForSaleEntity* this) {
+    static void (*const ItemForSale_Actions[])(ItemForSaleEntity*) = {
+        ItemForSale_Init,
+        ItemForSale_Action1,
+        ItemForSale_Action2,
+        ItemForSale_Action3,
+    };
+    ItemForSale_Actions[super->action](this);
+    if (CheckOnScreen(super)) {
+        sub_08080CB4(super);
+    }
+    switch (super->timer) {
+        case 1:
+        case 2:
+            if (super->action == 1) {
+                sub_0800445C(super);
+            }
+            break;
+        case 0:
+        case 3:
+            break;
+    }
+}
+
+void ItemForSale_Init(ItemForSaleEntity* this) {
+    super->action = 1;
+    super->spriteSettings.draw = 1;
+    super->spritePriority.b1 = 0;
+    super->carryFlags = 0;
+    if (REGION_IS_EU) {
+        SetEntityPriority(super, 6);
+    }
+    super->child = super;
+    ItemForSale_MakeInteractable(this);
+    switch (super->timer) {
+        case 0:
+            super->hitbox = (Hitbox*)&gUnk_080FD328;
+            break;
+        case 1:
+            super->hitbox = (Hitbox*)&gHitbox_5;
+            break;
+    }
+}
+
+void ItemForSale_Action1(ItemForSaleEntity* this) {
+    if (super->subAction != 0) {
+        super->action = 2;
+        gHUD.rActionPlayerState = 2;
+    } else {
+        if (super->type == 0x36) {
+            if (super->interactType != INTERACTION_NONE) {
+                super->interactType = INTERACTION_NONE;
+                super->action = 3;
+                gRoomVars.animFlags = 1;
+                gPlayerState.queued_action = PLAYER_08070E9C;
+            }
+        } else {
+            if (super->interactType != INTERACTION_NONE) {
+                super->interactType = INTERACTION_NONE;
+                super->subAction = 1;
+                PausePlayer();
+                ResetActiveItems();
+                gPlayerState.heldObject = 4;
+                gPlayerEntity.carriedEntity = super;
+                gHUD.rActionPlayerState = R_ACTION_DROP;
+                MessageClose();
+            }
+        }
+    }
+}
+
+void ItemForSale_Action2(ItemForSaleEntity* this) {
+#ifndef PC_PORT
+    void* ptr;
+#else
+    InteractableObject* iface;
+#endif
+
+    gHUD.rActionPlayerState = R_ACTION_DROP;
+    super->spriteSettings.draw = gPlayerEntity.base.spriteSettings.draw;
+    if ((gPlayerState.heldObject == 0) || (super != gPlayerEntity.carriedEntity)) {
+        sub_080819B4(this);
+    } else {
+#ifdef PC_PORT
+        /* GBA #90 fix: original code was
+         *   ptr = sub_080784E4();
+         *   if (... ptr+8 == 0 || ptr+1 != 1 || ...) sub_080819B4(...)
+         * where ptr+8 was meant to be `entity` and ptr+1 `type` of
+         * an InteractableObject. On 64-bit PC, sizeof(pointer) is 8
+         * (not 4), so InteractableObject's `customHitbox` shifts to
+         * offset 0x08 and `entity` to 0x10; ptr+8 now reads the low
+         * half of customHitbox instead of `entity`. The "is the
+         * current interaction target talkable" check breaks, so a
+         * player carrying a shop item next to a merchant (Syrup with
+         * the Awake Mushroom in Tree Interiors / Witch Hut) gets the
+         * drop branch instead of the speak branch — pressing A drops
+         * the mushroom, no buy dialog. Use struct fields instead. */
+        iface = sub_080784E4();
+        if (((iface->entity == NULL) ||
+             ((iface->type != INTERACTION_TALK ||
+               (gHUD.rActionPlayerState = R_ACTION_SPEAK,
+                (gPlayerState.playerInput.newInput & (INPUT_ACTION | INPUT_INTERACT)) == 0)))) &&
+            ((gPlayerState.playerInput.newInput & (INPUT_ACTION | INPUT_CANCEL | INPUT_INTERACT)) != 0)) {
+            sub_080819B4(this);
+        }
+#else
+        ptr = sub_080784E4();
+        if (((*(int*)(ptr + 8) == 0) || ((*(u8*)(ptr + 1) != 1 || (gHUD.rActionPlayerState = R_ACTION_SPEAK,
+                                                                   (gPlayerState.playerInput.newInput &
+                                                                    (INPUT_ACTION | INPUT_INTERACT)) == 0)))) &&
+            ((gPlayerState.playerInput.newInput & (INPUT_ACTION | INPUT_CANCEL | INPUT_INTERACT)) != 0)) {
+            sub_080819B4(this);
+        }
+#endif
+    }
+}
+
+void sub_080819B4(ItemForSaleEntity* this) {
+    Entity* parent;
+    u8* puVar2;
+    HUD* hud;
+
+    if (gRoomVars.shopItemType == 0) {
+        if (super->parent != NULL) {
+#ifdef PC_PORT
+            /* SHOP_ITEM is created only by GoronMerchantShopManager (which sets
+               itself as parent, goronMerchantShopManager.c:69-79), so the parent
+               is always that manager. Its itemActive[] lives at the widened-
+               Manager PC offset (0x38), NOT the GBA-0x20 zVelocity alias the
+               ModifiedParentEntity cast targets — so on PC the 0xff sold marker
+               missed itemActive[] and the Goron-Kakera sold flag was never set.
+               Write the real field. */
+            ((GoronMerchantShopManager*)super->parent)->itemActive[super->subtimer] = 0xff;
+#else
+            ((ModifiedParentEntity*)super->parent)->unk_20[super->subtimer] = 0xff;
+#endif
+        }
+        DeleteThisEntity();
+    }
+    gPlayerState.heldObject = 0;
+    gPlayerEntity.carriedEntity = 0;
+    hud = &gHUD;
+    gRoomVars.shopItemType = 0;
+    hud->rActionInteractObject = R_ACTION_NONE;
+    hud->rActionPlayerState = R_ACTION_NONE;
+    gRoomVars.shopItemType2 = 0;
+    super->x.HALF.HI = this->unk_80 + gRoomControls.origin_x;
+    super->y.HALF.HI = this->unk_82 + gRoomControls.origin_y;
+    super->z.WORD = 0;
+    super->action = 1;
+    super->subAction = 0;
+    super->spriteOrientation.flipY = gPlayerEntity.base.spriteOrientation.flipY;
+    super->collisionLayer = 1;
+    super->spritePriority.b0 = 4;
+    UpdateSpriteForCollisionLayer(super);
+    ItemForSale_MakeInteractable(this);
+}
+
+void ItemForSale_MakeInteractable(ItemForSaleEntity* this) {
+    u32 tmp = AddInteractableShopItem(super);
+    if (super->timer == 1) {
+        gPossibleInteraction.candidates[tmp].interactDirections = 0;
+    }
+}
+
+void ItemForSale_Action3(ItemForSaleEntity* this) {
+    if (gRoomVars.animFlags == 0) {
+        sub_08081AB0();
+        DeleteThisEntity();
+    } else if (gRoomVars.animFlags == 2) {
+        super->action = 1;
+        super->subAction = 0;
+        sub_08081AB0();
+    }
+}
+
+void sub_08081AB0(void) {
+    gRoomVars.animFlags = 0;
+    gRoomVars.shopItemType = 0;
+    gRoomVars.shopItemType2 = 0;
+    SetPlayerControl(CONTROL_ENABLED);
+}

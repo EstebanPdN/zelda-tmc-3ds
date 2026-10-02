@@ -1,0 +1,73 @@
+/* port/vk_rt_experiment/shaders/path_trace.rahit
+ *
+ * Any-hit shader for the path tracer. Runs once per triangle
+ * candidate-intersection during traversal; we use it solely to
+ * skip transparent texels — sampling the diffuse atlas at the
+ * candidate UV and calling ignoreIntersectionEXT() when the alpha
+ * is below threshold. Opaque texels fall through (accept the hit)
+ * so the closest-hit shader runs normally.
+ *
+ * The any-hit doesn't write the payload (that's the rchit's job);
+ * it's a yes/no traversal gate. Per the Vulkan RT spec, an any-hit
+ * may be invoked multiple times per ray on the same triangle
+ * (driver optimisation), and the results may arrive in any order —
+ * which is fine for "ignore if transparent" since the decision is
+ * deterministic on UV alone.
+ *
+ * Hit-group composition: same vertex / index storage buffers and
+ * the same diffuse atlas binding as the rchit. The shader stages
+ * share descriptor set 0; the only new structural change is the
+ * `anyHitShader` slot on the hit group in the RT pipeline create.
+ */
+#version 460
+#extension GL_EXT_ray_tracing : require
+#extension GL_EXT_nonuniform_qualifier : require
+
+hitAttributeEXT vec2 attribs;
+
+/* Vertex layout MUST match path_trace.rchit's `Vertex` struct.
+ * 24 bytes: position (3 floats) + uv (2 floats) + matCode (1 float). */
+struct Vertex {
+    float px, py, pz;
+    float u, v;
+    float matCode;
+};
+
+layout(set = 0, binding = 2, std430) readonly buffer Vertices { Vertex v[]; } verts;
+layout(set = 0, binding = 3, std430) readonly buffer Indices  { uint   i[]; } idx;
+layout(set = 0, binding = 4) uniform texture2D atlasTextures[];
+layout(set = 0, binding = 5) uniform sampler   atlasSampler;
+
+void main() {
+    /* Three vertex indices for the candidate triangle. */
+    const uint i0 = idx.i[3u * uint(gl_PrimitiveID) + 0u];
+    const uint i1 = idx.i[3u * uint(gl_PrimitiveID) + 1u];
+    const uint i2 = idx.i[3u * uint(gl_PrimitiveID) + 2u];
+
+    Vertex v0 = verts.v[i0];
+    Vertex v1 = verts.v[i1];
+    Vertex v2 = verts.v[i2];
+
+    /* Barycentric interpolation of UV at the candidate hit. */
+    const vec3 bary = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
+    const vec2 uv =
+        bary.x * vec2(v0.u, v0.v) +
+        bary.y * vec2(v1.u, v1.v) +
+        bary.z * vec2(v2.u, v2.v);
+
+    /* Sample the diffuse atlas. The atlas's transparent regions
+     * (where the per-line BG render produced no tile content) have
+     * alpha 0; opaque content has alpha 1. Use 0.5 as the cutoff
+     * to be tolerant of bilinear-filter blending at edges. */
+    float alpha = texture(sampler2D(atlasTextures[0], atlasSampler), uv).a;
+    if (alpha < 0.5) {
+        /* Skip this triangle, continue traversal. The ray will
+         * proceed past this hit and consider further candidates
+         * (in our scene: the BG2 plane behind a transparent BG1
+         * hit, or another quad behind a transparent sprite edge). */
+        ignoreIntersectionEXT;
+    }
+    /* else: fall through. The traversal accepts this hit; the
+     * closest-hit shader at the eventually-closest triangle does
+     * the actual shading. */
+}
