@@ -37,6 +37,13 @@ MP2KContext::MP2KContext(
     for (size_t i = 0; i < playerTableInfo.size(); i++)
         players.emplace_back(*this, playerTableInfo.at(i), static_cast<uint8_t>(i));
 
+#ifdef TMC_3DS
+    size_t trackCount = 0;
+    for (const MP2KPlayer &player : players)
+        trackCount += player.tracks.size();
+    mixer.ReserveActiveTracks(trackCount);
+#endif
+
     mixer.UpdateFixedModeRate();
     mixer.UpdateReverb();
 }

@@ -474,6 +474,8 @@ const RomOffsets kRomOffsets_USA = {
     .figurines = 0x1281A8,
     .fuserEnemyData = 0x00232E,
     .fuserNpcData = 0x002342,
+    .fusionTextPtrs = PORT_FUSION_TEXT_PTRS_USA,
+    .fuserFusionPtrs = PORT_FUSER_FUSION_PTRS_USA,
     .lakeHyliaEnemies = 0x0F3D44,
     .lakeHyliaCleared = 0x0F3EA4,
     .lilypadRails = 0x0FED98,
@@ -536,6 +538,8 @@ const RomOffsets kRomOffsets_EU = {
     .figurines = 0x1278E0,
     .fuserEnemyData = 0x0023D6,
     .fuserNpcData = 0x0023EA,
+    .fusionTextPtrs = PORT_FUSION_TEXT_PTRS_EU,
+    .fuserFusionPtrs = PORT_FUSER_FUSION_PTRS_EU,
     .lakeHyliaEnemies = 0x0F3368,
     .lakeHyliaCleared = 0x0F34C8,
     .lilypadRails = 0x0FE2DC,
@@ -619,6 +623,8 @@ const RomOffsets kRomOffsets_JP = {
     .figurines = 0,
     .fuserEnemyData = 0,
     .fuserNpcData = 0,
+    .fusionTextPtrs = 0,
+    .fuserFusionPtrs = 0,
     .lakeHyliaEnemies = 0,
     .lakeHyliaCleared = 0,
     .lilypadRails = 0,
@@ -1042,16 +1048,31 @@ void* Port_ReadPackedRomPtr(const void* base, u32 index) {
  * active retail ROM. Unlike Port_ReadPackedRomPtr on a compiled `.rodata`
  * stub, both the table and its entries therefore have regional provenance. */
 void* Port_ReadActiveRomPtrTable(u32 tableOffset, u32 index) {
-    u32 bytesAvailable;
+    if (tableOffset == 0) {
+        return NULL;
+    }
+    return (void*)Port_ResolvePackedRomDataPtrFromRom(gRomData, gRomSize, tableOffset, index, 1u);
+}
 
-    if (gRomData == NULL || tableOffset == 0 || tableOffset > gRomSize) {
+void* Port_GetFusionTextData(u32 fuserId) {
+    if (gRomOffsets == NULL) {
         return NULL;
     }
-    bytesAvailable = gRomSize - tableOffset;
-    if (bytesAvailable < sizeof(u32) || index > (bytesAvailable - sizeof(u32)) / sizeof(u32)) {
+    return (void*)Port_ResolveFusionTextDataFromRom(gRomData, gRomSize, gRomOffsets->fusionTextPtrs, fuserId);
+}
+
+void* Port_GetPairedFusionTextData(u32 fuserId) {
+    if (gRomOffsets == NULL) {
         return NULL;
     }
-    return Port_ReadPackedRomPtr(gRomData + tableOffset, index);
+    return (void*)Port_ResolvePairedFusionTextDataFromRom(gRomData, gRomSize, gRomOffsets->fusionTextPtrs, fuserId);
+}
+
+void* Port_GetFuserFusionData(u32 fuserId) {
+    if (gRomOffsets == NULL) {
+        return NULL;
+    }
+    return (void*)Port_ResolveFuserDataFromRom(gRomData, gRomSize, gRomOffsets->fuserFusionPtrs, fuserId, 6u);
 }
 
 static void* Port_ResolveAreaFirstLevelTable(u32 tableOffset, u32 area) {

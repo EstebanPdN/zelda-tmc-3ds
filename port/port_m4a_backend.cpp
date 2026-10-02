@@ -3,6 +3,7 @@
 #include "port_sounds_embed.hpp"
 #include "sound.h"
 #include "port_debug_verbose.h"
+#include "port_pcm_quantize.hpp"
 
 #ifdef min
 #undef min
@@ -81,6 +82,7 @@ namespace {
 constexpr uint32_t kPlayerCount = 32;
 constexpr uint32_t kMaxTracks = 16;
 constexpr uint32_t kSongCount = SFX_221 + 1;
+constexpr size_t kCommandReserve = 64;
 
 struct BackendState {
     bool initialized = false;
@@ -91,6 +93,8 @@ struct BackendState {
     std::unique_ptr<Rom> rom;
     std::unique_ptr<MP2KContext> ctx;
     std::vector<int16_t> pendingSamples;
+    std::vector<float> mixAccL;
+    std::vector<float> mixAccR;
     size_t pendingFrameOffset = 0;
     std::array<size_t, kSongCount> songHeaderOffsets;
     uint8_t trackVolumes[kPlayerCount][kMaxTracks];
@@ -146,6 +150,7 @@ struct M4ACommand {
     int8_t pan;         /* SetPan */
 };
 std::vector<M4ACommand> sCmdQueue;
+std::vector<M4ACommand> sCmdDrainQueue;
 std::mutex sCmdMutex;
 
 static void PushCommand(const M4ACommand& c) {
@@ -543,8 +548,11 @@ static void RebuildContextLocked(void) {
     {
         std::lock_guard<std::mutex> cmdLock(sCmdMutex);
         sCmdQueue.clear();
+        sCmdDrainQueue.clear();
     }
     sState.pendingSamples.clear();
+    sState.mixAccL.clear();
+    sState.mixAccR.clear();
     sState.pendingFrameOffset = 0;
     sState.ctx.reset();
     sState.rom.reset();
@@ -566,6 +574,10 @@ static void RebuildContextLocked(void) {
         sState.ctx = std::make_unique<MP2KContext>(sState.sampleRate, -1, *sState.rom, MakeSoundMode(),
                                                    MakeAgbplayMode(), songTableInfo, BuildPlayerTable());
         sState.ctx->m4aSoundMode(sState.soundMode);
+        const size_t sampleCount = sState.ctx->mixer.GetSamplesPerBuffer();
+        sState.pendingSamples.resize(sampleCount * 2);
+        sState.mixAccL.resize(sampleCount);
+        sState.mixAccR.resize(sampleCount);
     } catch (const std::exception& e) {
         /* Malformed song table / ROM: leave the backend silent rather than
          * letting agbplay's Xcept cross the extern "C" boundary. */
@@ -617,7 +629,8 @@ static void PublishActivePlayerMaskLocked(void) {
 static void RenderChunkLocked(void) {
     const size_t sampleCount = sState.ctx->mixer.GetSamplesPerBuffer();
 
-    sState.pendingSamples.assign(sampleCount * 2, 0);
+    sState.pendingSamples.resize(sampleCount * 2);
+    std::fill(sState.pendingSamples.begin(), sState.pendingSamples.end(), static_cast<int16_t>(0));
     sState.pendingFrameOffset = 0;
 
     if (!sState.vsyncEnabled || !HasActivePlaybackLocked()) {
@@ -632,59 +645,79 @@ static void RenderChunkLocked(void) {
         // per sample. Track summation order is preserved, so the float result is
         // bit-identical to the old per-sample loop (pan factor folds to *1.0f when
         // inactive, which is exact in IEEE754).
-        static std::vector<float> accL;
-        static std::vector<float> accR;
-        accL.assign(sampleCount, 0.0f);
-        accR.assign(sampleCount, 0.0f);
+        sState.mixAccL.resize(sampleCount);
+        sState.mixAccR.resize(sampleCount);
+        std::fill(sState.mixAccL.begin(), sState.mixAccL.end(), 0.0f);
+        std::fill(sState.mixAccR.begin(), sState.mixAccR.end(), 0.0f);
+        float *const accL = sState.mixAccL.data();
+        float *const accR = sState.mixAccR.data();
 
+        auto mixTrack = [&](uint32_t playerIndex, size_t trackIndex, const MP2KTrack& track) {
+#ifdef TMC_3DS
+            if (!track.audioBufferActive) {
+                return;
+            }
+#endif
+            const uint8_t volume = sState.trackVolumes[playerIndex][trackIndex];
+            const float gain = static_cast<float>(volume) / 255.0f;
+
+            if (track.muted || gain <= 0.0f) {
+                return;
+            }
+
+            const int8_t panValue = sState.trackPans[playerIndex][trackIndex];
+            const size_t n = std::min(sampleCount, track.audioBuffer.size());
+            const auto* buf = track.audioBuffer.data();
+            if (volume == 0xFF && panValue == 0) {
+                for (size_t sampleIndex = 0; sampleIndex < n; sampleIndex++) {
+                    accL[sampleIndex] += buf[sampleIndex].left;
+                    accR[sampleIndex] += buf[sampleIndex].right;
+                }
+                return;
+            }
+
+            const float pan = static_cast<float>(panValue) / 64.0f;
+            float panL = 1.0f;
+            float panR = 1.0f;
+            if (pan > 0.0f) {
+                panL = 1.0f - std::min(pan, 1.0f);
+            } else if (pan < 0.0f) {
+                panR = 1.0f - std::min(-pan, 1.0f);
+            }
+
+            for (size_t sampleIndex = 0; sampleIndex < n; sampleIndex++) {
+                accL[sampleIndex] += buf[sampleIndex].left * gain * panL;
+                accR[sampleIndex] += buf[sampleIndex].right * gain * panR;
+            }
+        };
+
+#ifdef TMC_3DS
+        for (const MP2KTrack *track : sState.ctx->mixer.GetActiveTracks()) {
+            if (track->playerIdx < kPlayerCount && track->trackIdx < kMaxTracks)
+                mixTrack(track->playerIdx, track->trackIdx, *track);
+        }
+#else
         const uint32_t playerCount =
             std::min<uint32_t>(kPlayerCount, static_cast<uint32_t>(sState.ctx->players.size()));
-
         for (uint32_t playerIndex = 0; playerIndex < playerCount; playerIndex++) {
             const auto& player = sState.ctx->players[playerIndex];
             const size_t trackCount = std::min<size_t>(kMaxTracks, player.tracks.size());
-
-            for (size_t trackIndex = 0; trackIndex < trackCount; trackIndex++) {
-                const auto& track = player.tracks[trackIndex];
-#ifdef TMC_3DS
-                if (!track.audioBufferActive) {
-                    continue;
-                }
-#endif
-                const float gain = static_cast<float>(sState.trackVolumes[playerIndex][trackIndex]) / 255.0f;
-
-                if (track.muted || gain <= 0.0f) {
-                    continue;
-                }
-
-                const float pan = static_cast<float>(sState.trackPans[playerIndex][trackIndex]) / 64.0f;
-                float panL = 1.0f;
-                float panR = 1.0f;
-                if (pan > 0.0f) {
-                    panL = 1.0f - std::min(pan, 1.0f);
-                } else if (pan < 0.0f) {
-                    panR = 1.0f - std::min(-pan, 1.0f);
-                }
-
-                const size_t n = std::min(sampleCount, track.audioBuffer.size());
-                const auto* buf = track.audioBuffer.data();
-                for (size_t sampleIndex = 0; sampleIndex < n; sampleIndex++) {
-                    accL[sampleIndex] += buf[sampleIndex].left * gain * panL;
-                    accR[sampleIndex] += buf[sampleIndex].right * gain * panR;
-                }
-            }
+            for (size_t trackIndex = 0; trackIndex < trackCount; trackIndex++)
+                mixTrack(playerIndex, trackIndex, player.tracks[trackIndex]);
         }
+#endif
 
         const float masterVolume = sState.masterVolume;
         for (size_t sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++) {
-            float left = accL[sampleIndex] * masterVolume;
-            float right = accR[sampleIndex] * masterVolume;
+            float left = accL[sampleIndex];
+            float right = accR[sampleIndex];
+            if (masterVolume != 1.0f) {
+                left *= masterVolume;
+                right *= masterVolume;
+            }
 
-            left = std::clamp(left, -1.0f, 1.0f);
-            right = std::clamp(right, -1.0f, 1.0f);
-
-            sState.pendingSamples[sampleIndex * 2 + 0] = static_cast<int16_t>(std::lround(left * 32767.0f));
-            sState.pendingSamples[sampleIndex * 2 + 1] = static_cast<int16_t>(std::lround(right * 32767.0f));
+            sState.pendingSamples[sampleIndex * 2 + 0] = Port_QuantizePcm16(left);
+            sState.pendingSamples[sampleIndex * 2 + 1] = Port_QuantizePcm16(right);
         }
     } catch (const std::exception& e) {
         AudioGuardWarn("RenderChunkLocked", e.what());
@@ -702,6 +735,11 @@ bool Port_M4A_Backend_Init(uint32_t sampleRate) {
     sState.soundMode = 0;
     sState.vsyncEnabled = true;
     ResetTrackMixControlsLocked();
+    {
+        std::lock_guard<std::mutex> cmdLock(sCmdMutex);
+        sCmdQueue.reserve(kCommandReserve);
+        sCmdDrainQueue.reserve(kCommandReserve);
+    }
     return true;
 }
 
@@ -709,6 +747,8 @@ void Port_M4A_Backend_Shutdown(void) {
     std::lock_guard<std::mutex> lock(sStateMutex);
 
     sState.pendingSamples.clear();
+    sState.mixAccL.clear();
+    sState.mixAccR.clear();
     sState.pendingFrameOffset = 0;
     sState.ctx.reset();
     sState.rom.reset();
@@ -848,20 +888,19 @@ static void ApplyCommandLocked(const M4ACommand& c) {
 
 /* Swap the pending command list out under the short sCmdMutex, then apply each
  * in order. Always entered with sStateMutex held (audio-thread render, or the
- * main-thread fast path), so the reused static is single-threaded in practice. */
+ * main-thread fast path), so the reused drain vector is single-threaded. */
 static void DrainCommandsLocked(void) {
-    static std::vector<M4ACommand> local;
     {
         std::lock_guard<std::mutex> lock(sCmdMutex);
         if (sCmdQueue.empty()) {
             return;
         }
-        local.swap(sCmdQueue);
+        sCmdDrainQueue.swap(sCmdQueue);
     }
-    for (const M4ACommand& c : local) {
+    for (const M4ACommand& c : sCmdDrainQueue) {
         ApplyCommandLocked(c);
     }
-    local.clear();
+    sCmdDrainQueue.clear();
 }
 
 /* Main-thread submit. The item-get freeze was the main thread BLOCKING on

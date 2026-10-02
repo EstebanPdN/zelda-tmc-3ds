@@ -5,9 +5,10 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
-#include <functional>
+#include <cstring>
 #include <memory>
 #include <span>
+#include <type_traits>
 #include <vector>
 
 /*
@@ -16,7 +17,37 @@
  *
  * returns false in case of 'end of stream'
  */
-typedef std::function<bool(std::vector<float> &fetchBuffer, size_t samplesRequired)> FetchCallback;
+/* A resampler invokes its source callback synchronously and never stores it.
+ * std::function used to turn every PCM/PSG microblock into a type-erased owning
+ * callback, and the std::bind member wrappers could allocate on the audio
+ * thread. This non-owning callback reference keeps the same call contract with
+ * one function-pointer dispatch and no construction/destruction allocation. */
+class FetchCallback
+{
+public:
+    FetchCallback(const FetchCallback &) noexcept = default;
+    FetchCallback &operator=(const FetchCallback &) noexcept = default;
+
+    template <typename Callable,
+              std::enable_if_t<!std::is_same_v<std::remove_cv_t<Callable>, FetchCallback>, int> = 0>
+    FetchCallback(Callable &callable) noexcept :
+        context_(static_cast<void *>(std::addressof(callable))),
+        invoke_([](void *context, std::vector<float> &buffer, size_t required) {
+            return (*static_cast<Callable *>(context))(buffer, required);
+        })
+    {
+    }
+
+    bool operator()(std::vector<float> &buffer, size_t required) const
+    {
+        return invoke_(context_, buffer, required);
+    }
+
+private:
+    using Invoke = bool (*)(void *, std::vector<float> &, size_t);
+    void *context_;
+    Invoke invoke_;
+};
 
 class Resampler
 {
@@ -55,6 +86,37 @@ public:
     NearestResampler();
     ~NearestResampler() override;
     bool Process(std::span<float> buffer, float phaseInc, const FetchCallback &fetchCallback) override;
+    template <typename AppendCallback>
+    bool ProcessDirect(std::span<float> buffer, float phaseInc, AppendCallback &&appendCallback)
+    {
+        if (buffer.empty())
+            return true;
+
+        phaseInc = std::max(phaseInc, 0.0f);
+        size_t samplesRequired = static_cast<size_t>(phase + phaseInc * static_cast<float>(buffer.size())) + 1;
+        bool continuePlayback = true;
+        if (fetchBuffer.size() < samplesRequired) {
+            const size_t oldSize = fetchBuffer.size();
+            fetchBuffer.resize(samplesRequired);
+            continuePlayback = appendCallback(fetchBuffer.data() + oldSize, samplesRequired - oldSize);
+        }
+
+        size_t consumed = 0;
+        for (float &output : buffer) {
+            output = fetchBuffer[consumed];
+            phase += phaseInc;
+            const size_t step = static_cast<size_t>(phase);
+            phase -= static_cast<float>(step);
+            consumed += step;
+        }
+
+        const size_t remaining = fetchBuffer.size() - consumed;
+        if (remaining != 0 && consumed != 0) {
+            std::memmove(fetchBuffer.data(), fetchBuffer.data() + consumed, remaining * sizeof(float));
+        }
+        fetchBuffer.resize(remaining);
+        return continuePlayback;
+    }
     void Reset() override;
 };
 

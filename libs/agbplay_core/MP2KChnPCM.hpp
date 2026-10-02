@@ -46,6 +46,9 @@ private:
     bool sampleFetchCallback(std::vector<float> &fetchBuffer, size_t samplesRequired);
     bool sampleFetchCallbackGFDPCMDecomp(std::vector<float> &fetchBuffer, size_t samplesRequires);
     bool sampleFetchCallbackMPTDecomp(std::vector<float> &fetchBuffer, size_t samplesRequires);
+    bool sampleFetchDirect(float *output, size_t samplesToFetch);
+    bool sampleFetchDirectGFDPCMDecomp(float *output, size_t samplesToFetch);
+    bool sampleFetchDirectMPTDecomp(float *output, size_t samplesToFetch);
 
     enum class Type {
         INVALID,

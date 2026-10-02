@@ -16,6 +16,8 @@ typedef struct PortAudio3DSStats {
     uint64_t renderTicks;
     uint64_t renderLastTicks;
     uint64_t renderMaxTicks;
+    uint64_t renderDeadlineMisses;
+    uint64_t multiBufferWakeups;
     uint32_t sampleRate;
     uint32_t bufferFrames;
     uint32_t bufferCount;

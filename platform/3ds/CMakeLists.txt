@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.20)
 file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/version.txt" TMC_3DS_VERSION LIMIT_COUNT 1)
-project(tmc_3ds VERSION "${TMC_3DS_VERSION}" LANGUAGES C CXX)
+# CMake's project VERSION accepts numeric components only, while experimental
+# packages use a visible suffix such as 1.1-E1. Keep the complete release
+# string for filenames and metadata, and give project() its numeric prefix.
+string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" TMC_3DS_PROJECT_VERSION "${TMC_3DS_VERSION}")
+if(NOT TMC_3DS_PROJECT_VERSION)
+    message(FATAL_ERROR "Invalid 3DS version: ${TMC_3DS_VERSION}")
+endif()
+project(tmc_3ds VERSION "${TMC_3DS_PROJECT_VERSION}" LANGUAGES C CXX)
 
 set(TMC_ROOT "${CMAKE_CURRENT_LIST_DIR}/../..")
 
@@ -68,8 +75,10 @@ add_executable(tmc-3ds
     ${AGBPLAY_SOURCES}
     source/main_3ds.c
     source/platform_3ds.c
+    source/old3ds_frame_pacer.c
     source/platform_gpu_3ds.c
     source/bottom_idle_3ds.c
+    source/bottom_frame_state_3ds.c
     source/port_second_screen_3ds.c
     source/port_second_screen_sync_3ds.c
     source/port_ppu_3ds.c

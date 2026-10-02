@@ -8,6 +8,7 @@
  */
 #include "port_second_screen_3ds.h"
 #include "bottom_idle_3ds.h"
+#include "bottom_frame_state_3ds.h"
 
 #include <stdbool.h>
 
@@ -16,25 +17,27 @@
 #include "../../../port/port_second_screen.c"
 
 static volatile uint8_t sIdleSettingsOpen;
-static volatile uint32_t sRefreshRequested;
-static volatile uint32_t sRefreshPainted;
 static uint8_t sIdleOwnsSettingsTab;
 static volatile uint8_t sIdleBackVisible;
-static volatile uint8_t sVisibleInGame;
+static BottomFrameState3DS sFrameState;
 
 static uint32_t BeginRefresh(void) {
-    return __atomic_load_n(&sRefreshRequested, __ATOMIC_ACQUIRE);
+    return BottomFrameState3DS_BeginPaint(&sFrameState);
 }
 
 static void FinishRefresh(uint32_t request) {
     /* A tap may arrive while the worker is painting.  Acknowledge only the
      * generation this frame actually observed; a newer generation remains
      * pending and schedules another paint instead of being lost. */
-    __atomic_store_n(&sRefreshPainted, request, __ATOMIC_RELEASE);
+    BottomFrameState3DS_FinishPaint(&sFrameState, request);
 }
 
-static void RequestRefresh(void) {
-    __atomic_add_fetch(&sRefreshRequested, 1u, __ATOMIC_ACQ_REL);
+static uint32_t RequestRefresh(void) {
+    return BottomFrameState3DS_Request(&sFrameState);
+}
+
+static uint32_t RequestTouchRefresh(void) {
+    return BottomFrameState3DS_RequestTouchRefresh(&sFrameState);
 }
 
 static void IdleBackRect(int width, int height, float* x0, float* y0, float* x1, float* y1) {
@@ -89,9 +92,9 @@ static void DrawIdleBack(const SSurf* surface, float u, int32_t ts) {
     DrawMenuButton(surface, x0, y0, x1, y1, "BACK", 0, 0, u, ts);
 }
 
-void Port_SecondScreen_3DS_PaintInto(uint32_t* pixels, int width, int height, int strideInPixels,
-                                    const SecondScreenSnapshot* snap, uint32_t tick) {
-    if (!pixels || !snap || width <= 0 || height <= 0 || strideInPixels < width) return;
+uint32_t Port_SecondScreen_3DS_PaintInto(uint32_t* pixels, int width, int height, int strideInPixels,
+                                        const SecondScreenSnapshot* snap, uint32_t tick) {
+    if (!pixels || !snap || width <= 0 || height <= 0 || strideInPixels < width) return 0;
 
     const uint32_t refreshRequest = BeginRefresh();
     const bool settingsOpen = __atomic_load_n(&sIdleSettingsOpen, __ATOMIC_ACQUIRE) != 0;
@@ -101,7 +104,7 @@ void Port_SecondScreen_3DS_PaintInto(uint32_t* pixels, int width, int height, in
         if (sIdleOwnsSettingsTab) ResetIdleOnlyState();
         Port_SecondScreen_PaintInto(pixels, width, height, strideInPixels, snap, tick);
         FinishRefresh(refreshRequest);
-        return;
+        return refreshRequest;
     }
 
     if (!settingsOpen) {
@@ -111,7 +114,7 @@ void Port_SecondScreen_3DS_PaintInto(uint32_t* pixels, int width, int height, in
         ResetIdleOnlyState();
         BottomIdle3DS_Paint(pixels, width, height, strideInPixels, tick);
         FinishRefresh(refreshRequest);
-        return;
+        return refreshRequest;
     }
 
     /* The existing Settings painter only needs the inGame gate to become
@@ -143,51 +146,132 @@ void Port_SecondScreen_3DS_PaintInto(uint32_t* pixels, int width, int height, in
     }
     __atomic_store_n(&sIdleBackVisible, showIdleBack ? 1 : 0, __ATOMIC_RELEASE);
     FinishRefresh(refreshRequest);
+    return refreshRequest;
 }
 
-void Port_SecondScreen_3DS_SetVisibleInGame(int inGame) {
-    /* The worker completing a buffer does not make it visible. The PPU calls
-     * this only after promoting that buffer to the front, so touch dispatch
-     * is classified against the panel the player can actually see. */
-    __atomic_store_n(&sVisibleInGame, inGame ? 1 : 0, __ATOMIC_RELEASE);
+void Port_SecondScreen_3DS_ResetFrameState(void) {
+    BottomFrameState3DS_Reset(&sFrameState);
+}
+
+uint32_t Port_SecondScreen_3DS_RequestRefresh(void) {
+    return RequestRefresh();
+}
+
+void Port_SecondScreen_3DS_MarkSubmitted(uint32_t generation, int inGame) {
+    BottomFrameState3DS_MarkSubmitted(&sFrameState, generation, inGame);
+}
+
+void Port_SecondScreen_3DS_PromoteSubmitted(void) {
+    BottomFrameState3DS_PromoteSubmitted(&sFrameState);
+}
+
+void Port_SecondScreen_3DS_GetFrameStats(BottomFrameState3DSStats* out) {
+    BottomFrameState3DS_GetStats(&sFrameState, out);
 }
 
 void Port_SecondScreen_3DS_OnTap(int x, int y, int longPress) {
     SecondScreenSnapshot currentSnapshot;
     Port_SecondScreenState_Read(&currentSnapshot);
-    /* A task change can make the engine snapshot one frame newer than the
-     * visible panel. Never dispatch a hit box across that boundary: request
-     * the matching paint and fail closed for this tap. */
-    if ((currentSnapshot.inGame != 0) !=
-        (__atomic_load_n(&sVisibleInGame, __ATOMIC_ACQUIRE) != 0)) {
-        RequestRefresh();
+    /* Painting publishes the compositor's new hit boxes before its texture
+     * can be submitted or shown.  Dispatch only when those hit boxes belong
+     * to the confirmed visible generation and task; otherwise fail closed
+     * while leaving the per-tick HID polling cadence untouched. */
+    if (!BottomFrameState3DS_CanDispatchTouch(&sFrameState, currentSnapshot.inGame != 0)) {
+        /* A same-task hidden paint is already on its way to the display; an
+         * extra request would only lengthen this fail-closed interval.  Task
+         * transitions (and the pre-first-frame state) still need a paint. */
+        if (!BottomFrameState3DS_VisibleModeMatches(&sFrameState, currentSnapshot.inGame != 0)) {
+            RequestTouchRefresh();
+        }
         return;
     }
     if (currentSnapshot.inGame) {
         Port_SecondScreen_OnTap(x, y, longPress);
-        RequestRefresh();
+        RequestTouchRefresh();
         return;
     }
 
     if (!__atomic_load_n(&sIdleSettingsOpen, __ATOMIC_ACQUIRE)) {
         __atomic_store_n(&sIdleSettingsOpen, 1, __ATOMIC_RELEASE);
-        RequestRefresh();
+        RequestTouchRefresh();
         return;
     }
 
     if (__atomic_load_n(&sIdleBackVisible, __ATOMIC_ACQUIRE) &&
         IsIdleBackTap(x, y, 320, 240)) {
         __atomic_store_n(&sIdleSettingsOpen, 0, __ATOMIC_RELEASE);
-        RequestRefresh();
+        RequestTouchRefresh();
         return;
     }
 
     Port_SecondScreen_OnTap(x, y, longPress);
-    RequestRefresh();
+    RequestTouchRefresh();
 }
 
 int Port_SecondScreen_3DS_NeedsRefresh(void) {
-    const uint32_t requested = __atomic_load_n(&sRefreshRequested, __ATOMIC_ACQUIRE);
-    const uint32_t painted = __atomic_load_n(&sRefreshPainted, __ATOMIC_ACQUIRE);
-    return requested != painted;
+    return BottomFrameState3DS_NeedsPaint(&sFrameState);
+}
+
+int Port_SecondScreen_3DS_NeedsPeriodicRefresh(const SecondScreenSnapshot* snap) {
+    if (!snap) return 0;
+
+    const bool idleSettings = __atomic_load_n(&sIdleSettingsOpen, __ATOMIC_ACQUIRE) != 0;
+    if (!snap->inGame && !idleSettings) {
+        /* The title/file-select Triforce breathes. */
+        return 1;
+    }
+
+    int tab;
+    int settingsPage;
+    uint32_t dumpFlashUntil;
+    uint32_t lastTick;
+    UI_LOCK();
+    tab = sUi.tab;
+    settingsPage = sUi.settingsPage;
+    dumpFlashUntil = sUi.dumpFlashUntil;
+    lastTick = sUi.lastTick;
+    UI_UNLOCK();
+
+    if (tab == SS_TAB_MAP) {
+        /* Map markers blink/pulse; the world-map camera, region bracket and
+         * dungeon floor-preview timeout also advance from paint ticks. */
+        return 1;
+    }
+    if (tab == SS_TAB_ITEMS) {
+        /* The authentic item cursor blinks even when no values change. */
+        return 1;
+    }
+    if (tab != SS_TAB_SETTINGS) {
+        /* Quest status and its two detail lists have no selection cursor. */
+        return 0;
+    }
+    if (settingsPage == SS_SETTINGS_OVERLAY) {
+        /* Live diagnostics deliberately retain their slower refresh rate. */
+        return 1;
+    }
+    if (settingsPage == SS_SETTINGS_DEVELOPER &&
+        (int32_t)(dumpFlashUntil - lastTick) > 0) {
+        /* Keep painting until the post-dump DONE indicator expires. */
+        return 1;
+    }
+    return 0;
+}
+
+int Port_SecondScreen_3DS_SnapshotChangeNeedsRefresh(const SecondScreenSnapshot* previous,
+                                                     const SecondScreenSnapshot* current,
+                                                     int previousValid) {
+    if (!previous || !current || !previousValid) return 1;
+    if (previous->inGame != current->inGame) return 1;
+    if (memcmp(previous, current, sizeof(*current)) == 0) return 0;
+
+    /* Gameplay snapshots continue changing while a settings sheet covers the
+     * entire panel, but none of those engine fields are drawn there.  Config
+     * mutations originate in the tap handler and request an immediate paint;
+     * the overlay and dump indicator are handled by NeedsPeriodicRefresh. */
+    if (!current->inGame) return 0;
+    int tab;
+    UI_LOCK();
+    tab = sUi.tab;
+    UI_UNLOCK();
+    return tab != SS_TAB_SETTINGS;
 }

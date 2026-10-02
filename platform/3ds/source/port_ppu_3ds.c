@@ -46,8 +46,14 @@ static int sBottomFrontBuffer;
 static int sBottomWorkerBuffer;
 static uint32_t sBottomWorkerTick;
 static SecondScreenSnapshot sBottomWorkerSnapshot;
-static int sPendingBottomInGame;
+static bool sBottomSnapshotValid;
+static volatile uint32_t sBottomWorkerGeneration;
+static uint32_t sBottomBufferGeneration[2];
+static uint8_t sBottomBufferInGame[2];
 static uint64_t sBottomWorkerLastTicks;
+static uint64_t sBottomPaintRequests;
+static uint64_t sBottomPeriodicChecks;
+static uint64_t sBottomPeriodicSkips;
 static bool sGpuPresenterReady;
 static bool sInitialized;
 static bool sColorCorrection;
@@ -157,6 +163,10 @@ static double TicksToMilliseconds(uint64_t ticks) {
 
 void Port_PPU_3DS_WriteQuickDump(void) {
     if (!sInitialized) return;
+    /* This synchronous SD capture and its confirmation overlay intentionally
+     * pause gameplay. Mark it before any fallible I/O so the next cadence
+     * boundary excludes the whole operation, including an early failure. */
+    Platform3DS_MarkFrameDiscontinuity(OLD3DS_FRAME_PACER_DISCONTINUITY_DUMP);
     Port_Audio_3DSSetPaused(true);
     char dir[128];
     if (!CreateDumpDirectory(dir, sizeof(dir))) {
@@ -225,16 +235,23 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                                        : 0.0;
         Platform3DSRuntimeStats runtimeStats;
         PlatformGpu3DSStats gpuStats;
+        BottomFrameState3DSStats bottomFrameStats;
         PortAudio3DSStats audioStats;
         PortSaveStats saveStats;
         VirtuaPPUMode13DSStats workerStats;
         Platform3DS_GetRuntimeStats(&runtimeStats);
         PlatformGpu3DS_GetStats(&gpuStats);
+        Port_SecondScreen_3DS_GetFrameStats(&bottomFrameStats);
         Port_Audio_3DSGetStats(&audioStats);
         Port_Save_GetStats(&saveStats);
         virtuappu_mode1_get_3ds_stats(&workerStats);
         const uint64_t engineSamples = runtimeStats.logicFrames > 1 ? runtimeStats.logicFrames - 1u : 1u;
         const uint64_t vblankSamples = runtimeStats.presentedFrames ? runtimeStats.presentedFrames : 1u;
+        const double logicElapsedSeconds =
+            (double)runtimeStats.logicElapsedTicks / (double)Platform3DS_TicksPerSecond();
+        const double measuredLogicRate = logicElapsedSeconds > 0.0 && runtimeStats.logicCadenceIntervals != 0
+                                             ? (double)runtimeStats.logicCadenceIntervals / logicElapsedSeconds
+                                             : 0.0;
         const uint64_t audioSamples = audioStats.buffersRendered ? audioStats.buffersRendered : 1u;
         const uint16_t dumpDispcnt = (uint16_t)(gIoMem[0] | (gIoMem[1] << 8));
         const uint8_t dumpMode = dumpDispcnt & 7u;
@@ -248,6 +265,12 @@ void Port_PPU_3DS_WriteQuickDump(void) {
         fprintf(info, "\n[System]\n");
         fprintf(info, "Model: %s\n", Platform3DS_IsNew3DS() ? "New Nintendo 3DS" : "Old Nintendo 3DS");
         fprintf(info, "CPU profile requested: %s\n", runtimeStats.speedupRequested ? "804 MHz + L2" : "268 MHz");
+        fprintf(info, "Runtime performance profile: %s\n",
+                runtimeStats.adaptiveFrameskipEnabled ? "Old 3DS (60 Hz logic target + adaptive presentation skip)"
+                                                       : "New 3DS (full presentation path)");
+        fprintf(info, "Post-boot stdio target: %s\n",
+                runtimeStats.gameplayDisplayActive ? "bottom framebuffer detached; stderr uses SVC"
+                                                   : "visible boot console");
         fprintf(info, "Kernel version: 0x%08lX\n", (unsigned long)runtimeStats.kernelVersion);
         fprintf(info, "FIRM version: 0x%08lX\n", (unsigned long)runtimeStats.firmVersion);
         fprintf(info, "System core version: %lu\n", (unsigned long)runtimeStats.systemCoreVersion);
@@ -291,6 +314,18 @@ void Port_PPU_3DS_WriteQuickDump(void) {
         fprintf(info, "Turbo logic frames: %llu\n", (unsigned long long)runtimeStats.turboLogicFrames);
         fprintf(info, "Turbo-skipped presentations: %llu\n",
                 (unsigned long long)runtimeStats.turboSkippedPresentations);
+        fprintf(info, "Old 3DS adaptive-skipped presentations: %llu (maximum consecutive: %lu)\n",
+                (unsigned long long)runtimeStats.old3dsSkippedPresentations,
+                (unsigned long)runtimeStats.old3dsMaxConsecutiveSkips);
+        fprintf(info, "Old 3DS pacing sleep: %.3f ms; resyncs: %llu; current debt: %.3f ms\n",
+                TicksToMilliseconds(runtimeStats.old3dsPacingSleepTicks),
+                (unsigned long long)runtimeStats.old3dsPacingResyncs,
+                (double)runtimeStats.old3dsPresentationDebtTicks * 1000.0 /
+                    (double)Platform3DS_TicksPerSecond());
+        fprintf(info, "Pacing discontinuities: APT %llu, quick dump %llu; debt clamps: %llu\n",
+                (unsigned long long)runtimeStats.old3dsAptDiscontinuities,
+                (unsigned long long)runtimeStats.old3dsDumpDiscontinuities,
+                (unsigned long long)runtimeStats.old3dsDebtClampEvents);
         fprintf(info, "Top screenshot: 400x240 displayed framebuffer BMP\n");
         fprintf(info, "Bottom screenshot: 320x240 displayed framebuffer BMP\n");
         fprintf(info, "Raw physical framebuffers: top-screen.raw, bottom-screen.raw\n");
@@ -302,6 +337,7 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 (unsigned long)captureStats.bottomFormat, (unsigned long)captureStats.bottomStride,
                 (unsigned long)captureStats.bottomAddress);
         fprintf(info, "Measured cadence: %.2f FPS\n", measuredFps);
+        fprintf(info, "Measured engine logic cadence: %.2f ticks/s\n", measuredLogicRate);
         fprintf(info, "Frame interval: last %.3f ms, average %.3f ms, minimum %.3f ms, maximum %.3f ms\n",
                 TicksToMilliseconds(sPerfIntervalLastTicks),
                 TicksToMilliseconds(sPerfIntervalTicks) / intervalSampleCount,
@@ -355,7 +391,20 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 (unsigned long)gpuStats.c2dFlushAddress, (unsigned long)gpuStats.topUploadAddress,
                 (unsigned long)gpuStats.bottomUploadAddress[0],
                 (unsigned long)gpuStats.bottomUploadAddress[1]);
-        fprintf(info, "Bottom-screen refresh: 20 Hz\n");
+        fprintf(info, "Bottom paint scheduling: %llu paints requested; %llu periodic checks; %llu static skips\n",
+                (unsigned long long)sBottomPaintRequests, (unsigned long long)sBottomPeriodicChecks,
+                (unsigned long long)sBottomPeriodicSkips);
+        fprintf(info, "Bottom generations requested/painted/submitted/visible: %lu/%lu/%lu/%lu\n",
+                (unsigned long)bottomFrameStats.requested, (unsigned long)bottomFrameStats.painted,
+                (unsigned long)bottomFrameStats.submitted, (unsigned long)bottomFrameStats.visible);
+        fprintf(info, "Bottom pipeline events requested/painted/submitted/visible: %lu/%lu/%lu/%lu\n",
+                (unsigned long)bottomFrameStats.requestCount, (unsigned long)bottomFrameStats.paintCount,
+                (unsigned long)bottomFrameStats.submissionCount,
+                (unsigned long)bottomFrameStats.visibilityCount);
+        fprintf(info, "Bottom touch rejects (hidden generation/task mismatch): %lu/%lu\n",
+                (unsigned long)bottomFrameStats.touchGenerationRejects,
+                (unsigned long)bottomFrameStats.touchModeRejects);
+        fprintf(info, "Bottom animation cadence: every 3 presentations; live developer overlay every 30\n");
 
         fprintf(info, "\n[Audio]\n");
         fprintf(info, "Initialized/playing: %s / %s\n",
@@ -377,6 +426,9 @@ void Port_PPU_3DS_WriteQuickDump(void) {
                 TicksToMilliseconds(audioStats.renderLastTicks),
                 TicksToMilliseconds(audioStats.renderTicks) / (double)audioSamples,
                 TicksToMilliseconds(audioStats.renderMaxTicks));
+        fprintf(info, "Audio block deadline misses / multi-buffer recovery wakes: %llu / %llu\n",
+                (unsigned long long)audioStats.renderDeadlineMisses,
+                (unsigned long long)audioStats.multiBufferWakeups);
         fprintf(info, "Wave buffers free/queued/playing/done: %lu/%lu/%lu/%lu\n",
                 (unsigned long)audioStats.freeBuffers, (unsigned long)audioStats.queuedBuffers,
                 (unsigned long)audioStats.playingBuffers, (unsigned long)audioStats.doneBuffers);
@@ -465,8 +517,9 @@ void Port_PPU_3DS_WriteQuickDump(void) {
 
 void Port_PPU_3DS_RenderBottomWorker(void) {
     const uint64_t startTick = Platform3DS_SystemTick();
-    Port_SecondScreen_3DS_PaintInto(sBottomUploads[sBottomWorkerBuffer], 320, 240, 512,
-                                    &sBottomWorkerSnapshot, sBottomWorkerTick);
+    sBottomWorkerGeneration =
+        Port_SecondScreen_3DS_PaintInto(sBottomUploads[sBottomWorkerBuffer], 320, 240, 512,
+                                        &sBottomWorkerSnapshot, sBottomWorkerTick);
     sBottomWorkerLastTicks = Platform3DS_SystemTick() - startTick;
 }
 
@@ -488,14 +541,21 @@ void Port_PPU_Init(SDL_Window* window) {
     virtuappu_registers.frame_pitch = TOP_PITCH;
     virtuappu_registers.mode = 1;
     Port_SecondScreen_Init();
+    Port_SecondScreen_3DS_ResetFrameState();
     sBottomReady = false;
     sBottomTextureReady = false;
     sBottomTextureDirty = false;
     sBottomWorkerPending = false;
     sBottomFrontBuffer = 0;
     sBottomWorkerBuffer = 1;
-    sPendingBottomInGame = 0;
+    sBottomSnapshotValid = false;
+    sBottomWorkerGeneration = 0;
+    memset(sBottomBufferGeneration, 0, sizeof(sBottomBufferGeneration));
+    memset(sBottomBufferInGame, 0, sizeof(sBottomBufferInGame));
     sBottomTick = 0;
+    sBottomPaintRequests = 0;
+    sBottomPeriodicChecks = 0;
+    sBottomPeriodicSkips = 0;
     sFrameNumber = 0;
     sPerfFirstFrameTick = 0;
     sPerfLastFrameTick = 0;
@@ -571,49 +631,72 @@ void Port_PPU_PresentFrame(void) {
 #endif
 
     bool bottomChanged = false;
-    int promotedBottomInGame = -1;
     if (sBottomWorkerPending && Platform3DS_TryFinishBottomWorker()) {
         sBottomFrontBuffer = sBottomWorkerBuffer;
         sBottomWorkerPending = false;
         sBottomReady = true;
         bottomChanged = true;
-        promotedBottomInGame = sBottomWorkerSnapshot.inGame != 0;
+        sBottomBufferGeneration[sBottomFrontBuffer] = sBottomWorkerGeneration;
+        sBottomBufferInGame[sBottomFrontBuffer] = sBottomWorkerSnapshot.inGame != 0;
         RecordBottomWorkerTiming();
     }
 
     const uint32_t bottomInterval = Port_SecondScreen_IsDeveloperOverlayOpen() ? 30u : 3u;
-    const bool bottomUpdateDue = !sBottomReady || Port_SecondScreen_3DS_NeedsRefresh() ||
-                                 (sFrameNumber % bottomInterval) == 0u;
-    if (!sBottomWorkerPending && bottomUpdateDue) {
-        sBottomWorkerBuffer = 1 - sBottomFrontBuffer;
-        Port_SecondScreenState_Read(&sBottomWorkerSnapshot);
-        sBottomWorkerTick = sBottomTick++;
-        if (Platform3DS_SubmitBottomWorker()) {
-            sBottomWorkerPending = true;
-        } else {
-            Port_PPU_3DS_RenderBottomWorker();
-            sBottomFrontBuffer = sBottomWorkerBuffer;
-            sBottomReady = true;
-            bottomChanged = true;
-            promotedBottomInGame = sBottomWorkerSnapshot.inGame != 0;
-            RecordBottomWorkerTiming();
+    const bool cadenceDue = (sFrameNumber % bottomInterval) == 0u;
+    const bool forcedUpdate = !sBottomReady || Port_SecondScreen_3DS_NeedsRefresh();
+    if (!sBottomWorkerPending && (forcedUpdate || cadenceDue)) {
+        SecondScreenSnapshot nextSnapshot;
+        Port_SecondScreenState_Read(&nextSnapshot);
+
+        const bool snapshotChanged =
+            Port_SecondScreen_3DS_SnapshotChangeNeedsRefresh(&sBottomWorkerSnapshot, &nextSnapshot,
+                                                             sBottomSnapshotValid);
+        const bool animationRequired = Port_SecondScreen_3DS_NeedsPeriodicRefresh(&nextSnapshot);
+        const bool schedulePaint = BottomFrameState3DS_ShouldSchedulePaint(
+            sBottomWorkerPending, forcedUpdate, cadenceDue, bottomChanged, snapshotChanged,
+            animationRequired);
+        if (!forcedUpdate && cadenceDue && !bottomChanged) {
+            ++sBottomPeriodicChecks;
+            if (!schedulePaint) ++sBottomPeriodicSkips;
+        }
+
+        if (schedulePaint) {
+            /* Every paint gets a distinct generation, including animation
+             * paints whose engine snapshot did not change. Requests arriving
+             * during this paint remain newer and therefore pending. */
+            if (!Port_SecondScreen_3DS_NeedsRefresh()) {
+                Port_SecondScreen_3DS_RequestRefresh();
+            }
+            ++sBottomPaintRequests;
+            sBottomWorkerBuffer = 1 - sBottomFrontBuffer;
+            sBottomWorkerSnapshot = nextSnapshot;
+            sBottomSnapshotValid = true;
+            sBottomWorkerTick = sBottomTick++;
+            sBottomWorkerGeneration = 0;
+            if (Platform3DS_SubmitBottomWorker()) {
+                sBottomWorkerPending = true;
+            } else {
+                Port_PPU_3DS_RenderBottomWorker();
+                sBottomFrontBuffer = sBottomWorkerBuffer;
+                sBottomReady = true;
+                bottomChanged = true;
+                sBottomBufferGeneration[sBottomFrontBuffer] = sBottomWorkerGeneration;
+                sBottomBufferInGame[sBottomFrontBuffer] = sBottomWorkerSnapshot.inGame != 0;
+                RecordBottomWorkerTiming();
+            }
         }
     }
     if (!sBottomTextureReady) {
         bottomChanged = true;
         sBottomTextureReady = true;
     }
-    if (promotedBottomInGame >= 0) {
-        sPendingBottomInGame = promotedBottomInGame;
-    }
     sBottomTextureDirty = sBottomTextureDirty || bottomChanged;
-    if (PlatformGpu3DS_EndBottom(sBottomUploads[sBottomFrontBuffer], sBottomTextureDirty) &&
-        sBottomTextureDirty) {
-        /* A failed C3D_FrameBegin leaves the old physical texture visible.
-         * Keep both the dirty upload and its mode pending until EndBottom
-         * actually submits the frame; only then may touch target that mode. */
-        sBottomTextureDirty = false;
-        Port_SecondScreen_3DS_SetVisibleInGame(sPendingBottomInGame);
+    if (PlatformGpu3DS_EndBottom(sBottomUploads[sBottomFrontBuffer], sBottomTextureDirty)) {
+        if (sBottomTextureDirty) {
+            sBottomTextureDirty = false;
+            Port_SecondScreen_3DS_MarkSubmitted(sBottomBufferGeneration[sBottomFrontBuffer],
+                                                sBottomBufferInGame[sBottomFrontBuffer]);
+        }
     }
     const uint64_t frameEndTick = Platform3DS_SystemTick();
 

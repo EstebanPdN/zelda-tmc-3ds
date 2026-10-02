@@ -34,6 +34,7 @@ static void WriteU32(u8* dest, u32 value) {
 
 int main(void) {
     static _Alignas(4) u8 rom[0x8400];
+    const u8* fusionData;
     const u16* shape;
 
     CHECK_EQ(Port_RemapFixedUiSpriteIndexForRegion(ROM_REGION_USA, 322u), 322u,
@@ -74,6 +75,12 @@ int main(void) {
     CHECK_EQ(Port_ShouldFallbackTilePropertyLayer(0x80u), 0u,
              "projectile properties stay on the active collision layer");
 
+    CHECK_EQ(PORT_FUSER_TABLE_COUNT, 120u, "retail fuser pointer-table count stays bounded");
+    CHECK_EQ(PORT_FUSION_TEXT_PTRS_USA, 0x1A7Cu, "USA fusion-text table offset");
+    CHECK_EQ(PORT_FUSION_TEXT_PTRS_EU, 0x1B24u, "EU fusion-text table offset");
+    CHECK_EQ(PORT_FUSER_FUSION_PTRS_USA, 0x1DCCu, "USA offered-fusion table offset");
+    CHECK_EQ(PORT_FUSER_FUSION_PTRS_EU, 0x1E74u, "EU offered-fusion table offset");
+
     memset(rom, 0, sizeof(rom));
     WriteU32(rom + PORT_COLLISION_SHAPE_PTRS_USA, 0x08001000u);
     WriteU32(rom + PORT_COLLISION_SHAPE_PTRS_EU, 0x08001100u);
@@ -83,6 +90,44 @@ int main(void) {
     rom[PORT_TILE_TYPE_PROPERTIES_USA + 1u] = 0x57;
     rom[PORT_TILE_TYPE_PROPERTIES_EU] = 0x00;
     rom[PORT_TILE_TYPE_PROPERTIES_EU + 1u] = 0x00;
+    WriteU32(rom + PORT_FUSION_TEXT_PTRS_USA + 44u * sizeof(u32), 0x08003000u);
+    WriteU32(rom + PORT_FUSION_TEXT_PTRS_EU + 44u * sizeof(u32), 0x08003100u);
+    WriteU32(rom + PORT_FUSER_FUSION_PTRS_USA + 44u * sizeof(u32), 0x08003200u);
+    WriteU32(rom + PORT_FUSER_FUSION_PTRS_EU + 44u * sizeof(u32), 0x08003300u);
+    rom[0x3000] = 0xA1;
+    rom[0x3100] = 0xE1;
+    rom[0x3200] = 0xA2;
+    rom[0x3300] = 0xE2;
+
+    fusionData = Port_ResolveFusionTextDataFromRom(rom, sizeof(rom), PORT_FUSION_TEXT_PTRS_USA, 44u);
+    CHECK_TRUE(fusionData == rom + 0x3000, "USA fusion text stays on the USA-native pointer table");
+    CHECK_EQ(fusionData != NULL ? fusionData[0] : 0u, 0xA1u, "USA fusion text target remains unchanged");
+    fusionData = Port_ResolveFusionTextDataFromRom(rom, sizeof(rom), PORT_FUSION_TEXT_PTRS_EU, 44u);
+    CHECK_TRUE(fusionData == rom + 0x3100, "EU fusion text resolves through the EU-native pointer table");
+    CHECK_EQ(fusionData != NULL ? fusionData[0] : 0u, 0xE1u,
+             "EU fusion text cannot silently use the USA target");
+    fusionData = Port_ResolveFuserDataFromRom(rom, sizeof(rom), PORT_FUSER_FUSION_PTRS_USA, 44u, 6u);
+    CHECK_TRUE(fusionData == rom + 0x3200, "USA fusion offer stays on the USA-native pointer table");
+    CHECK_EQ(fusionData != NULL ? fusionData[0] : 0u, 0xA2u, "USA fusion offer target remains unchanged");
+    fusionData = Port_ResolveFuserDataFromRom(rom, sizeof(rom), PORT_FUSER_FUSION_PTRS_EU, 44u, 6u);
+    CHECK_TRUE(fusionData == rom + 0x3300, "EU fusion offer resolves through the EU-native pointer table");
+    CHECK_EQ(fusionData != NULL ? fusionData[0] : 0u, 0xE2u,
+             "EU fusion offer cannot silently use the USA target");
+    CHECK_TRUE(Port_ResolveFuserDataFromRom(rom, sizeof(rom), PORT_FUSION_TEXT_PTRS_EU,
+                                            PORT_FUSER_TABLE_COUNT, 6u) == NULL,
+               "fuser ids outside the retail pointer table are rejected");
+    WriteU32(rom + 44u * sizeof(u32), 0x08003400u);
+    CHECK_TRUE(Port_ResolveFuserDataFromRom(rom, sizeof(rom), 0u, 44u, 6u) == NULL,
+               "an unpopulated regional table offset cannot reinterpret the ROM header as pointers");
+    WriteU32(rom + PORT_FUSION_TEXT_PTRS_EU + 46u * sizeof(u32), 0x080083FAu);
+    CHECK_TRUE(Port_ResolveFusionTextDataFromRom(rom, sizeof(rom), PORT_FUSION_TEXT_PTRS_EU, 46u) ==
+                   rom + 0x83FA,
+               "one fusion text triple accepts exactly six target bytes");
+    CHECK_TRUE(Port_ResolvePairedFusionTextDataFromRom(rom, sizeof(rom), PORT_FUSION_TEXT_PTRS_EU, 46u) == NULL,
+               "paired fusion text rejects a target with only one triple remaining");
+    WriteU32(rom + PORT_FUSION_TEXT_PTRS_EU + 45u * sizeof(u32), 0x080083FEu);
+    CHECK_TRUE(Port_ResolveFusionTextDataFromRom(rom, sizeof(rom), PORT_FUSION_TEXT_PTRS_EU, 45u) == NULL,
+               "truncated fusion text target is rejected");
 
     CHECK_EQ(Port_ReadTileTypePropertyFromRom(rom, sizeof(rom), PORT_TILE_TYPE_PROPERTIES_USA, 0u), 0x57CCu,
              "USA tile-property offset reads the USA record");

@@ -42,6 +42,18 @@ static inline u32 Port_ShouldUseAreaAssetCacheForRegion(RomRegion region) {
 #define PORT_TILE_TYPE_PROPERTIES_USA 0x00000360u
 #define PORT_TILE_TYPE_PROPERTIES_EU 0x000003A8u
 
+/* Kinstone fusers use two 120-entry packed-pointer tables near the start of
+ * the ROM. The universal port is compiled from USA data stubs, but the EU
+ * linker moves both tables and all of their targets by 0xA8 bytes. Reading a
+ * compiled USA pointer against an EU ROM therefore selects a different valid
+ * record instead of failing cleanly. Keep both table bases in the active ROM
+ * profile and reject fuser ids beyond the retail table. */
+#define PORT_FUSER_TABLE_COUNT 120u
+#define PORT_FUSION_TEXT_PTRS_USA 0x00001A7Cu
+#define PORT_FUSION_TEXT_PTRS_EU 0x00001B24u
+#define PORT_FUSER_FUSION_PTRS_USA 0x00001DCCu
+#define PORT_FUSER_FUSION_PTRS_EU 0x00001E74u
+
 /* Fixed UI definitions are compiled from the USA baseline in the fat binary.
  * EU removes one sprite-table entry before both the shared item sheet and the
  * HUD button sheet. Gameplay entity indices remain active-ROM-native and
@@ -70,6 +82,8 @@ typedef struct {
     u32 figurines;        /* gFigurines packed ROM table */
     u32 fuserEnemyData;   /* GetFuserData enemy table */
     u32 fuserNpcData;     /* GetFuserData NPC table */
+    u32 fusionTextPtrs;   /* gUnk_08001A7C: packed pointers to fusion text triples */
+    u32 fuserFusionPtrs;  /* gUnk_08001DCC: packed pointers to offered-fusion records */
     u32 lakeHyliaEnemies; /* Lake Hylia default entity list */
     u32 lakeHyliaCleared; /* Lake Hylia post-dungeon entity list */
     u32 lilypadRails;     /* gLilypadRails pointer table */

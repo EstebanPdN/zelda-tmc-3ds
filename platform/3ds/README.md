@@ -10,7 +10,7 @@ touching it opens the existing Minish Cap Settings hierarchy.
 Install the universal CIA:
 
 ```text
-tmc-3ds-v1.0.cia
+tmc-3ds-v1.1.cia
 ```
 
 Then create this directory on the SD card:
@@ -40,9 +40,17 @@ Audio requires a working 3DS DSP firmware setup. On Luma3DS, use Rosalina's
   neighbor Scaled and linearly filtered Blur.
 - Bottom screen: 320x240 map, dungeon/status information and touch item UI.
 - Rendering: PICA200/Citro2D presenter fed by the software GBA PPU.
+- Performance profile: selected automatically from the detected console model.
 - New 3DS: requests 804 MHz, L2 cache and access to the extra application core.
 - New 3DS turbo: hold the C-stick in any direction and select 2x through 5x
   game speed from the Gameplay settings.
+- Old 3DS: experimental CPU-renderer and audio optimizations plus adaptive
+  presentation skipping target 60 Hz engine timing when visual rendering falls
+  behind. Input, touch, audio and lifecycle processing continue on skipped
+  presentation ticks; visual FPS may be lower.
+- Bottom-screen scheduling: touch state is sampled on every engine tick;
+  interactive hitboxes are promoted with the physically visible buffer, and
+  unchanged static pages avoid redundant paint/upload work.
 - Settings: Minish Cap-themed Screen, Gameplay, and Developer submenus with
   persistent options, a manual memory-dump command, and a live diagnostics
   overlay.
@@ -52,11 +60,15 @@ Audio requires a working 3DS DSP firmware setup. On Luma3DS, use Rosalina's
 - Diagnostics: press `L + R + A` to pause the game, display `DUMP SAVED`, and
   create `dumps/dump-*` with top and bottom physical-framebuffer BMP and raw
   captures, EWRAM, IWRAM, VRAM, palettes, OAM, I/O and game state, frame
-  cadence, per-core PPU timings, GPU work, audio buffer health, save
+  visual and engine cadence, adaptive-skip data, per-core PPU timings, GPU
+  work, audio buffer health, save
   persistence state, memory availability, lifecycle state and complete input
   data.
 - System lifecycle: HOME, sleep and application close events are handled by the
   regular 3DS applet loop.
+- Console: the development boot console remains visible during startup. Once
+  gameplay begins, later stdout/stderr logs are detached from the bottom
+  framebuffer so they cannot flicker over the map or touch interface.
 
 The CIA metadata uses a stable title ID and requests SD card access for local
 ROM and save data.

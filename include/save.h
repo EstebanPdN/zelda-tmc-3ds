@@ -99,6 +99,7 @@ typedef struct {
     /*0x0D0*/ u8 figurines[36];              /**< figurine bitset */
     /*0x0F2*/ u8 inventory[34];              /**< 2 bit per item @see Item */
     /*0x114*/ KinstoneSave kinstones;        /**< save data for kinstones @see KinstoneSave */
+    /*0x25B*/ u8 filler25B;                  /**< unused filler */
     /*0x25C*/ u8 flags[0x200];               /**< flags */
     /*0x45C*/ u8 dungeonKeys[0x10];          /**< indexed by dungeon id, keys per dungeon */
     /*0x46C*/ u8 dungeonItems[0x10];         /**< dungeon items 4: compass, 2: big key, 1: small key */
@@ -113,6 +114,14 @@ typedef struct {
     /*0x4A8*/ u32 demo_timer;                /**< timer for US demo version playtime limit */
     /*0x4AC*/ u8 filler4ac[0x54];            /**< pad to 0x500 EEPROM size */
 } SaveFile;
+
+static_assert(sizeof(KinstoneSave) == 0x147, "KinstoneSave size incorrect");
+static_assert(offsetof(SaveFile, flags) == 0x25C, "SaveFile flags offset incorrect");
+static_assert(offsetof(SaveFile, dungeonKeys) == 0x45C, "SaveFile dungeonKeys offset incorrect");
+static_assert(offsetof(SaveFile, dungeonItems) == 0x46C, "SaveFile dungeonItems offset incorrect");
+static_assert(offsetof(SaveFile, dungeonWarps) == 0x47C, "SaveFile dungeonWarps offset incorrect");
+static_assert(offsetof(SaveFile, darknut_timer) == 0x48C, "SaveFile timers offset incorrect");
+static_assert(sizeof(SaveFile) == 0x500, "SaveFile EEPROM size incorrect");
 
 /**
  * The current save file.

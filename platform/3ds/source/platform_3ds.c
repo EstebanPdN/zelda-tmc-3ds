@@ -1,4 +1,5 @@
 #include "platform_3ds.h"
+#include "old3ds_frame_pacer.h"
 #include "port_audio_3ds.h"
 #include "port_second_screen_3ds.h"
 #include "port_second_screen_sync_3ds.h"
@@ -28,6 +29,7 @@ static bool sSpeedupRequested;
 static unsigned sTurboPhase;
 static uint64_t sLogicFrames;
 static uint64_t sPresentedFrames;
+static uint64_t sLogicLastTick;
 static uint64_t sTurboLogicFrames;
 static uint64_t sTurboSkippedPresentations;
 static uint64_t sEngineWorkTicks;
@@ -38,6 +40,10 @@ static uint64_t sVblankWaitLastTicks;
 static uint64_t sVblankWaitMaxTicks;
 static uint64_t sAptChecks;
 static uint64_t sFrameBoundaryEndTick;
+static Old3DSFramePacer sOld3DSFramePacer;
+static uint64_t sOld3DSSkippedTickSleep;
+static PrintConsole sGameplayLogSink;
+static bool sGameplayDisplayActive;
 static uintptr_t sStackRegionBase;
 static uintptr_t sStackRegionEnd;
 typedef struct {
@@ -49,7 +55,37 @@ static unsigned sNativeMemoryRegionCount;
 static Thread sBottomWorkerThread;
 static LightEvent sBottomWorkerStart;
 static LightEvent sBottomWorkerDone;
+static aptHookCookie sAptHookCookie;
+static bool sAptHookRegistered;
 extern void Port_Audio_Shutdown(void);
+static void PollInput(void);
+
+void Platform3DS_MarkFrameDiscontinuity(Old3DSFramePacerDiscontinuity reason) {
+    Old3DSFramePacer_MarkDiscontinuity(&sOld3DSFramePacer, reason);
+}
+
+static void OnAptEvent(APT_HookType hook, void* parameter) {
+    (void)parameter;
+    switch (hook) {
+        case APTHOOK_ONSUSPEND:
+        case APTHOOK_ONRESTORE:
+        case APTHOOK_ONSLEEP:
+        case APTHOOK_ONWAKEUP:
+            /* APT is the authority for HOME/lid discontinuities. The atomic
+             * mark is consumed at the next logic boundary, so suspend and
+             * restore callbacks before that boundary coalesce into one resync. */
+            Platform3DS_MarkFrameDiscontinuity(OLD3DS_FRAME_PACER_DISCONTINUITY_APT);
+            break;
+        default:
+            break;
+    }
+}
+
+static void RegisterAptHook(void) {
+    if (sAptHookRegistered) return;
+    aptHook(&sAptHookCookie, OnAptEvent, NULL);
+    sAptHookRegistered = true;
+}
 
 int Platform3DS_Init(void) {
     Port_SecondScreen_3DS_SyncInit();
@@ -66,6 +102,7 @@ int Platform3DS_Init(void) {
     sTurboPhase = 0;
     sLogicFrames = 0;
     sPresentedFrames = 0;
+    sLogicLastTick = 0;
     sTurboLogicFrames = 0;
     sTurboSkippedPresentations = 0;
     sEngineWorkTicks = 0;
@@ -76,6 +113,8 @@ int Platform3DS_Init(void) {
     sVblankWaitMaxTicks = 0;
     sAptChecks = 0;
     sFrameBoundaryEndTick = 0;
+    sOld3DSSkippedTickSleep = 0;
+    sGameplayDisplayActive = false;
     sStackRegionBase = 0;
     sStackRegionEnd = 0;
     sNativeMemoryRegionCount = 0;
@@ -89,6 +128,8 @@ int Platform3DS_Init(void) {
     aptSetHomeAllowed(true);
     aptSetSleepAllowed(true);
     APT_CheckNew3DS(&sIsNew3DS);
+    Old3DSFramePacer_Init(&sOld3DSFramePacer, SYSCLOCK_ARM11);
+    RegisterAptHook();
     if (sIsNew3DS) {
         osSetSpeedupEnable(true);
         sSpeedupRequested = true;
@@ -116,6 +157,10 @@ int Platform3DS_Init(void) {
 
 void Platform3DS_Shutdown(void) {
     sRunning = false;
+    if (sAptHookRegistered) {
+        aptUnhook(&sAptHookCookie);
+        sAptHookRegistered = false;
+    }
     Platform3DS_ShutdownBottomWorker();
     extern void virtuappu_mode1_shutdown_workers(void);
     virtuappu_mode1_shutdown_workers();
@@ -163,6 +208,30 @@ void Platform3DS_ShowSplash(void) {
         svcSleepThread(1200000000LL);
     }
     free(pixels);
+}
+
+static bool GameplayLogSinkPrint(void* console, int character) {
+    (void)console;
+    (void)character;
+    return true;
+}
+
+void Platform3DS_EnterGameplayDisplay(void) {
+    if (sGameplayDisplayActive) return;
+
+    /* Keep the visible console throughout boot, then prevent stdout from ever
+     * writing into the bottom framebuffer owned by Citro3D. stderr remains
+     * available to an attached debugger through SVC instead of being painted
+     * over the live map/touch UI. */
+    fflush(stdout);
+    fflush(stderr);
+    sGameplayLogSink = *consoleGetDefault();
+    sGameplayLogSink.frameBuffer = NULL;
+    sGameplayLogSink.PrintChar = GameplayLogSinkPrint;
+    sGameplayLogSink.consoleInitialised = true;
+    consoleSelect(&sGameplayLogSink);
+    consoleDebugInit(debugDevice_SVC);
+    sGameplayDisplayActive = true;
 }
 
 static uint16_t MapKeysToGba(uint32_t keys) {
@@ -277,6 +346,18 @@ bool Platform3DS_BeginFrameBoundary(void) {
     }
 
     ++sLogicFrames;
+    if (sIsNew3DS && sLogicLastTick != 0) {
+        /* The New 3DS does not use adaptive presentation skipping, but its
+         * diagnostic cadence still needs the pacer's HOME/sleep/dump filter. */
+        Old3DSFramePacer_RecordActiveInterval(&sOld3DSFramePacer, now - sLogicLastTick);
+    }
+    sLogicLastTick = now;
+    if (!sIsNew3DS) {
+        const bool present = Old3DSFramePacer_BeginTick(&sOld3DSFramePacer, now, &sOld3DSSkippedTickSleep);
+        if (present) ++sPresentedFrames;
+        return present;
+    }
+
     if (!Platform3DS_TurboHeld()) {
         sTurboPhase = 0;
         ++sPresentedFrames;
@@ -308,7 +389,16 @@ static bool PumpLifecycleAndAudio(void) {
 }
 
 void Platform3DS_PumpWithoutVBlank(void) {
-    PumpLifecycleAndAudio();
+    if (!PumpLifecycleAndAudio()) return;
+    if (sIsNew3DS) return;
+
+    if (sOld3DSSkippedTickSleep != 0) {
+        const uint64_t sleepNs = sOld3DSSkippedTickSleep * 1000000000ULL / SYSCLOCK_ARM11;
+        sOld3DSSkippedTickSleep = 0;
+        if (sleepNs != 0) svcSleepThread((int64_t)sleepNs);
+    }
+
+    PollInput();
 }
 
 void Platform3DS_GetRuntimeStats(Platform3DSRuntimeStats* stats) {
@@ -333,8 +423,18 @@ void Platform3DS_GetRuntimeStats(Platform3DSRuntimeStats* stats) {
         .stackRegionEnd = sStackRegionEnd,
         .logicFrames = sLogicFrames,
         .presentedFrames = sPresentedFrames,
+        .logicElapsedTicks = sOld3DSFramePacer.activeElapsedTicks,
+        .logicCadenceIntervals = sOld3DSFramePacer.activeIntervals,
         .turboLogicFrames = sTurboLogicFrames,
         .turboSkippedPresentations = sTurboSkippedPresentations,
+        .old3dsSkippedPresentations = sOld3DSFramePacer.skippedPresentations,
+        .old3dsPacingSleepTicks = sOld3DSFramePacer.requestedSleepTicks,
+        .old3dsPacingResyncs = sOld3DSFramePacer.resyncs,
+        .old3dsAptDiscontinuities = sOld3DSFramePacer.aptDiscontinuities,
+        .old3dsDumpDiscontinuities = sOld3DSFramePacer.dumpDiscontinuities,
+        .old3dsDebtClampEvents = sOld3DSFramePacer.debtClampEvents,
+        .old3dsPresentationDebtTicks = sOld3DSFramePacer.presentationDebtTicks,
+        .old3dsMaxConsecutiveSkips = sOld3DSFramePacer.maxConsecutiveSkipsSeen,
         .engineWorkTicks = sEngineWorkTicks,
         .engineWorkLastTicks = sEngineWorkLastTicks,
         .engineWorkMaxTicks = sEngineWorkMaxTicks,
@@ -352,6 +452,8 @@ void Platform3DS_GetRuntimeStats(Platform3DSRuntimeStats* stats) {
         .bottomWorkerRunning = sBottomWorkerRunning,
         .bottomWorkerBusy = sBottomWorkerBusy,
         .speedupRequested = sSpeedupRequested,
+        .adaptiveFrameskipEnabled = !sIsNew3DS,
+        .gameplayDisplayActive = sGameplayDisplayActive,
         .aptCloseRequested = aptShouldClose(),
     };
 }
@@ -412,26 +514,7 @@ void Platform3DS_ShutdownBottomWorker(void) {
     sBottomWorkerAttempted = false;
 }
 
-void Platform3DS_WaitForVBlank(void) {
-    if (!PumpLifecycleAndAudio()) return;
-    extern bool Port_PPU_3DS_UsesGpuPresenter(void);
-    const uint64_t waitStart = svcGetSystemTick();
-    if (Port_PPU_3DS_UsesGpuPresenter()) {
-        gspWaitForEvent(GSPGPU_EVENT_VBlank0, false);
-    } else {
-        gfxFlushBuffers();
-        gfxSwapBuffers();
-        gspWaitForVBlank();
-    }
-    sVblankWaitLastTicks = svcGetSystemTick() - waitStart;
-    sVblankWaitTicks += sVblankWaitLastTicks;
-    if (sVblankWaitLastTicks > sVblankWaitMaxTicks) sVblankWaitMaxTicks = sVblankWaitLastTicks;
-    if (sQuickDumpRequested) {
-        extern void Port_PPU_3DS_WriteQuickDump(void);
-        sQuickDumpRequested = false;
-        Port_PPU_3DS_WriteQuickDump();
-    }
-
+static void PollInput(void) {
     hidScanInput();
     sHeld = hidKeysHeld();
     sDown = hidKeysDown();
@@ -454,8 +537,39 @@ void Platform3DS_WaitForVBlank(void) {
     sQuickDumpComboWasHeld = quickDumpCombo;
 }
 
+void Platform3DS_WaitForVBlank(void) {
+    if (!PumpLifecycleAndAudio()) return;
+    extern bool Port_PPU_3DS_UsesGpuPresenter(void);
+    const uint64_t waitStart = svcGetSystemTick();
+    if (Port_PPU_3DS_UsesGpuPresenter()) {
+        gspWaitForEvent(GSPGPU_EVENT_VBlank0, false);
+    } else {
+        gfxFlushBuffers();
+        gfxSwapBuffers();
+        gspWaitForVBlank();
+    }
+    sVblankWaitLastTicks = svcGetSystemTick() - waitStart;
+    sVblankWaitTicks += sVblankWaitLastTicks;
+    if (sVblankWaitLastTicks > sVblankWaitMaxTicks) sVblankWaitMaxTicks = sVblankWaitLastTicks;
+    /* EndBottom only marks a bottom generation submitted.  Promote it after
+     * the display boundary and before this tick's HID scan, so touch never
+     * targets a CPU-painted buffer that has not reached a presentation. */
+    Port_SecondScreen_3DS_PromoteSubmitted();
+    if (sQuickDumpRequested) {
+        extern void Port_PPU_3DS_WriteQuickDump(void);
+        sQuickDumpRequested = false;
+        Port_PPU_3DS_WriteQuickDump();
+    }
+    PollInput();
+}
+
 void Platform3DS_ShowFatal(const char* title, const char* message) {
-    consoleInit(GFX_BOTTOM, NULL);
+    /* consoleInit(NULL) reuses libctru's current console.  Gameplay replaces
+     * that current console with a framebuffer-less log sink, so explicitly
+     * select the real bottom console returned by consoleInit before printing. */
+    PrintConsole* fatalConsole = consoleInit(GFX_BOTTOM, NULL);
+    consoleSelect(fatalConsole);
+    consoleDebugInit(debugDevice_CONSOLE);
     consoleClear();
     printf("%s\n\n%s\n\nPress START to exit.\n", title ? title : "Error", message ? message : "");
     while (aptMainLoop()) {

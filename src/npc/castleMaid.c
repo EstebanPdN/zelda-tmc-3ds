@@ -13,6 +13,9 @@
 #include "script.h"
 #include "asm.h"
 #include "physics.h"
+#ifdef PC_PORT
+#include "port_castle_maid_dialog.h"
+#endif
 
 typedef struct {
     Entity base;
@@ -117,10 +120,13 @@ void sub_08064570(CastleMaidEntity* this) {
 void CastleMaid_SetDialogFunc(CastleMaidEntity* this, ScriptExecutionContext* context) {
 #ifdef PC_PORT
     /* intVariable holds a raw GBA Thumb address; resolve to native function pointer */
-    u32 gba_addr = context->intVariable & ~1u;
-    switch (gba_addr) {
-        case 0x0806464C: this->dialogFunc = (void(*)())sub_0806464C; break;
-        case 0x08064688: this->dialogFunc = (void(*)())sub_08064688; break;
+    switch (Port_ResolveCastleMaidDialog(context->intVariable)) {
+        case PORT_CASTLE_MAID_DIALOG_CASTLE:
+            this->dialogFunc = (void(*)())sub_0806464C;
+            break;
+        case PORT_CASTLE_MAID_DIALOG_TOWN:
+            this->dialogFunc = (void(*)())sub_08064688;
+            break;
         default:
             fprintf(stderr, "[CastleMaid] Unknown dialogFunc GBA addr: 0x%08X\n", context->intVariable);
             this->dialogFunc = NULL;

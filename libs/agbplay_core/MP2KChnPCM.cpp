@@ -298,18 +298,55 @@ void MP2KChnPCM::processNormal(std::span<sample> buffer, ProcArgs &cargs)
         return;
     assert(ctx.mixer.scratchBuffer.size() == buffer.size());
 
-    FetchCallback cb;
-    if (type == Type::PCM)
-        cb = std::bind(&MP2KChnPCM::sampleFetchCallback, this, std::placeholders::_1, std::placeholders::_2);
-    else if (type == Type::GAMEFREAK_DPCM)
-        cb =
-            std::bind(&MP2KChnPCM::sampleFetchCallbackGFDPCMDecomp, this, std::placeholders::_1, std::placeholders::_2);
-    else if (type == Type::CAMELOT_ADPCM)
-        cb = std::bind(&MP2KChnPCM::sampleFetchCallbackMPTDecomp, this, std::placeholders::_1, std::placeholders::_2);
-    else
+    bool running = false;
+#ifdef TMC_3DS
+    /* Both normal/fixed 3DS modes are guaranteed NEAREST by the platform
+     * profile. The templated direct append path lets LTO inline raw PCM and
+     * decompression into the resampler instead of crossing a callback thunk. */
+    assert(ctx.agbplaySoundMode.resamplerTypeNormal == ResamplerType::NEAREST);
+    assert(ctx.agbplaySoundMode.resamplerTypeFixed == ResamplerType::NEAREST);
+    auto *nearest = static_cast<NearestResampler *>(rs.get());
+    if (type == Type::PCM) {
+        running = nearest->ProcessDirect(ctx.mixer.scratchBuffer, cargs.interStep,
+                                         [this](float *output, size_t count) {
+                                             return sampleFetchDirect(output, count);
+                                         });
+    } else if (type == Type::GAMEFREAK_DPCM) {
+        running = nearest->ProcessDirect(ctx.mixer.scratchBuffer, cargs.interStep,
+                                         [this](float *output, size_t count) {
+                                             return sampleFetchDirectGFDPCMDecomp(output, count);
+                                         });
+    } else if (type == Type::CAMELOT_ADPCM) {
+        running = nearest->ProcessDirect(ctx.mixer.scratchBuffer, cargs.interStep,
+                                         [this](float *output, size_t count) {
+                                             return sampleFetchDirectMPTDecomp(output, count);
+                                         });
+    } else {
         assert(false);
-
-    const bool running = rs->Process(ctx.mixer.scratchBuffer, cargs.interStep, cb);
+    }
+#else
+    if (type == Type::PCM) {
+        auto callback = [this](std::vector<float> &fetchBuffer, size_t required) {
+            return sampleFetchCallback(fetchBuffer, required);
+        };
+        FetchCallback fetch(callback);
+        running = rs->Process(ctx.mixer.scratchBuffer, cargs.interStep, fetch);
+    } else if (type == Type::GAMEFREAK_DPCM) {
+        auto callback = [this](std::vector<float> &fetchBuffer, size_t required) {
+            return sampleFetchCallbackGFDPCMDecomp(fetchBuffer, required);
+        };
+        FetchCallback fetch(callback);
+        running = rs->Process(ctx.mixer.scratchBuffer, cargs.interStep, fetch);
+    } else if (type == Type::CAMELOT_ADPCM) {
+        auto callback = [this](std::vector<float> &fetchBuffer, size_t required) {
+            return sampleFetchCallbackMPTDecomp(fetchBuffer, required);
+        };
+        FetchCallback fetch(callback);
+        running = rs->Process(ctx.mixer.scratchBuffer, cargs.interStep, fetch);
+    } else {
+        assert(false);
+    }
+#endif
 
     for (size_t i = 0; i < buffer.size(); i++) {
         const float samp = ctx.mixer.scratchBuffer[i];
@@ -434,9 +471,14 @@ bool MP2KChnPCM::sampleFetchCallback(std::vector<float> &fetchBuffer, size_t sam
 {
     if (fetchBuffer.size() >= samplesRequired)
         return true;
-    size_t samplesToFetch = samplesRequired - fetchBuffer.size();
-    size_t i = fetchBuffer.size();
+    const size_t oldSize = fetchBuffer.size();
     fetchBuffer.resize(samplesRequired);
+    return sampleFetchDirect(fetchBuffer.data() + oldSize, samplesRequired - oldSize);
+}
+
+bool MP2KChnPCM::sampleFetchDirect(float *output, size_t samplesToFetch)
+{
+    assert(samplesToFetch != 0);
 
     do {
         size_t samplesTilLoop = sInfo.endPos - pos;
@@ -444,14 +486,14 @@ bool MP2KChnPCM::sampleFetchCallback(std::vector<float> &fetchBuffer, size_t sam
 
         samplesToFetch -= thisFetch;
         do {
-            fetchBuffer[i++] = float(sInfo.samplePtr[pos++]) / 128.0f;
+            *output++ = float(sInfo.samplePtr[pos++]) / 128.0f;
         } while (--thisFetch > 0);
 
         if (pos >= sInfo.endPos) {
             if (sInfo.loopEnabled) {
                 pos = sInfo.loopPos;
             } else {
-                std::fill(fetchBuffer.begin() + i, fetchBuffer.end(), 0.0f);
+                std::fill(output, output + samplesToFetch, 0.0f);
                 return false;
             }
         }
@@ -461,12 +503,17 @@ bool MP2KChnPCM::sampleFetchCallback(std::vector<float> &fetchBuffer, size_t sam
 
 bool MP2KChnPCM::sampleFetchCallbackGFDPCMDecomp(std::vector<float> &fetchBuffer, size_t samplesRequired)
 {
-    const size_t DPCM_BLOCK_SIZE = 64;
     if (fetchBuffer.size() >= samplesRequired)
         return true;
-    size_t samplesToFetch = samplesRequired - fetchBuffer.size();
-    size_t i = fetchBuffer.size();
+    const size_t oldSize = fetchBuffer.size();
     fetchBuffer.resize(samplesRequired);
+    return sampleFetchDirectGFDPCMDecomp(fetchBuffer.data() + oldSize, samplesRequired - oldSize);
+}
+
+bool MP2KChnPCM::sampleFetchDirectGFDPCMDecomp(float *output, size_t samplesToFetch)
+{
+    constexpr size_t DPCM_BLOCK_SIZE = 64;
+    assert(samplesToFetch != 0);
 
     std::array<int8_t, DPCM_BLOCK_SIZE> decodeBuffer;
     size_t decodedBlockIdx = ~static_cast<size_t>(0);
@@ -498,14 +545,14 @@ bool MP2KChnPCM::sampleFetchCallbackGFDPCMDecomp(std::vector<float> &fetchBuffer
                 decodedBlockIdx = currentBlock;
             }
 
-            fetchBuffer[i++] = static_cast<float>(decodeBuffer[pos++ % DPCM_BLOCK_SIZE]) / 128.0f;
+            *output++ = static_cast<float>(decodeBuffer[pos++ % DPCM_BLOCK_SIZE]) / 128.0f;
         } while (--thisFetch > 0);
 
         if (pos >= sInfo.endPos) {
             if (sInfo.loopEnabled) {
                 pos = sInfo.loopPos;
             } else {
-                std::fill(fetchBuffer.begin() + i, fetchBuffer.end(), 0.0f);
+                std::fill(output, output + samplesToFetch, 0.0f);
                 return false;
             }
         }
@@ -517,9 +564,14 @@ bool MP2KChnPCM::sampleFetchCallbackMPTDecomp(std::vector<float> &fetchBuffer, s
 {
     if (fetchBuffer.size() >= samplesRequired)
         return true;
-    size_t samplesToFetch = samplesRequired - fetchBuffer.size();
-    size_t i = fetchBuffer.size();
+    const size_t oldSize = fetchBuffer.size();
     fetchBuffer.resize(samplesRequired);
+    return sampleFetchDirectMPTDecomp(fetchBuffer.data() + oldSize, samplesRequired - oldSize);
+}
+
+bool MP2KChnPCM::sampleFetchDirectMPTDecomp(float *output, size_t samplesToFetch)
+{
+    assert(samplesToFetch != 0);
 
     do {
         size_t samplesTilLoop = sInfo.endPos - pos;
@@ -552,12 +604,12 @@ bool MP2KChnPCM::sampleFetchCallbackMPTDecomp(std::vector<float> &fetchBuffer, s
             shiftMPTcompressed = uint8_t(shiftMPTcompressed + 4);
             shiftMPTcompressed = uint8_t((uint32_t)shiftMPTcompressed - (nibble >> 28u));
 
-            fetchBuffer[i++] = float(levelMPTcompressed) / 128.0f;
+            *output++ = float(levelMPTcompressed) / 128.0f;
         } while (--thisFetch > 0);
 
         if (pos >= sInfo.endPos) {
             // MPT compressed sample cannot loop
-            std::fill(fetchBuffer.begin() + i, fetchBuffer.end(), 0.0f);
+            std::fill(output, output + samplesToFetch, 0.0f);
             return false;
         }
     } while (samplesToFetch > 0);

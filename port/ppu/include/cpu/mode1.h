@@ -176,6 +176,11 @@ void virtuappu_mode1_composite_line(int line, uint32_t bg_layers[MODE1_GBA_BG_CO
 void virtuappu_mode1_render_frame(const PPUMemory* ppu);
 void virtuappu_mode1_get_3ds_stats(VirtuaPPUMode13DSStats* stats);
 void virtuappu_mode1_shutdown_workers(void);
+#ifdef VIRTUAPPU_TESTING
+/* Test-only oracle switch: the parity fuzzer renders each state once through
+ * the optimized native paths and once through the generic reference path. */
+void virtuappu_mode1_set_native_fast_paths_enabled(bool enabled);
+#endif
 
 /* GPU-raster prepare pass: run ONLY the sequential portion of render_frame —
  * the per-line HDMA callback + IO snapshot, per-line DISPCNT, and the affine
