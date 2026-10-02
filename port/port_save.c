@@ -81,6 +81,9 @@ static char sActivePath[SAVE_FILENAME_MAX] = DEFAULT_SAVE_FILENAME;
  * slots and duplicate records). Further contaminated fusers from that same
  * E1 image must not create a new 8 KiB backup on every NPC update. */
 static char sFuserRepairPreservedPath[SAVE_FILENAME_MAX];
+static char sSmithBottleFlagRepairPreservedPath[SAVE_FILENAME_MAX];
+static char sGoronBottleRepairPreservedPath[SAVE_FILENAME_MAX];
+static char sBombInventoryRepairPreservedPath[SAVE_FILENAME_MAX];
 static char sCloudTopsRepairPreservedPath[SAVE_FILENAME_MAX];
 static char sVaatiProgressRepairPreservedPath[SAVE_FILENAME_MAX];
 static PortSaveStats sSaveStats;
@@ -353,6 +356,40 @@ static int FilesMatch(const char* leftPath, const char* rightPath) {
     if (right != NULL && fclose(right) != 0) ok = 0;
     return ok;
 }
+
+static int BuildLegacyMarkerPath(const char* savePath, char* sidecar, size_t sidecarSize) {
+    char* extension;
+    int length;
+    if (savePath == NULL || sidecar == NULL || sidecarSize == 0) return 0;
+    length = snprintf(sidecar, sidecarSize, "%s", savePath);
+    if (length < 0 || (size_t)length >= sidecarSize) return 0;
+    extension = strrchr(sidecar, '.');
+    if (extension != NULL) {
+        length = snprintf(extension, sidecarSize - (size_t)(extension - sidecar), ".randomizer");
+        return length >= 0 && (size_t)length < sidecarSize - (size_t)(extension - sidecar);
+    }
+    length = snprintf(sidecar + strlen(sidecar), sidecarSize - strlen(sidecar), ".randomizer");
+    return length >= 0 && (size_t)length < sidecarSize - strlen(sidecar);
+}
+
+/* Older optional modes used separate profiles and metadata. Recognize their
+ * filenames only to preserve them; this build never loads or modifies them. */
+static int HasUnsupportedProfile(const char* path) {
+    char marker[SAVE_AUX_PATH_MAX];
+    size_t n;
+    if (path == NULL) return 1;
+    n = strlen(path);
+    if (n >= 10 && strcmp(path + n - 10, "_rando.sav") == 0) return 1;
+    if (!BuildLegacyMarkerPath(path, marker, sizeof(marker))) return 1;
+    return GetPathState(marker) != PATH_STATE_MISSING;
+}
+
+static int sStandardProfile = 1;
+
+int Port_Save_IsStandardProfile(void) {
+    return sStandardProfile;
+}
+
 
 /* Copy without ever replacing a destination. The source remains authoritative
  * throughout; an interrupted/failed copy can only leave a new partial file. */
@@ -880,23 +917,6 @@ static int WriteEepromAtomic(const char* path) {
 }
 
 static void FlushEepromFile(void);
-static int sStandardProfile = 1;
-static int HasUnsupportedProfile(const char* path) {
-    char marker[512];
-    struct stat info;
-    if (!path) return 1;
-    size_t n = strlen(path);
-    if (n >= 10 && strcmp(path + n - 10, "_rando.sav") == 0) return 1;
-    if (n + 12 >= sizeof(marker)) return 1;
-    strcpy(marker, path);
-    char* ext = strrchr(marker, '.');
-    if (!ext) ext = marker + n;
-    strcpy(ext, ".randomizer");
-    if (stat(marker, &info) == 0) return 1;
-    return errno != ENOENT;
-}
-int Port_Save_IsStandardProfile(void) { return sStandardProfile; }
-
 static int IsManagedProfilePath(const char* path);
 
 /* ---- Persistence -------------------------------------------------------- */
@@ -940,9 +960,10 @@ static void LoadEepromFile(void) {
     sStandardProfile = !HasUnsupportedProfile(sActivePath);
     if (!sStandardProfile) {
         memset(sEeprom, 0xFF, EEPROM_SIZE);
+        sEepromWriteBlocked = 1;
+        fprintf(stderr, "[SAVE] Unsupported legacy profile preserved; loading and writing are disabled.\n");
         return;
     }
-
 #ifdef TMC_3DS
     if (RecoverInterruptedAtomicWrite(sActivePath) == RECOVERY_BLOCKED) {
         memset(sEeprom, 0xFF, EEPROM_SIZE);
@@ -1016,7 +1037,6 @@ static void LoadEepromFile(void) {
 }
 
 static void FlushEepromFile(void) {
-    if (!sStandardProfile) return;
     if (!sEepromDirty)
         return;
     if (WriteEepromAtomic(sActivePath)) {
@@ -1077,6 +1097,19 @@ int Port_Save_PreserveBeforeFuserRepair(void) {
     return 1;
 }
 
+int Port_Save_PreserveBeforeSmithBottleFlagRepair(void) {
+    if (!sEepromInited || sEepromWriteBlocked) return 0;
+    if (strcmp(sSmithBottleFlagRepairPreservedPath, sActivePath) == 0) return 1;
+    if (sSaveTxnDepth != 0) return 0;
+    if (sEepromDirty) {
+        FlushEepromFile();
+        if (sEepromDirty) return 0;
+    }
+    if (!PreserveFileUnique(sActivePath, "pre-smith-bottle-flag-repair")) return 0;
+    snprintf(sSmithBottleFlagRepairPreservedPath, sizeof(sSmithBottleFlagRepairPreservedPath), "%s", sActivePath);
+    return 1;
+}
+
 int Port_Save_PreserveBeforeCloudTopsRepair(void) {
     if (!sEepromInited || sEepromWriteBlocked) return 0;
     if (strcmp(sCloudTopsRepairPreservedPath, sActivePath) == 0) return 1;
@@ -1087,6 +1120,32 @@ int Port_Save_PreserveBeforeCloudTopsRepair(void) {
     }
     if (!PreserveFileUnique(sActivePath, "pre-cloud-tops-repair")) return 0;
     snprintf(sCloudTopsRepairPreservedPath, sizeof(sCloudTopsRepairPreservedPath), "%s", sActivePath);
+    return 1;
+}
+
+int Port_Save_PreserveBeforeGoronBottleRepair(void) {
+    if (!sEepromInited || sEepromWriteBlocked) return 0;
+    if (strcmp(sGoronBottleRepairPreservedPath, sActivePath) == 0) return 1;
+    if (sSaveTxnDepth != 0) return 0;
+    if (sEepromDirty) {
+        FlushEepromFile();
+        if (sEepromDirty) return 0;
+    }
+    if (!PreserveFileUnique(sActivePath, "pre-goron-bottle-repair")) return 0;
+    snprintf(sGoronBottleRepairPreservedPath, sizeof(sGoronBottleRepairPreservedPath), "%s", sActivePath);
+    return 1;
+}
+
+int Port_Save_PreserveBeforeBombInventoryRepair(void) {
+    if (!sEepromInited || sEepromWriteBlocked) return 0;
+    if (strcmp(sBombInventoryRepairPreservedPath, sActivePath) == 0) return 1;
+    if (sSaveTxnDepth != 0) return 0;
+    if (sEepromDirty) {
+        FlushEepromFile();
+        if (sEepromDirty) return 0;
+    }
+    if (!PreserveFileUnique(sActivePath, "pre-bomb-inventory-repair")) return 0;
+    snprintf(sBombInventoryRepairPreservedPath, sizeof(sBombInventoryRepairPreservedPath), "%s", sActivePath);
     return 1;
 }
 
@@ -1101,6 +1160,46 @@ int Port_Save_PreserveBeforeVaatiProgressRepair(void) {
     if (!PreserveFileUnique(sActivePath, "pre-vaati-progress-repair")) return 0;
     snprintf(sVaatiProgressRepairPreservedPath, sizeof(sVaatiProgressRepairPreservedPath), "%s", sActivePath);
     return 1;
+}
+
+static int ReadRepairBackupSlot(const char* tag, uint32_t slot, void* data, size_t size) {
+    static const struct {
+        u16 status1;
+        u16 status2;
+        u16 data1;
+        u16 data2;
+    } records[] = {
+        { 0x30, 0x1030, 0x80, 0x1080 },
+        { 0x40, 0x1040, 0x580, 0x1580 },
+        { 0x50, 0x1050, 0xA80, 0x1A80 },
+    };
+    char backupPath[SAVE_AUX_PATH_MAX];
+    u8 image[EEPROM_SIZE];
+    const u8* source;
+    int written;
+
+    if (slot >= sizeof(records) / sizeof(records[0]) || data == NULL || size != 0x500) return 0;
+    written = snprintf(backupPath, sizeof(backupPath), "%s.%s.bak", sActivePath, tag);
+    if (written < 0 || (size_t)written >= sizeof(backupPath)) return 0;
+    if (ReadAndClassifyEepromFile(backupPath, image, NULL, NULL) != EEPROM_IMAGE_ACTIVE_REGION) return 0;
+
+    if (EepromStatusValidForData(image, records[slot].status1, records[slot].data1, 0x500)) {
+        source = image + records[slot].data1;
+    } else if (EepromStatusValidForData(image, records[slot].status2, records[slot].data2, 0x500)) {
+        source = image + records[slot].data2;
+    } else {
+        return 0;
+    }
+    memcpy(data, source, size);
+    return 1;
+}
+
+int Port_Save_ReadCloudTopsRepairBackupSlot(uint32_t slot, void* data, size_t size) {
+    return ReadRepairBackupSlot("pre-cloud-tops-repair", slot, data, size);
+}
+
+int Port_Save_ReadVaatiProgressBackupSlot(uint32_t slot, void* data, size_t size) {
+    return ReadRepairBackupSlot("pre-vaati-progress-repair", slot, data, size);
 }
 
 void Port_Save_GetStats(PortSaveStats* stats) {
@@ -1156,7 +1255,6 @@ u16 EEPROMRead(u16 block, u16* dest) {
 }
 
 u16 EEPROMWrite0_8k_Check(u16 block, const u16* src) {
-    if (!sStandardProfile) return 0xC000;
     if (!sEepromInited) {
         LoadEepromFile();
         sEepromInited = 1;
@@ -1215,7 +1313,10 @@ int Port_Save_SetActivePath(const char* path) {
         fprintf(stderr, "[SAVE] Ignoring unmanaged save profile '%s'; active profile is unchanged.\n", path);
         return 0;
     }
-    if (strcmp(path, sActivePath) == 0) { sStandardProfile = !HasUnsupportedProfile(path); return 1; }
+    if (strcmp(path, sActivePath) == 0) {
+        sStandardProfile = !HasUnsupportedProfile(path);
+        return 1;
+    }
     /* A transaction belongs entirely to one backing file. Even if it has not
      * dirtied EEPROM yet, switching here would let its eventual End call flush
      * a different profile. */
@@ -1249,14 +1350,17 @@ int Port_Save_SetActivePath(const char* path) {
     sEepromDirty = 0;
     sEepromWriteBlocked = 0;
     sFuserRepairPreservedPath[0] = '\0';
+    sSmithBottleFlagRepairPreservedPath[0] = '\0';
+    sGoronBottleRepairPreservedPath[0] = '\0';
+    sBombInventoryRepairPreservedPath[0] = '\0';
     sCloudTopsRepairPreservedPath[0] = '\0';
+    sVaatiProgressRepairPreservedPath[0] = '\0';
     return 1;
 }
 
 const char* Port_Save_GetActivePath(void) {
     return sActivePath;
 }
-
 
 /* Snapshot the in-memory EEPROM into a named profile file without
  * changing the active profile. Useful for "Save current state as a new
@@ -1271,7 +1375,6 @@ int Port_Save_SaveAsProfile(const char* path) {
         LoadEepromFile();
         sEepromInited = 1;
     }
-    if (!sStandardProfile) return 0;
     if (sEepromWriteBlocked) return 0;
     if (!BuildUniqueTransactionPath(path, "save-as-stage", stagedSave, sizeof(stagedSave), 1) ||
         !WriteEepromAtomic(stagedSave)) {

@@ -64,6 +64,7 @@
 
 #ifdef TMC_3DS
 #include "platform_3ds.h"
+#include "port_dump_state_3ds.h"
 
 extern void Port_PPU_3DS_WriteQuickDump(void);
 extern double Port_PPU_3DS_CurrentFps(void);
@@ -152,7 +153,14 @@ enum {
     SS_ACT_SETTINGS_PAGE,
     SS_ACT_SETTINGS_BACK,
     SS_ACT_DEVELOPER_DUMP,
+    SS_ACT_DEVELOPER_LOAD,
+    SS_ACT_LOAD_CANCEL,
+    SS_ACT_LOAD_CONFIRM,
     SS_ACT_NOTICE_CLOSE,
+#ifdef TMC_3DS
+    SS_ACT_UPDATE_CHANNEL, SS_ACT_UPDATE_RELEASE, SS_ACT_UPDATE_ACTION,
+    SS_ACT_UPDATE_PREV, SS_ACT_UPDATE_NEXT,
+#endif
 };
 
 enum {
@@ -162,6 +170,9 @@ enum {
     SS_SETTINGS_DEVELOPER,
     SS_SETTINGS_OVERLAY,
     SS_SETTINGS_RANDOMIZER,
+#ifdef TMC_3DS
+    SS_SETTINGS_UPDATE,
+#endif
 };
 
 /* Settings rows, top to bottom. The second-screen-only toggles persist
@@ -269,6 +280,7 @@ static struct {
     uint8_t mapLive;
     float mapOx, mapOy, mapScale, mapU;
     int32_t mapImgW, mapImgH;
+    uint32_t mapWindcrests;
     /* Map-tile zoom: SS_REGION_* state, the picked tile's region id, and
      * its rect in world-map image pixels (what the bracket outlines). */
     uint8_t regionState;
@@ -283,6 +295,9 @@ static struct {
      * one of the two lists it opens, the same step in the pause menu. */
     uint8_t questView;
     uint32_t dumpFlashUntil;
+    uint32_t loadStateFlashUntil;
+    uint8_t loadStateResult;
+    uint8_t loadConfirmActive;
     uint8_t unavailableNoticeActive;
 } sUi = { .floorPreview = SS_NO_FLOOR, .playerFloorDisp = SS_NO_FLOOR };
 
@@ -975,16 +990,57 @@ static void BlitMapRegion(const SSurf* s, const uint32_t* img, int32_t imgW, int
     if (cy1 > s->h) cy1 = s->h;
     if (scale <= 0.0f) return;
     float inv = 1.0f / scale;
+    /* The per-pixel step was a VFP add plus a float->int convert, and on ARM11
+     * the convert also needs a VFP->ARM register transfer. VFP there is
+     * non-pipelined (4-9 cycles an op) and stalls integer execution, so two of
+     * them per pixel dominated this blit -- and this runs on the DEFAULT map
+     * tab, so it is the average paint cost rather than a spike.
+     *
+     * 16.16 fixed point turns the step into an integer add and a shift. Only
+     * sx >= sxMin (WMAP_CROP_X0 = 16) is ever written, so for every pixel that
+     * reaches the buffer the shift's floor and the cast's truncate-toward-zero
+     * agree; negative sx is skipped by the bounds test in both forms.
+     *
+     * The accumulator is 64-bit with 32 fractional bits, not 16.16: a 16.16
+     * step rounds by up to 1/65536, and across a 243-pixel row that drifts far
+     * enough to sample a different texel on 0.18% of pixels. At 2^-32 the drift
+     * is ~6e-8 of a texel. A 64-bit add is ADDS+ADC and the shift is just the
+     * high word, so it is still a fraction of the VFP cost. The float path is
+     * kept for inputs where even this could overflow.
+     *
+     * This is also strictly MORE accurate than what it replaces. Checked
+     * against an exact non-accumulating double mapping over 3.5M drawn pixels
+     * across the scale/offset range: the fixed form matches on every one, while
+     * the float accumulation it replaces sampled the wrong texel on 0.126% --
+     * float32 drift over a 243-pixel row, not a rounding subtlety. */
+    const float sxfStart = (cx0 - ox) * inv;
+    const int32_t spanX = cx1 - cx0 > 0 ? cx1 - cx0 : 0;
+    const float sxfEnd = sxfStart + inv * (float)spanX;
+    const int fixedOk = inv < 4096.0f && sxfStart > -16000.0f && sxfStart < 16000.0f &&
+                        sxfEnd > -16000.0f && sxfEnd < 16000.0f;
+    const int64_t invFx = fixedOk ? (int64_t)((double)inv * 4294967296.0) : 0;
+    const int64_t sxStartFx = fixedOk ? (int64_t)((double)sxfStart * 4294967296.0) : 0;
+
     for (int32_t y = cy0; y < cy1; y++) {
         int32_t sy = (int32_t)((y - oy) * inv);
         if (sy < syMin || sy >= syMax) continue;
         const uint32_t* srow = img + (size_t)sy * (size_t)imgW;
         uint32_t* drow = s->px + (size_t)y * (size_t)s->stride;
-        float sxf = (cx0 - ox) * inv;
-        for (int32_t x = cx0; x < cx1; x++, sxf += inv) {
-            int32_t sx = (int32_t)sxf;
-            if (sx >= sxMin && sx < sxMax) {
-                drow[x] = srow[sx];
+        if (fixedOk) {
+            int64_t sxFx = sxStartFx;
+            for (int32_t x = cx0; x < cx1; x++, sxFx += invFx) {
+                const int32_t sx = (int32_t)(sxFx >> 32);
+                if (sx >= sxMin && sx < sxMax) {
+                    drow[x] = srow[sx];
+                }
+            }
+        } else {
+            float sxf = sxfStart;
+            for (int32_t x = cx0; x < cx1; x++, sxf += inv) {
+                int32_t sx = (int32_t)sxf;
+                if (sx >= sxMin && sx < sxMax) {
+                    drow[x] = srow[sx];
+                }
             }
         }
     }
@@ -1156,6 +1212,14 @@ static void PaintOverworld(const SSurf* s, const SecondScreenSnapshot* snap, Tar
         DrawMapMarker(s, (int32_t)px, (int32_t)py, base, c);
     }
 
+    /* The native pause map stamps one opaque gray DrawDirect frame over
+     * every region whose discovery bit is still clear. Draw these last,
+     * exactly like sub_080A6498, so hidden terrain and its markers cannot
+     * leak through the bottom screen. */
+    Port_SecondScreenWorldMap_DrawUnrevealedRegions(
+        s->px, s->w, s->h, s->stride, snap->windcrests, ox, oy, sCam.scale, (int32_t)rx0,
+        (int32_t)ry0, (int32_t)rx1, (int32_t)ry1);
+
     /* Zoom-grid availability, asked once per frame at the view center: the
      * map screen's own tile grid answering means a tap can zoom, which is
      * also what decides whether the view chip below is worth showing. */
@@ -1205,6 +1269,7 @@ static void PaintOverworld(const SSurf* s, const SecondScreenSnapshot* snap, Tar
     sUi.mapU = u;
     sUi.mapImgW = imgW;
     sUi.mapImgH = imgH;
+    sUi.mapWindcrests = snap->windcrests;
     sUi.regionGridReady = (uint8_t)(gridReady != 0);
     UI_UNLOCK();
 
@@ -1861,6 +1926,9 @@ static const char* SettingsPageTitle(int page) {
         case SS_SETTINGS_DEVELOPER: return "DEVELOPER";
         case SS_SETTINGS_OVERLAY: return "OVERLAY";
         case SS_SETTINGS_RANDOMIZER: return "RANDOMIZER";
+#ifdef TMC_3DS
+        case SS_SETTINGS_UPDATE: return "UPDATE";
+#endif
         default: return "SETTINGS";
     }
 }
@@ -1947,6 +2015,17 @@ static void DrawDiagnosticRow(const SSurf* s, float x0, float y0, float x1, floa
     MenuTextDraw(s, label, (int32_t)(x0 + 18 * u), (int32_t)((y0 + y1) / 2 - 8 * ms), ms, SS_TEXT_INK);
     MenuTextDraw(s, value, (int32_t)(x1 - 18 * u - MenuTextWidth(value, ms)),
                  (int32_t)((y0 + y1) / 2 - 8 * ms), ms, SS_TEXT_RED);
+}
+
+static void DrawDeveloperActionRow(const SSurf* s, TargetList* tl, float x0, float y0, float x1, float y1,
+                                   const char* label, const char* value, int action, float u, int32_t ts) {
+    DrawMenuButton(s, x0, y0, x1, y1, "", 0, 0, u, ts);
+    int32_t ms = (int32_t)(2.0f * u);
+    if (ms < 1) ms = 1;
+    MenuTextDraw(s, label, (int32_t)(x0 + 24 * u), (int32_t)((y0 + y1) / 2 - 8 * ms), ms, SS_TEXT_NAVY);
+    MenuTextDraw(s, value, (int32_t)(x1 - 24 * u - MenuTextWidth(value, ms)),
+                 (int32_t)((y0 + y1) / 2 - 8 * ms), ms, SS_TEXT_RED);
+    AddTarget(tl, x0, y0, x1, y1, action, 0);
 }
 
 static void PaintDeveloperOverlay(const SSurf* s, const SecondScreenSnapshot* snap, float x0, float y0,
@@ -2061,9 +2140,13 @@ static int GetSettingState(int row, char* out, int outCap) {
 /* Root and submenu compositor. Large menu-button plates provide the same
  * hierarchy and tap language as the sibling port; Minish Cap's decoded
  * parchment, chips, font, and palette keep it native to this game. */
+#ifdef TMC_3DS
+#include "../platform/3ds/source/update_ui_3ds.inc"
+#endif
+
 static void PaintSettingsPanel(const SSurf* s, const SecondScreenSnapshot* snap, TargetList* tl, float rx0,
                                float ry0, float rx1, float ry1, float u, int32_t ts, int page, uint32_t tick,
-                               uint32_t dumpFlashUntil) {
+                               uint32_t dumpFlashUntil, uint32_t loadStateFlashUntil, int loadStateResult) {
     Port_SecondScreenTheme_DrawPlate(s->px, s->w, s->h, s->stride, (int32_t)rx0, (int32_t)ry0,
                                      (int32_t)(rx1 - rx0), (int32_t)(ry1 - ry0), ts);
     float inset = 6 * ts;
@@ -2081,11 +2164,11 @@ static void PaintSettingsPanel(const SSurf* s, const SecondScreenSnapshot* snap,
     float y0 = iy0 + headerH + 12 * u;
     if (page == SS_SETTINGS_ROOT) {
 #ifdef TMC_3DS
-        static const char* const labels[4] = { "SCREEN", "GAMEPLAY", "DEVELOPER", "RANDOMIZER" };
-        static const uint8_t pages[4] = {
-            SS_SETTINGS_SCREEN, SS_SETTINGS_GAMEPLAY, SS_SETTINGS_DEVELOPER, SS_SETTINGS_RANDOMIZER
+        static const char* const labels[5] = { "SCREEN", "GAMEPLAY", "DEVELOPER", "RANDOMIZER", "UPDATE" };
+        static const uint8_t pages[5] = {
+            SS_SETTINGS_SCREEN, SS_SETTINGS_GAMEPLAY, SS_SETTINGS_DEVELOPER, SS_SETTINGS_RANDOMIZER, SS_SETTINGS_UPDATE
         };
-        const int rootRows = 4;
+        const int rootRows = 5;
 #else
         static const char* const labels[3] = { "SCREEN", "GAMEPLAY", "DEVELOPER" };
         static const uint8_t pages[3] = { SS_SETTINGS_SCREEN, SS_SETTINGS_GAMEPLAY, SS_SETTINGS_DEVELOPER };
@@ -2101,25 +2184,43 @@ static void PaintSettingsPanel(const SSurf* s, const SecondScreenSnapshot* snap,
         return;
     }
 
+#ifdef TMC_3DS
+    if (page == SS_SETTINGS_UPDATE) {
+        PaintUpdatePanel(s, tl, x0, y0, x1, iy1, u, ts);
+        return;
+    }
+#endif
     if (page == SS_SETTINGS_DEVELOPER) {
         float gap = 10 * u;
-        float rowH = (iy1 - y0 - 2 * gap) / 3;
+        int rowCount = 3;
+#ifdef TMC_3DS
+        rowCount = 4;
+#endif
+        float rowH = (iy1 - y0 - (rowCount - 1) * gap) / rowCount;
         if (rowH > 92 * u) rowH = 92 * u;
         char dumpValue[16];
         snprintf(dumpValue, sizeof(dumpValue), "%s",
                  (int32_t)(dumpFlashUntil - tick) > 0 ? "DONE" : "WRITE");
-        DrawMenuButton(s, x0, y0, x1, y0 + rowH, "", 0, 0, u, ts);
-        int32_t ms = (int32_t)(2.0f * u);
-        if (ms < 1) ms = 1;
-        MenuTextDraw(s, "MEM DUMP", (int32_t)(x0 + 24 * u), (int32_t)(y0 + rowH / 2 - 8 * ms), ms,
-                     SS_TEXT_NAVY);
-        MenuTextDraw(s, dumpValue, (int32_t)(x1 - 24 * u - MenuTextWidth(dumpValue, ms)),
-                     (int32_t)(y0 + rowH / 2 - 8 * ms), ms, SS_TEXT_RED);
-        AddTarget(tl, x0, y0, x1, y0 + rowH, SS_ACT_DEVELOPER_DUMP, 0);
+        DrawDeveloperActionRow(s, tl, x0, y0, x1, y0 + rowH, "MEM DUMP", dumpValue,
+                               SS_ACT_DEVELOPER_DUMP, u, ts);
+#ifdef TMC_3DS
+        const char* loadValue = (int32_t)(loadStateFlashUntil - tick) > 0
+                                    ? Port_DumpState_ResultLabel((PortDumpStateResult)loadStateResult)
+                                    : "LOAD";
+        DrawDeveloperActionRow(s, tl, x0, y0 + rowH + gap, x1, y0 + 2 * rowH + gap, "LOAD STATE",
+                               loadValue, SS_ACT_DEVELOPER_LOAD, u, ts);
+        DrawSettingsValueRow(s, tl, x0, y0 + 2 * (rowH + gap), x1, y0 + 3 * rowH + 2 * gap,
+                             SS_SET_SHOW_FPS, u, ts);
+        DrawSettingsNavRow(s, tl, x0, y0 + 3 * (rowH + gap), x1, y0 + 4 * rowH + 3 * gap, "OVERLAY",
+                           SS_SETTINGS_OVERLAY, u, ts);
+#else
+        (void)loadStateFlashUntil;
+        (void)loadStateResult;
         DrawSettingsValueRow(s, tl, x0, y0 + rowH + gap, x1, y0 + 2 * rowH + gap,
                              SS_SET_SHOW_FPS, u, ts);
         DrawSettingsNavRow(s, tl, x0, y0 + 2 * (rowH + gap), x1, y0 + 3 * rowH + 2 * gap, "OVERLAY",
                            SS_SETTINGS_OVERLAY, u, ts);
+#endif
         return;
     }
 
@@ -2139,34 +2240,135 @@ static void PaintSettingsPanel(const SSurf* s, const SecondScreenSnapshot* snap,
     }
 }
 
+typedef struct LoadStateConfirmationLayout {
+    float x0;
+    float x1;
+    float y0;
+    float y1;
+    float titleY;
+    float firstLineY;
+    float lineStep;
+    float buttonLeft;
+    float buttonMiddleLeft;
+    float buttonMiddleRight;
+    float buttonRight;
+    float buttonTop;
+    float buttonBottom;
+} LoadStateConfirmationLayout;
+
+static LoadStateConfirmationLayout ComputeLoadStateConfirmationLayout(int32_t width, int32_t height,
+                                                                       float u) {
+    LoadStateConfirmationLayout layout;
+    layout.x0 = 18 * u;
+    layout.x1 = width - 18 * u;
+    layout.y0 = 18 * u;
+    layout.y1 = height - 18 * u;
+
+    /* The 3DS canvas is 320x240 (u=1/3). Keep this confirmation on an
+     * explicit pixel rhythm: the old y0+10 title landed against the top
+     * rim, while its four long body lines reached both side rims. */
+    layout.titleY = layout.y0 + 30;
+    layout.firstLineY = layout.y0 + 62;
+    layout.lineStep = MENU_TEXT_BOX + 2;
+
+    layout.buttonLeft = layout.x0 + 20;
+    layout.buttonMiddleLeft = width / 2.0f - 8;
+    layout.buttonMiddleRight = width / 2.0f + 8;
+    layout.buttonRight = layout.x1 - 20;
+    layout.buttonBottom = layout.y1 - 12;
+    layout.buttonTop = layout.buttonBottom - 26;
+    return layout;
+}
+
+#ifdef PORT_SECOND_SCREEN_TEST
+void Port_SecondScreen_TestLoadStateConfirmationLayout(int32_t width, int32_t height,
+                                                       PortSecondScreenTestLoadStateLayout* out) {
+    LoadStateConfirmationLayout layout;
+    float u;
+    if (out == NULL || width <= 0 || height <= 0) return;
+    u = (width < height ? width : height) / 720.0f;
+    layout = ComputeLoadStateConfirmationLayout(width, height, u);
+    out->titleCenterY = (int32_t)layout.titleY;
+    out->firstLineCenterY = (int32_t)layout.firstLineY;
+    out->lastLineCenterY = (int32_t)(layout.firstLineY + 4 * layout.lineStep);
+    out->buttonLeft = (int32_t)layout.buttonLeft;
+    out->buttonRight = (int32_t)layout.buttonRight;
+    out->buttonTop = (int32_t)layout.buttonTop;
+    out->buttonBottom = (int32_t)layout.buttonBottom;
+}
+
+void Port_SecondScreen_TestUnavailableNoticeLayout(int32_t width, int32_t height,
+                                                        PortSecondScreenTestLoadStateLayout* out) {
+    LoadStateConfirmationLayout layout;
+    float u;
+    if (out == NULL || width <= 0 || height <= 0) return;
+    u = (width < height ? width : height) / 720.0f;
+    layout = ComputeLoadStateConfirmationLayout(width, height, u);
+    out->titleCenterY = (int32_t)layout.titleY;
+    out->firstLineCenterY = (int32_t)layout.firstLineY;
+    out->lastLineCenterY = (int32_t)(layout.firstLineY + layout.lineStep);
+    out->buttonLeft = (int32_t)layout.buttonLeft;
+    out->buttonRight = (int32_t)layout.buttonRight;
+    out->buttonTop = (int32_t)layout.buttonTop;
+    out->buttonBottom = (int32_t)layout.buttonBottom;
+}
+#endif
+
 #ifdef TMC_3DS
-static void PaintUnavailableNotice(const SSurf* s, TargetList* tl, float u, int32_t ts) {
+static void PaintLoadStateConfirmation(const SSurf* s, TargetList* tl, float u, int32_t ts) {
+    const LoadStateConfirmationLayout layout = ComputeLoadStateConfirmationLayout(s->w, s->h, u);
     tl->n = 0;
-    const float x0 = 18 * u;
-    const float x1 = s->w - 18 * u;
-    const float y0 = 18 * u;
-    const float y1 = s->h - 18 * u;
-    Port_SecondScreenTheme_DrawPlate(s->px, s->w, s->h, s->stride, (int32_t)x0, (int32_t)y0,
-                                     (int32_t)(x1 - x0), (int32_t)(y1 - y0), ts);
+    Port_SecondScreenTheme_DrawPlate(s->px, s->w, s->h, s->stride, (int32_t)layout.x0,
+                                     (int32_t)layout.y0, (int32_t)(layout.x1 - layout.x0),
+                                     (int32_t)(layout.y1 - layout.y0), ts);
 
     int32_t titleScale = (int32_t)(2.2f * u);
     if (titleScale < 1) titleScale = 1;
-    MenuTextCentered(s, "RANDOMIZER", (x0 + x1) / 2,
-                     y0 + 10, titleScale, SS_TEXT_NAVY);
+    MenuTextCentered(s, "LOAD LATEST DUMP?", s->w / 2.0f, layout.titleY, titleScale, SS_TEXT_NAVY);
 
-    static const char* const lines[] = { "THIS OPTION IS NOT", "AVAILABLE YET." };
+    static const char* const lines[] = {
+        "THE LATEST DUMP IN THE",
+        "DUMPS FOLDER WILL REPLACE",
+        "THE CURRENT GAME STATE.",
+        "UNSAVED PROGRESS MAY BE LOST.",
+        "THE GAME WILL RESTART.",
+    };
     int32_t textScale = (int32_t)(1.55f * u);
     if (textScale < 1) textScale = 1;
-    float lineY = y0 + 38;
-    const float lineStep = MENU_TEXT_BOX * textScale + 2;
     for (size_t i = 0; i < sizeof(lines) / sizeof(lines[0]); ++i) {
-        MenuTextCentered(s, lines[i], (x0 + x1) / 2, lineY + i * lineStep, textScale, SS_TEXT_INK);
+        MenuTextCentered(s, lines[i], s->w / 2.0f, layout.firstLineY + i * layout.lineStep,
+                         textScale, SS_TEXT_INK);
     }
 
-    const float buttonY1 = y1 - 12;
-    const float buttonY0 = buttonY1 - 26;
-    DrawMenuButton(s, x0 + 20, buttonY0, x1 - 20, buttonY1, "OK", 0, 0, u, ts);
-    AddTarget(tl, x0 + 20, buttonY0, x1 - 20, buttonY1, SS_ACT_NOTICE_CLOSE, 0);
+    DrawMenuButton(s, layout.buttonLeft, layout.buttonTop, layout.buttonMiddleLeft,
+                   layout.buttonBottom, "CANCEL", 0, 0, u, ts);
+    DrawMenuButton(s, layout.buttonMiddleRight, layout.buttonTop, layout.buttonRight,
+                   layout.buttonBottom, "LOAD", 0, 0, u, ts);
+    AddTarget(tl, layout.buttonLeft, layout.buttonTop, layout.buttonMiddleLeft,
+              layout.buttonBottom, SS_ACT_LOAD_CANCEL, 0);
+    AddTarget(tl, layout.buttonMiddleRight, layout.buttonTop, layout.buttonRight,
+              layout.buttonBottom, SS_ACT_LOAD_CONFIRM, 0);
+}
+
+static void PaintUnavailableNotice(const SSurf* s, TargetList* tl, float u, int32_t ts) {
+    const LoadStateConfirmationLayout layout = ComputeLoadStateConfirmationLayout(s->w, s->h, u);
+    tl->n = 0;
+    Port_SecondScreenTheme_DrawPlate(s->px, s->w, s->h, s->stride, (int32_t)layout.x0,
+                                     (int32_t)layout.y0, (int32_t)(layout.x1 - layout.x0),
+                                     (int32_t)(layout.y1 - layout.y0), ts);
+    int32_t titleScale = (int32_t)(2.2f * u);
+    if (titleScale < 1) titleScale = 1;
+    MenuTextCentered(s, "RANDOMIZER", s->w / 2.0f, layout.titleY, titleScale, SS_TEXT_NAVY);
+    int32_t textScale = (int32_t)(1.55f * u);
+    if (textScale < 1) textScale = 1;
+    MenuTextCentered(s, "THIS OPTION IS NOT", s->w / 2.0f, layout.firstLineY,
+                     textScale, SS_TEXT_INK);
+    MenuTextCentered(s, "AVAILABLE YET.", s->w / 2.0f, layout.firstLineY + layout.lineStep,
+                     textScale, SS_TEXT_INK);
+    DrawMenuButton(s, layout.buttonLeft, layout.buttonTop, layout.buttonRight,
+                   layout.buttonBottom, "OK", 0, 0, u, ts);
+    AddTarget(tl, layout.buttonLeft, layout.buttonTop, layout.buttonRight,
+              layout.buttonBottom, SS_ACT_NOTICE_CLOSE, 0);
 }
 #endif
 
@@ -2392,6 +2594,49 @@ static void DrawChargeIndicator(const SSurf* s, const SecondScreenSnapshot* snap
     }
 }
 
+typedef struct SidebarRingLayout {
+    float mid;
+    float radius;
+} SidebarRingLayout;
+
+typedef struct SidebarPromptBands {
+    float promptY;
+    float promptHeight;
+    float contentBottom;
+} SidebarPromptBands;
+
+static SidebarRingLayout ComputeSidebarRingLayout(float vitalsBottom, float chipY, float w, float u) {
+    SidebarRingLayout layout;
+    layout.mid = (vitalsBottom + chipY) / 2;
+    layout.radius = 60 * u;
+    if (layout.radius > w / 2 - 14 * u) layout.radius = w / 2 - 14 * u;
+    {
+        float quarter = (chipY - vitalsBottom) / 4 - 7 * u;
+        if (layout.radius > quarter) layout.radius = quarter;
+    }
+    return layout;
+}
+
+static SidebarPromptBands ComputeSidebarPromptBands(float vitalsBottom, float u, int chargeVisible) {
+    SidebarPromptBands bands;
+    const float reservedHeight = 144 * u;
+    const float chargeHeight = chargeVisible ? 28 * u : 0;
+    /* Charge shares the R-prompt reservation; it must not consume another
+     * band and squeeze the A/B rings below it. */
+    bands.promptY = vitalsBottom + chargeHeight;
+    bands.promptHeight = reservedHeight - chargeHeight;
+    bands.contentBottom = vitalsBottom + reservedHeight;
+    return bands;
+}
+
+#ifdef PORT_SECOND_SCREEN_TEST
+float Port_SecondScreen_TestSidebarRingRadius(float vitalsBottom, float chipY, float width, float u,
+                                              int chargeVisible) {
+    const SidebarPromptBands bands = ComputeSidebarPromptBands(vitalsBottom, u, chargeVisible);
+    return ComputeSidebarRingLayout(bands.contentBottom, chipY, width, u).radius;
+}
+#endif
+
 /* Sidebar, right edge: hearts on top (the most-glanced info), the R
  * prompt band under them, the A/B equip rings centered in the middle, the
  * rupee/keys chip anchored to the bottom, just above the tab bar. */
@@ -2456,13 +2701,14 @@ static void PaintSidebar(const SSurf* s, const SecondScreenSnapshot* snap, Targe
     }
     float vitalsBottom = hy + rows * 8 * hk + 4 * u;
 
-    /* When the top HUD is disabled, preserve the sword-charge cue beside
-     * the other glanceable vitals.  Reserve no space while inactive so the
-     * established sidebar geometry is unchanged during ordinary play. */
-    if (Port_SecondScreenChargeVisible(snap)) {
+    /* The charge cue occupies the top of the R-prompt reservation. The
+     * total reserved height stays fixed, so displaying the meter cannot
+     * shrink or move the equipped-item rings. */
+    const int chargeVisible = Port_SecondScreenChargeVisible(snap);
+    const SidebarPromptBands promptBands = ComputeSidebarPromptBands(vitalsBottom, u, chargeVisible);
+    if (chargeVisible) {
         float chargeBandH = 28 * u;
         DrawChargeIndicator(s, snap, x, vitalsBottom, w, chargeBandH, u, tick);
-        vitalsBottom += chargeBandH;
     }
 
     /* R prompt band, reserved whether or not there is a prompt so the
@@ -2470,9 +2716,8 @@ static void PaintSidebar(const SSurf* s, const SecondScreenSnapshot* snap, Targe
     /* The prompt shares the sidebar with the A/B rings, and at 34u it was
      * dwarfed by them — this is the one contextual control on the panel, so
      * it gets a band it can actually be read in. */
-    float rBandH = 144 * u;
-    DrawRPrompt(s, snap, x, vitalsBottom, w, rBandH, u, ts);
-    vitalsBottom += rBandH;
+    DrawRPrompt(s, snap, x, promptBands.promptY, w, promptBands.promptHeight, u, ts);
+    vitalsBottom = promptBands.contentBottom;
 
     /* Bare counters sit above the tab bar without another stone tray. */
     int chipRows = isDungeon ? 2 : 1;
@@ -2507,11 +2752,9 @@ static void PaintSidebar(const SSurf* s, const SecondScreenSnapshot* snap, Targe
 
     /* Equip rings, centered between the vitals and the chip: A above B.
      * Tap a ring to arm it; the next item-grid tap assigns that slot. */
-    float mid = (vitalsBottom + chipY) / 2;
-    float ringR = 60 * u;
-    if (ringR > w / 2 - 14 * u) ringR = w / 2 - 14 * u;
-    float quarter = (chipY - vitalsBottom) / 4 - 7 * u;
-    if (ringR > quarter) ringR = quarter;
+    SidebarRingLayout ringLayout = ComputeSidebarRingLayout(vitalsBottom, chipY, w, u);
+    float mid = ringLayout.mid;
+    float ringR = ringLayout.radius;
     if (ringR >= 10 * u) {
         float lowerBy = 24 * u;
         float maxLower = chipY - (mid + 2 * ringR + 6 * u);
@@ -2568,6 +2811,40 @@ static void PaintTabBar(const SSurf* s, TargetList* tl, float u, int32_t ts, int
 /*  Frame composition                                                  */
 /* ------------------------------------------------------------------ */
 
+#ifdef TMC_3DS
+/* Measured phase breakdown of a paint. Hardware puts the whole paint at 10-15 ms
+ * average with ~89 ms peaks, which is the largest CPU cost left on the Old 3DS,
+ * but the total alone does not say which phase to attack -- and guessing that
+ * from reading the code is how earlier optimisation attempts went wrong. */
+extern unsigned long long Platform3DS_SystemTick(void);
+enum { SS_PHASE_BACKDROP, SS_PHASE_PANEL, SS_PHASE_SIDEBAR, SS_PHASE_TABBAR, SS_PHASE_COUNT };
+static unsigned long long sSsPhaseTicks[SS_PHASE_COUNT];
+static unsigned long long sSsPhaseMax[SS_PHASE_COUNT];
+static unsigned long long sSsPhasePaints;
+
+void Port_SecondScreen_PhaseTicks(unsigned long long* totals, unsigned long long* maxima,
+                                  int count, unsigned long long* paints) {
+    for (int i = 0; i < count && i < SS_PHASE_COUNT; ++i) {
+        if (totals) totals[i] = sSsPhaseTicks[i];
+        if (maxima) maxima[i] = sSsPhaseMax[i];
+    }
+    if (paints) *paints = sSsPhasePaints;
+}
+
+#define SS_MARK_INIT() unsigned long long ssMark = Platform3DS_SystemTick()
+#define SS_MARK(idx)                                                        \
+    do {                                                                    \
+        const unsigned long long ssNow = Platform3DS_SystemTick();          \
+        const unsigned long long ssDelta = ssNow - ssMark;                  \
+        sSsPhaseTicks[idx] += ssDelta;                                      \
+        if (ssDelta > sSsPhaseMax[idx]) sSsPhaseMax[idx] = ssDelta;         \
+        ssMark = ssNow;                                                     \
+    } while (0)
+#else
+#define SS_MARK_INIT() do { } while (0)
+#define SS_MARK(idx)   do { } while (0)
+#endif
+
 void Port_SecondScreen_PaintInto(uint32_t* pixels, int width, int height, int strideInPixels,
                                  const SecondScreenSnapshot* snap, uint32_t tick) {
     SSurf s = { pixels, width, height, strideInPixels };
@@ -2585,6 +2862,7 @@ void Port_SecondScreen_PaintInto(uint32_t* pixels, int width, int height, int st
         sUi.regionState = SS_REGION_OFF; /* a zoom never survives a load */
         sUi.questView = SS_QUEST_MAIN;   /* nor does an open list */
         sUi.settingsPage = SS_SETTINGS_ROOT;
+        sUi.loadConfirmActive = 0;
         sUi.unavailableNoticeActive = 0;
         UI_UNLOCK();
         sLastFix.valid = 0; /* stale fixes must not survive into a new save */
@@ -2600,9 +2878,9 @@ void Port_SecondScreen_PaintInto(uint32_t* pixels, int width, int height, int st
 
     int isDungeon = (snap->areaFlags & SECOND_SCREEN_AR_IS_DUNGEON) != 0;
 
-    int tab, armedRing, regionState, settingsPage, unavailableNoticeActive;
+    int tab, armedRing, regionState, settingsPage, loadStateResult, loadConfirmActive, unavailableNoticeActive;
     int32_t regionId;
-    uint32_t dumpFlashUntil;
+    uint32_t dumpFlashUntil, loadStateFlashUntil;
     UI_LOCK();
     if (isDungeon) {
         sUi.regionState = SS_REGION_OFF; /* the world map is gone; so is its zoom */
@@ -2615,6 +2893,9 @@ void Port_SecondScreen_PaintInto(uint32_t* pixels, int width, int height, int st
     regionId = sUi.regionId;
     settingsPage = sUi.settingsPage;
     dumpFlashUntil = sUi.dumpFlashUntil;
+    loadStateFlashUntil = sUi.loadStateFlashUntil;
+    loadStateResult = sUi.loadStateResult;
+    loadConfirmActive = sUi.loadConfirmActive;
     unavailableNoticeActive = sUi.unavailableNoticeActive;
     sUi.mapLive = 0; /* set again by PaintOverworld when the map is up */
     UI_UNLOCK();
@@ -2634,6 +2915,7 @@ void Port_SecondScreen_PaintInto(uint32_t* pixels, int width, int height, int st
     /* The backdrop style has to reach the theme before ANY paint: the fill
      * below reads it, so do the quest sub-screens (which draw their own
      * backdrop) and the two places that pick a color to sit on it. */
+    SS_MARK_INIT();
     Port_SecondScreenTheme_SetBackdropStyle(BackdropStyleCfg());
 
     /* The whole surface is the panel's backdrop; panels lay their
@@ -2649,6 +2931,7 @@ void Port_SecondScreen_PaintInto(uint32_t* pixels, int width, int height, int st
      * handled at their sites: the R prompt's lettered fallback (ink) and
      * the armed ring's breath (blended out of cream). */
     Port_SecondScreenTheme_DrawBackdrop(s.px, s.w, s.h, s.stride, 0, 0, s.w, s.h, ts);
+    SS_MARK(SS_PHASE_BACKDROP);
 
     float tabH = 96 * u;
     float sideW = 220 * u; /* widened for the grown rings/chip; map stays dominant */
@@ -2664,7 +2947,7 @@ void Port_SecondScreen_PaintInto(uint32_t* pixels, int width, int height, int st
         PaintQuestPanel(&s, snap, &tl, mx0, my0, mx1, my1, u, ts, tick, questView);
     } else if (tab == SS_TAB_SETTINGS) {
         PaintSettingsPanel(&s, snap, &tl, mx0, my0, mx1, my1, u, ts, settingsPage, tick,
-                           dumpFlashUntil);
+                           dumpFlashUntil, loadStateFlashUntil, loadStateResult);
     } else if (isDungeon) {
         PaintDungeon(&s, snap, &tl, mx0, my0, mx1, my1, u, ts, tick, returnCfg);
     } else {
@@ -2686,13 +2969,22 @@ void Port_SecondScreen_PaintInto(uint32_t* pixels, int width, int height, int st
         }
     }
 
+    SS_MARK(SS_PHASE_PANEL);
+
     if (tab != SS_TAB_SETTINGS) {
         PaintSidebar(&s, snap, &tl, width - sideW + 4 * u, 10 * u, sideW - 14 * u, height - tabH - 14 * u, u,
                      ts, tick, armedRing);
     }
+    SS_MARK(SS_PHASE_SIDEBAR);
     PaintTabBar(&s, &tl, u, ts, tab);
+    SS_MARK(SS_PHASE_TABBAR);
 #ifdef TMC_3DS
-    if (unavailableNoticeActive) {
+    ++sSsPhasePaints;
+#endif
+#ifdef TMC_3DS
+    if (loadConfirmActive) {
+        PaintLoadStateConfirmation(&s, &tl, u, ts);
+    } else if (unavailableNoticeActive) {
         PaintUnavailableNotice(&s, &tl, u, ts);
     }
 #endif
@@ -2726,7 +3018,8 @@ static int PickMapRegion(int x, int y) {
          * around the fitted view is not a tap on the map. */
         if (ix >= WMAP_CROP_X0 && iy >= WMAP_CROP_Y0 && ix < WMAP_CROP_X1 && iy < WMAP_CROP_Y1 &&
             ix < sUi.mapImgW && iy < sUi.mapImgH &&
-            Port_SecondScreenWorldMap_GetRegionAt(ix, iy, &region, &rx0, &ry0, &rx1, &ry1)) {
+            Port_SecondScreenWorldMap_GetRegionAt(ix, iy, &region, &rx0, &ry0, &rx1, &ry1) &&
+            Port_SecondScreenWorldMap_IsRegionRevealed(sUi.mapWindcrests, region)) {
             sUi.regionId = region;
             sUi.regionX0 = rx0;
             sUi.regionY0 = ry0;
@@ -2760,6 +3053,9 @@ void Port_SecondScreen_OnTap(int x, int y, int longPress) {
         return;
     }
 
+#ifdef TMC_3DS
+    if (HandleUpdateTap(hit.action, hit.arg)) return;
+#endif
     switch (hit.action) {
         case SS_ACT_TAB:
             UI_LOCK();
@@ -2773,14 +3069,23 @@ void Port_SecondScreen_OnTap(int x, int y, int longPress) {
             break;
         case SS_ACT_SETTINGS_PAGE:
             UI_LOCK();
-            if (hit.arg == SS_SETTINGS_RANDOMIZER) sUi.unavailableNoticeActive = 1;
-            else sUi.settingsPage = hit.arg;
+            if (hit.arg == SS_SETTINGS_RANDOMIZER) {
+                sUi.unavailableNoticeActive = 1;
+            } else {
+                sUi.settingsPage = hit.arg;
+            }
             UI_UNLOCK();
+#ifdef TMC_3DS
+            if (hit.arg == SS_SETTINGS_UPDATE) {
+                UpdateUI_Reset();
+                UpdateStatus status; Updater_GetStatus(&status);
+                if (status.state != UPDATE_AVAILABLE) Updater_Check();
+            }
+#endif
             break;
         case SS_ACT_SETTINGS_BACK:
             UI_LOCK();
-            if (hit.arg == SS_SETTINGS_RANDOMIZER) sUi.unavailableNoticeActive = 1;
-            else sUi.settingsPage = hit.arg;
+            sUi.settingsPage = hit.arg;
             UI_UNLOCK();
             break;
         case SS_ACT_DEVELOPER_DUMP:
@@ -2789,6 +3094,32 @@ void Port_SecondScreen_OnTap(int x, int y, int longPress) {
             UI_UNLOCK();
 #ifdef TMC_3DS
             Port_PPU_3DS_WriteQuickDump();
+#endif
+            break;
+        case SS_ACT_DEVELOPER_LOAD:
+            UI_LOCK();
+            sUi.loadConfirmActive = 1;
+            UI_UNLOCK();
+            break;
+        case SS_ACT_LOAD_CANCEL:
+            UI_LOCK();
+            sUi.loadConfirmActive = 0;
+            UI_UNLOCK();
+            break;
+        case SS_ACT_LOAD_CONFIRM:
+#ifdef TMC_3DS
+            {
+                PortDumpStateResult result = Port_DumpState3DS_LoadLatest();
+                UI_LOCK();
+                sUi.loadConfirmActive = 0;
+                sUi.loadStateResult = (uint8_t)result;
+                sUi.loadStateFlashUntil = sUi.lastTick + 80;
+                UI_UNLOCK();
+            }
+#else
+            UI_LOCK();
+            sUi.loadConfirmActive = 0;
+            UI_UNLOCK();
 #endif
             break;
         case SS_ACT_NOTICE_CLOSE:

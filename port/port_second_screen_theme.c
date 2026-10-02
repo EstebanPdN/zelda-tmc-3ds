@@ -1681,26 +1681,102 @@ static void DrawSliced(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t str
     if (scale < 1) {
         scale = 1;
     }
+    /* SliceMap per destination pixel cost four software divisions on ARM11,
+     * which has no divide instruction -- each is a call into libgcc. Over a
+     * full-panel slab that dominated the whole paint.
+     *
+     * Every quantity SliceMap derives from d is monotonic in d, so all of them
+     * carry incrementally and no division survives in the inner loop:
+     *   sd = d / scale                  steps up every `scale` pixels
+     *   se = (dstLen - 1 - d) / scale   steps down every `scale` pixels
+     *   (sd - c) % tspan                advances with sd and wraps at tspan
+     * A lookup table would also remove the divides, but it needs per-call
+     * storage sized to w -- and w is ~2049 on the Android target this shared
+     * file also builds for, so a fixed-size buffer would overflow. Carrying the
+     * state costs nothing and cannot overflow anything. Bit-identical to
+     * SliceMap by construction; port_second_screen_slicemap_test proves it. */
+    const int32_t srcLenX = sx1 - sx0;
+    int32_t cX = cw;
+    int32_t spanX, tspanX;
+    int32_t sdX = 0, sdAccX = 0;
+    int32_t seX, seRemX;
+    int32_t modX = 0;
+
+    if (w <= 0 || h <= 0) {
+        return;
+    }
+    if (cX * 2 * scale > w) {
+        cX = w / (2 * scale);
+        if (cX < 1) {
+            cX = 1;
+        }
+    }
+    spanX = srcLenX - 2 * cw;
+    tspanX = 0;
+    if (spanX > 0) {
+        tspanX = (spanX / snap) * snap;
+        if (tspanX <= 0) {
+            tspanX = spanX;
+        }
+    }
+    seX = (w - 1) / scale;
+    seRemX = (w - 1) % scale;
+    if (tspanX > 0 && sdX >= cX) {
+        modX = (sdX - cX) % tspanX;
+    }
+
     for (dy = 0; dy < h; dy++) {
         int32_t py = y + dy;
         int32_t sy;
+        const uint32_t* srcRow;
         uint32_t* row;
+        int32_t sd = sdX, sdAcc = sdAccX, se = seX, seRem = seRemX, mod = modX;
         if (py < 0 || py >= bufH) {
             continue;
         }
         sy = sy0 + SliceMap(dy, h, sy1 - sy0, ch, snap, scale);
         row = pixels + (size_t)py * (size_t)stride;
+        /* Hoisted: this multiply was repeated for every pixel of the row. */
+        srcRow = srcImg + (size_t)sy * (size_t)srcStride;
         for (dx = 0; dx < w; dx++) {
-            int32_t px = x + dx;
-            int32_t sx;
-            uint32_t col;
-            if (px < 0 || px >= bufW) {
-                continue;
+            const int32_t px = x + dx;
+            if (px >= 0 && px < bufW) {
+                int32_t sxRel;
+                uint32_t col;
+                if (sd < cX) {
+                    sxRel = sd;
+                } else if (se < cX) {
+                    sxRel = srcLenX - 1 - se;
+                } else if (spanX <= 0) {
+                    sxRel = cw;
+                } else {
+                    sxRel = cw + mod;
+                }
+                col = srcRow[sx0 + sxRel];
+                if (col != 0) {
+                    row[px] = col;
+                }
             }
-            sx = sx0 + SliceMap(dx, w, sx1 - sx0, cw, snap, scale);
-            col = srcImg[(size_t)sy * (size_t)srcStride + sx];
-            if (col != 0) {
-                row[px] = col;
+            /* Advance the carried state even for clipped columns, so a clip
+             * never desynchronises the mapping from dx. */
+            if (++sdAcc == scale) {
+                sdAcc = 0;
+                ++sd;
+                if (tspanX > 0) {
+                    if (sd == cX) {
+                        mod = 0;
+                    } else if (sd > cX) {
+                        if (++mod >= tspanX) {
+                            mod = 0;
+                        }
+                    }
+                }
+            }
+            if (seRem == 0) {
+                --se;
+                seRem = scale - 1;
+            } else {
+                --seRem;
             }
         }
     }

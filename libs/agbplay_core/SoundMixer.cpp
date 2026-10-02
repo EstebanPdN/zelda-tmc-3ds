@@ -1,3 +1,7 @@
+#if defined(__3DS__)
+#include "ndsp_pcm_offload.h"
+#include "ndsp_psg_offload.h"
+#endif
 #include "SoundMixer.hpp"
 
 #include "MP2KContext.hpp"
@@ -87,6 +91,25 @@ void SoundMixer::Process()
         }
     };
 
+    /* Hoisted above the mix so the level is known before the PCM offload sends
+     * it to the DSP. Nothing in mixFunc reads the fade state, and the ramp is
+     * still applied to the software track buffers below exactly as before, so
+     * the software path is unchanged. */
+    float masterFrom = masterVolume;
+    float masterTo = masterVolume;
+    if (fadeMicroframesLeft > 0) {
+        masterFrom = fadePos < 0.f ? 0.f : masterFrom * powf(fadePos, 10.0f / 6.0f);
+        fadePos += fadeStepPerMicroframe;
+        masterTo = fadePos < 0.f ? 0.f : masterTo * powf(fadePos, 10.0f / 6.0f);
+        fadeMicroframesLeft--;
+    }
+#if defined(__3DS__)
+    /* Offloaded voices never pass through the track-buffer ramp below, so they
+     * take the fade as part of their hardware mix instead. */
+    NdspPcm_SetMasterLevel(masterTo);
+    NdspPsg_SetMasterLevel(masterTo);
+#endif
+
     mixFunc(ctx.sndChannels, true);
 
     if (reverbLevel != 0) {
@@ -109,15 +132,6 @@ void SoundMixer::Process()
     ctx.sq2Channels.remove_if(removeFunc);
     ctx.waveChannels.remove_if(removeFunc);
     ctx.noiseChannels.remove_if(removeFunc);
-
-    float masterFrom = masterVolume;
-    float masterTo = masterVolume;
-    if (fadeMicroframesLeft > 0) {
-        masterFrom = fadePos < 0.f ? 0.f : masterFrom * powf(fadePos, 10.0f / 6.0f);
-        fadePos += fadeStepPerMicroframe;
-        masterTo = fadePos < 0.f ? 0.f : masterTo * powf(fadePos, 10.0f / 6.0f);
-        fadeMicroframesLeft--;
-    }
 
     std::sort(activeTracks.begin(), activeTracks.end(), [](const MP2KTrack *left, const MP2KTrack *right) {
         if (left->playerIdx != right->playerIdx)

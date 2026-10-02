@@ -1,5 +1,6 @@
 #include "port_second_screen.h"
 #include "port_second_screen_theme.h"
+#include "port_second_screen_worldmap.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -61,6 +62,8 @@ static void CheckSolidRect(const uint32_t* pixels, int stride, int x0, int y0, i
 
 int main(void) {
     SecondScreenSnapshot snapshot;
+    PortSecondScreenTestLoadStateLayout loadLayout;
+    PortSecondScreenTestLoadStateLayout noticeLayout;
     uint32_t pixels[40 * 8];
     memset(&snapshot, 0, sizeof(snapshot));
     InitGlyphOracle();
@@ -141,6 +144,57 @@ int main(void) {
     CHECK_EQ(Port_SecondScreen_TestPaintEquippedAmmo(pixels, 40, 8, 40, &snapshot, 1), 0,
              "ordinary A/B items do not paint an ammo counter");
     CHECK_EQ(pixels[0], 0, "ordinary items leave the target pixels untouched");
+
+    /* Loading confirmation: title is lowered by twenty pixels from the
+     * original center and the controls use compact, inset 3DS geometry. */
+    memset(&loadLayout, 0, sizeof(loadLayout));
+    Port_SecondScreen_TestLoadStateConfirmationLayout(320, 240, &loadLayout);
+    CHECK_EQ(loadLayout.titleCenterY, 36, "load-state title clears the top rim");
+    CHECK_EQ(loadLayout.firstLineCenterY, 68, "load-state copy starts below the title");
+    CHECK_EQ(loadLayout.lastLineCenterY, 140, "five copy lines stay above the buttons");
+    CHECK_EQ(loadLayout.buttonLeft, 26, "load-state buttons have a left inset");
+    CHECK_EQ(loadLayout.buttonRight, 294, "load-state buttons have a right inset");
+    CHECK_EQ(loadLayout.buttonBottom - loadLayout.buttonTop, 26, "load-state buttons stay compact");
+
+    memset(&noticeLayout, 0, sizeof(noticeLayout));
+    Port_SecondScreen_TestUnavailableNoticeLayout(320, 240, &noticeLayout);
+    CHECK_EQ(noticeLayout.titleCenterY, loadLayout.titleCenterY,
+             "notice title matches load-state rhythm");
+    CHECK_EQ(noticeLayout.firstLineCenterY, loadLayout.firstLineCenterY,
+             "notice copy starts at the compact load-state position");
+    CHECK_EQ(noticeLayout.lastLineCenterY, 86,
+             "two unavailable-notice lines stay above the buttons");
+    CHECK_EQ(noticeLayout.buttonLeft, loadLayout.buttonLeft,
+             "notice controls match load-state left inset");
+    CHECK_EQ(noticeLayout.buttonRight, loadLayout.buttonRight,
+             "notice controls match load-state right inset");
+    CHECK_EQ(noticeLayout.buttonBottom - noticeLayout.buttonTop, 26,
+             "notice button stay compact");
+
+    CHECK_EQ(Port_SecondScreenWorldMap_IsRegionRevealed(0, 7), 1,
+             "native map always reveals navigation region 7");
+    CHECK_EQ(Port_SecondScreenWorldMap_IsRegionRevealed(0, 10), 1,
+             "native map always reveals navigation region 10");
+    CHECK_EQ(Port_SecondScreenWorldMap_IsRegionRevealed(0, 16), 1,
+             "native map always reveals navigation region 16");
+    CHECK_EQ(Port_SecondScreenWorldMap_IsRegionRevealed(0, 0), 0,
+             "undiscovered map region stays covered");
+    CHECK_EQ(Port_SecondScreenWorldMap_IsRegionRevealed(1u << 3, 3), 1,
+             "save discovery bit reveals its matching region");
+    CHECK_EQ(Port_SecondScreenWorldMap_IsRegionRevealed(1u << 24, 0), 0,
+             "windcrest travel bits do not reveal map regions");
+    CHECK_EQ(Port_SecondScreenWorldMap_IsRegionRevealed(0, -1), 0,
+             "negative map region is rejected");
+    CHECK_EQ(Port_SecondScreenWorldMap_IsRegionRevealed(0, 17), 0,
+             "out-of-range map region is rejected");
+
+    /* The charge meter shares the always-reserved R band. Its appearance
+     * therefore cannot alter the ring radius derived by production. */
+    CHECK_EQ((int)(Port_SecondScreen_TestSidebarRingRadius(50.0f, 190.0f, 70.0f, 1.0f / 3.0f, 0) *
+                   1000.0f),
+             (int)(Port_SecondScreen_TestSidebarRingRadius(50.0f, 190.0f, 70.0f, 1.0f / 3.0f, 1) *
+                   1000.0f),
+             "charge meter preserves equipped-ring size");
 
     if (sFailures != 0) {
         return 1;

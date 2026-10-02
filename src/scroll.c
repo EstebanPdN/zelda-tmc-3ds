@@ -244,9 +244,15 @@ void Scroll2Sub2(RoomControls* controls) {
 
     gUpdateVisibleTiles = 2;
     controls->unk_18++;
+#ifdef PC_PORT
+    const int wideScroll = Port_Widescreen_AdvanceScroll();
+#else
+    const int wideScroll = 0;
+#endif
     switch (controls->scroll_direction) {
         case 0:
-            controls->scroll_y -= 4;
+            if (!wideScroll)
+                controls->scroll_y -= 4;
             target = controls->camera_target;
             if (target == &gPlayerEntity.base) {
                 target->y.WORD = gPlayerEntity.base.y.WORD - Q_16_16(0.375);
@@ -256,7 +262,8 @@ void Scroll2Sub2(RoomControls* controls) {
             }
             break;
         case 1:
-            controls->scroll_x = controls->scroll_x + 4;
+            if (!wideScroll)
+                controls->scroll_x = controls->scroll_x + 4;
             if (controls->camera_target == &gPlayerEntity.base) {
                 gPlayerEntity.base.x.WORD += Q_16_16(0.25);
             }
@@ -265,7 +272,8 @@ void Scroll2Sub2(RoomControls* controls) {
             }
             break;
         case 2:
-            controls->scroll_y = controls->scroll_y + 4;
+            if (!wideScroll)
+                controls->scroll_y = controls->scroll_y + 4;
             target = controls->camera_target;
             if (target == &gPlayerEntity.base) {
                 target->y.WORD = gPlayerEntity.base.y.WORD + Q_16_16(0.375);
@@ -275,7 +283,8 @@ void Scroll2Sub2(RoomControls* controls) {
             }
             break;
         case 3:
-            controls->scroll_x -= 4;
+            if (!wideScroll)
+                controls->scroll_x -= 4;
             if (controls->camera_target == &gPlayerEntity.base) {
                 gPlayerEntity.base.x.WORD -= Q_16_16(0.25);
             }

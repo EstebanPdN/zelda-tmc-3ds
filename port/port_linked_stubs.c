@@ -34,10 +34,12 @@
 #include "port_entity_ctx.h"
 #include "port_collision_fidelity.h"
 #include "port_gba_mem.h"
+#include "port_config.h"
 #include "port_rom.h"
 #include "port_runtime_config.h"
 #include "port_widescreen.h"
 #include "port_widescreen_banner_state.h"
+#include "port_horizontal_minish_path.h"
 
 #include <string.h>
 
@@ -70,7 +72,7 @@ u8 gUnk_02000030[0x10]; /* EWRAM marker, 16 bytes gap */
 struct_02000040 gUnk_02000040;
 void* gUnk_020000B0 = NULL; /* Entity* pointer (8 bytes on 64-bit) */
 struct_gUnk_020000C0 gUnk_020000C0[0x30];
-Palette gUnk_02001A3C;
+/* gUnk_02001A3C aliases gPaletteList[15] in src/color.c. */
 u8 gUnk_02006F00[0x4000] __attribute__((aligned(4)));                    /* BG tilemap buffer (16 KB) */
 u16 gUnk_0200B640;                                                       /* scroll state scalar */
 u16 gUnk_02017830[0x138] __attribute__((aligned(4)));                    /* palette rotation buffer (624 bytes) */
@@ -157,18 +159,17 @@ u32 gUnk_02000020;
 
 // gFrameObjLists — sprite frame data (200KB, self-relative offsets)
 u32 gFrameObjLists[50016];
+_Static_assert(sizeof(gFrameObjLists) == PORT_FRAME_OBJ_LISTS_CAPACITY_BYTES,
+               "frame-object staging capacity must match the runtime bounds");
 
-// gMapData — map data blob, backed by ROM data.
-// On GBA this is a label in .rodata at gAreaRoomMap_None (~14MB region).
-// On PC, we use a large buffer filled from ROM in Port_LoadRom().
-// Source files use &gMapData + offset, so this must be an array (not a pointer).
+// gMapData — map data blob backed directly by the loaded ROM.
 #ifdef TMC_N64
 /* #N64: the ~14 MB ROM map-data window can't live in 8 MB RDRAM. Temporary 1 MB
  * placeholder so the binary links and boots to the title (which doesn't read map
- * data). Phase 3 backs &gMapData with the embedded cart ROM (PI/DFS), not a RAM copy. */
+ * data). Phase 3 backs gMapData with the embedded cart ROM (PI/DFS), not a RAM copy. */
 u8 gMapData[0x100000] __attribute__((aligned(4))); /* 1 MB placeholder */
 #else
-u8 gMapData[0xE00000] __attribute__((aligned(4))); /* ~14 MB */
+u8* gMapData = NULL;
 #endif
 
 // gCollisionMtx — On GBA, the collision matrix label sits at 0x080B7B74 with
@@ -959,6 +960,9 @@ u32 SumDropProbabilities2(s16* out, const s16* a, const s16* b, const s16* c) {
  *
  * Replaces the ARM veneer at 0x08000108 and the IWRAM sub_080B197C.
  */
+#if MODE1_GBA_WIDTH > 240
+static int Port_WidescreenFillScroll(u16* map, u16* buffer);
+#endif
 void UpdateScrollVram(void) {
     typedef void (*ScrollVramFunc)(u16*, u16*);
     static const ScrollVramFunc funcs[] = {
@@ -977,12 +981,18 @@ void UpdateScrollVram(void) {
 
     /* Bottom layer → BG1 */
     if (gMapBottom.bgSettings != NULL) {
-        func(gMapDataBottomSpecial, &gBG1Buffer[0x20]);
+#if MODE1_GBA_WIDTH > 240
+        if (!Port_WidescreenFillScroll(gMapDataBottomSpecial, gBG1Buffer))
+#endif
+            func(gMapDataBottomSpecial, &gBG1Buffer[0x20]);
     }
 
     /* Top layer → BG2 */
     if (gMapTop.bgSettings != NULL) {
-        func(gMapDataTopSpecial, &gBG2Buffer[0x20]);
+#if MODE1_GBA_WIDTH > 240
+        if (!Port_WidescreenFillScroll(gMapDataTopSpecial, gBG2Buffer))
+#endif
+            func(gMapDataTopSpecial, &gBG2Buffer[0x20]);
     }
 }
 
@@ -1009,6 +1019,106 @@ void UpdateScrollVram(void) {
  * shadow pointers stay NULL (render falls back to clip-at-240). */
 static u16 sWsShadowBG1[MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_COLS];
 static u16 sWsShadowBG2[MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_COLS];
+
+/* Retain only the outgoing viewport before LoadRoomGfx replaces its maps.
+ * This is tile data, not a frozen image: the current palettes/animations still
+ * apply. Both the native screenblock and reveal use the same world sampler. */
+enum { WS_SCROLL_COLS = 36, WS_SCROLL_ROWS = 24 };
+static struct {
+    int valid, area, room, direction;
+    int startX, startY, tileX, tileY;
+    u16 tiles[2][WS_SCROLL_ROWS][WS_SCROLL_COLS];
+} sWsScroll;
+
+void Port_Widescreen_BeginScroll(unsigned room, unsigned direction) {
+    sWsScroll.valid = 0;
+    const int width = Port_Widescreen_GameplayViewWidth();
+    if (width <= 240 || width > 266 || direction > 3 || gRoomControls.scrollAction > 1 || gArea.unk_0c_0 ||
+        (gRoomControls.scroll_flags & 1) || room >= MAX_ROOMS || gArea.roomResInfos[room].pixel_width <= 240 ||
+        gArea.roomResInfos[room].pixel_height < 160 || gRoomControls.height < 160)
+        return;
+    sWsScroll.valid = 1;
+    sWsScroll.area = gRoomControls.area;
+    sWsScroll.room = room;
+    sWsScroll.direction = direction;
+    sWsScroll.startX = gRoomControls.scroll_x;
+    sWsScroll.startY = gRoomControls.scroll_y;
+    sWsScroll.tileX = (gRoomControls.scroll_x >> 3) - 1;
+    sWsScroll.tileY = (gRoomControls.scroll_y >> 3) - 1;
+    for (int layer = 0; layer < 2; ++layer) {
+        const u16* map = layer ? gMapDataTopSpecial : gMapDataBottomSpecial;
+        for (int y = 0; y < WS_SCROLL_ROWS; ++y) {
+            const int my = sWsScroll.tileY + y - gRoomControls.origin_y / 8;
+            for (int x = 0; x < WS_SCROLL_COLS; ++x) {
+                const int mx = sWsScroll.tileX + x - gRoomControls.origin_x / 8;
+                sWsScroll.tiles[layer][y][x] = mx >= 0 && mx < gRoomControls.width / 8 && mx < 128 && my >= 0 &&
+                                                       my < gRoomControls.height / 8 && my < 128
+                                                   ? map[my * 128 + mx]
+                                                   : 0;
+            }
+        }
+    }
+}
+
+static int Port_WidescreenScrollActive(void) {
+    return sWsScroll.valid && gMain.task == TASK_GAME && gRoomControls.area == sWsScroll.area &&
+           gRoomControls.room == sWsScroll.room && gRoomControls.scroll_direction == sWsScroll.direction &&
+           (gRoomControls.scrollAction == 2 || gRoomControls.scrollAction == 0) && gRoomControls.scrollSubAction >= 1 && !(gRoomControls.scroll_flags & 1) &&
+           Port_Config_WidescreenEnabled();
+}
+
+int Port_Widescreen_AdvanceScroll(void) {
+    if (!Port_WidescreenScrollActive())
+        return 0;
+    /* Keep the retail 60/40-tick duration and 15px player carry. Only the
+     * camera's endpoint changes to the actual viewport edge. */
+    int endX = sWsScroll.startX, endY = sWsScroll.startY;
+    int duration = 40;
+    switch (sWsScroll.direction) {
+        case 0:
+            endY = gRoomControls.origin_y + gRoomControls.height - 160;
+            break;
+        case 1:
+            endX = gRoomControls.origin_x;
+            duration = 60;
+            break;
+        case 2:
+            endY = gRoomControls.origin_y;
+            break;
+        case 3:
+            endX = gRoomControls.origin_x + gRoomControls.width - Port_Widescreen_GameplayViewWidth();
+            duration = 60;
+            break;
+    }
+    int progress = gRoomControls.unk_18;
+    if (progress > duration)
+        progress = duration;
+    gRoomControls.scroll_x = sWsScroll.startX + (endX - sWsScroll.startX) * progress / duration;
+    gRoomControls.scroll_y = sWsScroll.startY + (endY - sWsScroll.startY) * progress / duration;
+    return 1;
+}
+
+static u16 Port_WidescreenScrollTile(const u16* map, int col, int row) {
+    if (col >= 0 && col < gRoomControls.width / 8 && col < 128 && row >= 0 && row < gRoomControls.height / 8 &&
+        row < 128)
+        return map[row * 128 + col];
+    const int x = col + gRoomControls.origin_x / 8 - sWsScroll.tileX;
+    const int y = row + gRoomControls.origin_y / 8 - sWsScroll.tileY;
+    return x >= 0 && x < WS_SCROLL_COLS && y >= 0 && y < WS_SCROLL_ROWS
+               ? sWsScroll.tiles[map == gMapDataTopSpecial][y][x]
+               : 0;
+}
+
+static int Port_WidescreenFillScroll(u16* map, u16* buffer) {
+    if (!Port_WidescreenScrollActive())
+        return 0;
+    const int col = ((gRoomControls.scroll_x - gRoomControls.origin_x) >> 4) * 2;
+    const int row = ((gRoomControls.scroll_y - gRoomControls.origin_y) >> 4) * 2 - 1;
+    for (int y = 0; y < 23; ++y)
+        for (int x = 0; x < 32; ++x)
+            buffer[y * 32 + x] = Port_WidescreenScrollTile(map, col + x, row + y);
+    return 1;
+}
 
 /* ---- Runtime widescreen gate --------------------------------------------
  * `--widescreen_width=N` only reserves a wider framebuffer. True widescreen
@@ -1633,13 +1743,12 @@ static void Port_WidescreenShadow_Populate(int bg_index, u16* mapSpecial, u16* s
         case 2: bg_x_offset = (s16)gScreen.bg2.xOffset; bg_y_offset = (s16)gScreen.bg2.yOffset; break;
         case 3: bg_x_offset = (s16)gScreen.bg3.xOffset; bg_y_offset = (s16)gScreen.bg3.yOffset; break;
     }
-    ws_base_world_col = (xdiff >> 3) + first_display_tile;
+    ws_base_world_col = (xdiff >> 4) * 2 + (bg_x_offset >> 3) + first_display_tile;
     if (fullViewOutdoor) {
         const s32 shake_x = (s32)bg_x_offset - (xdiff & 0xf);
         ws_base_world_col = ((xdiff + shake_x) >> 3) + first_display_tile;
     }
-    virtuappu_mode1_ws_shadow_base_tile[bg_index] =
-        first_display_tile + (((xdiff & 0xf) >= 8) ? 1 : 0);
+    virtuappu_mode1_ws_shadow_base_tile[bg_index] = first_display_tile + ((bg_x_offset & 0xff) >> 3);
 
     enum { kMapStride = 128, kMapRows = 128 };
     /* Clamp to the ROOM rect, not just the 128-tile buffer: the buffers are
@@ -1653,9 +1762,12 @@ static void Port_WidescreenShadow_Populate(int bg_index, u16* mapSpecial, u16* s
         room_tiles_w = kMapStride;
     if (room_tiles_h > kMapRows)
         room_tiles_h = kMapRows;
+    const int scrolling = Port_WidescreenScrollActive();
     for (int sr = 0; sr < MODE1_WS_SHADOW_ROWS; sr++) {
         int shadow_row = sr;
         s32 world_row = 2 * (ydiff >> 4) - 1 + sr;
+        if (!scrolling && ydiff >= 0 && ydiff < 8 && sr == 0)
+            world_row = 0;
         if (fullViewOutdoor) {
             /* The 240-line view can cross the rolling 32-row screenblock.
              * Publish each visible world row into the wrapped slot the PPU
@@ -1666,15 +1778,17 @@ static void Port_WidescreenShadow_Populate(int bg_index, u16* mapSpecial, u16* s
             world_row = ((ydiff + shake_y) >> 3) + sr;
         }
         u16* row_dst = shadow + (size_t)shadow_row * (size_t)shadow_cols;
-        if (world_row < 0 || world_row >= room_tiles_h) {
+        if (!scrolling && (world_row < 0 || world_row >= room_tiles_h)) {
             for (int C = 0; C < shadow_cols; C++)
                 row_dst[C] = 0;
             continue;
         }
-        u16* row_src = mapSpecial + (size_t)world_row * kMapStride;
         for (int C = 0; C < shadow_cols; C++) {
             s32 world_col = ws_base_world_col + C;
-            u16 entry = (world_col >= 0 && world_col < room_tiles_w) ? row_src[world_col] : (u16)0;
+            u16 entry = scrolling ? Port_WidescreenScrollTile(mapSpecial, world_col, world_row)
+                                  : ((world_col >= 0 && world_col < room_tiles_w)
+                                         ? mapSpecial[world_row * kMapStride + world_col]
+                                         : (u16)0);
             row_dst[C] = entry;
         }
     }
@@ -1718,8 +1832,50 @@ static int Port_WidescreenMapShadowsCanPrepare(void) {
     return required > 0;
 }
 
+/* Minish paths own two parallax tilemaps instead of gMapTop. Their reveal
+ * must use each manager's actual source/page and scroll, not the ground map. */
+static u16 sWsParallax[2][MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_WIDE_COLS];
+static void Port_WidescreenParallaxShadows(void) {
+    if (gMapTop.bgSettings != NULL || (gScreen.bg3.control & ~0x43) != 0x1d08 ||
+        (gScreen.bg1.control & ~0x43) != 0x1e08)
+        return;
+    for (int layer = 0; layer < 2; ++layer) {
+        const int bg = layer ? 1 : 3;
+        const BgSettings* settings = layer ? &gScreen.bg1 : (const BgSettings*)&gScreen.bg3;
+        const u16* src = settings->subTileMap;
+        int cols = 32, start = 0;
+        if (src == gBG3Buffer + layer * 0x400) {
+            const int scroll =
+                Port_HorizontalMinishPathScroll(gRoomControls.scroll_x - gRoomControls.origin_x, gRoomControls.width,
+                                                layer ? 2 : 3, Port_Widescreen_GameplayViewWidth());
+            start = (scroll >> 4) * 2;
+            cols = 128;
+            src = (const u16*)(gUnk_02006F00 + layer * 0x2000);
+        } else {
+            const uintptr_t off = (uintptr_t)src - (uintptr_t)gMapDataTopSpecial;
+            if (off > 0x7800 || (off & 1))
+                continue;
+        }
+        const int base = 30 + ((settings->xOffset & 0xff) >> 3);
+        for (int row = 0; row < 32; ++row) {
+            for (int col = 0; col < MODE1_WS_SHADOW_WIDE_COLS; ++col) {
+                int x = start + base + col;
+                if (cols == 32)
+                    x &= 31;
+                sWsParallax[layer][row * MODE1_WS_SHADOW_WIDE_COLS + col] = x < cols ? src[row * cols + x] : 0;
+            }
+        }
+        virtuappu_mode1_ws_shadow[bg] = sWsParallax[layer];
+        virtuappu_mode1_ws_shadow_base_tile[bg] = base;
+        virtuappu_mode1_ws_shadow_cols[bg] = MODE1_WS_SHADOW_WIDE_COLS;
+        virtuappu_mode1_ws_shadow_stride[bg] = MODE1_WS_SHADOW_WIDE_COLS;
+    }
+}
+
 /* Called per-VBlank from src/interrupts.c::UpdateDisplayControls. */
 void Port_Widescreen_UpdateShadows(void) {
+    if (gMain.task != TASK_GAME || (gRoomControls.scrollAction != 2 && gRoomControls.scrollAction != 0))
+        sWsScroll.valid = 0;
     int enterRoomBannerActive = Port_WidescreenBannerState_IsActive(
         &sWsEnterRoomBanner, gMain.task == TASK_GAME, gRoomControls.area, gRoomControls.room);
     const u32 roomKey = Port_WidescreenRoomKey();
@@ -1842,6 +1998,9 @@ void Port_Widescreen_UpdateShadows(void) {
         }
     }
 
+    if (producerMode == PORT_3DS_FULL_VIEW_FALLBACK)
+        Port_WidescreenParallaxShadows();
+
     /* Publish only shadows built for this exact room/producer generation. */
 #ifdef TMC_3DS
     const int experimentalShadowsReady = requiredMapShadows > 0 &&
@@ -1918,6 +2077,13 @@ void Port_Widescreen_UpdateShadows(void) {
     virtuappu_mode1_ws_hud_right_anchor = Port_Widescreen_HudRightAnchor();
 }
 #else
+void Port_Widescreen_BeginScroll(unsigned room, unsigned direction) {
+    (void)room;
+    (void)direction;
+}
+int Port_Widescreen_AdvanceScroll(void) {
+    return 0;
+}
 void Port_Widescreen_UpdateShadows(void) { /* no-op at native 240 */
 }
 void Port_Widescreen_SetEnterRoomBannerActive(int active) {
@@ -2735,6 +2901,8 @@ void* Subtask_MapHint_Functions[16];
 
 // Various game data
 u32 gFixedTypeGfxData[528];
+_Static_assert(ARRAY_COUNT(gFixedTypeGfxData) == PORT_FIXED_TYPE_GFX_CAPACITY_ENTRIES,
+               "fixed-gfx staging capacity must match the runtime bounds");
 // gCaveBorderMapData — now provided by src/data/caveBorderMapData.c
 // gOverworldLocations — now provided by src/data/areaMetadata.c
 u16* gMoreSpritePtrs[16];

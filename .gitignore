@@ -102,14 +102,15 @@ tags
 types_*.taghl
 *.zip
 *.bundle
-!calcrom.pl
+!scripts/dev/calcrom.pl
 !sound/programmable_wave_samples/*.pcm
 _Deparsed_XSubs.pm
 *.sna
 __pycache__
 Info.plist
 ctx.c
-!doxygen_config.py
+!docs/doxygen/doxygen_config.py
+!scripts/dev/progress.py
 
 !build.py
 .xmake
@@ -165,6 +166,7 @@ tools/ppu_golden_hashes.local*
 port/vk_rt_experiment/vkrt_demo
 port/vk_rt_experiment/shaders/*.spv
 .omp/
+.worktrees/
 
 # Android shell (gradle) — local SDK paths + build outputs
 android/local.properties
@@ -180,3 +182,8 @@ tmc3ds.log
 *.jks
 *.keystore
 keystore.properties
+
+# Reproducible 3DS updater and procedural idle-art generators.
+!platform/3ds/tools/build_update_deps.py
+!platform/3ds/tools/gen_triforce.py
+!platform/3ds/tests/run-update-tests.py

@@ -728,6 +728,10 @@ void KinstoneMenu_080A4528(void) {
     if (entity != NULL) {
         if (entity->kind == NPC) {
             NPCInit(entity);
+            if ((entity->flags & ENT_DID_INIT) == 0) {
+                DeleteEntity(entity);
+                return;
+            }
             entity->subtimer = entity->id;
             entity->id = 0x56;
         } else {

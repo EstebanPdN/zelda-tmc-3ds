@@ -6,6 +6,22 @@
 
 #include <string.h>
 
+/* Retail leaves the final four SaveFile bytes unused.  Keep a durable receipt
+ * there so collecting the replayed reward cannot resemble E9 on a later boot. */
+#define PORT_CLOUD_TOPS_REPLAY_MARKER_OFFSET 0x50
+
+static const u8 sCloudTopsReplayMarker[4] = { 'C', 'T', 'R', '2' };
+
+static bool32 Port_CloudTopsFightWasReplayed(const SaveFile* save) {
+    return memcmp(&save->filler4ac[PORT_CLOUD_TOPS_REPLAY_MARKER_OFFSET], sCloudTopsReplayMarker,
+                  sizeof(sCloudTopsReplayMarker)) == 0;
+}
+
+static void Port_CloudTopsMarkFightReplayed(SaveFile* save) {
+    memcpy(&save->filler4ac[PORT_CLOUD_TOPS_REPLAY_MARKER_OFFSET], sCloudTopsReplayMarker,
+           sizeof(sCloudTopsReplayMarker));
+}
+
 static u16 Port_CloudTopsRemapLocalFlag(u16 baselineFlag) {
 #if defined(PC_PORT) && defined(MULTI_REGION)
     return (u16)Port_RemapBaselineLocalFlag(FLAG_BANK_1, baselineFlag);
@@ -23,10 +39,22 @@ static bool32 Port_CloudTopsFusionIsDone(const SaveFile* save, KinstoneId fusion
     return ReadBit((void*)save->kinstones.fusedKinstones, fusion);
 }
 
-bool32 Port_CloudTopsHasLostGoldenKinstone(const SaveFile* save) {
+static u32 Port_CloudTopsGoldenKinstoneCount(const SaveFile* save) {
     u32 i;
+    u32 count = 0;
 
-    if (save == NULL || !REGION_IS_EU || save->invalid || !save->initialized) {
+    for (i = 0; i < 18; ++i) {
+        if (save->kinstones.types[i] == PORT_CLOUD_TOPS_GOLDEN_KINSTONE) {
+            count += save->kinstones.amounts[i];
+        }
+    }
+    return count;
+}
+
+static bool32 Port_CloudTopsMatchesBrokenProgress(const SaveFile* save, u32 goldenKinstoneCount) {
+
+    if (save == NULL || !REGION_IS_EU || save->invalid || !save->initialized ||
+        Port_CloudTopsFightWasReplayed(save)) {
         return FALSE;
     }
     if (ReadBit((void*)save->flags, FLAG_BANK_0 + KUMOTATSUMAKI)) {
@@ -53,11 +81,65 @@ bool32 Port_CloudTopsHasLostGoldenKinstone(const SaveFile* save) {
         return FALSE;
     }
 
+    return Port_CloudTopsGoldenKinstoneCount(save) == goldenKinstoneCount;
+}
+
+bool32 Port_CloudTopsBackupProvesLegacyInventoryRepair(const SaveFile* save, const SaveFile* backup) {
+    if (!Port_CloudTopsMatchesBrokenProgress(save, 1) || !Port_CloudTopsMatchesBrokenProgress(backup, 0)) {
+        return FALSE;
+    }
+
+    /* The permanent backup exists only because the legacy repair selected
+     * this dead-end before inserting 0x66.  Allow unrelated side activities
+     * since that first launch, but bind the evidence to the same named save
+     * and main-story stage before removing the injected piece. */
+    return save->global_progress == backup->global_progress &&
+           memcmp(save->name, backup->name, sizeof(save->name)) == 0;
+}
+
+bool32 Port_CloudTopsMayNeedLegacyInventoryRepair(const SaveFile* save) {
+    return Port_CloudTopsMatchesBrokenProgress(save, 1);
+}
+
+bool32 Port_CloudTopsNeedsFightReplay(const SaveFile* save, bool32 legacyInventoryRepair) {
+    return Port_CloudTopsMatchesBrokenProgress(save, 0) ||
+           (legacyInventoryRepair && Port_CloudTopsMatchesBrokenProgress(save, 1));
+}
+
+static bool32 Port_CloudTopsRemoveOneGoldenKinstone(SaveFile* save) {
+    u32 i;
+
     for (i = 0; i < 18; ++i) {
         if (save->kinstones.types[i] == PORT_CLOUD_TOPS_GOLDEN_KINSTONE && save->kinstones.amounts[i] != 0) {
-            return FALSE;
+            if (--save->kinstones.amounts[i] == 0) {
+                save->kinstones.types[i] = KINSTONE_NONE;
+            }
+            return TRUE;
         }
     }
+    return FALSE;
+}
+
+bool32 Port_RepairCloudTopsFight(SaveFile* save, bool32 legacyInventoryRepair) {
+    SaveFile original;
+
+    if (!Port_CloudTopsNeedsFightReplay(save, legacyInventoryRepair)) {
+        return FALSE;
+    }
+
+    memcpy(&original, save, sizeof(original));
+    if (legacyInventoryRepair &&
+        (!Port_CloudTopsRemoveOneGoldenKinstone(save) || Port_CloudTopsGoldenKinstoneCount(save) != 0)) {
+        memcpy(save, &original, sizeof(original));
+        return FALSE;
+    }
+
+    /* Reopen the second fight and its independently persisted pickup.  On the
+     * next room load the retail managers recreate both piranhas, the cloud,
+     * the revealed whirlwind, and finally the falling 0x66 reward. */
+    ClearBit(save->flags, FLAG_BANK_1 + Port_CloudTopsRemapLocalFlag(KUMOUE_02_02));
+    ClearBit(save->flags, FLAG_BANK_1 + Port_CloudTopsRemapLocalFlag(KUMOUE_02_03));
+    Port_CloudTopsMarkFightReplayed(save);
     return TRUE;
 }
 

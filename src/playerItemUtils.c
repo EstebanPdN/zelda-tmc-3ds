@@ -8,6 +8,9 @@
 #include "player.h"
 #include "save.h"
 #include "sound.h"
+#ifdef PC_PORT
+#include "port_bottle_compat.h"
+#endif
 
 static Entity* GiveItemWithCutscene(u32, u32, u32);
 static bool32 CreateItemEntityInternal(u32, u32, u32, u16);
@@ -28,6 +31,13 @@ static bool32 CreateItemEntityInternal(u32 type, u32 type2, u32 delay, u16 compl
     if (e == NULL) {
         return FALSE;
     }
+#ifdef PC_PORT
+    /* Preserve bottle ownership checks before committing the reward. */
+    if (!Port_BottleRewardCanBeCollected(&gSave, e->type)) {
+        DeleteEntity(e);
+        return FALSE;
+    }
+#endif
 
     e->parent = CreateLinkAnimation(e, e->type, 0);
     if (e->parent == NULL) {
@@ -81,10 +91,16 @@ void OpenSmallChest(u32 pos, u32 layer) {
     }
     if ((layer >> 1) == ((u32)(t->_6 << 31) >> 31)) {
         if (found) {
-            SetLocalFlag(t->localFlag);
             {
                 u8 item = t->_2;
                 u8 subtype = t->_3;
+#ifdef PC_PORT
+                if (!Port_BottleRewardCanBeCollected(&gSave, item)) {
+                    SoundReq(SFX_MENU_ERROR);
+                    return;
+                }
+#endif
+                SetLocalFlag(t->localFlag);
                 CreateItemEntity(item, subtype, 0);
             }
         } else {

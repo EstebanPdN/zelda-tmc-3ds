@@ -1,3 +1,6 @@
+#if defined(__3DS__)
+#include "ndsp_psg_offload.h"
+#endif
 #include "MP2KChnPSG.hpp"
 
 #include "CGBPatterns.hpp"
@@ -28,6 +31,13 @@ MP2KChnPSG::MP2KChnPSG(MP2KContext &ctx, MP2KTrack *track, ADSR env, Note note, 
     //     Debug::print("note start: this=%p att=%d dec=%d sus=%d rel=%d", this, (int)env.att, (int)env.dec,
     //     (int)env.sus, (int)env.rel);
 }
+
+#if defined(__3DS__)
+MP2KChnPSG::~MP2KChnPSG()
+{
+    NdspPsg_Stop(&ndspSlot);
+}
+#endif
 
 void MP2KChnPSG::SetVol(uint16_t vol, int16_t pan)
 {
@@ -401,11 +411,19 @@ void MP2KChnPSGSquare::SetPitch(int16_t pitch)
 
 void MP2KChnPSGSquare::Process(std::span<sample> buffer, MixingArgs &args)
 {
-    if (envState == EnvState::DEAD)
+    if (envState == EnvState::DEAD) {
+#if defined(__3DS__)
+        NdspPsg_Stop(&ndspSlot);
+#endif
         return;
+    }
     stepEnvelope();
-    if (envState == EnvState::DEAD)
+    if (envState == EnvState::DEAD) {
+#if defined(__3DS__)
+        NdspPsg_Stop(&ndspSlot);
+#endif
         return;
+    }
 
     updateVolFade();
 
@@ -427,6 +445,35 @@ void MP2KChnPSGSquare::Process(std::span<sample> buffer, MixingArgs &args)
     } else {
         interStep = freq * args.sampleRateInv;
     }
+
+#if defined(__3DS__)
+    /* A duty-cycle square is a periodic waveform, which an NDSP channel plays
+     * in hardware for nothing. Handing it over skips the software synthesis
+     * below entirely -- the DSP is otherwise idle while the CPU does this in
+     * floats on a non-pipelined VFP. If no channel is free, or offload is off,
+     * this returns false and the original path runs unchanged. */
+    {
+        const int dutyIndex = pat == CGBPatterns::pat_sq12   ? 0
+                              : pat == CGBPatterns::pat_sq25 ? 1
+                              : pat == CGBPatterns::pat_sq50 ? 2
+                              : pat == CGBPatterns::pat_sq75 ? 3
+                                                             : -1;
+        /* MP2K's freq is the pattern-FETCH rate, not the tone: the software
+         * path consumes one duty-table entry per source sample (interStep =
+         * freq * sampleRateInv), so the audible tone is freq / 8. The offload
+         * table has the same 8 entries per period, so the channel rate is the
+         * fetch rate itself -- scaling it by 8 played every square note three
+         * octaves sharp. The sweep branch's software equivalent is
+         * `interStep = 8.0f * timer2freq(sweepTimer) * sampleRateInv` a few
+         * lines above, hence the 8 there. */
+        const float fetchRate =
+                sweepEnabled ? 8.0f * timer2freq(sweepTimer) : freq;
+        if (dutyIndex >= 0 &&
+            NdspPsg_PlaySquare(&ndspSlot, fetchRate, dutyIndex, vol.toVolLeft,
+                               vol.toVolRight))
+            return;
+    }
+#endif
 
     assert(buffer.size() == ctx.mixer.scratchBuffer.size());
     auto callback = [this](std::vector<float> &fetchBuffer, size_t required) {
@@ -641,11 +688,19 @@ void MP2KChnPSGWave::SetPitch(int16_t pitch)
 
 void MP2KChnPSGWave::Process(std::span<sample> buffer, MixingArgs &args)
 {
-    if (envState == EnvState::DEAD)
+    if (envState == EnvState::DEAD) {
+#if defined(__3DS__)
+        NdspPsg_Stop(&ndspSlot);
+#endif
         return;
+    }
     stepEnvelope();
-    if (envState == EnvState::DEAD)
+    if (envState == EnvState::DEAD) {
+#if defined(__3DS__)
+        NdspPsg_Stop(&ndspSlot);
+#endif
         return;
+    }
 
     updateVolFade();
 
@@ -658,6 +713,12 @@ void MP2KChnPSGWave::Process(std::span<sample> buffer, MixingArgs &args)
     float lVol = vol.fromVolLeft;
     float rVol = vol.fromVolRight;
     float interStep = freq * args.sampleRateInv;
+
+#if defined(__3DS__)
+    if (wavePtr && NdspPsg_PlayWave(&ndspSlot, freq, wavePtr, vol.toVolLeft,
+                                    vol.toVolRight))
+        return;
+#endif
 
     assert(ctx.mixer.scratchBuffer.size() == buffer.size());
     auto callback = [this](std::vector<float> &fetchBuffer, size_t required) {
@@ -833,11 +894,19 @@ void MP2KChnPSGNoise::SetPitch(int16_t pitch)
 
 void MP2KChnPSGNoise::Process(std::span<sample> buffer, MixingArgs &args)
 {
-    if (envState == EnvState::DEAD)
+    if (envState == EnvState::DEAD) {
+#if defined(__3DS__)
+        NdspPsg_Stop(&ndspSlot);
+#endif
         return;
+    }
     stepEnvelope();
-    if (envState == EnvState::DEAD)
+    if (envState == EnvState::DEAD) {
+#if defined(__3DS__)
+        NdspPsg_Stop(&ndspSlot);
+#endif
         return;
+    }
 
     updateVolFade();
 
@@ -853,6 +922,14 @@ void MP2KChnPSGNoise::Process(std::span<sample> buffer, MixingArgs &args)
     float lVol = vol.fromVolLeft;
     float rVol = vol.fromVolRight;
     float interStep = freq / noiseFreq;
+
+#if defined(__3DS__)
+    /* noiseLfsrMask distinguishes the two LFSR lengths the hardware offers:
+     * 0x60 is the 7-bit (short) sequence, 0x6000 the 15-bit one. */
+    if (NdspPsg_PlayNoise(&ndspSlot, freq, noiseLfsrMask == 0x60,
+                          vol.toVolLeft, vol.toVolRight))
+        return;
+#endif
 
     assert(ctx.mixer.scratchBuffer.size() == buffer.size());
     /* In order to get accurate noise sound like on hardware, we first nearest-neighbour/zero-order-hold

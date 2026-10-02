@@ -19,15 +19,13 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Install host tools
+      - name: Verify bundled build tools
         run: |
-          apt-get update
-          apt-get install -y --no-install-recommends cmake make pkg-config zip
-          if ! dkp-pacman -Sy --noconfirm --needed 3dstools; then
-            echo "::warning::devkitPro package sync is unavailable; continuing with the tools bundled in the container."
-          fi
+          for tool in cmake make pkg-config zip; do
+            command -v "$tool"
+          done
 
       - name: Build universal CIA and 3DSX
         run: ./platform/3ds/build.sh
@@ -46,7 +44,7 @@ jobs:
           fi
 
       - name: Upload packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tmc-3ds-packages
           if-no-files-found: error

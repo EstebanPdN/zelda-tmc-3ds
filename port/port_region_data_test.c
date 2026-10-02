@@ -10,6 +10,7 @@ u8* gRomData;
 u32 gRomSize;
 int gActiveRegion = TMC_REGION_USA;
 
+const u8 gUnk_080D8E50[1];
 const u8 gUnk_080D9328[1];
 const u8 gUnk_080DD750[0x41];
 const u8 gUnk_080DD7E0[1];
@@ -48,6 +49,11 @@ int main(void) {
           "JP remains unchanged until offsets are independently verified");
 
     gActiveRegion = TMC_REGION_EU;
+    CHECK(Port_ResolveRegionData(gUnk_080D8E50) == sRom + 0xD85AC,
+          "EU resolves all six Goron wall-break pointer records");
+    gRomSize = 0xD85AC + 95;
+    CHECK(Port_ResolveRegionData(gUnk_080D8E50) == NULL, "truncated Goron table fails closed");
+    gRomSize = sizeof(sRom);
     CHECK(Port_ResolveRegionData(gUnk_080D9328) == sRom + 0xD8A84, "EU resolves HAKA tile entities");
     CHECK(Port_ResolveRegionData(gUnk_080DD750 + 0x40) == sRom + 0xDCECC,
           "EU resolves both Cloud Tops golden-Kinstone managers");

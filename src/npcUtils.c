@@ -101,10 +101,14 @@ void NPCInit(Entity* this) {
                     this->spriteVramOffset = definition->bitfield.gfx;
                     break;
                 case 1:
-                    LoadSwapGFX(this, tmp, 0);
+                    if (!LoadSwapGFX(this, tmp, 0)) {
+                        return;
+                    }
                     break;
                 default:
-                    LoadFixedGFX(this, tmp);
+                    if (!LoadFixedGFX(this, tmp)) {
+                        return;
+                    }
                     break;
             }
             tmp = definition->data.sprite.paletteIndex;

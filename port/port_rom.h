@@ -9,6 +9,16 @@
 extern u8* gRomData;
 extern u32 gRomSize;
 
+#if defined(PC_PORT) && !defined(TMC_N64)
+extern u8* gMapData;
+#else
+extern u8 gMapData[];
+#endif
+
+static inline u8* Port_MapDataFromRom(u8* romData, u32 romSize, u32 mapDataBase) {
+    return romData != NULL && mapDataBase < romSize ? romData + mapDataBase : NULL;
+}
+
 #ifdef PC_PORT
 /*
  * Host-pointer plausibility guard: reject NULL,

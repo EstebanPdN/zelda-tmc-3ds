@@ -81,6 +81,36 @@ static inline u32 Port_ShouldUseAreaAssetCacheForRegion(RomRegion region) {
 #define PORT_USA_FRAME_OBJ_COUNT 512u
 #define PORT_EU_FRAME_OBJ_COUNT 511u
 
+/* Exact unpadded payload sizes from the matching retail linker maps.  EU's
+ * omitted sprite owns 484 bytes of frame-object data in the USA layout, so
+ * copying the USA byte count from an EU ROM consumes the terminator and bytes
+ * from the following ROM table. */
+#define PORT_FRAME_OBJ_LISTS_CAPACITY_BYTES (50016u * sizeof(u32))
+#define PORT_USA_FRAME_OBJ_LISTS_SIZE 200045u
+#define PORT_EU_FRAME_OBJ_LISTS_SIZE 199561u
+
+/* gFixedTypeGfxData has no sentinel entry.  USA contains indices 0..525;
+ * EU omits semantic index 519 and contains native indices 0..524. */
+#define PORT_FIXED_TYPE_GFX_CAPACITY_ENTRIES 528u
+#define PORT_USA_FIXED_TYPE_GFX_COUNT 526u
+#define PORT_EU_FIXED_TYPE_GFX_COUNT 525u
+
+static inline u32 Port_FrameObjListsSizeForRegion(RomRegion region) {
+    return region == ROM_REGION_EU ? PORT_EU_FRAME_OBJ_LISTS_SIZE : PORT_USA_FRAME_OBJ_LISTS_SIZE;
+}
+
+static inline u32 Port_FrameObjCountForRegion(RomRegion region) {
+    return region == ROM_REGION_EU ? PORT_EU_FRAME_OBJ_COUNT : PORT_USA_FRAME_OBJ_COUNT;
+}
+
+static inline u32 Port_FixedTypeGfxCountForRegion(RomRegion region) {
+    return region == ROM_REGION_EU ? PORT_EU_FIXED_TYPE_GFX_COUNT : PORT_USA_FIXED_TYPE_GFX_COUNT;
+}
+
+static inline u32 Port_IsFixedTypeGfxIndexValidForRegion(RomRegion region, u32 gfxIndex) {
+    return gfxIndex < Port_FixedTypeGfxCountForRegion(region);
+}
+
 static inline u16 Port_RemapLogicalSpriteIndexForRegion(RomRegion region, u16 spriteIndex) {
     if (region == ROM_REGION_EU) {
         if (spriteIndex == PORT_EU_OMITTED_SPRITE_INDEX) {
@@ -153,7 +183,7 @@ typedef struct {
     u32 gustJarAnimTable;   /* gUnk_08132714 — packed animation-data pointers */
     u32 gustJarHitbox;      /* gUnk_08132B28 — Hitbox */
 
-    /* Table counts (same for both regions, but kept per-region for safety) */
+    /* Region-specific table counts and payload sizes. */
     u32 gfxGroupsCount;
     u32 paletteGroupsCount;
     u32 objPalettesCount;

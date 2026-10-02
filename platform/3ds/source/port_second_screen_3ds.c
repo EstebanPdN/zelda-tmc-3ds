@@ -9,6 +9,7 @@
 #include "port_second_screen_3ds.h"
 #include "bottom_idle_3ds.h"
 #include "bottom_frame_state_3ds.h"
+#include "bottom_map_anim_3ds.h"
 
 #include <stdbool.h>
 
@@ -77,6 +78,7 @@ static void ResetIdleOnlyState(void) {
     sUi.regionState = SS_REGION_OFF;
     sUi.questView = SS_QUEST_MAIN;
     sUi.settingsPage = SS_SETTINGS_ROOT;
+    sUi.loadConfirmActive = 0;
     sUi.unavailableNoticeActive = 0;
     if (sIdleOwnsSettingsTab) sUi.tab = SS_TAB_MAP;
     UI_UNLOCK();
@@ -112,7 +114,7 @@ uint32_t Port_SecondScreen_3DS_PaintInto(uint32_t* pixels, int width, int height
          * stale map fixes, armed items and submenu state must not cross a
          * title/file-select boundary even though the picture is replaced. */
         ResetIdleOnlyState();
-        BottomIdle3DS_Paint(pixels, width, height, strideInPixels, tick);
+        BottomIdle3DS_Paint(pixels, width, height, strideInPixels, tick, Platform3DS_IsNew3DS());
         FinishRefresh(refreshRequest);
         return refreshRequest;
     }
@@ -212,30 +214,49 @@ int Port_SecondScreen_3DS_NeedsRefresh(void) {
     return BottomFrameState3DS_NeedsPaint(&sFrameState);
 }
 
-int Port_SecondScreen_3DS_NeedsPeriodicRefresh(const SecondScreenSnapshot* snap) {
+int Port_SecondScreen_3DS_NeedsPeriodicRefresh(const SecondScreenSnapshot* snap, uint32_t tick,
+                                               uint32_t paintedTick, int32_t width,
+                                               int32_t height) {
     if (!snap) return 0;
 
     const bool idleSettings = __atomic_load_n(&sIdleSettingsOpen, __ATOMIC_ACQUIRE) != 0;
     if (!snap->inGame && !idleSettings) {
-        /* The title/file-select Triforce breathes. */
-        return 1;
+        /* Match ALttP PR #32: Old 3DS keeps a steady gold card. */
+        return Platform3DS_IsNew3DS();
     }
 
     int tab;
     int settingsPage;
     uint32_t dumpFlashUntil;
     uint32_t lastTick;
+    int regionState;
+    int floorPreview;
     UI_LOCK();
     tab = sUi.tab;
     settingsPage = sUi.settingsPage;
     dumpFlashUntil = sUi.dumpFlashUntil;
     lastTick = sUi.lastTick;
+    regionState = sUi.regionState;
+    floorPreview = sUi.floorPreview;
     UI_UNLOCK();
 
     if (tab == SS_TAB_MAP) {
-        /* Map markers blink/pulse; the world-map camera, region bracket and
-         * dungeon floor-preview timeout also advance from paint ticks. */
-        return 1;
+        if (!Port_Config_BottomMapSkip()) {
+            return 1; /* the old unconditional repaint, kept for the A/B */
+        }
+        /* Two state machines retire inside the paint itself — the region
+         * bracket at port_second_screen.c:1201 and the floor preview at
+         * :1377 — so they must keep painting until they expire or they stall
+         * on screen forever. */
+        if (regionState == SS_REGION_BRACKET || floorPreview != SS_NO_FLOOR) {
+            return 1;
+        }
+        if (BottomMapAnim_NeedsPaint(tick, paintedTick,
+                                     (snap->areaFlags & SECOND_SCREEN_AR_IS_DUNGEON) != 0, width,
+                                     height)) {
+            return 1;
+        }
+        return 0;
     }
     if (tab == SS_TAB_ITEMS) {
         /* The authentic item cursor blinks even when no values change. */
@@ -245,6 +266,7 @@ int Port_SecondScreen_3DS_NeedsPeriodicRefresh(const SecondScreenSnapshot* snap)
         /* Quest status and its two detail lists have no selection cursor. */
         return 0;
     }
+    if (settingsPage == SS_SETTINGS_UPDATE) return 1;
     if (settingsPage == SS_SETTINGS_OVERLAY) {
         /* Live diagnostics deliberately retain their slower refresh rate. */
         return 1;

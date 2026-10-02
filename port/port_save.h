@@ -2,6 +2,7 @@
 #define PORT_SAVE_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -48,12 +49,23 @@ int Port_Save_PreserveBeforeMigration(void);
  * repairing v1.2-E1's region-contaminated fuser cursors. Repeated repairs in
  * the same profile/session reuse that already-verified preservation. */
 int Port_Save_PreserveBeforeFuserRepair(void);
-/* Preserve the complete active profile before the one-shot Cloud Tops lost
- * reward repair. Repeated checks during one profile activation reuse it. */
+/* Preserve the active profile before moving the pre-v1.2-E5 USA Smith bottle
+ * chest bit to its native European ordinal. */
+int Port_Save_PreserveBeforeSmithBottleFlagRepair(void);
+int Port_Save_PreserveBeforeGoronBottleRepair(void);
+int Port_Save_PreserveBeforeBombInventoryRepair(void);
+/* Preserve the complete active profile before the one-shot Cloud Tops fight
+ * replay repair. Repeated checks during one profile activation reuse it. */
 int Port_Save_PreserveBeforeCloudTopsRepair(void);
+/* Read one validated slot from the first Cloud Tops repair backup.  This is
+ * used only to prove and reverse the legacy direct-inventory repair. */
+int Port_Save_ReadCloudTopsRepairBackupSlot(uint32_t slot, void* data, size_t size);
 /* Preserve the complete active profile before the one-shot Vaati progression
  * repair. Repeated checks during one profile activation reuse it. */
 int Port_Save_PreserveBeforeVaatiProgressRepair(void);
+/* Read one validated save slot from the first permanent Vaati-repair backup.
+ * This is used only to recognize saves changed by the legacy E10 repair. */
+int Port_Save_ReadVaatiProgressBackupSlot(uint32_t slot, void* data, size_t size);
 /* Switch profiles only after pending data for the current profile is durable.
  * Returns 0 and retains the current path/state if that flush fails. */
 int Port_Save_SetActivePath(const char* path);

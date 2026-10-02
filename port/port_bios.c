@@ -703,6 +703,20 @@ void VBlankIntrWait(void) {
     } else {
         Platform3DS_PumpWithoutVBlank();
     }
+    {
+        extern bool Port_SecondScreen_3DS_UpdateOpen(void);
+        extern void Port_Audio_3DSSetPaused(bool paused);
+        if (Port_SecondScreen_3DS_UpdateOpen()) {
+            Port_Audio_3DSSetPaused(true);
+            while (Platform3DS_IsRunning() && Port_SecondScreen_3DS_UpdateOpen()) {
+                Port_PPU_PresentFrame();
+                Platform3DS_WaitForVBlank();
+                port_hdma_vblank_reset();
+            }
+            Port_Audio_3DSSetPaused(false);
+            Platform3DS_MarkFrameDiscontinuity(OLD3DS_FRAME_PACER_DISCONTINUITY_APT);
+        }
+    }
     gba_write16(REG_ADDR_KEYINPUT, Platform3DS_ReadKeyInput());
     {
         extern void Port_QuickSave_AutoTick(void);

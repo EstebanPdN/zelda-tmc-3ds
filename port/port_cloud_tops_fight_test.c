@@ -6,6 +6,7 @@
 #include "kinstone.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 int gActiveRegion;
@@ -29,6 +30,12 @@ u32 ReadBit(void* data, u32 bit) {
 u32 WriteBit(void* data, u32 bit) {
     u8* bytes = data;
     bytes[bit >> 3] |= 1u << (bit & 7);
+    return 1;
+}
+
+u32 ClearBit(void* data, u32 bit) {
+    u8* bytes = data;
+    bytes[bit >> 3] &= ~(1u << (bit & 7));
     return 1;
 }
 
@@ -100,6 +107,10 @@ static void SetEuCloudFlag(SaveFile* save, u16 baselineFlag) {
     WriteBit(save->flags, FLAG_BANK_1 + baselineFlag - 3);
 }
 
+static bool32 HasEuCloudFlag(const SaveFile* save, u16 baselineFlag) {
+    return ReadBit((void*)save->flags, FLAG_BANK_1 + baselineFlag - 3);
+}
+
 static void BuildReportedLostRewardSave(SaveFile* save) {
     memset(save, 0, sizeof(*save));
     save->initialized = 1;
@@ -117,33 +128,127 @@ static void BuildReportedLostRewardSave(SaveFile* save) {
     WriteBit(save->kinstones.fusedKinstones, KINSTONE_MYSTERIOUS_CLOUD_MIDDLE);
 }
 
-static void RunLostRewardRepairPredicate(void) {
+static void RunLostRewardFightReplay(void) {
     SaveFile save;
+    SaveFile backup;
+    SaveFile mismatchedBackup;
 
     gActiveRegion = TMC_REGION_EU;
     BuildReportedLostRewardSave(&save);
-    CHECK(Port_CloudTopsHasLostGoldenKinstone(&save),
-          "exact v1.2-E7 EU report is selected for one-shot reward recovery");
-
+    memcpy(save.name, "CLOUD", 5);
+    save.global_progress = 7;
+    save.kinstones.fusedCount = 43;
+    CHECK(Port_CloudTopsNeedsFightReplay(&save, FALSE),
+          "exact pre-E9 EU dead-end is selected for a retail fight replay");
+    CHECK(Port_RepairCloudTopsFight(&save, FALSE), "untreated dead-end reopens the second fight");
+    CHECK(HasEuCloudFlag(&save, KUMOUE_02_00) && HasEuCloudFlag(&save, KUMOUE_02_01),
+          "first fight and collected reward remain complete");
+    CHECK(!HasEuCloudFlag(&save, KUMOUE_02_02) && !HasEuCloudFlag(&save, KUMOUE_02_03),
+          "second fight and pickup are both reopened");
+    CHECK(!Port_CloudTopsNeedsFightReplay(&save, FALSE), "replayed state is not repaired twice");
+    SetEuCloudFlag(&save, KUMOUE_02_02);
+    SetEuCloudFlag(&save, KUMOUE_02_03);
     save.kinstones.types[0] = PORT_CLOUD_TOPS_GOLDEN_KINSTONE;
     save.kinstones.amounts[0] = 1;
-    CHECK(!Port_CloudTopsHasLostGoldenKinstone(&save), "existing golden Kinstone prevents a duplicate repair");
+    CHECK(!Port_CloudTopsNeedsFightReplay(&save, TRUE),
+          "collecting the real replayed reward cannot trigger another repair on relaunch");
+
+    BuildReportedLostRewardSave(&backup);
+    memcpy(backup.name, "CLOUD", 5);
+    backup.global_progress = 7;
+    backup.kinstones.fusedCount = 43;
+    save = backup;
+    save.kinstones.types[0] = PORT_CLOUD_TOPS_GOLDEN_KINSTONE;
+    save.kinstones.amounts[0] = 1;
+    CHECK(Port_CloudTopsMayNeedLegacyInventoryRepair(&save),
+          "legacy inventory signature requests permanent-backup evidence");
+    CHECK(!Port_CloudTopsNeedsFightReplay(&save, FALSE),
+          "an inventory piece is never removed without permanent-backup proof");
+    CHECK(Port_CloudTopsBackupProvesLegacyInventoryRepair(&save, &backup),
+          "the pre-E9 permanent backup proves the direct inventory insertion");
+    CHECK(Port_CloudTopsNeedsFightReplay(&save, TRUE), "backup-proven E9 save is selected for replay");
+    CHECK(Port_RepairCloudTopsFight(&save, TRUE), "backup-proven E9 insertion is replaced by the real fight");
+    CHECK(save.kinstones.types[0] == KINSTONE_NONE && save.kinstones.amounts[0] == 0,
+          "only the legacy inserted piece is removed");
+    CHECK(!HasEuCloudFlag(&save, KUMOUE_02_02) && !HasEuCloudFlag(&save, KUMOUE_02_03),
+          "legacy E9 save also reopens the second fight and pickup");
+
+    save = backup;
+    save.kinstones.types[0] = PORT_CLOUD_TOPS_GOLDEN_KINSTONE;
+    save.kinstones.amounts[0] = 1;
+    mismatchedBackup = backup;
+    memcpy(mismatchedBackup.name, "OTHER", 5);
+    CHECK(!Port_CloudTopsBackupProvesLegacyInventoryRepair(&save, &mismatchedBackup),
+          "a backup from another slot cannot authorize inventory removal");
+    CHECK(!Port_RepairCloudTopsFight(&save, FALSE), "unproven inventory remains untouched");
+
+    mismatchedBackup = backup;
+    mismatchedBackup.global_progress++;
+    CHECK(!Port_CloudTopsBackupProvesLegacyInventoryRepair(&save, &mismatchedBackup),
+          "a backup from another main-story stage cannot authorize inventory removal");
+
+    save.kinstones.types[1] = 0x71;
+    save.kinstones.amounts[1] = 2;
+    WriteBit(save.kinstones.fusedKinstones, 40);
+    save.kinstones.fusedCount++;
+    CHECK(Port_CloudTopsBackupProvesLegacyInventoryRepair(&save, &backup),
+          "unrelated inventory and side fusions since E9 do not strand the save");
+
+    save = backup;
+    save.kinstones.types[0] = PORT_CLOUD_TOPS_GOLDEN_KINSTONE;
+    save.kinstones.amounts[0] = 2;
+    CHECK(!Port_CloudTopsBackupProvesLegacyInventoryRepair(&save, &backup),
+          "more than the one legacy insertion fails closed");
 
     BuildReportedLostRewardSave(&save);
     WriteBit(save.kinstones.fusedKinstones, KINSTONE_MYSTERIOUS_CLOUD_BOTTOM_RIGHT);
-    CHECK(!Port_CloudTopsHasLostGoldenKinstone(&save), "completed fifth fusion is never repaired");
+    CHECK(!Port_CloudTopsNeedsFightReplay(&save, FALSE), "completed fifth fusion is never repaired");
 
     BuildReportedLostRewardSave(&save);
     SetEuCloudFlag(&save, KUMOUE_02_AWASE_05);
-    CHECK(!Port_CloudTopsHasLostGoldenKinstone(&save), "spinning fifth pinwheel is never repaired");
+    CHECK(!Port_CloudTopsNeedsFightReplay(&save, FALSE), "spinning fifth pinwheel is never repaired");
 
     BuildReportedLostRewardSave(&save);
     WriteBit(save.flags, FLAG_BANK_0 + KUMOTATSUMAKI);
-    CHECK(!Port_CloudTopsHasLostGoldenKinstone(&save), "completed tornado event is never repaired");
+    CHECK(!Port_CloudTopsNeedsFightReplay(&save, FALSE), "completed tornado event is never repaired");
 
     BuildReportedLostRewardSave(&save);
     gActiveRegion = TMC_REGION_USA;
-    CHECK(!Port_CloudTopsHasLostGoldenKinstone(&save), "USA saves are outside the proven EU repair signature");
+    CHECK(!Port_CloudTopsNeedsFightReplay(&save, FALSE), "USA saves are outside the proven EU repair signature");
+}
+
+static bool32 ReadFixture(const char* path, SaveFile* save) {
+    FILE* file;
+
+    if (path == NULL || path[0] == '\0') return FALSE;
+    file = fopen(path, "rb");
+    if (file == NULL) return FALSE;
+    if (fread(save, 1, sizeof(*save), file) != sizeof(*save) || fgetc(file) != EOF) {
+        fclose(file);
+        return FALSE;
+    }
+    fclose(file);
+    return TRUE;
+}
+
+static void RunSuppliedSaveFixtures(void) {
+    const char* currentPath = getenv("TMC_CLOUD_TOPS_CURRENT_SAVE");
+    const char* backupPath = getenv("TMC_CLOUD_TOPS_BACKUP_SAVE");
+    SaveFile current;
+    SaveFile backup;
+
+    if (currentPath == NULL && backupPath == NULL) return;
+    CHECK(ReadFixture(currentPath, &current), "supplied current Cloud Tops slot fixture opens");
+    CHECK(ReadFixture(backupPath, &backup), "supplied pre-repair Cloud Tops slot fixture opens");
+    if (sFailures != 0) return;
+
+    gActiveRegion = TMC_REGION_EU;
+    CHECK(Port_CloudTopsBackupProvesLegacyInventoryRepair(&current, &backup),
+          "supplied reported save proves the v1.2-E9 direct inventory insertion");
+    CHECK(Port_RepairCloudTopsFight(&current, TRUE),
+          "supplied reported save is repaired by replaying the fight");
+    CHECK(!HasEuCloudFlag(&current, KUMOUE_02_02) && !HasEuCloudFlag(&current, KUMOUE_02_03),
+          "supplied reported save reopens the exact second fight and reward flags");
 }
 
 int main(void) {
@@ -156,7 +261,8 @@ int main(void) {
                     "bottom EU uses ROM-native ordinals 242 and 240");
     RunBottomRegion(TMC_REGION_JP, 0xf2, 0xf0,
                     "bottom JP uses ROM-native ordinals 242 and 240");
-    RunLostRewardRepairPredicate();
+    RunLostRewardFightReplay();
+    RunSuppliedSaveFixtures();
 
     if (sFailures != 0) return 1;
     puts("port_cloud_tops_fight_test: ALL PASS");

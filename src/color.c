@@ -11,7 +11,13 @@
 #include "port_offset_remap.h"
 #endif
 
+#ifdef PC_PORT
+/* Project Picori a5ec5a6b23c9: this GBA address aliases slot 15, so
+ * reservation and release must operate on the same native palette. */
+#define gUnk_02001A3C (gPaletteList[15])
+#else
 extern Palette gUnk_02001A3C;
+#endif
 
 void LoadObjPaletteAtIndex(u32 a1, u32 paletteIndex);
 void CleanUpObjPalettes();

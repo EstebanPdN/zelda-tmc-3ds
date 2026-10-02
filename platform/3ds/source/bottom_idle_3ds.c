@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <stddef.h>
+#include "ss_tex_triforce.h"
 
 /* The second-screen upload buffer stores RGBA bytes. On little-endian ARM11
  * that is A | B | G | R when viewed as a uint32_t. */
@@ -30,21 +31,35 @@ static void OutlineRect(uint32_t* pixels, int width, int height, int stride,
     FillRect(pixels, width, height, stride, x1 - thickness, y0, x1, y1, color);
 }
 
-/* Same equilateral scanline construction as zelda3-3DS v3.0-E3's
- * draw_cinema(): a one-pixel apex, widening by 2/sqrt(3) each row. */
-static void FillUpTriangle(uint32_t* pixels, int width, int height, int stride,
-                           float centerX, float top, int size, uint32_t color) {
-    for (int row = 0; row <= size; ++row) {
-        const float lineWidth = (float)row * 1.1546f;
-        int x0 = (int)ceilf(centerX - lineWidth * 0.5f);
-        int x1 = (int)floorf(centerX + lineWidth * 0.5f);
-        const int y = (int)floorf(top + (float)row + 0.5f);
-        if (x1 < x0) x1 = x0;
-        FillRect(pixels, width, height, stride, x0, y, x1 + 1, y + 1, color);
+/* PR #32's procedural AA mask, sampled linearly into the software UI.
+ * Pixel-center sampling keeps the three silhouettes smooth at native 320x240. */
+static void BlitTriangle(uint32_t* pixels, int width, int height, int stride,
+                         float left, float top, float size, uint8_t gold) {
+    for (int y = (int)floorf(top); y < (int)ceilf(top + size); ++y) {
+        for (int x = (int)floorf(left); x < (int)ceilf(left + size); ++x) {
+            if (x < 0 || y < 0 || x >= width || y >= height) continue;
+            float sx = ((x + .5f - left) / size) * 64 - .5f;
+            float sy = ((y + .5f - top) / size) * 64 - .5f;
+            if (sx < 0) sx = 0; if (sx > 63) sx = 63;
+            if (sy < 0) sy = 0; if (sy > 63) sy = 63;
+            int ix = (int)sx, iy = (int)sy;
+            int nx = ix < 63 ? ix + 1 : ix, ny = iy < 63 ? iy + 1 : iy;
+            float fx = sx - ix, fy = sy - iy;
+            float a0 = (kSSTexTriforce[iy*64+ix] >> 24) * (1-fx) +
+                       (kSSTexTriforce[iy*64+nx] >> 24) * fx;
+            float a1 = (kSSTexTriforce[ny*64+ix] >> 24) * (1-fx) +
+                       (kSSTexTriforce[ny*64+nx] >> 24) * fx;
+            unsigned alpha = (unsigned)(a0*(1-fy)+a1*fy+.5f);
+            uint32_t old = pixels[y*stride+x];
+            unsigned r = (gold*alpha + (old&255)*(255-alpha)+127)/255;
+            unsigned g = ((uint8_t)(gold*.83f)*alpha + ((old>>8)&255)*(255-alpha)+127)/255;
+            unsigned b = ((uint8_t)(gold*.41f)*alpha + ((old>>16)&255)*(255-alpha)+127)/255;
+            pixels[y*stride+x] = IDLE_RGBA(r,g,b);
+        }
     }
 }
 
-void BottomIdle3DS_Paint(uint32_t* pixels, int width, int height, int strideInPixels, uint32_t tick) {
+void BottomIdle3DS_Paint(uint32_t* pixels, int width, int height, int strideInPixels, uint32_t tick, bool animate) {
     if (!pixels || width <= 0 || height <= 0 || strideInPixels < width) return;
 
     const uint32_t black = IDLE_RGBA(0, 0, 0);
@@ -61,18 +76,11 @@ void BottomIdle3DS_Paint(uint32_t* pixels, int width, int height, int strideInPi
 
     /* zelda3's source uses SDL_GetTicks()/1000 and sin(t * 1.5). The Minish
      * Cap panel advances at 20 Hz, so tick/20 preserves the same pulse. */
-    const float pulse = sinf((float)tick * (1.5f / 20.0f)) * 0.5f + 0.5f;
-    const uint8_t gold = (uint8_t)(150.0f + 100.0f * pulse);
-    const uint32_t triangleColor = IDLE_RGBA(gold, (uint8_t)(gold * 0.83f),
-                                             (uint8_t)(gold * 0.41f));
-    const int size = (int)floorf((float)(width < height ? width : height) * 0.06f + 0.5f);
-    const float centerX = (float)width * 0.5f;
-    const float centerY = (float)height * 0.5f;
-
-    FillUpTriangle(pixels, width, height, strideInPixels,
-                   centerX, centerY - (float)size, size, triangleColor);
-    FillUpTriangle(pixels, width, height, strideInPixels,
-                   centerX - (float)size * 0.58f, centerY, size, triangleColor);
-    FillUpTriangle(pixels, width, height, strideInPixels,
-                   centerX + (float)size * 0.58f, centerY, size, triangleColor);
+    const float pulse = animate ? sinf((float)tick * (1.5f / 20.0f)) * 0.5f + 0.5f : 0;
+    const uint8_t gold = animate ? (uint8_t)(150.0f + 100.0f * pulse) : 214;
+    const float size = (float)(width < height ? width : height) * .06f;
+    const float cx = width * .5f, cy = height * .5f;
+    BlitTriangle(pixels, width, height, strideInPixels, cx-size/2, cy-size+1, size, gold);
+    BlitTriangle(pixels, width, height, strideInPixels, cx-size*.58f-size/2, cy, size, gold);
+    BlitTriangle(pixels, width, height, strideInPixels, cx+size*.58f-size/2-1, cy, size, gold);
 }

@@ -24,13 +24,15 @@ https://discord.gg/SMW49UMkw
 
 * Native Nintendo 3DS port with full dual-screen support.
 * Supports both USA and European ROMs with automatic region detection.
+* Includes native [European gameplay backports](docs/eu-backport.md); no patched ROM is required.
 * True widescreen gameplay on the 400x240 top screen, plus Original and Stretch display modes.
 * Bottom-screen interface with live map, dungeon information, quest status, touch item controls, and settings.
 * New 3DS enhancements including 804 MHz mode, L2 cache, multi-core rendering, and optional 2x–5x turbo using the C-Stick.
-* Multiple display styles including Blur, Bilinear, Ultra Sharp, and Pixel Perfect.
+* Three display styles: Blur, Bilinear, and Pixel Perfect.
 * On New Nintendo 3DS, the existing Wide + Pixel Perfect combination enables
   experimental Full View: compatible outdoor rooms render at 400x240, while
   supported interiors use a centered 200x120 view scaled exactly 2x.
+* In-app updates with Stable and Pre-release channels, top-screen changelogs, and verified CIA/3DSX installation.
 * Native stereo audio, persistent settings, reliable save handling, FPS tools, and diagnostic dumps for bug reports.
 
 ## Performance
@@ -48,7 +50,7 @@ The bottom-screen worker avoids redundant static redraws while keeping touch inp
 1. Install the CIA with FBI, or use the 3DSX build with the Homebrew Launcher.
 
 ```text
-tmc-3ds-v1.2.cia
+tmc-3ds-v2.0.cia
 ```
 
 2. Create this folder on your SD card:
@@ -106,7 +108,31 @@ Dumps are saved under:
 sdmc:/3ds/The Minish Cap 3DS/dumps/
 ```
 
+Gameplay dumps also include a validated `load-state.bin` checkpoint. To reproduce the most recent dump, open:
+
+```text
+Settings > Developer > Load State
+```
+
+New sessions use `000-dump-YYYYMMDD-HHMMSS`, `001-dump-YYYYMMDD-HHMMSS`, and so on.
+The sequence survives restarts and clock changes; an emptied dumps folder starts again at 000.
+
+The loader asks for confirmation, selects the newest numbered folder (or a legacy `dump-*` folder), and rejects corrupted checkpoints or checkpoints
+created with a different ROM region. Older dumps that only contain `save-state.bin` remain supported, but they resume
+from the saved checkpoint rather than the exact captured position.
+
 Please send the dump when reporting bugs whenever possible.
+
+## Updates
+
+Open **Settings > Update**. Select **Stable** or **Pre-release**, then tap the
+release version to read its changelog on the top screen. Use **Prev / Next** to
+turn pages. **Download Update** asks for confirmation before downloading and
+installing. Save your game first: the application closes after a successful update.
+
+CIA builds overwrite only this application's title after checking its ID and
+SHA-256 digest. 3DSX builds replace the launched file with rollback protection.
+Wi-Fi is required; connection failures leave the current installation available.
 
 ## Releases
 
@@ -143,8 +169,8 @@ chmod +x platform/3ds/build.sh
 Builds are generated under:
 
 ```text
-build-3ds/game/tmc-3ds-v1.2.cia
-build-3ds/game/tmc-3ds-v1.2.3dsx
+build-3ds/game/tmc-3ds-v2.0.cia
+build-3ds/game/tmc-3ds-v2.0.3dsx
 ```
 
 The build does not include or embed a ROM.

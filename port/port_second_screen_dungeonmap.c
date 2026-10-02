@@ -68,6 +68,7 @@
 #include "room.h"
 
 #include "port_offset_remap.h"
+#include "port_rom.h"
 
 #include <string.h>
 
@@ -75,8 +76,6 @@
  * gDungeonFloorMetadatas has a header declaration). */
 extern const DungeonLayout* const* const gDungeonLayouts[];
 
-/* ROM map-data blob (port_linked_stubs.c, filled by Port_LoadRom). */
-extern u8 gMapData[];
 
 /* Raw-data accessors: src/common.c (palette groups, gfx groups, room
  * headers) and port/port_draw.c (frame pieces, OAM size table). */
