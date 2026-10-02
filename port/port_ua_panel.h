@@ -47,7 +47,7 @@ static const PortUaPanelEntry kPortUaStrings[] = {
     /* tabs, headers, pages */
     { "ITEMS", "ПРЕДМЕТИ" },
     { "MAP", "МАПА" },
-    { "QUEST", "ЗАВДАННЯ" },
+    { "QUEST", "СТАТИСТИКА" }, /* the game's pause menu calls this screen СТАТИСТИКА */
     { "SETTINGS", "НАЛАШТУВАННЯ" },
     { "SCREEN", "ЕКРАН" },
     { "GAMEPLAY", "ГРА" },

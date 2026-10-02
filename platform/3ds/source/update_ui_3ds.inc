@@ -39,6 +39,18 @@ static int UpdateTextWidth(const char* text) {
     return w ? w : TextWidthPx(text, 1);
 }
 
+/* tloz-tmc-ua: with the Ukrainian ROM the changelog body uses the message
+ * font, which keeps both Cyrillic and Latin (the banner font holds Cyrillic
+ * only, so Latin file names and hashes would be transliterated). */
+static bool UpdateUaNotesFont(bool notes) { return notes && Port_IsUkrainianRom(); }
+static int UpdateBodyWidth(const char* text, bool ua) {
+    return ua ? Port_SecondScreenTheme_TextWidth(text, 1) : UpdateTextWidth(text);
+}
+static void UpdateBodyText(const SSurf* s, const char* text, int x, int y, int style, bool ua) {
+    if (!ua || !Port_SecondScreenTheme_DrawText(s->px, s->w, s->h, s->stride, x, y, 1, style, text))
+        UpdateSmallText(s, text, x, y, style);
+}
+
 static void UpdateCenteredText(const SSurf* s, const char* text, int cx, int y) {
     UpdateSmallText(s, text, cx - UpdateTextWidth(text)/2, y, SS_TEXT_NAVY);
 }
@@ -163,7 +175,7 @@ bool Port_SecondScreen_3DS_PaintUpdateTop(uint32_t* pixels, int stride) {
             do {
                 size_t take = strlen(text);
                 char part[43]; snprintf(part,sizeof(part),"%s",text);
-                while (take && UpdateTextWidth(part)>354) part[--take]=0;
+                while (take && UpdateBodyWidth(part,UpdateUaNotesFont(notes))>354) part[--take]=0; /* tloz-tmc-ua */
                 if (take<strlen(text)) {
                     char* space = strrchr(part,' ');
                     if (space && space!=part) { take = space-part; part[take]=0; }
@@ -186,7 +198,7 @@ bool Port_SecondScreen_3DS_PaintUpdateTop(uint32_t* pixels, int stride) {
     DrawPanelHeaderChip(&s,200,14,title,1,1.0f/3);
     Port_SecondScreenTheme_DrawWell(pixels,400,240,stride,17,47,366,165,1);
     for (unsigned i=page*9;i<count && i<(page+1)*9;i++)
-        UpdateSmallText(&s,lines[i],23,49+(i-page*9)*18,SS_TEXT_INK);
+        UpdateBodyText(&s,lines[i],23,49+(i-page*9)*18,SS_TEXT_INK,UpdateUaNotesFont(notes)); /* tloz-tmc-ua */
     char footer[64]; snprintf(footer,sizeof(footer),"PAGE %u OF %u",page+1,pages);
     const int footerW=UpdateTextWidth(footer)+24;
     const int footerY=211, footerH=24;

@@ -56,6 +56,7 @@
 
 #include "port_runtime_config.h"
 #include "port_widescreen.h" /* PORT_VIEW_WIDTH: whether this build has a wide path at all */
+#include "port_ua.h" /* tloz-tmc-ua */
 
 #include <math.h>
 #include <stdbool.h>
@@ -2828,8 +2829,9 @@ static void PaintTabBar(const SSurf* s, TargetList* tl, float u, int32_t ts, int
     float x0 = 8 * u, xr = sx0 - 8 * u, gap = 8 * u;
     float bw = (xr - x0 - 2 * gap) / 3.0f;
 
-    DrawTabButton(s, tl, x0, y, x0 + bw, y + bh, "QUEST", activeTab == SS_TAB_QUEST, SS_TAB_QUEST, u, ts);
-    DrawTabButton(s, tl, x0 + bw + gap, y, x0 + 2 * bw + gap, y + bh, "MAP", activeTab == SS_TAB_MAP,
+    float qx = Port_UA_QuestTabExtra(u); /* tloz-tmc-ua: room for СТАТИСТИКА */
+    DrawTabButton(s, tl, x0, y, x0 + bw + qx, y + bh, "QUEST", activeTab == SS_TAB_QUEST, SS_TAB_QUEST, u, ts);
+    DrawTabButton(s, tl, x0 + bw + qx + gap, y, x0 + 2 * bw + gap, y + bh, "MAP", activeTab == SS_TAB_MAP,
                   SS_TAB_MAP, u, ts);
     DrawTabButton(s, tl, x0 + 2 * (bw + gap), y, x0 + 3 * bw + 2 * gap, y + bh, "ITEMS",
                   activeTab == SS_TAB_ITEMS, SS_TAB_ITEMS, u, ts);

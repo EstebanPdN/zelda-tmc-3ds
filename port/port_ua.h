@@ -37,6 +37,17 @@ static inline bool32 Port_IsUkrainianRom(void) {
 }
 
 /**
+ * Bottom tab bar, see port/port_second_screen.c PaintTabBar().
+ *
+ * The QUEST tab reads СТАТИСТИКА (as the game's own pause menu), which is
+ * 96 px in the banner font — wider than an equal third of the bar (~89 px of
+ * label room). Borrow 30u (10 px on 3DS) from the MAP tab (МАПА, 43 px).
+ */
+static inline float Port_UA_QuestTabExtra(float u) {
+    return Port_IsUkrainianRom() ? 30.0f * u : 0.0f;
+}
+
+/**
  * GAME OVER screen ("КІНЕЦЬ ГРИ"), see src/gameOverTask.c DrawGameOverText().
  *
  * The Ukrainian ROM redraws the eight letter sprites of "GAME OVER" (sprite

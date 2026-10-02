@@ -20,6 +20,8 @@ grep -q 'Port_UA_KinstoneFuserName' src/menu/kinstoneMenu.c || fail "kinstoneMen
 grep -q 'Port_UA_KinstoneHeaderX' src/menu/pauseMenu.c || fail "pauseMenu.c lost the Port_UA_KinstoneHeaderX hook"
 grep -q 'Port_UA_SplashPath' platform/3ds/source/platform_3ds.c || fail "platform_3ds.c lost the Port_UA_SplashPath() splash hook"
 grep -q 'Update_FormatNotesUtf8(body,formatted,512,Port_IsUkrainianRom())' platform/3ds/source/update_ui_3ds.inc || fail "update_ui_3ds.inc lost the Cyrillic changelog hook"
+grep -q 'UpdateBodyText(&s,lines\[i\]' platform/3ds/source/update_ui_3ds.inc || fail "update_ui_3ds.inc lost the message-font changelog hook"
+grep -q 'Port_UA_QuestTabExtra' port/port_second_screen.c || fail "port_second_screen.c lost the wider СТАТИСТИКА tab hook"
 grep -q 'splash-ua.rgb565' platform/3ds/CMakeLists.txt || fail "platform/3ds/CMakeLists.txt no longer copies romfs/splash-ua.rgb565"
 [ "$(stat -c %s platform/3ds/romfs/splash-ua.rgb565)" = "192000" ] || fail "romfs/splash-ua.rgb565 must be 400x240 RGB565 (192000 bytes); run ua/make_splash.py"
 
