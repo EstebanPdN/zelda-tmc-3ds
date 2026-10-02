@@ -11,8 +11,8 @@ const KeyValuePair gUnk_080046A4[] = {
     { 42, 36 },    { 29, 36 },  { 43, 36 },  { 97, 44 },  { 101, 45 }, { 353, 47 }, { 355, 48 }, { 16384, 25 },
     { 16480, 26 }, { 374, 49 }, { 843, 33 }, { 844, 34 }, { 375, 50 }, { 871, 51 }, { 872, 52 }, { 16490, 24 },
     { 105, 41 },   { 106, 42 }, { 111, 43 }, { 109, 53 }, { 110, 54 }, { 78, 7 },   { 389, 36 }, { 390, 36 },
-    { 345, 66 },   { 346, 67 }, { 179, 68 }, { 344, 65 }, { 167, 3 },  { 168, 64 }, { 334, 53 }, { 266, 60 },
-    { 0, 0 }
+    { 391, 36 },   { 392, 36 }, { 393, 36 }, { 394, 36 }, { 398, 36 }, { 399, 36 }, { 403, 36 }, { 404, 36 },
+    { 405, 36 },   { 406, 36 }, { 407, 36 }, { 408, 36 }, { 0, 0 }
 };
 const u16 gUnk_080046A4End = 0;
 
@@ -257,49 +257,6 @@ const u16 gUnk_080047F6[] = {
     30,
     1,
     49152,
-#ifdef PC_PORT
-    /* Rows 60..68: gUnk_080046A4 maps tiles 266,168,344,345,346,179 to values
-     * 60..68, which index PAST the 60 rows above. On GBA those reads landed in
-     * the player-macro data that follows at 0x080049D6 and returned stable
-     * bytes; on PC the linker decides what's there instead. Append those ROM
-     * bytes verbatim so the out-of-table tiles keep GBA-identical flags. */
-    4,
-    32,
-    1,
-    128,
-    60,
-    1,
-    1,
-    32,
-    60,
-    1,
-    1,
-    16,
-    60,
-    1,
-    16384,
-    65532,
-    0,
-    1,
-    16384,
-    65532,
-    1,
-    64,
-    120,
-    2,
-    60,
-    0,
-    49152,
-    120,
-    2,
-    60,
-    0,
-    49152,
-    60,
-    16,
-    4,
-    2,
-#endif
 };
 
 #define PLAYER_MACRO_JUMPTO 0x4000 // Jump

@@ -8,6 +8,11 @@
 
 MP2KTrack::MP2KTrack(const MP2KContext& ctx, uint8_t playerIdx, uint8_t trackIdx)
     : loudnessCalculator(LOUDNESS_LP_FREQ, ctx.sampleRate), playerIdx(playerIdx), trackIdx(trackIdx) {
+#ifdef TMC_3DS
+    /* Allocate each fixed-size microblock once while the audio context is
+     * built, never on the first note of a fanfare or combat sound. */
+    audioBuffer.resize(ctx.mixer.GetSamplesPerBuffer());
+#endif
     Init(0);
 }
 

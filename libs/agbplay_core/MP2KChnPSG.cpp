@@ -429,9 +429,11 @@ void MP2KChnPSGSquare::Process(std::span<sample> buffer, MixingArgs &args)
     }
 
     assert(buffer.size() == ctx.mixer.scratchBuffer.size());
-    FetchCallback cb =
-        std::bind(&MP2KChnPSGSquare::sampleFetchCallback, this, std::placeholders::_1, std::placeholders::_2);
-    rs->Process(ctx.mixer.scratchBuffer, interStep, cb);
+    auto callback = [this](std::vector<float> &fetchBuffer, size_t required) {
+        return sampleFetchCallback(fetchBuffer, required);
+    };
+    FetchCallback fetch(callback);
+    rs->Process(ctx.mixer.scratchBuffer, interStep, fetch);
 
     for (size_t i = 0; i < buffer.size(); i++) {
         const float samp = ctx.mixer.scratchBuffer[i];
@@ -658,9 +660,11 @@ void MP2KChnPSGWave::Process(std::span<sample> buffer, MixingArgs &args)
     float interStep = freq * args.sampleRateInv;
 
     assert(ctx.mixer.scratchBuffer.size() == buffer.size());
-    FetchCallback cb =
-        std::bind(&MP2KChnPSGWave::sampleFetchCallback, this, std::placeholders::_1, std::placeholders::_2);
-    rs->Process(ctx.mixer.scratchBuffer, interStep, cb);
+    auto callback = [this](std::vector<float> &fetchBuffer, size_t required) {
+        return sampleFetchCallback(fetchBuffer, required);
+    };
+    FetchCallback fetch(callback);
+    rs->Process(ctx.mixer.scratchBuffer, interStep, fetch);
 
     for (size_t i = 0; i < buffer.size(); i++) {
         const float samp = ctx.mixer.scratchBuffer[i];
@@ -856,18 +860,21 @@ void MP2KChnPSGNoise::Process(std::span<sample> buffer, MixingArgs &args)
      * After that, we use the bandlimited sinc resampler to convert this to our actual output rate to
      * avoid aliasing.
      * Accordingly, we need to perform two resampling steps, thus the somewhat confusing lambda. */
-    FetchCallback cbSinc = [this, interStep](std::vector<float> &fetchBuffer, size_t samplesRequired) {
+    auto nearestCallback = [this](std::vector<float> &fetchBuffer, size_t required) {
+        return sampleFetchCallback(fetchBuffer, required);
+    };
+    FetchCallback nearestFetch(nearestCallback);
+    auto sincCallback = [this, interStep, &nearestFetch](std::vector<float> &fetchBuffer, size_t samplesRequired) {
         if (fetchBuffer.size() >= samplesRequired)
             return true;
         const size_t samplesToFetch = samplesRequired - fetchBuffer.size();
         const size_t i = fetchBuffer.size();
         fetchBuffer.resize(samplesRequired);
-        FetchCallback cbNearest =
-            std::bind(&MP2KChnPSGNoise::sampleFetchCallback, this, std::placeholders::_1, std::placeholders::_2);
-        return rs->Process({&fetchBuffer[i], samplesToFetch}, interStep, cbNearest);
+        return rs->Process({&fetchBuffer[i], samplesToFetch}, interStep, nearestFetch);
     };
+    FetchCallback sincFetch(sincCallback);
 
-    srs->Process(ctx.mixer.scratchBuffer, noiseFreq / float(ctx.sampleRate), cbSinc);
+    srs->Process(ctx.mixer.scratchBuffer, noiseFreq / float(ctx.sampleRate), sincFetch);
 
     for (size_t i = 0; i < buffer.size(); i++) {
         const float samp = ctx.mixer.scratchBuffer[i];

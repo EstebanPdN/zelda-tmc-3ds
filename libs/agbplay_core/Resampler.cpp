@@ -291,10 +291,24 @@ bool BlepResampler::Process(std::span<float> buffer, float phaseInc, const Fetch
         float sampleSum = 0.0f;
         float kernelSum = 0.0f;
 
-        float sl = fast_Si((float(-INTERP_FILTER_SIZE + 1) - phase - 0.5f) * sincStep);
+        const float leftEdge = (float(-INTERP_FILTER_SIZE + 1) - phase - 0.5f) * sincStep;
+        float sl = leftEdge <= -float(INTERP_FILTER_SIZE) ? -0.5f : fast_Si(leftEdge);
 
         for (int wi = -INTERP_FILTER_SIZE + 1; wi <= INTERP_FILTER_SIZE; wi++) {
-            const float sr = fast_Si((float(wi) - phase + 0.5f) * sincStep);
+            const float rightEdge = (float(wi) - phase + 0.5f) * sincStep;
+            /* fast_Si clamps outside +/-INTERP_FILTER_SIZE to exactly +/-0.5.
+             * Most square/wave edges on 3DS therefore spend the majority of
+             * this 32-tap window subtracting two identical saturated values.
+             * Preserve the exact zero kernels but skip their LUT interpolation. */
+            if (sl == -0.5f && rightEdge <= -float(INTERP_FILTER_SIZE)) {
+                continue;
+            }
+            if (sl == 0.5f && rightEdge >= float(INTERP_FILTER_SIZE)) {
+                break;
+            }
+            const float sr = rightEdge >= float(INTERP_FILTER_SIZE)
+                                 ? 0.5f
+                                 : (rightEdge <= -float(INTERP_FILTER_SIZE) ? -0.5f : fast_Si(rightEdge));
             const float kernel = sr - sl;
             sampleSum += kernel * fetchBuffer[static_cast<size_t>(fi + wi + INTERP_FILTER_SIZE) - 1];
             kernelSum += kernel;

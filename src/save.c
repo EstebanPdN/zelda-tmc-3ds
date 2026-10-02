@@ -5,7 +5,9 @@
 #include "main.h"
 #include "fileselect.h"
 #ifdef PC_PORT
+#include <stdio.h>
 #include "port_save.h"
+#include "port_save_layout.h"
 #endif
 
 typedef struct SaveFileStatus {
@@ -190,7 +192,13 @@ u32 sub_0807CF1C(u8* arg0) {
 }
 
 s32 ReadSaveFile(u32 index, SaveFile* saveFile) {
-    return DataDoubleReadWithStatus(index, saveFile);
+    s32 status = DataDoubleReadWithStatus(index, saveFile);
+#ifdef PC_PORT
+    if (status == 1 && Port_SaveNormalizeLegacyLayout(saveFile)) {
+        fprintf(stderr, "[SAVE] Migrated v1.0 save slot %u to the canonical EEPROM layout in memory.\n", index);
+    }
+#endif
+    return status;
 }
 
 u32 ReadSaveHeader(SaveHeader* saveHeader) {

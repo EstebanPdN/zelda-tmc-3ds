@@ -7,9 +7,11 @@
 #include <cstdint>
 #include <list>
 #include <memory>
+#include <span>
 #include <vector>
 
 struct MP2KContext;
+struct MP2KTrack;
 
 class SoundMixer
 {
@@ -29,6 +31,10 @@ public:
     void StartFadeIn(float millis);
     bool IsFadeDone() const;
     uint8_t GetReverbLevel() const;
+#ifdef TMC_3DS
+    void ReserveActiveTracks(size_t count);
+    std::span<MP2KTrack *const> GetActiveTracks() const;
+#endif
 
 private:
     MP2KContext &ctx;
@@ -47,4 +53,11 @@ private:
 
 public:
     std::vector<float> scratchBuffer;
+#ifdef TMC_3DS
+    /* Canonically ordered active tracks let the 3DS backend avoid walking all
+     * player-track slots for every 68-frame synth microblock. Two vectors
+     * rotate so reverb-tail state can be advanced without allocating. */
+    std::vector<MP2KTrack *> activeTracks;
+    std::vector<MP2KTrack *> previousActiveTracks;
+#endif
 };

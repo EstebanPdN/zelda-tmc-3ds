@@ -95,6 +95,13 @@ void* Port_ReadPackedRomPtr(const void* base, u32 index);
  * ROM. tableOffset is a RomOffsets field, not a compiled USA symbol. */
 void* Port_ReadActiveRomPtrTable(u32 tableOffset, u32 index);
 
+/* Region-native Kinstone data accessors. These deliberately do not accept a
+ * compiled gUnk_08001A7C/gUnk_08001DCC base: those stubs have USA provenance
+ * and their embedded pointers are not valid table selections for an EU ROM. */
+void* Port_GetFusionTextData(u32 fuserId);
+void* Port_GetPairedFusionTextData(u32 fuserId);
+void* Port_GetFuserFusionData(u32 fuserId);
+
 /**
  * Resolve a GBA ROM data address to a native PC pointer.
  * Returns &gRomData[gba_addr - 0x08000000] for valid ROM addresses, NULL otherwise.
@@ -168,6 +175,52 @@ static inline u16 Port_ReadU16(const void* data) {
 static inline u32 Port_ReadU32(const void* data) {
     const u8* raw = (const u8*)data;
     return (u32)raw[0] | ((u32)raw[1] << 8) | ((u32)raw[2] << 16) | ((u32)raw[3] << 24);
+}
+
+/* Resolve one packed data pointer from an explicitly selected ROM table. The
+ * buffer form makes regional provenance and all bounds independently testable
+ * without embedding retail bytes in a regression fixture. */
+static inline const u8* Port_ResolvePackedRomDataPtrFromRom(const u8* romData, u32 romSize, u32 tableOffset,
+                                                           u32 index, u32 minimumTargetBytes) {
+    u32 entryOffset;
+    u32 gbaAddress;
+    u32 dataOffset;
+
+    if (romData == NULL || tableOffset > romSize || index > (UINT32_MAX - tableOffset) / sizeof(u32)) {
+        return NULL;
+    }
+    entryOffset = tableOffset + index * sizeof(u32);
+    if (entryOffset > romSize || sizeof(u32) > romSize - entryOffset) {
+        return NULL;
+    }
+    gbaAddress = Port_ReadU32(romData + entryOffset) & ~1u;
+    if (gbaAddress < 0x08000000u) {
+        return NULL;
+    }
+    dataOffset = gbaAddress - 0x08000000u;
+    if (dataOffset > romSize || minimumTargetBytes > romSize - dataOffset) {
+        return NULL;
+    }
+    return romData + dataOffset;
+}
+
+static inline const u8* Port_ResolveFuserDataFromRom(const u8* romData, u32 romSize, u32 tableOffset, u32 fuserId,
+                                                     u32 minimumTargetBytes) {
+    if (tableOffset == 0u || fuserId >= PORT_FUSER_TABLE_COUNT) {
+        return NULL;
+    }
+    return Port_ResolvePackedRomDataPtrFromRom(romData, romSize, tableOffset, fuserId, minimumTargetBytes);
+}
+
+static inline const u8* Port_ResolveFusionTextDataFromRom(const u8* romData, u32 romSize, u32 tableOffset,
+                                                          u32 fuserId) {
+    return Port_ResolveFuserDataFromRom(romData, romSize, tableOffset, fuserId, 3u * sizeof(u16));
+}
+
+/* Hurdy-Gurdy Man and Percy each select between two adjacent text triples. */
+static inline const u8* Port_ResolvePairedFusionTextDataFromRom(const u8* romData, u32 romSize, u32 tableOffset,
+                                                                u32 fuserId) {
+    return Port_ResolveFuserDataFromRom(romData, romSize, tableOffset, fuserId, 6u * sizeof(u16));
 }
 
 /* Resolve one entry of the ROM's packed collision-mask pointer table. Each

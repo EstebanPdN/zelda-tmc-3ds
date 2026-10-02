@@ -28,10 +28,8 @@ typedef struct {
     u16 fusingTextIndex;
 } NPCData;
 #ifdef PC_PORT
-#include "port_rom.h"
-extern const u8 gUnk_08001A7C[];
 static NPCData* GetFusionNpcData(u32 fuserId) {
-    return (NPCData*)Port_UnpackRomDataPtr(gUnk_08001A7C, fuserId);
+    return (NPCData*)Port_GetFusionTextData(fuserId);
 }
 #else
 extern NPCData* gUnk_08001A7C[];

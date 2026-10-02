@@ -15,7 +15,6 @@
 #define BUFFER_COUNT 4
 #define AUDIO_THREAD_STACK (64u * 1024u)
 #define AUDIO_THREAD_CORE 0
-#define AUDIO_RECOVERY_PAUSE_NS 500000LL
 
 static ndspWaveBuf sWave[BUFFER_COUNT];
 static int16_t* sSamples;
@@ -49,6 +48,7 @@ static void FillBuffer(int index) {
     sStats.renderTicks += elapsed;
     sStats.renderLastTicks = elapsed;
     if (elapsed > sStats.renderMaxTicks) sStats.renderMaxTicks = elapsed;
+    if (elapsed * SAMPLE_RATE > (uint64_t)SYSCLOCK_ARM11 * BUFFER_FRAMES) ++sStats.renderDeadlineMisses;
     LightLock_Unlock(&sStatsLock);
 }
 
@@ -81,20 +81,27 @@ static void AudioThreadMain(void* argument) {
         if (!__atomic_load_n(&sAudioThreadRunning, __ATOMIC_ACQUIRE)) break;
 
         const uint32_t backlogBefore = CountDoneBuffers();
-        const int bufferIndex = FindDoneBuffer();
-        const uint32_t refillCount = bufferIndex >= 0 ? 1u : 0u;
-        if (bufferIndex >= 0) FillBuffer(bufferIndex);
+        uint32_t refillCount = 0;
+        int bufferIndex;
+        /* A fixed 0.5 ms sleep used to separate every recovery refill. Once a
+         * fanfare fell behind, that guaranteed still more latency. Drain the
+         * finite four-buffer DONE set immediately; the loop is hard bounded
+         * and ordinary callback wakes still refill exactly one buffer. */
+        while (refillCount < BUFFER_COUNT && (bufferIndex = FindDoneBuffer()) >= 0) {
+            FillBuffer(bufferIndex);
+            ++refillCount;
+        }
         const uint32_t backlogAfter = CountDoneBuffers();
 
         LightLock_Lock(&sStatsLock);
         ++sStats.workerWakeups;
+        if (refillCount > 1) ++sStats.multiBufferWakeups;
         if (refillCount > sStats.maxBuffersPerWake) sStats.maxBuffersPerWake = refillCount;
         if (backlogBefore > sStats.maxDoneBuffersObserved) sStats.maxDoneBuffersObserved = backlogBefore;
         if (backlogAfter > 0) ++sStats.workerRequeues;
         LightLock_Unlock(&sStatsLock);
 
         if (backlogAfter > 0) {
-            svcSleepThread(AUDIO_RECOVERY_PAUSE_NS);
             LightEvent_Signal(&sAudioWake);
         }
     }
@@ -165,11 +172,15 @@ void Port_Audio_3DSPump(void) {
     if (callbackMissed) LightEvent_Signal(&sAudioWake);
 
     if (!sAudioThread) {
-        const int bufferIndex = FindDoneBuffer();
-        const uint32_t refillCount = bufferIndex >= 0 ? 1u : 0u;
-        if (bufferIndex >= 0) FillBuffer(bufferIndex);
+        uint32_t refillCount = 0;
+        int bufferIndex;
+        while (refillCount < BUFFER_COUNT && (bufferIndex = FindDoneBuffer()) >= 0) {
+            FillBuffer(bufferIndex);
+            ++refillCount;
+        }
         LightLock_Lock(&sStatsLock);
         sStats.fallbackRenders += refillCount;
+        if (refillCount > 1) ++sStats.multiBufferWakeups;
         if (refillCount > sStats.maxBuffersPerWake) sStats.maxBuffersPerWake = refillCount;
         LightLock_Unlock(&sStatsLock);
     }

@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "old3ds_frame_pacer.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -23,8 +25,18 @@ typedef struct Platform3DSRuntimeStats {
     uintptr_t stackRegionEnd;
     uint64_t logicFrames;
     uint64_t presentedFrames;
+    uint64_t logicElapsedTicks;
+    uint64_t logicCadenceIntervals;
     uint64_t turboLogicFrames;
     uint64_t turboSkippedPresentations;
+    uint64_t old3dsSkippedPresentations;
+    uint64_t old3dsPacingSleepTicks;
+    uint64_t old3dsPacingResyncs;
+    uint64_t old3dsAptDiscontinuities;
+    uint64_t old3dsDumpDiscontinuities;
+    uint64_t old3dsDebtClampEvents;
+    int64_t old3dsPresentationDebtTicks;
+    uint32_t old3dsMaxConsecutiveSkips;
     uint64_t engineWorkTicks;
     uint64_t engineWorkLastTicks;
     uint64_t engineWorkMaxTicks;
@@ -42,6 +54,8 @@ typedef struct Platform3DSRuntimeStats {
     bool bottomWorkerRunning;
     bool bottomWorkerBusy;
     bool speedupRequested;
+    bool adaptiveFrameskipEnabled;
+    bool gameplayDisplayActive;
     bool aptCloseRequested;
 } Platform3DSRuntimeStats;
 
@@ -61,6 +75,7 @@ bool Platform3DS_IsNew3DS(void);
 bool Platform3DS_CanUseCore1(void);
 unsigned Platform3DS_Core1TimeLimit(void);
 void Platform3DS_ShowSplash(void);
+void Platform3DS_EnterGameplayDisplay(void);
 uint16_t Platform3DS_ReadKeyInput(void);
 uint16_t Platform3DS_ReadKeyDownInput(void);
 uint32_t Platform3DS_KeysHeld(void);
@@ -74,6 +89,7 @@ int Platform3DS_IsActiveStackAddress(uintptr_t value);
 bool Platform3DS_SubmitBottomWorker(void);
 bool Platform3DS_TryFinishBottomWorker(void);
 void Platform3DS_ShutdownBottomWorker(void);
+void Platform3DS_MarkFrameDiscontinuity(Old3DSFramePacerDiscontinuity reason);
 bool Platform3DS_BeginFrameBoundary(void);
 void Platform3DS_EndFrameBoundary(void);
 void Platform3DS_PumpWithoutVBlank(void);

@@ -56,15 +56,15 @@ void SoundMixer::Process()
     constexpr uint16_t REVERB_TAIL_BLOCKS = 240;
     const uint8_t reverbLevel = GetReverbLevel();
 
-    for (MP2KPlayer &player : ctx.players) {
-        for (MP2KTrack &trk : player.tracks) {
-            trk.audioBufferActive = trk.audioTailBlocks > 0;
-            if (!trk.audioBufferActive)
-                continue;
-            trk.audioBuffer.resize(samplesPerBuffer);
-            std::fill(trk.audioBuffer.begin(), trk.audioBuffer.end(), sample{0.0f, 0.0f});
-            trk.audioTailBlocks--;
-        }
+    previousActiveTracks.clear();
+    previousActiveTracks.swap(activeTracks);
+    for (MP2KTrack *trk : previousActiveTracks) {
+        trk->audioBufferActive = trk->audioTailBlocks > 0;
+        if (!trk->audioBufferActive)
+            continue;
+        std::fill(trk->audioBuffer.begin(), trk->audioBuffer.end(), sample{0.0f, 0.0f});
+        trk->audioTailBlocks--;
+        activeTracks.push_back(trk);
     }
 
     MixingArgs margs;
@@ -77,9 +77,9 @@ void SoundMixer::Process()
         for (auto &chn : channels) {
             MP2KTrack &trk = *chn.trackOrg;
             if (!trk.audioBufferActive) {
-                trk.audioBuffer.resize(samplesPerBuffer);
                 std::fill(trk.audioBuffer.begin(), trk.audioBuffer.end(), sample{0.0f, 0.0f});
                 trk.audioBufferActive = true;
+                activeTracks.push_back(&trk);
             }
             if (feedsReverb && reverbLevel != 0)
                 trk.audioTailBlocks = REVERB_TAIL_BLOCKS;
@@ -119,15 +119,19 @@ void SoundMixer::Process()
         fadeMicroframesLeft--;
     }
 
-    for (MP2KPlayer &player : ctx.players) {
-        for (MP2KTrack &trk : player.tracks) {
-            if (!trk.audioBufferActive)
-                continue;
+    std::sort(activeTracks.begin(), activeTracks.end(), [](const MP2KTrack *left, const MP2KTrack *right) {
+        if (left->playerIdx != right->playerIdx)
+            return left->playerIdx < right->playerIdx;
+        return left->trackIdx < right->trackIdx;
+    });
+
+    if (masterFrom != 1.0f || masterTo != 1.0f) {
+        for (MP2KTrack *trk : activeTracks) {
             const float masterStep = (masterTo - masterFrom) * margs.samplesPerBufferInv;
             float masterLevel = masterFrom;
             for (size_t i = 0; i < samplesPerBuffer; i++) {
-                trk.audioBuffer[i].left *= masterLevel;
-                trk.audioBuffer[i].right *= masterLevel;
+                trk->audioBuffer[i].left *= masterLevel;
+                trk->audioBuffer[i].right *= masterLevel;
                 masterLevel += masterStep;
             }
         }
@@ -271,3 +275,16 @@ uint8_t SoundMixer::GetReverbLevel() const
     else
         return ctx.mp2kSoundMode.rev & MP2KSoundMode::REV_MASK_VAL;
 }
+
+#ifdef TMC_3DS
+void SoundMixer::ReserveActiveTracks(size_t count)
+{
+    activeTracks.reserve(count);
+    previousActiveTracks.reserve(count);
+}
+
+std::span<MP2KTrack *const> SoundMixer::GetActiveTracks() const
+{
+    return activeTracks;
+}
+#endif

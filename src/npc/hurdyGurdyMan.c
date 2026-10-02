@@ -24,10 +24,7 @@ typedef struct {
 
 static const SpriteLoadData gUnk_081144F0[] = { { 0x163, 0x59, 0x4 }, { 0x4163, 0x59, 0x4 }, { 0, 0, 0 } };
 
-#ifdef PC_PORT
-#include "port_rom.h"
-extern const u8 gUnk_08001A7C[];
-#else
+#ifndef PC_PORT
 extern u16* gUnk_08001A7C[];
 #endif
 
@@ -53,7 +50,7 @@ void HurdyGurdyMan(HurdyGurdyManEntity* this) {
                                     GetAnimationStateForDirection4(GetFacingDirection(super, &gPlayerEntity.base)));
                 index = GetFuserId(super);
 #ifdef PC_PORT
-                pointerToArray = (u16*)Port_UnpackRomDataPtr(gUnk_08001A7C, index);
+                pointerToArray = (u16*)Port_GetPairedFusionTextData(index);
                 if (pointerToArray == NULL) {
                     super->action = 1;
                     break;
