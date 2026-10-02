@@ -8,6 +8,7 @@
 #include "room.h"
 #include "save.h"
 #include "ui.h"
+#include "subtask.h"
 #include <stdio.h>
 #include <string.h>
 #define CHECK(x) do { if (!(x)) { fprintf(stderr,"FAIL %d: %s\n",__LINE__,#x); return 1; } } while (0)
@@ -20,7 +21,8 @@ const Wallet gWalletSizes[] = {{100,0},{300,0},{500,0},{999,0}};
 const u8 gBombBagSizes[] = {10,30,50,99}, gQuiverSizes[] = {30,50,70,99};
 void Port_SecondScreen_3DS_LockSnapshot(void) { }
 void Port_SecondScreen_3DS_UnlockSnapshot(void) { }
-u32 GetInventoryValue(u32 item) { return item == ITEM_BOOMERANG; }
+static unsigned mapOwned;
+u32 GetInventoryValue(u32 item) { return item == ITEM_MAP ? mapOwned : item == ITEM_BOOMERANG; }
 void ForceEquipItem(u32 item, u32 slot) { gSave.stats.equipped[slot] = item; }
 bool Port_Config_GetHideTopHud(void) { return false; }
 u32 sub_080A6F40(void) { return 0xffff; }
@@ -55,6 +57,32 @@ int main(void) {
     gRoomControls.area=0x2f; gRoomControls.room=2;
     Port_SecondScreenState_Publish(); Port_SecondScreenState_Read(&next);
     CHECK(next.visitedMask==(1ull<<2)); /* Auxiliary room 1 was not visited. */
+    CHECK(!next.hasWorldMap && !next.introCinema);
+    mapOwned=1;
+    Port_SecondScreenState_Publish(); Port_SecondScreenState_Read(&next);
+    CHECK(next.hasWorldMap && !next.introCinema);
+    mapOwned=2; /* Match the pause menu's nonzero inventory predicate. */
+    Port_SecondScreenState_Publish(); Port_SecondScreenState_Read(&next);
+    CHECK(next.hasWorldMap);
+    gMain.substate=GAMEMAIN_SUBTASK;
+    /* LinksHouseBedroom calls sub_080A71C4(5, 1, ...): dump 004
+     * is its Hyrule Field auxiliary room, not sanctuary selector 3. */
+    gUI.lastState=SUBTASK_AUXCUTSCENE; gUI.field_0x3=1;
+    for (unsigned phase=0;phase<=4;++phase) {
+        gUI.nextToLoad=phase;
+        Port_SecondScreenState_Publish(); Port_SecondScreenState_Read(&next);
+        CHECK(next.introCinema);
+    }
+    gUI.field_0x3=3; /* The sanctuary tale reuses art but is not the opening. */
+    Port_SecondScreenState_Publish(); Port_SecondScreenState_Read(&next);
+    CHECK(!next.introCinema);
+    gUI.state=SUBTASK_AUXCUTSCENE; gUI.field_0x5=1;
+    Port_SecondScreenState_Publish(); Port_SecondScreenState_Read(&next);
+    CHECK(next.introCinema);
+    gMain.substate=GAMEMAIN_UPDATE; /* Ignore stale cutscene selectors. */
+    mapOwned=0;
+    Port_SecondScreenState_Publish(); Port_SecondScreenState_Read(&next);
+    CHECK(!next.introCinema && !next.hasWorldMap);
     gMain.task=TASK_TITLE;
     Port_SecondScreenState_Publish(); Port_SecondScreenState_Read(&next); CHECK(!next.inGame);
     puts("port_second_screen_state_test: ALL PASS"); return 0;

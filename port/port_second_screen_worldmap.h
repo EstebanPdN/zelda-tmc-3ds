@@ -25,6 +25,11 @@ extern "C" {
  * rendering and simply retry next frame — the call is cheap once decoded. */
 const uint32_t* Port_SecondScreenWorldMap_GetImage(int32_t* outW, int32_t* outH);
 
+#ifdef TMC_3DS
+/* Same composition without BG1 terrain, for the unowned overworld map. */
+const uint32_t* Port_SecondScreenWorldMap_GetFrameImage(int32_t* outW, int32_t* outH);
+#endif
+
 /* PauseMenu screen 4 always reveals these five navigation regions when it
  * opens, then uses bits 0..16 of gSave.windcrests for the remaining map
  * discovery. Keep this pure rule shared by paint and touch hit-testing so a

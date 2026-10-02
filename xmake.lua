@@ -2535,3 +2535,21 @@ target("widescreen_stream_test")
     add_files("port/port_3ds_full_view_policy.c", "port/ppu/src/mode1.c")
     add_syslinks("m")
 target_end()
+
+-- Exercise the production 3DS wrapper without SDK/hardware dependencies.
+target("bottom_map_camera_3ds_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".", "port", "include", "platform/3ds/source")
+    add_defines("PC_PORT", "TMC_3DS", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections", "-fdata-sections")
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+        add_syslinks("m")
+    end
+    add_files("platform/3ds/tests/bottom_map_camera_3ds_test.c",
+              "platform/3ds/source/bottom_map_anim_3ds.c")
+target_end()

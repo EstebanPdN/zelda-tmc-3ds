@@ -98,10 +98,15 @@ static int sTestFailNextAtomicWrite;
 static int sTestFailEepromBlockArmed;
 static u16 sTestFailEepromBlock;
 
-void Port_Save_TestResetMemory(void) { sEepromInited = sEepromDirty = sEepromWriteBlocked = sSaveTxnDepth = 0; }
-
 void Port_Save_TestFailNextPreserve(void) {
     sTestFailNextPreserve = 1;
+}
+
+void Port_Save_TestResetMemory(void) {
+    sEepromInited = 0;
+    sEepromDirty = 0;
+    sEepromWriteBlocked = 0;
+    sSaveTxnDepth = 0;
 }
 
 void Port_Save_TestFailNextAtomicWrite(void) {

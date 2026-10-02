@@ -72,6 +72,7 @@ static void ResetIdleOnlyState(void) {
     UI_LOCK();
     sTapTargetCount = 0;
     sUi.mapLive = 0;
+    sMapCameraMoving = 0;
     sUi.armedRing = 0;
     sUi.floorPreview = SS_NO_FLOOR;
     sUi.playerFloorDisp = SS_NO_FLOOR;
@@ -94,12 +95,25 @@ static void DrawIdleBack(const SSurf* surface, float u, int32_t ts) {
     DrawMenuButton(surface, x0, y0, x1, y1, "BACK", 0, 0, u, ts);
 }
 
+static void PaintIntroCinema(uint32_t* pixels, int width, int height, int stride) {
+    __atomic_store_n(&sIdleSettingsOpen, 0, __ATOMIC_RELEASE);
+    ResetIdleOnlyState();
+    SSurf surface = { pixels, width, height, stride };
+    FillRect(&surface, 0, 0, width, height, RGB(0, 0, 0));
+}
+
 uint32_t Port_SecondScreen_3DS_PaintInto(uint32_t* pixels, int width, int height, int strideInPixels,
                                         const SecondScreenSnapshot* snap, uint32_t tick) {
     if (!pixels || !snap || width <= 0 || height <= 0 || strideInPixels < width) return 0;
 
     const uint32_t refreshRequest = BeginRefresh();
     const bool settingsOpen = __atomic_load_n(&sIdleSettingsOpen, __ATOMIC_ACQUIRE) != 0;
+
+    if (snap->introCinema) {
+        PaintIntroCinema(pixels, width, height, strideInPixels);
+        FinishRefresh(refreshRequest);
+        return refreshRequest;
+    }
 
     if (snap->inGame) {
         if (settingsOpen) __atomic_store_n(&sIdleSettingsOpen, 0, __ATOMIC_RELEASE);
@@ -174,6 +188,7 @@ void Port_SecondScreen_3DS_GetFrameStats(BottomFrameState3DSStats* out) {
 void Port_SecondScreen_3DS_OnTap(int x, int y, int longPress) {
     SecondScreenSnapshot currentSnapshot;
     Port_SecondScreenState_Read(&currentSnapshot);
+    if (currentSnapshot.introCinema) return;
     /* Painting publishes the compositor's new hit boxes before its texture
      * can be submitted or shown.  Dispatch only when those hit boxes belong
      * to the confirmed visible generation and task; otherwise fail closed
@@ -217,7 +232,7 @@ int Port_SecondScreen_3DS_NeedsRefresh(void) {
 int Port_SecondScreen_3DS_NeedsPeriodicRefresh(const SecondScreenSnapshot* snap, uint32_t tick,
                                                uint32_t paintedTick, int32_t width,
                                                int32_t height) {
-    if (!snap) return 0;
+    if (!snap || snap->introCinema) return 0;
 
     const bool idleSettings = __atomic_load_n(&sIdleSettingsOpen, __ATOMIC_ACQUIRE) != 0;
     if (!snap->inGame && !idleSettings) {
@@ -231,6 +246,7 @@ int Port_SecondScreen_3DS_NeedsPeriodicRefresh(const SecondScreenSnapshot* snap,
     uint32_t lastTick;
     int regionState;
     int floorPreview;
+    int cameraMoving;
     UI_LOCK();
     tab = sUi.tab;
     settingsPage = sUi.settingsPage;
@@ -238,17 +254,17 @@ int Port_SecondScreen_3DS_NeedsPeriodicRefresh(const SecondScreenSnapshot* snap,
     lastTick = sUi.lastTick;
     regionState = sUi.regionState;
     floorPreview = sUi.floorPreview;
+    cameraMoving = sMapCameraMoving;
     UI_UNLOCK();
 
     if (tab == SS_TAB_MAP) {
         if (!Port_Config_BottomMapSkip()) {
             return 1; /* the old unconditional repaint, kept for the A/B */
         }
-        /* Two state machines retire inside the paint itself — the region
-         * bracket at port_second_screen.c:1201 and the floor preview at
-         * :1377 — so they must keep painting until they expire or they stall
-         * on screen forever. */
-        if (regionState == SS_REGION_BRACKET || floorPreview != SS_NO_FLOOR) {
+        /* The camera glide, region bracket and floor preview advance inside
+         * paint. Keep repainting until they settle, even when the engine
+         * snapshot and marker animation signature have not changed. */
+        if (cameraMoving || regionState == SS_REGION_BRACKET || floorPreview != SS_NO_FLOOR) {
             return 1;
         }
         if (BottomMapAnim_NeedsPaint(tick, paintedTick,
@@ -283,7 +299,7 @@ int Port_SecondScreen_3DS_SnapshotChangeNeedsRefresh(const SecondScreenSnapshot*
                                                      const SecondScreenSnapshot* current,
                                                      int previousValid) {
     if (!previous || !current || !previousValid) return 1;
-    if (previous->inGame != current->inGame) return 1;
+    if (previous->inGame != current->inGame || previous->introCinema != current->introCinema) return 1;
     if (memcmp(previous, current, sizeof(*current)) == 0) return 0;
 
     /* Gameplay snapshots continue changing while a settings sheet covers the

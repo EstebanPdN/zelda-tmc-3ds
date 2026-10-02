@@ -388,8 +388,7 @@ static void TestDurableWriteFailure(void) {
     CHECK(stats.dirty && stats.flushFailures != 0,
           "durability failure remains dirty and observable for a later retry");
 
-    /* Do not let the test's later profile switch retry and overwrite the raw
-     * failure fixture. Clearing occurs only inside this private temp dir. */
+    /* Model a restart without retrying or deleting the isolated failure fixture. */
     Port_Save_TestResetMemory();
 }
 
