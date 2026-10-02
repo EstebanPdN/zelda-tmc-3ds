@@ -59,11 +59,13 @@ bool32 ProjectileInit(Entity* this) {
         }
         this->spriteIndex = definition->spriteIndex;
 #ifdef PC_PORT
-        /* These two shared definition tables are compiled from the USA
-         * Sprites enum.  Convert once when materializing the entity; the
-         * animation, geometry, affine and extra-offset APIs all consume the
-         * resulting active-ROM-native index. */
-        if (this->id == ARROW_PROJECTILE || this->id == SPIKED_ROLLERS) {
+        /* These shared definition tables are compiled from the USA Sprites
+         * enum. Convert once when materializing the entity; the animation,
+         * geometry, affine and extra-offset APIs all consume the resulting
+         * active-ROM-native index. */
+        if (this->id == ARROW_PROJECTILE || this->id == V1_DARK_MAGIC_PROJECTILE ||
+            this->id == V1_EYE_LASER || this->id == SPIKED_ROLLERS || this->id == V2_PROJECTILE ||
+            this->id == GYORG_MALE_ENERGY_PROJECTILE) {
             this->spriteIndex = Port_RemapSpriteIndex(this->spriteIndex);
         }
 #endif

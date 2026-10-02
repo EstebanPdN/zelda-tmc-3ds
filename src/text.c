@@ -14,6 +14,7 @@ extern void UnpackTextNibbles(void*, u8*);
 #include "port_gba_mem.h"
 #include "port_rom.h"
 #include "port_asset_loader.h"
+#include "port_text_variables.h"
 #include <stdio.h>
 #define gUnk_02036AD8 (*(u8*)&gEwram[0x36AD8])
 #define gUnk_02036A58 (*(u8*)&gEwram[0x36A58])
@@ -69,6 +70,21 @@ extern u8* gTextVariableSources[];
 extern u8* gUnk_08109230[];
 #define gTextVariableSources gUnk_08109230
 #endif
+
+#ifdef PC_PORT
+static void SyncInlineTextPlayerName(void) {
+    u8* dest = gTextVariableSources[0];
+
+    if (dest == NULL) {
+        return;
+    }
+
+    /* On GBA this slot aliases TextRender.player_name in EWRAM. The port's
+     * globals are separate allocations, so ShowTextBox callers such as both
+     * figurine-name screens otherwise expand {Player} to an empty string. */
+    Port_FormatPlayerNameVariable(dest, gSave.name);
+}
+#endif
 extern u32 gUnk_08109244; // TODO structure?
 extern u32* gUnk_08109248[];
 extern u32 gUnk_0810926C[];
@@ -115,6 +131,17 @@ void sub_0805EEB4(Token* token, u32 textIndex) {
     u32 uVar7;
 
     token->textIndex = (u16)textIndex;
+#ifdef PC_PORT
+    if (REGION_IS_EU && textIndex == TEXT_INDEX(TEXT_STOCKWELL, 0x25)) {
+        /* Original English wording for the added EU shop item; the final
+         * control code chains to the active ROM's existing buy/cancel menu. */
+        static const u8 bombBagOffer[] =
+            "Bomb bag upgrade: \x06\x01 Rupees.\n"
+            "Increase your bomb capacity.\n\x07\x2c\x14";
+        sub_0805EF40(token, bombBagOffer);
+        return;
+    }
+#endif
     langIndex = gSaveHeader->language;
 #ifdef PC_PORT
     if (langIndex >= RegionLanguageSlotCount() || gTranslations[langIndex] == NULL) {
@@ -581,6 +608,9 @@ u32 ShowTextBox(uintptr_t textIndexOrPtr, const Font* paramFont) {
     u32 temp2;
     u32 temp3;
 
+#ifdef PC_PORT
+    SyncInlineTextPlayerName();
+#endif
     pWVar4 = sub_0805F2C8();
     if (pWVar4 != NULL) {
 #if defined(PC_PORT) && !defined(TMC_3DS)

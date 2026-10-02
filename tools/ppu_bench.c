@@ -111,17 +111,15 @@ int main(int argc, char** argv) {
     int maxthreads = 1;
 #endif
 
-    printf("snapshot: dispcnt=0x%04x  BG0=%d BG1=%d BG2=%d BG3=%d OBJ=%d  width=%d  iters=%d  old3ds=%d\n",
-           dispcnt, bg_on[0], bg_on[1], bg_on[2], bg_on[3], obj_on,
-           MODE1_GBA_WIDTH, iters, old3ds_profile);
+    printf("snapshot: dispcnt=0x%04x  BG0=%d BG1=%d BG2=%d BG3=%d OBJ=%d  width=%d  iters=%d  old3ds=%d\n", dispcnt,
+           bg_on[0], bg_on[1], bg_on[2], bg_on[3], obj_on, MODE1_GBA_WIDTH, iters, old3ds_profile);
 
-    /* render_frame dereferences ppu->mode (mode1/mode2 merge); build a real
-     * PPUMemory from the snapshot dispcnt (BG mode = low 3 bits) at native
-     * geometry. Mode 0/1 -> tiled path, mode 2 -> affine BG2. */
+    /* VirtuaPPU mode 1 handles GBA mode 0 (all tiled); mode 2 handles GBA
+     * modes 1/2 (affine BG2). */
     PPUMemory ppu = { 0 };
     ppu.frame_width = MODE1_GBA_WIDTH;
     ppu.frame_pitch = MODE1_GBA_WIDTH;
-    ppu.mode = (uint8_t)(dispcnt & 0x7u);
+    ppu.mode = (dispcnt & 0x7u) == 0u ? 1u : 2u;
 
     /* Warm caches + capture the parity checksum. */
     for (int i = 0; i < 8; i++)
@@ -151,7 +149,7 @@ int main(int argc, char** argv) {
     /* Per-component serial breakdown (single thread): replicate render_frame's
      * per-line buffers and time each stage separately. */
     double bg_ms = 0, obj_ms = 0, comp_ms = 0;
-    {
+    if (ppu.mode == 1) {
         static uint32_t bg_layers[MODE1_GBA_BG_COUNT][MODE1_GBA_WIDTH];
         static uint8_t bg_priority[MODE1_GBA_BG_COUNT][MODE1_GBA_WIDTH];
         static uint32_t obj_layer[MODE1_GBA_WIDTH];
@@ -186,10 +184,12 @@ int main(int argc, char** argv) {
     printf("checksum     : 0x%016llx\n", (unsigned long long)csum);
     printf("render_frame : %.4f ms/frame  (%.0f fps)   [%d threads]\n", mt, mt > 0 ? 1000.0 / mt : 0, maxthreads);
     printf("render_frame : %.4f ms/frame  (%.0f fps)   [1 thread]\n", st, st > 0 ? 1000.0 / st : 0);
-    printf("per-component (1 thread, serial):\n");
-    printf("  bg_line x%-2d : %.4f ms/frame\n", bg_count, bg_ms);
-    printf("  obj_line    : %.4f ms/frame\n", obj_ms);
-    printf("  composite   : %.4f ms/frame\n", comp_ms);
-    printf("  (sum)       : %.4f ms/frame\n", bg_ms + obj_ms + comp_ms);
+    if (ppu.mode == 1) {
+        printf("per-component (1 thread, serial):\n");
+        printf("  bg_line x%-2d : %.4f ms/frame\n", bg_count, bg_ms);
+        printf("  obj_line    : %.4f ms/frame\n", obj_ms);
+        printf("  composite   : %.4f ms/frame\n", comp_ms);
+        printf("  (sum)       : %.4f ms/frame\n", bg_ms + obj_ms + comp_ms);
+    }
     return 0;
 }

@@ -23,9 +23,19 @@ if [[ ! -x "${BANNERTOOL}" && -x "${DEVKITPRO}/tools/bin/bannertool" ]]; then
 fi
 
 export DEVKITPRO
+if [[ -z "${UPDATE_DEPS_ROOT:-}" ]]; then
+  UPDATE_DEPS_ROOT="${DEVKITPRO}/portlibs/3ds"
+  if [[ ! -f "${UPDATE_DEPS_ROOT}/lib/libcurl.a" || ! -f "${UPDATE_DEPS_ROOT}/lib/libjansson.a" ]]; then
+    UPDATE_DEPS_ROOT="${ROOT}/build-3ds/update-deps/prefix"
+    if [[ ! -f "${UPDATE_DEPS_ROOT}/lib/libcurl.a" || ! -f "${UPDATE_DEPS_ROOT}/lib/libjansson.a" ]]; then
+      python3 "${ROOT}/platform/3ds/tools/build_update_deps.py" "${ROOT}/build-3ds/update-deps"
+    fi
+  fi
+fi
 cmake -S "${ROOT}/platform/3ds" -B "${BUILD}" \
   -DCMAKE_TOOLCHAIN_FILE="${DEVKITPRO}/cmake/3DS.cmake" \
-  -DCMAKE_BUILD_TYPE=Release
+  -DCMAKE_BUILD_TYPE=Release \
+  -DUPDATE_DEPS_ROOT="${UPDATE_DEPS_ROOT:-${DEVKITPRO}/portlibs/3ds}"
 cmake --build "${BUILD}" --parallel "${TMC3DS_JOBS:-4}"
 
 if [[ ! -x "${MAKEROM}" || ! -x "${BANNERTOOL}" ]]; then

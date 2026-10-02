@@ -87,3 +87,22 @@ a legitimately-owned ROM is required to extract assets and run the game.
 
 *Generated as part of license review. If you add or remove a dependency, update
 this file and `LICENSE` accordingly.*
+
+## European gameplay backport reference
+
+[Prof9's Minish Cap EU Backport](https://github.com/Prof9/Minish-Cap-EU-Backport)
+(Unlicense) documents the Eenie, Stockwell bomb bag, and Wind Tribe roof fixes
+implemented natively in this port. See [Native European compatibility fixes](docs/eu-backport.md).
+The port does not redistribute its ROM patch or ROM-derived assets.
+
+## 3DS updater and idle card
+
+The updater and procedural antialiased Triforce mask are adapted from
+[EstebanPdN/zelda-alttp-3ds](https://github.com/EstebanPdN/zelda-alttp-3ds), including
+[PR #32](https://github.com/EstebanPdN/zelda-alttp-3ds/pull/32).
+The Minish Cap interface decodes its own menu art from the user's ROM at runtime.
+
+The updater links curl 8.4.0 (curl license), mbedTLS 2.28.8 (Apache-2.0), and
+Jansson 2.14 (MIT), using devkitPro's 3DS patches. Their license texts, pinned
+source digests and build details are in `platform/3ds/update-dependencies/`.
+The Mozilla CA bundle is sourced from curl.se and retains its embedded notices.

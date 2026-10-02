@@ -59,7 +59,13 @@ void sub_0806BCB8(Entity* this) {
     this->animationState = this->timer;
 }
 
-void Farmers_MarkEenieFuserDoner(Entity* this) {
+void Farmers_MarkEenieFuserDoner(Entity* this, ScriptExecutionContext* context) {
+#ifdef PC_PORT
+    /* EU calls this even when the fusion was cancelled. Match the USA
+     * script condition (also documented by Prof9's EU Backport). */
+    if (context->condition == 0)
+        return;
+#endif
     if (this->type == 0) {
         MarkFuserDone(this);
     }

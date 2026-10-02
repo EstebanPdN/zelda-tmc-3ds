@@ -176,6 +176,8 @@ int main(void) {
     char* tempDirectory;
     u8 image[EEPROM_SIZE];
     u8 compare[EEPROM_SIZE];
+    u8 cloudTopsSlot[0x500];
+    u8 vaatiSlot[0x500];
     u16 block[4] = { 0x1234, 0x5678, 0x9ABC, 0xDEF0 };
     const u8 shortFile[] = { 0x12, 0x34, 0x56 };
 
@@ -320,6 +322,52 @@ int main(void) {
     CHECK(!FileExistsForTest("tmc_fuser_backup.sav.pre-fuser-repair.002.bak"),
           "replacement activation does not create a backup per fuser");
 
+    BuildDiskImage(image, activeSignature, 0xA9);
+    CHECK(WriteBytes("tmc_goron_bottle_backup.sav", image, sizeof(image)), "Goron repair fixture is written");
+    CHECK(Port_Save_SetActivePath("tmc_goron_bottle_backup.sav"), "Goron repair profile is selected");
+    EEPROMConfigure(0x40);
+    Port_Save_BeginTransaction();
+    CHECK(!Port_Save_PreserveBeforeGoronBottleRepair(), "Goron repair refuses mid-transaction backup");
+    CHECK(Port_Save_EndTransaction(), "Goron backup transaction ends");
+    CHECK(Port_Save_PreserveBeforeGoronBottleRepair(), "Goron repair preserves the complete profile");
+    CHECK(FilesEqualForTest("tmc_goron_bottle_backup.sav", "tmc_goron_bottle_backup.sav.pre-goron-bottle-repair.bak"),
+          "Goron backup is byte-exact");
+    CHECK(Port_Save_PreserveBeforeGoronBottleRepair(), "Goron backup is reused within one activation");
+    CHECK(!FileExistsForTest("tmc_goron_bottle_backup.sav.pre-goron-bottle-repair.001.bak"),
+          "repeated checks do not overwrite or duplicate the Goron backup");
+
+    BuildDiskImage(image, activeSignature, 0xA9);
+    CHECK(WriteBytes("tmc_bomb_inventory_backup.sav", image, sizeof(image)), "BombInventory repair fixture is written");
+    CHECK(Port_Save_SetActivePath("tmc_bomb_inventory_backup.sav"), "BombInventory repair profile is selected");
+    EEPROMConfigure(0x40);
+    Port_Save_BeginTransaction();
+    CHECK(!Port_Save_PreserveBeforeBombInventoryRepair(), "BombInventory repair refuses mid-transaction backup");
+    CHECK(Port_Save_EndTransaction(), "BombInventory backup transaction ends");
+    CHECK(Port_Save_PreserveBeforeBombInventoryRepair(), "BombInventory repair preserves the complete profile");
+    CHECK(FilesEqualForTest("tmc_bomb_inventory_backup.sav", "tmc_bomb_inventory_backup.sav.pre-bomb-inventory-repair.bak"),
+          "BombInventory backup is byte-exact");
+    CHECK(Port_Save_PreserveBeforeBombInventoryRepair(), "BombInventory backup is reused within one activation");
+    CHECK(!FileExistsForTest("tmc_bomb_inventory_backup.sav.pre-bomb-inventory-repair.001.bak"),
+          "repeated checks do not overwrite or duplicate the BombInventory backup");
+
+    BuildDiskImage(image, activeSignature, 0xA8);
+    CHECK(WriteBytes("tmc_smith_bottle_backup.sav", image, sizeof(image)),
+          "Smith bottle flag repair backup fixture is written");
+    CHECK(Port_Save_SetActivePath("tmc_smith_bottle_backup.sav"),
+          "Smith bottle flag repair backup profile is selected");
+    EEPROMConfigure(0x40);
+    CHECK(Port_Save_PreserveBeforeSmithBottleFlagRepair(),
+          "first permanent pre-Smith-bottle-flag-repair backup succeeds");
+    CHECK(FileExistsForTest("tmc_smith_bottle_backup.sav.pre-smith-bottle-flag-repair.bak"),
+          "Smith bottle flag repair has a stable permanent backup");
+    CHECK(FilesEqualForTest("tmc_smith_bottle_backup.sav",
+                            "tmc_smith_bottle_backup.sav.pre-smith-bottle-flag-repair.bak"),
+          "Smith bottle flag repair backup preserves the complete raw profile byte-for-byte");
+    CHECK(Port_Save_PreserveBeforeSmithBottleFlagRepair(),
+          "later Smith bottle flag repair checks reuse the verified profile backup");
+    CHECK(!FileExistsForTest("tmc_smith_bottle_backup.sav.pre-smith-bottle-flag-repair.001.bak"),
+          "one profile does not create repeated Smith bottle flag repair backups");
+
     BuildDiskImage(image, activeSignature, 0xA7);
     CHECK(WriteBytes("tmc_cloud_tops_backup.sav", image, sizeof(image)),
           "Cloud Tops repair backup fixture is written");
@@ -333,10 +381,39 @@ int main(void) {
     CHECK(FilesEqualForTest("tmc_cloud_tops_backup.sav",
                             "tmc_cloud_tops_backup.sav.pre-cloud-tops-repair.bak"),
           "Cloud Tops repair backup preserves the complete raw profile byte-for-byte");
+    memset(cloudTopsSlot, 0, sizeof(cloudTopsSlot));
+    CHECK(Port_Save_ReadCloudTopsRepairBackupSlot(0, cloudTopsSlot, sizeof(cloudTopsSlot)) &&
+              cloudTopsSlot[0] == 0xA7,
+          "validated Cloud Tops backup exposes the original slot data in RAM order");
+    CHECK(!Port_Save_ReadCloudTopsRepairBackupSlot(3, cloudTopsSlot, sizeof(cloudTopsSlot)),
+          "out-of-range Cloud Tops backup slots fail closed");
+    CHECK(!Port_Save_ReadCloudTopsRepairBackupSlot(0, cloudTopsSlot, sizeof(cloudTopsSlot) - 1),
+          "wrong-sized Cloud Tops backup reads fail closed");
     CHECK(Port_Save_PreserveBeforeCloudTopsRepair(),
           "later Cloud Tops repair checks reuse the verified profile backup");
     CHECK(!FileExistsForTest("tmc_cloud_tops_backup.sav.pre-cloud-tops-repair.001.bak"),
           "one profile does not create repeated Cloud Tops repair backups");
+
+    BuildDiskImage(image, activeSignature, 0xA9);
+    CHECK(WriteBytes("tmc_vaati_backup.sav", image, sizeof(image)),
+          "Vaati repair backup fixture is written");
+    CHECK(Port_Save_SetActivePath("tmc_vaati_backup.sav"), "Vaati repair backup profile is selected");
+    EEPROMConfigure(0x40);
+    CHECK(Port_Save_PreserveBeforeVaatiProgressRepair(),
+          "first permanent pre-Vaati-repair backup succeeds");
+    CHECK(FileExistsForTest("tmc_vaati_backup.sav.pre-vaati-progress-repair.bak"),
+          "Vaati repair has a stable permanent backup");
+    memset(vaatiSlot, 0, sizeof(vaatiSlot));
+    CHECK(Port_Save_ReadVaatiProgressBackupSlot(0, vaatiSlot, sizeof(vaatiSlot)) && vaatiSlot[0] == 0xA9,
+          "validated Vaati backup exposes the original slot data in RAM order");
+    CHECK(!Port_Save_ReadVaatiProgressBackupSlot(3, vaatiSlot, sizeof(vaatiSlot)),
+          "out-of-range Vaati backup slots fail closed");
+    CHECK(!Port_Save_ReadVaatiProgressBackupSlot(0, vaatiSlot, sizeof(vaatiSlot) - 1),
+          "wrong-sized Vaati backup reads fail closed");
+    CHECK(Port_Save_PreserveBeforeVaatiProgressRepair(),
+          "later Vaati repair checks reuse the verified profile backup");
+    CHECK(!FileExistsForTest("tmc_vaati_backup.sav.pre-vaati-progress-repair.001.bak"),
+          "one profile does not create repeated Vaati repair backups");
 
     BuildDiskImage(image, activeSignature, 0xA3);
     CHECK(WriteBytes("tmc_switch.sav", image, sizeof(image)), "pending-profile-switch fixture is written");

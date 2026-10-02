@@ -1,4 +1,6 @@
 #include "platform_3ds.h"
+#include "updater.h"
+#include "port_second_screen_theme.h"
 
 #include "port_audio.h"
 #include "port_ppu.h"
@@ -122,6 +124,7 @@ int main(int argc, char** argv) {
     printf("Loading ROM and tables...\n");
     Port_Config_Load("tmc3ds.ini");
     Port_LoadRom(romPath);
+    Port_SecondScreenTheme_Ready();
     Port_PPU_Init(NULL);
     if (!Port_Audio_Init()) {
         printf("Warning: audio is unavailable.\n");
@@ -129,7 +132,9 @@ int main(int argc, char** argv) {
 
     printf("Starting engine...\n");
     Platform3DS_EnterGameplayDisplay();
+    Updater_Init(argc > 0 ? argv[0] : NULL);
     AgbMain();
+    Updater_Shutdown();
 
     Port_PPU_Shutdown();
     Platform3DS_Shutdown();

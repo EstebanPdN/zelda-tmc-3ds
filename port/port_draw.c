@@ -322,10 +322,10 @@ void ram_ClearAndUpdateEntities(void) {
 }
 
 static const u8* LookupFrameData(u16 spriteIndex, u8 frameIndex) {
-    const size_t frameObjSize = sizeof(gFrameObjLists);
+    const size_t frameObjSize = Port_FrameObjListsSizeForRegion(gRomRegion);
     const u8* base = (const u8*)gFrameObjLists;
 
-    if ((size_t)spriteIndex >= (frameObjSize / sizeof(u32))) {
+    if ((u32)spriteIndex >= Port_FrameObjCountForRegion(gRomRegion)) {
         return NULL;
     }
 
@@ -380,7 +380,7 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
      * (Overlay callers pass small fixed internal buffers, not ROM data.) */
     {
         const u8* fobBase = (const u8*)gFrameObjLists;
-        const u8* fobEnd = fobBase + sizeof(gFrameObjLists);
+        const u8* fobEnd = fobBase + Port_FrameObjListsSizeForRegion(gRomRegion);
         if (data >= fobBase && data < fobEnd) {
             size_t maxPieces = (size_t)(fobEnd - data) / 5u;
             if ((size_t)count > maxPieces)
@@ -1208,7 +1208,8 @@ const u8* Port_GetDirectSpriteFrame(u32 spriteIndex, u32 frameIndex, u32* outMax
     }
     frameData = LookupFrameData((u16)spriteIndex, (u8)frameIndex);
     if (frameData != NULL && outMaxPieces != NULL) {
-        const u8* fobEnd = (const u8*)gFrameObjLists + sizeof(gFrameObjLists);
+        const u8* fobEnd =
+            (const u8*)gFrameObjLists + Port_FrameObjListsSizeForRegion(gRomRegion);
         *outMaxPieces = (u32)((fobEnd - (frameData + 1)) / 5);
     }
     return frameData;

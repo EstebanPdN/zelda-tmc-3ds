@@ -13,8 +13,11 @@ void NPCUpdate(Entity* this) {
     u32 temp;
     if ((health & 0x7f) && !ReadBit((u32*)gUnk_020342F8, health - 1))
         DeleteThisEntity();
-    if (this->action == 0 && (this->flags & ENT_DID_INIT) == 0)
+    if (this->action == 0 && (this->flags & ENT_DID_INIT) == 0) {
         NPCInit(this);
+        if ((this->flags & ENT_DID_INIT) == 0)
+            return;
+    }
     if (!EntityDisabled(this))
         gNPCFunctions[this->id][0](this);
     if (this->next != NULL) {

@@ -67,10 +67,23 @@ void Port_SecondScreenState_Publish(void) {
 
     uint8_t equipItem;
     uint8_t equipSlot;
+    bool keepMapContext = false;
     SNAPSHOT_MUTEX_LOCK(&sSnapshotMutex);
     equipItem = sPendingEquipItem;
     equipSlot = sPendingEquipSlot;
     sPendingEquipItem = 0;
+    /* A subtask clears/reuses gRoomControls and gArea for its auxiliary
+     * scene. Preserve the last gameplay map, not that temporary room. Item
+     * quantities and equipment below still come from the current save. */
+    keepMapContext = gMain.task == TASK_GAME && gMain.substate == GAMEMAIN_SUBTASK &&
+                     gUI.nextToLoad != 0 && sSnapshot.inGame;
+    if (keepMapContext) {
+        next.area = sSnapshot.area; next.room = sSnapshot.room;
+        next.playerX = sSnapshot.playerX; next.playerY = sSnapshot.playerY;
+        next.areaFlags = sSnapshot.areaFlags; next.dungeonIdx = sSnapshot.dungeonIdx;
+        next.visitedMask = sSnapshot.visitedMask;
+        memcpy(next.rooms, sSnapshot.rooms, sizeof(next.rooms));
+    }
     SNAPSHOT_MUTEX_UNLOCK(&sSnapshotMutex);
 
     next.inGame = gMain.task == TASK_GAME;
@@ -83,10 +96,12 @@ void Port_SecondScreenState_Publish(void) {
             ForceEquipItem(equipItem, equipSlot ? EQUIP_SLOT_B : EQUIP_SLOT_A);
         }
 
-        next.area = gRoomControls.area;
-        next.room = gRoomControls.room;
-        next.playerX = gPlayerEntity.base.x.HALF.HI;
-        next.playerY = gPlayerEntity.base.y.HALF.HI;
+        if (!keepMapContext) {
+            next.area = gRoomControls.area;
+            next.room = gRoomControls.room;
+            next.playerX = gPlayerEntity.base.x.HALF.HI;
+            next.playerY = gPlayerEntity.base.y.HALF.HI;
+        }
         next.equippedA = gSave.stats.equipped[SLOT_A];
         next.equippedB = gSave.stats.equipped[SLOT_B];
         next.equippedSlotA = next.equippedA ? gItemMetaData[next.equippedA].menuSlot : 0xFF;
@@ -102,8 +117,10 @@ void Port_SecondScreenState_Publish(void) {
          * engine gates it: dungeonKeys/dungeonItems are only meaningful
          * where AreaHasKeys() holds (src/gameUtils.c reads them through
          * gArea.dungeon_idx under that same check). */
-        next.areaFlags = gArea.areaMetadata;
-        next.dungeonIdx = gArea.dungeon_idx;
+        if (!keepMapContext) {
+            next.areaFlags = gArea.areaMetadata;
+            next.dungeonIdx = gArea.dungeon_idx;
+        }
         if ((next.areaFlags & SECOND_SCREEN_AR_HAS_KEYS) && next.dungeonIdx < 0x10) {
             next.dungeonKeys = gSave.dungeonKeys[next.dungeonIdx];
             next.dungeonItemBits = gSave.dungeonItems[next.dungeonIdx];
@@ -247,16 +264,18 @@ void Port_SecondScreenState_Publish(void) {
             next.bottleContents[i] = gSave.stats.bottles[i];
         }
 
-        for (u32 i = 0; i < SECOND_SCREEN_MAX_ROOMS && i < MAX_ROOMS; i++) {
-            const RoomResInfo* info = &gArea.roomResInfos[i];
-            next.rooms[i].x = info->map_x;
-            next.rooms[i].y = info->map_y;
-            next.rooms[i].w = info->pixel_width;
-            next.rooms[i].h = info->pixel_height;
-        }
+        if (!keepMapContext) {
+            for (u32 i = 0; i < SECOND_SCREEN_MAX_ROOMS && i < MAX_ROOMS; i++) {
+                const RoomResInfo* info = &gArea.roomResInfos[i];
+                next.rooms[i].x = info->map_x;
+                next.rooms[i].y = info->map_y;
+                next.rooms[i].w = info->pixel_width;
+                next.rooms[i].h = info->pixel_height;
+            }
 
-        sVisitedByArea[next.area] |= 1ull << (next.room & 63);
-        next.visitedMask = sVisitedByArea[next.area];
+            sVisitedByArea[next.area] |= 1ull << (next.room & 63);
+            next.visitedMask = sVisitedByArea[next.area];
+        }
     }
 
     SNAPSHOT_MUTEX_LOCK(&sSnapshotMutex);

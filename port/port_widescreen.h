@@ -126,6 +126,9 @@ int Port_Widescreen_CameraRestY(int target_y);
 /* Re-clamp the camera when the desired geometry has fallen back since the
  * first scroll pass. Returns nonzero only when it changed camera geometry. */
 int Port_Widescreen_PrepareGameplayCamera(void);
+/* Snapshot outgoing map tiles before the room loader replaces them. */
+void Port_Widescreen_BeginScroll(unsigned room, unsigned direction);
+int Port_Widescreen_AdvanceScroll(void);
 
 #ifdef __cplusplus
 }

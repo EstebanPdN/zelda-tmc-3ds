@@ -2,6 +2,7 @@
 #define TMC_PLATFORM_3DS_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "old3ds_frame_pacer.h"
@@ -97,6 +98,16 @@ bool Platform3DS_TurboHeld(void);
 unsigned Platform3DS_TurboMultiplier(void);
 void Platform3DS_SetTurboMultiplier(unsigned multiplier);
 void Platform3DS_GetRuntimeStats(Platform3DSRuntimeStats* stats);
+void Platform3DS_SetStage(uint32_t stage);
+void Platform3DS_Heartbeat(void);
+void Platform3DS_WatchdogPoll(void);
+bool Platform3DS_CleanDataCache(const void* addr, size_t size);
+const char* Platform3DS_CacheCleanPath(void);
+uint64_t Platform3DS_PumpTicks(void);
+uint64_t Platform3DS_PumpMaxTicks(void);
+uint64_t Platform3DS_PostWaitTicks(void);
+uint64_t Platform3DS_PostWaitMaxTicks(void);
+void Platform3DS_RequestQuickDump(void);
 void Platform3DS_WaitForVBlank(void);
 void Platform3DS_ShowFatal(const char* title, const char* message);
 void Platform3DS_Debug(const char* message);

@@ -19,13 +19,13 @@ extern void ram_DrawDirect(OAMCommand*, u32, u32);
 
 void* sub_080AD8F0(u32 sprite, u32 frame) {
 #ifdef PC_PORT
-    const size_t frameObjSize = sizeof(gFrameObjLists);
+    const size_t frameObjSize = Port_FrameObjListsSizeForRegion(gRomRegion);
     const u8* base = (const u8*)gFrameObjLists;
     size_t frameEntryOffset;
     u32 frameTableOffset;
     u32 frameDataOffset;
 
-    if ((size_t)sprite >= (frameObjSize / sizeof(u32))) {
+    if (sprite >= Port_FrameObjCountForRegion(gRomRegion)) {
         return NULL;
     }
 

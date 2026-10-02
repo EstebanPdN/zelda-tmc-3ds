@@ -20,6 +20,8 @@
 
 #ifdef PC_PORT
 #include "port_softslots.h"
+#include "port_bomb_compat.h"
+#include "port_save.h"
 #include "port_roll_attack_macro.h"
 #include <stdbool.h>
 #endif
@@ -159,6 +161,14 @@ u32 GiveItem(u32 item, u32 param_2) {
             LoadItemGfx();
             break;
         case 8:
+#ifdef PC_PORT
+            /* Also recover when a legacy diagnostic state bypassed file select. */
+            if (uVar4 != 0 && Port_BombInventoryNeedsRepair(&gSave, !Port_Save_IsStandardProfile()) &&
+                Port_Save_PreserveBeforeBombInventoryRepair() &&
+                Port_RepairBombInventory(&gSave, !Port_Save_IsStandardProfile())) {
+                PutItemOnSlot(ITEM_BOMBS);
+            }
+#endif
             if (uVar4 == 0) {
                 SetInventoryValue(ITEM_BOMBS, 1);
                 PutItemOnSlot(7);
