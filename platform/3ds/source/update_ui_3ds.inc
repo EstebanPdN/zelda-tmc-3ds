@@ -2,6 +2,7 @@
  * stone plate, red header chip, pale buttons and native message fonts. */
 #include "updater.h"
 #include "port_ua.h" /* tloz-tmc-ua: Update_FormatNotesUtf8 for Cyrillic changelogs */
+#define UPDATE_LINE 129 /* tloz-tmc-ua: was 43; Cyrillic takes 2 bytes a letter */
 #include <ctype.h>
 
 static bool sUpdateConfirm, sUpdateNotes;
@@ -161,27 +162,29 @@ bool Port_SecondScreen_3DS_PaintUpdateTop(uint32_t* pixels, int stride) {
     static bool paintedNotes;
     if (paintedRevision == st.revision && paintedPage == page && paintedNotes == notes) return false;
     paintedRevision=st.revision; paintedPage=page; paintedNotes=notes;
-    static char lines[512][43];
+    static char lines[512][UPDATE_LINE]; /* tloz-tmc-ua */
     static unsigned count, revision = UINT32_MAX;
     static bool lastNotes;
     if (revision != st.revision || notes != lastNotes) {
-        static char body[12289], formatted[512][43];
+        static char body[12289], formatted[512][UPDATE_LINE]; /* tloz-tmc-ua */
         if (notes && st.version[0]) Updater_GetNotes(body,sizeof(body));
         else snprintf(body,sizeof(body),"Installed: v%s\n\n%s\n\nSelect a release below to read its changelog.\nChoose Stable or Pre-release to check that channel.",TMC_PORT_VERSION,st.message);
-        unsigned n = Update_FormatNotesUtf8(body,formatted,512,Port_IsUkrainianRom()); /* tloz-tmc-ua */
+        const bool ua = Port_IsUkrainianRom(); /* tloz-tmc-ua */
+        unsigned n = Update_FormatNotesUtf8(body,&formatted[0][0],UPDATE_LINE,ua ? UPDATE_LINE-1 : 42,512,ua);
         count = 0;
         for (unsigned i=0; i<n && count<512; i++) {
             const char* text = formatted[i];
             do {
                 size_t take = strlen(text);
-                char part[43]; snprintf(part,sizeof(part),"%s",text);
+                char part[UPDATE_LINE]; snprintf(part,sizeof(part),"%s",text); /* tloz-tmc-ua */
                 while (take && UpdateBodyWidth(part,UpdateUaNotesFont(notes))>354) part[--take]=0; /* tloz-tmc-ua */
                 if (take<strlen(text)) {
                     char* space = strrchr(part,' ');
                     if (space && space!=part) { take = space-part; part[take]=0; }
                 }
+                while (take && ((unsigned char)text[take] & 0xC0) == 0x80) part[--take]=0; /* tloz-tmc-ua */
                 if (!take && *text) { take=1; part[0]=*text; part[1]=0; }
-                snprintf(lines[count++],43,"%s",part);
+                snprintf(lines[count++],sizeof(lines[0]),"%s",part); /* tloz-tmc-ua */
                 text += take; while (*text==' ') ++text;
             } while (*text && count<512);
         }

@@ -680,7 +680,8 @@ static void DrawPanelHeaderChip(const SSurf* s, float cx, float topY, const char
                                 float u) {
     int32_t tw = MenuTextWidth(title, ms);
     float h = MENU_TEXT_BOX * ms + 24 * u;
-    float x0 = cx - tw / 2.0f - 24 * u, x1 = cx + tw / 2.0f + 24 * u;
+    float pad = 24 * u + Port_UA_ChipPad(u); /* tloz-tmc-ua */
+    float x0 = cx - tw / 2.0f - pad, x1 = cx + tw / 2.0f + pad;
     int32_t cts = (int32_t)(h / 26.0f);
     if (cts < 1) cts = 1;
     Port_SecondScreenTheme_DrawChip(s->px, s->w, s->h, s->stride, (int32_t)x0, (int32_t)topY,
@@ -2023,7 +2024,7 @@ static void DrawSettingsValueRow(const SSurf* s, TargetList* tl, float x0, float
     float cw = MenuTextWidth(val, ms);
     float cwMin = MenuTextWidth(SettingValueMinWord(setting), ms);
     if (cw < cwMin) cw = cwMin;
-    cw += 20 * u;
+    cw += 20 * u + 2 * Port_UA_ChipPad(u); /* tloz-tmc-ua */
     float cx1 = x1 - 10 * u, cx0 = cx1 - cw;
     float cy0 = (y0 + y1 - ch) / 2;
     int32_t cts = (int32_t)(ch / 24.0f);

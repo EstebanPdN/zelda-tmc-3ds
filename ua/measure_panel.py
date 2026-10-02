@@ -4,8 +4,9 @@ tloz-tmc-ua: measure the Ukrainian panel strings with the real banner font.
 
 The Ukrainian banner font is wider than the English one. Buttons and value
 chips adapt, but settings rows (label + value), developer rows and dialog lines
-are drawn at a fixed scale, so their Ukrainian text must not be wider than the
-English text the port was laid out for. This script reports what overflows.
+are drawn at a fixed scale, so their Ukrainian text must fit the row
+(settings) or the English text the port was laid out for (developer rows,
+dialogs). This script reports what overflows.
 
     python3 ua/measure_panel.py --ua-rom tmc-ua-port.gba --en-rom baserom.gba
 
@@ -45,6 +46,10 @@ DIALOGS = [
      "DELETED. THE ROM IS KEPT.", "THE GAME WILL RESTART."],
 ]
 DEVELOPER_BUDGET = 200  # px at scale 1; verified on hardware screenshots
+# settings row (3DS, scale 1): row 285 px wide (PaintSettingsPanel), label at +6,
+# chip 3.3 px from the right edge with 20u + 2 * Port_UA_ChipPad (10.7 px) of
+# padding, and an 8 px gap between label and chip -> label + value <= 257.
+SETTINGS_BUDGET = 257
 
 
 def bank8(rom):
@@ -104,7 +109,7 @@ def main():
         return width(en_rom, s.encode())
 
     problems = []
-    budget = max(en(l) + max(en(v) for v in vs) for l, vs in SETTINGS.items())
+    budget = SETTINGS_BUDGET
     for l, vs in SETTINGS.items():
         w = ua[l] + max(ua[v] for v in vs)
         if w > budget:

@@ -19,5 +19,5 @@ bool Update_ValidVersion(const char *version);
 bool Update_AllowedDownloadUrl(const char *url);
 
 unsigned Update_FormatNotes(const char *markdown, char lines[][43], unsigned capacity);
-unsigned Update_FormatNotesUtf8(const char *markdown, char lines[][43], unsigned capacity,
-                                bool utf8); // tloz-tmc-ua
+unsigned Update_FormatNotesUtf8(const char *markdown, char *lines, size_t lineSize,
+                                size_t maxTake, unsigned capacity, bool utf8); // tloz-tmc-ua

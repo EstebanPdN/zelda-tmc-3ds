@@ -87,8 +87,8 @@ static const PortUaPanelEntry kPortUaStrings[] = {
     { "ASPECT RATIO", "СПІВВІДНОШЕННЯ" },
     { "DISPLAY STYLE", "ФІЛЬТР" },
     /* settings values */
-    { "ON", "УВІМК" },
-    { "OFF", "ВИМК" },
+    { "ON", "УВІМКНЕНО" },
+    { "OFF", "ВИМКНЕНО" },
     { "SHOW", "ПОКАЗАТИ" },
     { "HIDE", "СХОВАТИ" },
     { "PATTERN", "ВІЗЕРУНОК" },
@@ -100,7 +100,7 @@ static const PortUaPanelEntry kPortUaStrings[] = {
     { "NAVY", "СИНЄ" },
     { "WIDE", "ШИРОКИЙ" },
     { "ORIGINAL", "ОРИГІНАЛ" },
-    { "STRETCH", "РОЗТЯГ" },
+    { "STRETCH", "РОЗТЯГНУТО" },
     { "NATIVE", "РІДНИЙ" },
     { "BLUR", "РОЗМИТТЯ" },
     { "BILINEAR", "БІЛІНІЙНИЙ" },
@@ -192,7 +192,7 @@ static const PortUaPanelEntry kPortUaStrings[] = {
  * "CHANNEL: STABLE", "CHANGELOG V2.1", the wrapped lines of the built-in
  * update text). Looked up without surrounding punctuation. */
 static const PortUaPanelEntry kPortUaWords[] = {
-    { "PAGE", "СТОР." },     { "OF", "З" },            { "CHANNEL", "КАНАЛ" },
+    { "PAGE", "СТОР." },     { "OF", "ІЗ" }, /* a lone З reads as 3 in the banner font */            { "CHANNEL", "КАНАЛ" },
     { "STABLE", "СТАБІЛЬНИЙ" }, { "PRE-RELEASE", "ПЕРЕДРЕЛІЗ" }, { "CHANGELOG", "ЗМІНИ" },
     { "INSTALLED", "ВСТАНОВЛЕНО" }, { "SELECT", "ОБЕРІТЬ" }, { "A", "" },
     { "RELEASE", "РЕЛІЗ" },  { "BELOW", "НИЖЧЕ" },     { "TO", "ЩОБ" },

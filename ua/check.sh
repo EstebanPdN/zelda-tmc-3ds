@@ -19,7 +19,7 @@ grep -q 'Port_UA_JapaneseSubtitle(this)' src/object/japaneseSubtitle.c || fail "
 grep -q 'Port_UA_KinstoneFuserName' src/menu/kinstoneMenu.c || fail "kinstoneMenu.c lost the Port_UA_KinstoneFuserName hook"
 grep -q 'Port_UA_KinstoneHeaderX' src/menu/pauseMenu.c || fail "pauseMenu.c lost the Port_UA_KinstoneHeaderX hook"
 grep -q 'Port_UA_SplashPath' platform/3ds/source/platform_3ds.c || fail "platform_3ds.c lost the Port_UA_SplashPath() splash hook"
-grep -q 'Update_FormatNotesUtf8(body,formatted,512,Port_IsUkrainianRom())' platform/3ds/source/update_ui_3ds.inc || fail "update_ui_3ds.inc lost the Cyrillic changelog hook"
+grep -qF 'Update_FormatNotesUtf8(body,&formatted[0][0],UPDATE_LINE' platform/3ds/source/update_ui_3ds.inc || fail "update_ui_3ds.inc lost the Cyrillic changelog hook"
 grep -q 'UpdateBodyText(&s,lines\[i\]' platform/3ds/source/update_ui_3ds.inc || fail "update_ui_3ds.inc lost the message-font changelog hook"
 grep -q 'Port_UA_QuestTabExtra' port/port_second_screen.c || fail "port_second_screen.c lost the wider СТАТИСТИКА tab hook"
 grep -q 'splash-ua.rgb565' platform/3ds/CMakeLists.txt || fail "platform/3ds/CMakeLists.txt no longer copies romfs/splash-ua.rgb565"
@@ -50,7 +50,7 @@ ${CC:-gcc} -std=gnu11 -O1 -w -include region.h $DEFS $INC ua/test_panel_text.c -
 printf 'BACK\nPAGE 2 OF 5\nCHANNEL: STABLE\nNEW 3DS\n' | "$OUT/test_panel_text" big > "$OUT/big.txt"
 printf 'Version v2.1\n' | "$OUT/test_panel_text" small > "$OUT/small.txt"
 grep -q '^BACK	52414a4146$' "$OUT/big.txt" || fail "BACK should encode as НАЗАД (52414a4146), got: $(grep '^BACK' "$OUT/big.txt")"
-grep -q '^PAGE 2 OF 5	565753552e2032204a2035$' "$OUT/big.txt" || fail "PAGE 2 OF 5 should encode as СТОР. 2 З 5"
+grep -q '^PAGE 2 OF 5	565753552e2032204c4a2035$' "$OUT/big.txt" || fail "PAGE 2 OF 5 should encode as СТОР. 2 ІЗ 5"
 grep -q '^CHANNEL: STABLE	4f415241503a20565741424c50c7524b4e$' "$OUT/big.txt" || fail "CHANNEL: STABLE word translation broke"
 grep -q '^NEW 3DS	5253434120334656$' "$OUT/big.txt" || fail "NEW 3DS whole-string translation broke"
 grep -q '^Version v2.1	8c67f4f66c737420f9322e31$' "$OUT/small.txt" || fail "Latin fallback for the message font broke"
@@ -75,12 +75,12 @@ if echo '#include <jansson.h>' | ${CC:-gcc} -E -x c - >/dev/null 2>&1; then
 #include <string.h>
 #include "update_manifest.h"
 int main(void) {
-    static char lines[16][43];
+    static char lines[16][43], wide[8][129];
     const char* ua = "Українська збірка порту на основі офіційної версії";
     unsigned n = Update_FormatNotes(ua, lines, 16);
     for (unsigned i = 0; i < n; i++)
         for (const char* c = lines[i]; *c; c++) if ((unsigned char)*c >= 0x80) return puts("ASCII mode must drop Cyrillic"), 1;
-    n = Update_FormatNotesUtf8(ua, lines, 16, true);
+    n = Update_FormatNotesUtf8(ua, &lines[0][0], 43, 42, 16, true);
     char joined[256] = "";
     for (unsigned i = 0; i < n; i++) {
         size_t len = strlen(lines[i]);
@@ -89,8 +89,10 @@ int main(void) {
         strcat(joined, lines[i]);
     }
     if (strcmp(joined, ua)) return printf("lost text: %s\n", joined), 1;
-    n = Update_FormatNotesUtf8("ААААААААААААААААААААААААААААААААААААААААААААААААА", lines, 16, true);
+    n = Update_FormatNotesUtf8("ААААААААААААААААААААААААААААААААААААААААААААААААА", &lines[0][0], 43, 42, 16, true);
     for (unsigned i = 0; i < n; i++) if (strlen(lines[i]) % 2) return puts("split UTF-8 without spaces"), 1;
+    if (Update_FormatNotesUtf8(ua, &wide[0][0], 129, 128, 8, true) != 1 || strcmp(wide[0], ua))
+        return puts("wide rows must hold a whole Cyrillic line"), 1;
     return 0;
 }
 C

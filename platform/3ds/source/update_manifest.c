@@ -101,11 +101,15 @@ int Update_ParseRelease(const char *data, size_t size, bool pre, bool homebrew, 
 // Plain-text, word-wrapped release body for a 42-column handheld display.
 // Image/link destinations and Markdown markers are presentation, never actions.
 unsigned Update_FormatNotes(const char *md, char lines[][43], unsigned capacity) {
-  return Update_FormatNotesUtf8(md, lines, capacity, false);
+  return Update_FormatNotesUtf8(md, &lines[0][0], 43, 42, capacity, false);
 }
 // tloz-tmc-ua: utf8 keeps non-ASCII bytes (the Ukrainian panel font can draw
-// Cyrillic) and never splits a UTF-8 sequence when wrapping.
-unsigned Update_FormatNotesUtf8(const char *md, char lines[][43], unsigned capacity, bool utf8) {
+// Cyrillic) and never splits a UTF-8 sequence when wrapping. lineSize is the
+// byte size of one row of `out`, maxTake (< lineSize) the wrap width in bytes:
+// upstream uses 43/42, Cyrillic needs two bytes a letter.
+unsigned Update_FormatNotesUtf8(const char *md, char *out, size_t lineSize, size_t maxTake,
+                                unsigned capacity, bool utf8) {
+#define lines(i) (out + (size_t)(i) * lineSize)
   char clean[12289]; size_t n = 0;
   // TMC release bodies start with an experimental notice and QR. The handheld
   // changelog begins at the explicitly labelled section when one is present.
@@ -134,19 +138,20 @@ unsigned Update_FormatNotesUtf8(const char *md, char lines[][43], unsigned capac
   clean[n] = 0;
   unsigned count = 0; const char *p = clean;
   while (*p && count < capacity) {
-    while (*p == ' ' || (*p == '\n' && (!count || !lines[count-1][0]))) p++;
+    while (*p == ' ' || (*p == '\n' && (!count || !lines(count-1)[0]))) p++;
     if (!*p) break;
     const char *end = strchr(p, '\n'); if (!end) end = p + strlen(p);
     size_t take = end-p;
-    if (take > 42) {
-      take = 42;
+    if (take > maxTake) {
+      take = maxTake;
       while (take && p[take] != ' ') take--;
-      if (!take) take = 42;
+      if (!take) take = maxTake;
       while (utf8 && take > 1 && ((unsigned char)p[take] & 0xC0) == 0x80) take--; // tloz-tmc-ua
     }
-    memcpy(lines[count], p, take); lines[count++][take] = 0;
+    memcpy(lines(count), p, take); lines(count)[take] = 0; count++;
     p += take; if (*p == '\n') p++;
   }
-  if (!count && capacity) { strcpy(lines[0], "No changelog provided."); count = 1; }
+  if (!count && capacity) { strcpy(lines(0), "No changelog provided."); count = 1; }
   return count;
+#undef lines
 }

@@ -48,6 +48,17 @@ static inline float Port_UA_QuestTabExtra(float u) {
 }
 
 /**
+ * Red/dark name chips (panel headers, settings values), see
+ * port/port_second_screen.c DrawPanelHeaderChip() / DrawSettingsValueRow().
+ * The Ukrainian banner letters are wider and bolder than the English ones and
+ * touch the chip rim at the upstream padding; give them 6u (2 px on 3DS) more
+ * on each side.
+ */
+static inline float Port_UA_ChipPad(float u) {
+    return Port_IsUkrainianRom() ? 6.0f * u : 0.0f;
+}
+
+/**
  * GAME OVER screen ("КІНЕЦЬ ГРИ"), see src/gameOverTask.c DrawGameOverText().
  *
  * The Ukrainian ROM redraws the eight letter sprites of "GAME OVER" (sprite
