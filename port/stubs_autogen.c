@@ -5,6 +5,7 @@
 #include "entity.h"
 #include "port_config.h"
 #include "port_gba_mem.h"
+#include "port_rom.h"
 #include "port_types.h"
 #include "player.h"
 #include "projectile.h"
@@ -246,52 +247,22 @@ u32 CalcCollisionStaticEntity(Entity* target, Entity* origin) {
 /* GetCollisionDataRelativeTo -- implemented in port_linked_stubs.c */
 /* GetFacingDirection -- implemented in port_linked_stubs.c */
 static u64 GetFuserData(Entity* entity) {
-    static const u32 sEntityTypeBitmasks[4] = {
-        0x00FFFFFF, /* id + type + type2 must match */
-        0x00FFFF00, /* id + type must match */
-        0x00FF00FF, /* id + type2 must match */
-        0x00FF0000, /* id only */
-    };
-    const u8* table;
-    const u8* entry;
-    u32 key;
+    u32 tableOffset;
 
     if (entity == NULL) {
         return 0;
     }
 
     if (entity->kind == ENEMY) {
-        table = gRomOffsets && gRomOffsets->fuserEnemyData
-                    ? (const u8*)port_resolve_addr(0x08000000u | gRomOffsets->fuserEnemyData)
-                    : NULL;
+        tableOffset = gRomOffsets != NULL ? gRomOffsets->fuserEnemyData : 0;
     } else if (entity->kind == NPC) {
-        table = gRomOffsets && gRomOffsets->fuserNpcData
-                    ? (const u8*)port_resolve_addr(0x08000000u | gRomOffsets->fuserNpcData)
-                    : NULL;
+        tableOffset = gRomOffsets != NULL ? gRomOffsets->fuserNpcData : 0;
     } else {
         return 0;
     }
 
-    if (table == NULL) {
-        return 0;
-    }
-
-    key = ((u32)entity->id << 16) | ((u32)entity->type << 8) | entity->type2;
-    entry = table + 6; /* asm starts by pre-incrementing to the first real entry */
-
-    while (entry[0] != 0) {
-        u32 entryKey = ((u32)entry[0] << 16) | ((u32)entry[1] << 8) | entry[2];
-        u32 maskIndex = ((entry[1] == 0xFF) ? 2 : 0) | ((entry[2] == 0xFF) ? 1 : 0);
-        u32 mask = sEntityTypeBitmasks[maskIndex];
-        if ((key & mask) == (entryKey & mask)) {
-            u32 fuserId = entry[3];
-            u32 textId = (u32)entry[4] | ((u32)entry[5] << 8);
-            return ((u64)textId << 32) | fuserId;
-        }
-        entry += 6;
-    }
-
-    return 0;
+    return Port_FindEntityFuserDataFromRom(gRomData, gRomSize, tableOffset, entity->id, entity->type,
+                                           entity->type2);
 }
 
 u32 GetFuserId(Entity* entity) {

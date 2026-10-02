@@ -1,8 +1,12 @@
 #include "entity.h"
 #include "definitions.h"
+#include "projectile.h"
 #include "vram.h"
 #include "room.h"
 #include "color.h"
+#ifdef PC_PORT
+#include "port_rom.h"
+#endif
 
 extern const ProjectileDefinition gProjectileDefinitions[];
 #ifdef MULTI_REGION
@@ -54,6 +58,15 @@ bool32 ProjectileInit(Entity* this) {
             COLLISION_ON(this);
         }
         this->spriteIndex = definition->spriteIndex;
+#ifdef PC_PORT
+        /* These two shared definition tables are compiled from the USA
+         * Sprites enum.  Convert once when materializing the entity; the
+         * animation, geometry, affine and extra-offset APIs all consume the
+         * resulting active-ROM-native index. */
+        if (this->id == ARROW_PROJECTILE || this->id == SPIKED_ROLLERS) {
+            this->spriteIndex = Port_RemapSpriteIndex(this->spriteIndex);
+        }
+#endif
         if (this->spriteSettings.draw == 0) {
             this->spriteSettings.draw = definition->spriteFlags.draw;
         }

@@ -517,7 +517,7 @@ const RomOffsets kRomOffsets_USA = {
     .objPalettesCount = 360,
     .frameObjListsSize = 200045,
     .fixedTypeGfxCount = 527,
-    .spritePtrsCount = 329,
+    .spritePtrsCount = PORT_USA_SPRITE_PTR_COUNT,
     .expectedRomSize = 0x1000000,
     .gameCode = "BZME",
 };
@@ -586,7 +586,8 @@ const RomOffsets kRomOffsets_EU = {
     .objPalettesCount = 360,
     .frameObjListsSize = 200045,
     .fixedTypeGfxCount = 527,
-    .spritePtrsCount = 329,
+    /* EU omits USA-only SPRITE_OBJECTB4_1 (index 288). */
+    .spritePtrsCount = PORT_EU_SPRITE_PTR_COUNT,
     .expectedRomSize = 0x1000000,
     .gameCode = "BZMP",
 };
@@ -666,7 +667,7 @@ const RomOffsets kRomOffsets_JP = {
     .objPalettesCount = 360,
     .frameObjListsSize = 200045,
     .fixedTypeGfxCount = 527,
-    .spritePtrsCount = 329,
+    .spritePtrsCount = PORT_USA_SPRITE_PTR_COUNT,
     .expectedRomSize = 0x1000000,
     .gameCode = "BZMJ",
 };
@@ -1072,7 +1073,8 @@ void* Port_GetFuserFusionData(u32 fuserId) {
     if (gRomOffsets == NULL) {
         return NULL;
     }
-    return (void*)Port_ResolveFuserDataFromRom(gRomData, gRomSize, gRomOffsets->fuserFusionPtrs, fuserId, 6u);
+    return (void*)Port_ResolveFuserDataFromRom(gRomData, gRomSize, gRomOffsets->fuserFusionPtrs, fuserId,
+                                               PORT_FUSER_FUSION_RECORD_BYTES);
 }
 
 static void* Port_ResolveAreaFirstLevelTable(u32 tableOffset, u32 area) {
@@ -1219,7 +1221,7 @@ const SpritePtr* Port_GetSpritePtr(u16 sprite_idx) {
 }
 
 u16 Port_RemapSpriteIndex(u16 sprite_idx) {
-    return Port_RemapFixedUiSpriteIndexForRegion(gRomRegion, sprite_idx);
+    return Port_RemapLogicalSpriteIndexForRegion(gRomRegion, sprite_idx);
 }
 
 /*

@@ -36,6 +36,9 @@
 #include "subtask.h"
 #include "transitions.h"
 #include "ui.h"
+#ifdef PC_PORT
+#include "port_widescreen.h"
+#endif
 
 // Game task
 
@@ -155,6 +158,12 @@ static void GameTask_Main(void) {
         0,
         GameMain_Subtask,
     };
+#ifdef PC_PORT
+    /* Reconcile a config/task/transition change before this tick produces
+     * any world or UI geometry. UpdateScroll repeats the check after entity
+     * logic for transitions that begin during the tick. */
+    (void)Port_Widescreen_PrepareGameplayCamera();
+#endif
     sStates[gMain.substate]();
 }
 
@@ -330,6 +339,13 @@ static void GameMain_Update(void) {
     DrawUI();
     UpdateManagers();
 #ifdef PC_PORT
+    /* Managers can enable a native window/message after UpdateScroll. If
+     * that changes Full View's target, rebuild the map/HUD geometry before
+     * emitting OAM so the fallback frame is internally coherent. */
+    if (Port_Widescreen_PrepareGameplayCamera()) {
+        UpdateScrollVram();
+        Port_UI_PrepareGameplayGeometry();
+    }
     DrawUIElementsGameplay();
 #else
     DrawUIElements();

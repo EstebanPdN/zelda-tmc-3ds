@@ -16,7 +16,7 @@
  *       -o /tmp/ppu_bench -lm
  *
  * Run:
- *   /tmp/ppu_bench /tmp/tmc_ppu_snapshot.bin [iterations]
+ *   /tmp/ppu_bench /tmp/tmc_ppu_snapshot.bin [iterations] [old3ds-profile]
  */
 
 #include <stdio.h>
@@ -88,6 +88,7 @@ static int load_snapshot(const char* path) {
 int main(int argc, char** argv) {
     const char* path = argc > 1 ? argv[1] : "/tmp/tmc_ppu_snapshot.bin";
     int iters = argc > 2 ? atoi(argv[2]) : 2000;
+    const int old3ds_profile = argc > 3 ? atoi(argv[3]) != 0 : 0;
     if (iters < 1)
         iters = 1;
     if (!load_snapshot(path))
@@ -95,6 +96,7 @@ int main(int argc, char** argv) {
 
     VirtuaPPUMode1GbaMemory mem = { s_io, s_vram, s_bgpal, s_objpal, s_oam };
     virtuappu_mode1_bind_gba_memory(&mem);
+    virtuappu_mode1_set_old3ds_profile(old3ds_profile != 0);
     virtuappu_mode1_pre_line_callback = NULL;
 
     uint16_t dispcnt = (uint16_t)(s_io[0] | (s_io[1] << 8));
@@ -109,8 +111,9 @@ int main(int argc, char** argv) {
     int maxthreads = 1;
 #endif
 
-    printf("snapshot: dispcnt=0x%04x  BG0=%d BG1=%d BG2=%d BG3=%d OBJ=%d  width=%d  iters=%d\n", dispcnt, bg_on[0],
-           bg_on[1], bg_on[2], bg_on[3], obj_on, MODE1_GBA_WIDTH, iters);
+    printf("snapshot: dispcnt=0x%04x  BG0=%d BG1=%d BG2=%d BG3=%d OBJ=%d  width=%d  iters=%d  old3ds=%d\n",
+           dispcnt, bg_on[0], bg_on[1], bg_on[2], bg_on[3], obj_on,
+           MODE1_GBA_WIDTH, iters, old3ds_profile);
 
     /* render_frame dereferences ppu->mode (mode1/mode2 merge); build a real
      * PPUMemory from the snapshot dispcnt (BG mode = low 3 bits) at native

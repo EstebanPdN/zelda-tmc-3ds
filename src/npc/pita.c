@@ -84,8 +84,8 @@ bool32 sub_08062EDC(Entity* this, ScriptExecutionContext* context) {
     if (GetInventoryValue(ITEM_CAKE) != 0) {
         tmp = 3;
     }
-    if (CheckLocalFlag(SHOP03_PAN_1ST) == 0) {
-        SetLocalFlag(SHOP03_PAN_1ST);
+    if (CheckLocalFlagB(SHOP03_PAN_1ST) == 0) {
+        SetLocalFlagB(SHOP03_PAN_1ST);
         tmp = 4;
     }
     if ((Random() & 0xff) > chanceForPrize[tmp]) {

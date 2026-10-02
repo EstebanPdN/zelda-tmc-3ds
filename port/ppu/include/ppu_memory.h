@@ -16,6 +16,8 @@
 typedef struct PPUMemory {
     /* Visible pixels per scanline. Rendering loops cull to this width. */
     uint16_t frame_width;
+    /* Visible scanlines. Zero retains the GBA-native 160-line viewport. */
+    uint16_t frame_height;
     /* Pixels between row starts in virtuappu_frame_buffer. A value of 0
      * means tightly packed rows (`frame_width`). Kept separate so ports can
      * render a 240-wide viewport into a wider fixed-pitch buffer. */

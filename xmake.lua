@@ -797,6 +797,7 @@ target("tmc_pc")
     add_files("port/port_icon.cpp")     -- SDL window icon (placeholder, ROM-extracted in future)
     add_files("port/port_mods.cpp")     -- Tier 1 mod loader: asset overrides from <exe>/mods/
     add_files("port/port_rom.c")        -- ROM loading & symbol resolution
+    add_files("port/port_region_data.c") -- USA-compiled data -> active-region data provenance resolver
         -- PC port stubs for undefined symbols
     add_files("port/port_stubs.c")
     add_files("port/stubs_autogen.c")
@@ -1141,6 +1142,31 @@ target_end()
 
 
 -- ====================
+-- Deepwood rolling-barrel doorway HDMA lifecycle regression test.
+-- ====================
+target("rolling_barrel_transition_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_includedirs("build/USA")
+    add_defines("PC_PORT", "USA", "ENGLISH", "PORT_ROLLING_BARREL_TRANSITION_TEST")
+    add_cflags("-ffunction-sections")
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/port_rolling_barrel_transition_test.c")
+    add_files("port/port_hdma.c")
+    add_files("src/common.c")
+    add_files("src/manager/rollingBarrelManager.c")
+target_end()
+
+
+-- ====================
 -- Multi-region language-slot regression test.
 -- ====================
 target("region_language_test")
@@ -1167,6 +1193,371 @@ target("region_runtime_data_test")
     add_includedirs("include")
     add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
     add_files("port/port_region_runtime_data_test.c")
+    add_files("port/port_offset_remap.c")
+target_end()
+
+
+-- ====================
+-- Retail Object70 doorway/swamp head-overlay priority regression test.
+-- ====================
+target("object70_overlay_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections")
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/port_object70_overlay_test.c")
+    add_files("src/object/object70.c")
+target_end()
+
+
+-- ====================
+-- EU sprite-table hole + byte-exact production OAM regression test.
+-- ====================
+target("sprite_region_oam_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_includedirs("port/ppu/include")
+    add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections")
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/port_sprite_region_oam_test.c")
+    add_files("port/port_draw.c")
+    add_files("src/enemyUtils.c")
+    add_files("src/projectileUtils.c")
+target_end()
+
+
+-- ====================
+-- ROM-backed raw gfx-group EWRAM alias regression test.
+-- ====================
+target("gfx_group_dma_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_files("port/port_gfx_group_dma_test.c")
+target_end()
+
+
+-- ====================
+-- Hidden-HUD second-screen charge-meter regression test.
+-- ====================
+target("second_screen_charge_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_packages("libsdl3")
+    add_defines("PORT_SECOND_SCREEN_TEST")
+    add_cflags("-ffunction-sections", "-fdata-sections")
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/port_second_screen_charge_test.c")
+    add_files("port/port_second_screen.c")
+target_end()
+
+
+-- ====================
+-- Bottom-screen Kinstone OBJ-footprint regression test (NEW-4d).
+-- ====================
+target("second_screen_kinstone_layout_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH", "PORT_SECOND_SCREEN_QUEST_TEST")
+    add_cflags("-ffunction-sections", "-fdata-sections")
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/port_second_screen_kinstone_layout_test.c")
+    add_files("port/port_second_screen_quest.c")
+target_end()
+
+
+-- ====================
+-- Exact Kinstone report / E1 EU fuser-migration regression fixtures.
+-- ====================
+target("kinstone_report_fixtures_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
+    add_files("port/port_kinstone_report_fixtures_test.c")
+target_end()
+
+
+-- ====================
+-- Enter-room banner widescreen lifecycle regression test.
+-- ====================
+target("widescreen_banner_state_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs("port")
+    add_files("port/port_widescreen_banner_state_test.c")
+target_end()
+
+
+-- ====================
+-- Pullable-mushroom transactional allocation regression test.
+-- ====================
+target("pullable_mushroom_allocation_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections")
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/pullable_mushroom_allocation_test.c")
+    add_files("src/object/pullableMushroom.c")
+target_end()
+
+
+-- ====================
+-- Transition-time enemy-target null-safety regression test.
+-- ====================
+target("enemy_target_null_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections")
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/port_enemy_target_null_test.c")
+    add_files("src/enemyUpdate.c")
+target_end()
+
+
+-- ====================
+-- Delayed scripted-entity transactional spawn regression test.
+-- ====================
+target("delayed_entity_script_slot_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections")
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/port_delayed_entity_script_slot_test.c")
+    add_files("src/manager/delayedEntityLoadManager.c")
+target_end()
+
+
+-- ====================
+-- Semantic flag remap fail-closed runtime regression test.
+-- ====================
+target("flag_runtime_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
+    add_files("src/flags.c")
+    add_files("port/flag_remap_generated.c")
+    add_files("port/port_flag_runtime_test.c")
+target_end()
+
+
+-- ====================
+-- Compiled-USA Dialog local-flag provenance regression test.
+-- ====================
+target("dialog_region_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections")
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("src/npcUtils.c")
+    add_files("port/port_dialog_region_test.c")
+target_end()
+
+
+-- ====================
+-- Compiled-USA -> region-native entity/tile data regression test.
+-- ====================
+target("region_data_resolver_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
+    add_files("port/port_region_data_test.c")
+    add_files("port/port_region_data.c")
+target_end()
+
+
+-- ====================
+-- Cloud Tops EU/JP fight flag parity regression test.
+-- ====================
+target("cloud_tops_fight_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "TMC_3DS", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections")
+    if has_config("pc_sanitize") then
+        add_cflags("-fsanitize=address,undefined", "-fno-omit-frame-pointer", "-fno-sanitize-recover=all")
+        add_ldflags("-fsanitize=address,undefined", {force = true})
+    end
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/port_cloud_tops_fight_test.c")
+    add_files("port/port_cloud_tops_fight.c")
+target_end()
+
+
+-- ====================
+-- USA/EU Vaati progression invariant and one-shot repair regression test.
+-- ====================
+target("vaati_progress_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "TMC_3DS", "USA", "ENGLISH")
+    add_files("port/port_vaati_progress_test.c")
+    add_files("port/port_vaati_progress.c")
+target_end()
+
+
+-- ====================
+-- Spiked-roller signed-range trajectory regression test.
+-- ====================
+target("spiked_rollers_motion_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections")
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/port_spiked_rollers_motion_test.c")
+    add_files("src/projectile/spikedRollers.c")
+target_end()
+
+
+-- ====================
+-- Gleerok affine-flame geometry and last-damage quick-dump diagnostics.
+-- ====================
+target("gleerok_fire_hitbox_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections")
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/port_gleerok_fire_hitbox_test.c")
+    add_files("src/object/gleerokParticle.c")
+    add_files("src/collision.c")
+target_end()
+
+
+-- ====================
+-- Bow Moblin arrow direction table and exact retail collision boundaries.
+-- ====================
+target("arrow_projectile_hitbox_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections", "-fdata-sections")
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/port_arrow_projectile_hitbox_test.c")
+    add_files("src/projectile/arrowProjectile.c")
+    add_files("src/playerHitbox.c")
+    add_files("src/collision.c")
 target_end()
 
 
@@ -1182,6 +1573,93 @@ target("save_layout_test")
     add_includedirs("include")
     add_defines("PC_PORT", "USA", "ENGLISH")
     add_files("port/port_save_layout_test.c")
+target_end()
+
+
+-- ====================
+-- Fail-closed raw EEPROM persistence and interrupted-write recovery test.
+-- ====================
+target("save_persistence_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "TMC_3DS", "PORT_SAVE_TEST", "USA", "ENGLISH")
+    add_files("port/port_save.c")
+    add_files("port/port_save_persistence_test.c")
+target_end()
+
+
+-- ====================
+-- End-to-end E1 raw-profile migration through production ReadSaveFile.
+-- ====================
+target("save_migration_integration_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "TMC_3DS", "PORT_SAVE_TEST", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections", "-fdata-sections")
+    if has_config("pc_sanitize") then
+        add_cflags("-fsanitize=address,undefined", "-fno-omit-frame-pointer", "-fno-sanitize-recover=all")
+        add_ldflags("-fsanitize=address,undefined", {force = true})
+    end
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/port_save.c")
+    add_files("src/save.c")
+    add_files("port/port_save_migration_integration_test.c")
+target_end()
+
+
+-- ====================
+-- End-to-end E1 EU Kinstone repair through production GetFusionToOffer.
+-- ====================
+target("kinstone_integration_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_includedirs("build/USA")
+    add_defines("PC_PORT", "MULTI_REGION", "TMC_3DS", "PORT_SAVE_TEST", "USA", "ENGLISH")
+    add_cflags("-ffunction-sections", "-fdata-sections")
+    if has_config("pc_sanitize") then
+        add_cflags("-fsanitize=address,undefined", "-fno-omit-frame-pointer", "-fno-sanitize-recover=all")
+        add_ldflags("-fsanitize=address,undefined", {force = true})
+    end
+    if is_plat("macosx") then
+        add_ldflags("-Wl,-dead_strip")
+    else
+        add_ldflags("-Wl,--gc-sections")
+    end
+    add_files("port/port_save.c")
+    add_files("src/common.c")
+    add_files("port/port_kinstone_integration_test.c")
+target_end()
+
+
+-- ====================
+-- Story invariant, regional fusion-marker, and bounded fuser-data test.
+-- ====================
+target("save_story_region_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs(".")
+    add_includedirs("port")
+    add_includedirs("include")
+    add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
+    add_files("port/flag_remap_generated.c")
+    add_files("port/port_save_story_region_test.c")
 target_end()
 
 
@@ -1349,6 +1827,28 @@ target("mode1_native_fast_path_test")
     add_includedirs("port/ppu/include")
     add_defines("VIRTUAPPU_TESTING", "MODE1_GBA_WIDTH=266")
     add_files("port/ppu/tests/mode1_native_fast_path_test.c")
+    add_files("port/ppu/src/mode1.c")
+    add_syslinks("m")
+target_end()
+
+target("mode1_full_view_fast_path_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs("port/ppu/include")
+    add_defines("VIRTUAPPU_TESTING", "MODE1_GBA_WIDTH=400", "MODE1_GBA_HEIGHT=240")
+    add_files("port/ppu/tests/mode1_native_fast_path_test.c")
+    add_files("port/ppu/src/mode1.c")
+    add_syslinks("m")
+target_end()
+
+target("mode1_draw_order_profile_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs("port/ppu/include")
+    add_defines("VIRTUAPPU_TESTING", "MODE1_GBA_WIDTH=266")
+    add_files("port/ppu/tests/mode1_draw_order_profile_test.c")
     add_files("port/ppu/src/mode1.c")
     add_syslinks("m")
 target_end()

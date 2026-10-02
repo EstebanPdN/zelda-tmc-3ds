@@ -708,6 +708,39 @@ static void DrawAmmoCount(const SSurf* s, int32_t x, int32_t y, int32_t scale, u
     BlitSprite(s, ones, x + 8 * scale, y, scale);
 }
 
+/* One production path for both item-grid and equipped-ring counters.  The
+ * return value is intentionally observable by the host compositor test so
+ * a genuine zero-ammo badge cannot be confused with an unsupported item. */
+static int DrawItemAmmoCount(const SSurf* s, const SecondScreenSnapshot* snap, uint8_t itemId,
+                             int32_t x, int32_t y, int32_t scale) {
+    int16_t ammo = Port_SecondScreenItemAmmo(snap, itemId);
+    if (ammo < 0) {
+        return 0;
+    }
+    DrawAmmoCount(s, x, y, scale, (uint32_t)ammo);
+    return 1;
+}
+
+#ifdef PORT_SECOND_SCREEN_TEST
+int Port_SecondScreen_TestPaintEquippedAmmo(uint32_t* pixels, int32_t width, int32_t height,
+                                            int32_t stride, const SecondScreenSnapshot* snap,
+                                            int32_t scale) {
+    SSurf s;
+    int painted;
+
+    if (pixels == NULL || snap == NULL || width <= 0 || height <= 0 || stride < width || scale < 1) {
+        return 0;
+    }
+    s.px = pixels;
+    s.w = width;
+    s.h = height;
+    s.stride = stride;
+    painted = DrawItemAmmoCount(&s, snap, snap->equippedA, 0, 0, scale);
+    painted += DrawItemAmmoCount(&s, snap, snap->equippedB, 20 * scale, 0, scale);
+    return painted;
+}
+#endif
+
 /* ------------------------------------------------------------------ */
 /*  Menu button (tab bar + R glyph plate)                              */
 /* ------------------------------------------------------------------ */
@@ -1500,13 +1533,8 @@ static void PaintItemsPanel(const SSurf* s, const SecondScreenSnapshot* snap, Ta
         Port_SecondScreenRender_DrawItemIcon(s->px, s->w, s->h, s->stride, iconX, iconY, iconScale, iconId);
 
         /* Ammo under bombs/bow — the HUD's own tiny digit pair. */
-        if (itemId == ITEMID_BOMBS || itemId == ITEMID_REMOTE_BOMBS) {
-            int32_t ss = (iconScale + 1) / 2;
-            DrawAmmoCount(s, iconX, cy1 - seam - 8 * ss, ss, snap->bombCount);
-        } else if (itemId == ITEMID_BOW || itemId == ITEMID_LIGHT_ARROW) {
-            int32_t ss = (iconScale + 1) / 2;
-            DrawAmmoCount(s, iconX, cy1 - seam - 8 * ss, ss, snap->arrowCount);
-        }
+        int32_t ss = (iconScale + 1) / 2;
+        DrawItemAmmoCount(s, snap, itemId, iconX, cy1 - seam - 8 * ss, ss);
 
         if (slot == snap->equippedSlotA || slot == snap->equippedSlotB) {
             bool isA = slot == snap->equippedSlotA;
@@ -2020,7 +2048,7 @@ static int GetSettingState(int row, char* out, int outCap) {
             return 1;
         case SS_SET_DISPLAY_STYLE:
             snprintf(out, (size_t)outCap, "%s", Port_Config_Get3DSDisplayStyleName());
-            return Port_Config_Get3DSDisplayStyle() != PORT_3DS_DISPLAY_SCALED;
+            return Port_Config_Get3DSDisplayStyle() != PORT_3DS_DISPLAY_BILINEAR;
 #endif
     }
     if (row != SS_SET_TOP_HUD) {
@@ -2206,6 +2234,18 @@ static void DrawItemRing(const SSurf* s, const SecondScreenSnapshot* snap, Targe
     FillRing(s, (int32_t)cx, (int32_t)cy, (int32_t)(r - 3 * u), (int32_t)(r - 4.5f * u), goldDim);
     FillRing(s, (int32_t)cx, (int32_t)cy, (int32_t)(r - 4.5f * u), (int32_t)(r - 6 * u), gold);
 
+    /* Keep the native HUD's bomb/arrow count attached to the equipped A/B
+     * item as well as to its item-grid cell.  At the 3DS' 320x240 layout a
+     * ring is only about forty pixels across, so the authentic 16x8 pair
+     * sits on the lower shoulder just as it overlays the top-HUD icon. */
+    {
+        int32_t ammoScale = (int32_t)(r / 24.0f);
+        if (ammoScale < 1) ammoScale = 1;
+        if (ammoScale > 4) ammoScale = 4;
+        DrawItemAmmoCount(s, snap, itemId, (int32_t)(cx - 8 * ammoScale),
+                          (int32_t)(cy + r - 8 * ammoScale - 2 * u), ammoScale);
+    }
+
     /* Button badge on the ring's top-right shoulder, sized to sit ON the
      * band rather than reach into the icon's space. */
     const SecondScreenThemeSprite* badge = Port_SecondScreenTheme_Get(isA ? SST_BUTTON_A : SST_BUTTON_B);
@@ -2298,6 +2338,60 @@ static void DrawRPrompt(const SSurf* s, const SecondScreenSnapshot* snap, float 
     }
 }
 
+/* Bottom-screen counterpart of the native ten-cell/forty-quarter sword
+ * charge meter.  It is intentionally present only while the gameplay HUD
+ * is hidden: with the HUD visible the original BG0 meter remains the source
+ * of truth.  Full-charge actions cycle through four brightness phases at
+ * the same 8/16-tick cadence as DrawChargeBar's action 4/5 artwork. */
+static void DrawChargeIndicator(const SSurf* s, const SecondScreenSnapshot* snap, float x, float y,
+                                float w, float bandH, float u, uint32_t tick) {
+    if (!Port_SecondScreenChargeVisible(snap)) {
+        return;
+    }
+
+    const int steps = Port_SecondScreenChargeSteps(snap);
+    /* Preserve the native meter's roughly 12:1 aspect.  At the 320x240 3DS
+     * scale this also leaves every cell at least four pixels wide, so a
+     * one-pixel rim never consumes its quarter-fill interior. */
+    float barW = 160 * u;
+    if (barW > w - 16 * u) barW = w - 16 * u;
+    float gap = u;
+    if (gap < 1) gap = 1;
+    float cellW = (barW - 9 * gap) / 10;
+    float barH = 14 * u;
+    if (barH < 5) barH = 5;
+    float bx = x + (w - barW) / 2;
+    float by = y + (bandH - barH) / 2;
+    int32_t rim = (int32_t)u;
+    if (rim < 1) rim = 1;
+
+    uint32_t ink = Port_SecondScreenTheme_Color(SSC_MENU_INK);
+    uint32_t empty = Port_SecondScreenTheme_Color(SSC_MENU_STONE_DARK);
+    uint32_t fill = Port_SecondScreenTheme_Color(SSC_GOLD);
+    if (snap->chargeAction == 4 || snap->chargeAction == 5) {
+        uint32_t cadence = snap->chargeAction == 4 ? 8u : 16u;
+        uint32_t phase = (tick / cadence) & 3u;
+        fill = MixColor(fill, Port_SecondScreenTheme_Color(SSC_MENU_WHITE), phase * 42u);
+    }
+
+    for (int cell = 0; cell < 10; cell++) {
+        int quarters = steps - cell * 4;
+        if (quarters < 0) quarters = 0;
+        if (quarters > 4) quarters = 4;
+        int32_t x0 = (int32_t)(bx + cell * (cellW + gap));
+        int32_t x1 = (int32_t)(bx + cell * (cellW + gap) + cellW);
+        int32_t y0 = (int32_t)by;
+        int32_t y1 = (int32_t)(by + barH);
+        FillRect(s, x0, y0, x1, y1, empty);
+        OutlineRect(s, x0, y0, x1, y1, rim, ink);
+        if (quarters != 0 && x1 - x0 > rim * 2 && y1 - y0 > rim * 2) {
+            int32_t innerW = x1 - x0 - rim * 2;
+            int32_t fillW = (innerW * quarters + 3) / 4;
+            FillRect(s, x0 + rim, y0 + rim, x0 + rim + fillW, y1 - rim, fill);
+        }
+    }
+}
+
 /* Sidebar, right edge: hearts on top (the most-glanced info), the R
  * prompt band under them, the A/B equip rings centered in the middle, the
  * rupee/keys chip anchored to the bottom, just above the tab bar. */
@@ -2361,6 +2455,15 @@ static void PaintSidebar(const SSurf* s, const SecondScreenSnapshot* snap, Targe
         }
     }
     float vitalsBottom = hy + rows * 8 * hk + 4 * u;
+
+    /* When the top HUD is disabled, preserve the sword-charge cue beside
+     * the other glanceable vitals.  Reserve no space while inactive so the
+     * established sidebar geometry is unchanged during ordinary play. */
+    if (Port_SecondScreenChargeVisible(snap)) {
+        float chargeBandH = 28 * u;
+        DrawChargeIndicator(s, snap, x, vitalsBottom, w, chargeBandH, u, tick);
+        vitalsBottom += chargeBandH;
+    }
 
     /* R prompt band, reserved whether or not there is a prompt so the
      * rings below never shift when one appears. */

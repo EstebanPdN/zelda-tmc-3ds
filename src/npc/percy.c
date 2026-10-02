@@ -146,9 +146,9 @@ void sub_0806B504(Entity* this) {
     idx = 1;
     if (CheckKinstoneFused(KINSTONE_21)) {
         idx = 3;
-    } else if (!CheckLocalFlag(URO_POEMN_TALK)) {
+    } else if (!CheckLocalFlagB(URO_POEMN_TALK)) {
         idx = 0;
-        SetLocalFlag(URO_POEMN_TALK);
+        SetLocalFlagB(URO_POEMN_TALK);
     }
 
     MessageNoOverlap(messageIndices[idx], this);
@@ -161,11 +161,11 @@ void sub_0806B540(Entity* this) {
     switch (context->unk_18) {
         case 0:
             MessageNoOverlap(TEXT_INDEX(TEXT_PERCY, 0x12), this);
-            if (CheckLocalFlagB(0x3f) != 0) {
+            if (CheckLocalFlag(0x3f) != 0) {
                 return;
             }
             context->unk_18++;
-            SetLocalFlagB(0x3f);
+            SetLocalFlag(0x3f);
             break;
         case 1:
             if ((gMessage.state & MESSAGE_ACTIVE) == 0) {

@@ -6,6 +6,9 @@
  */
 #include "entity.h"
 #include "room.h"
+#ifdef PC_PORT
+#include "port_widescreen.h"
+#endif
 
 typedef struct {
     /*0x00*/ Entity base;
@@ -36,19 +39,26 @@ void ParallaxRoomView(ParallaxRoomViewEntity* this) {
         SetEntityPriority(super, 6);
     }
     if ((super->flags & 0x10) == 0) {
+#ifdef PC_PORT
+        const s32 viewCenterX = Port_Widescreen_GameplayViewWidth() / 2;
+        const s32 viewCenterY = Port_Widescreen_GameplayViewHeight() / 2;
+#else
+        const s32 viewCenterX = 0x78;
+        const s32 viewCenterY = 0x50;
+#endif
         iVar4 = super->x.HALF.HI - gRoomControls.scroll_x;
-        diffX = iVar4 - 0x78;
+        diffX = iVar4 - viewCenterX;
         iVar1 = super->y.HALF.HI - gRoomControls.scroll_y;
-        diffY = iVar1 - 0x50;
+        diffY = iVar1 - viewCenterY;
         if (diffX < 0) {
-            temp = (iVar4 - 0x75);
+            temp = iVar4 - (viewCenterX - 3);
         } else {
             temp = diffX;
         }
         diffX = temp >> 2;
 
         if (diffY < 0) {
-            temp = iVar1 - 0x4d;
+            temp = iVar1 - (viewCenterY - 3);
         } else {
             temp = diffY;
         }

@@ -1039,6 +1039,7 @@ static int32_t KinstoneRowCount(const SecondScreenSnapshot* snap) {
 }
 
 #define KINSTONE_PIECE_TILE_BYTES 512u
+#define KINSTONE_WORLD_EVENT_COUNT 119u
 
 static void KinstoneListCell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
                              int32_t idx, int32_t cx, int32_t cy, int32_t side, int32_t scale,
@@ -1051,6 +1052,7 @@ static void KinstoneListCell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32
     static u8 sPieceTiles[KINSTONE_PIECE_TILE_BYTES];
     ObjSource src = { kKinstoneVramGroups, (int)sizeof(kKinstoneVramGroups), 204u, NULL, 0u };
     CellInk ink;
+    SecondScreenQuestRect frameRect;
     u32 id = snap->kinstoneTypes[idx];
     int32_t artW = side * 3 / 5; /* the piece left, its count right, as the game pairs them */
     char buf[8];
@@ -1061,7 +1063,11 @@ static void KinstoneListCell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32
     } else if (REGION_IS_JP) {
         events = gKinstoneWorldEvents_jp;
     }
-    if (events == NULL || id == 0) {
+    /* The three retail tables contain IDs 0..118.  Bag entries normally
+     * hold only ordinary pieces, but a legacy/corrupt profile can contain
+     * the fuser sentinels (F1/F2/F3/FF).  Never let the cosmetic render
+     * thread turn those preserved save bytes into an out-of-bounds read. */
+    if (events == NULL || id == 0 || id >= KINSTONE_WORLD_EVENT_COUNT) {
         return;
     }
     if (Port_GetKinstonePieceTiles(events[id].gfxOffsetPiece, sPieceTiles, sizeof(sPieceTiles)) == 0) {
@@ -1076,7 +1082,17 @@ static void KinstoneListCell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32
     memset(sCell, 0, sizeof(sCell));
     DrawObjFrameFrom(&src, sCell, CELL_SRC, CELL_SRC, 0u, 3u, CELL_ORIGIN, CELL_ORIGIN,
                      ((u32)events[id].objPalette << 12) | 0x800u);
-    ink = CellBounds();
+    /* Do not use CellBounds here.  A loose piece deliberately occupies only
+     * one side of sprite 0/frame 3's 32x32 OBJ.  Cropping that transparent
+     * half made narrow pieces fill the whole well; in the 320x240 dump, EU
+     * piece 118's 15x24 ink was enlarged 5x and its authentic black outline
+     * became the reported vertical "black block".  Scaling the retail OBJ
+     * footprint keeps every piece the same size and makes that case 2x. */
+    frameRect = Port_SecondScreenQuest_KinstoneFrameRect(CELL_ORIGIN, CELL_ORIGIN);
+    ink.x = frameRect.x;
+    ink.y = frameRect.y;
+    ink.w = frameRect.w;
+    ink.h = frameRect.h;
     StampCell(pixels, bufW, bufH, stride, ink, cx + 2 * scale, cy + 2 * scale, artW - 4 * scale,
               side - 4 * scale);
 
@@ -1085,6 +1101,14 @@ static void KinstoneListCell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32
     Port_SecondScreenTheme_DrawText(pixels, bufW, bufH, stride, cx + artW + (side - artW - tw) / 2,
                                     cy + (side - 8 * scale) / 2, scale, SS_TEXT_INK, buf);
 }
+
+#ifdef PORT_SECOND_SCREEN_QUEST_TEST
+void Port_SecondScreenQuest_TestDrawKinstoneListCell(
+    uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t idx, int32_t cx,
+    int32_t cy, int32_t side, int32_t scale, const SecondScreenSnapshot* snap) {
+    KinstoneListCell(pixels, bufW, bufH, stride, idx, cx, cy, side, scale, snap);
+}
+#endif
 
 int Port_SecondScreenQuest_DrawKinstones(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
                                          int32_t dstX, int32_t dstY, int32_t dstW, int32_t dstH,

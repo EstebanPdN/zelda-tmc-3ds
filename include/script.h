@@ -40,6 +40,7 @@ typedef struct {
 extern ActiveScriptInfo gActiveScriptInfo;
 
 ScriptExecutionContext* CreateScriptExecutionContext(void);
+void DestroyScriptExecutionContext(ScriptExecutionContext* context);
 void InitScriptForEntity(Entity*, ScriptExecutionContext*, u16*);
 void ExecuteScript(Entity* entity, ScriptExecutionContext* context);
 

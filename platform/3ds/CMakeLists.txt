@@ -52,9 +52,13 @@ list(TRANSFORM TMC_ENGINE_SOURCES PREPEND "${TMC_ROOT}/")
 set(TMC_PORT_SOURCES
     port/port_bios.c port/port_debug_verbose.c port/port_inline_ptrs.c
     port/port_script_addrs.c port/port_offset_remap.c port/port_rom.c
+    port/port_region_data.c
+    port/port_cloud_tops_fight.c
+    port/port_vaati_progress.c
     port/port_stubs.c port/stubs_autogen.c port/data_stubs_autogen.c
     port/data_const_stubs.c port/flag_remap_generated.c port/port_rom_tables.c
     port/port_linked_stubs.c port/port_figurines.c port/port_draw.c
+    port/port_3ds_full_view_policy.c
     port/port_gba_mem.c port/port_hdma.c port/port_save.c port/port_softslots.c
     port/port_second_screen_state.c
     port/port_second_screen_render.c port/port_second_screen_worldmap.c
@@ -76,6 +80,7 @@ add_executable(tmc-3ds
     source/main_3ds.c
     source/platform_3ds.c
     source/old3ds_frame_pacer.c
+    source/top_view_3ds.c
     source/platform_gpu_3ds.c
     source/bottom_idle_3ds.c
     source/bottom_frame_state_3ds.c
@@ -96,7 +101,8 @@ target_include_directories(tmc-3ds PRIVATE
 
 target_compile_definitions(tmc-3ds PRIVATE
     PC_PORT NON_MATCHING USE_HDMA TMC_3DS MULTI_REGION USA ENGLISH REVISION=0
-    MODE1_GBA_WIDTH=266 TMC_PORT_VERSION="${TMC_3DS_VERSION}" TMC_PC_VERSION="${TMC_3DS_VERSION}"
+    MODE1_GBA_WIDTH=400 MODE1_GBA_HEIGHT=240
+    TMC_PORT_VERSION="${TMC_3DS_VERSION}" TMC_PC_VERSION="${TMC_3DS_VERSION}"
 )
 target_compile_features(tmc-3ds PRIVATE c_std_11 cxx_std_20)
 set_target_properties(tmc-3ds PROPERTIES

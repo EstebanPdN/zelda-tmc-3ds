@@ -10,6 +10,9 @@
 #include "room.h"
 #include "subtask.h"
 #include "tiles.h"
+#ifdef PC_PORT
+#include "port/port_region_data.h"
+#endif
 
 extern const struct_gUnk_080B3D20 gUnk_080B3D20[];
 extern const EntityData gUnk_080FEC28[];
@@ -513,7 +516,17 @@ void sub_08018BB4(u32 worldEventId) {
     const WorldEvent* ptr;
     u32 position;
 
+#ifdef PC_PORT
+    {
+        const TileEntity* list = (const TileEntity*)Port_ResolveRegionData(gUnk_080FEAC8);
+        if (list == NULL) {
+            return;
+        }
+        MemCopy(list + worldEventId, &tileEntity, sizeof(TileEntity));
+    }
+#else
     MemCopy(gUnk_080FEAC8 + worldEventId, &tileEntity, sizeof(TileEntity));
+#endif
     ptr = &GetWorldEvents()[worldEventId];
     tileEntity.tilePos = (ptr->x >> 4 & 0x3f) | (((ptr->y) >> 4 & 0x3f) << 6);
     LoadSmallChestTile2(&tileEntity);

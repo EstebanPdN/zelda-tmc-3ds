@@ -67,6 +67,15 @@ void Port_SecondScreen_OnSurfaceLost(void);
  * harness can drive the same layout the device shows. */
 void Port_SecondScreen_OnTap(int x, int y, int longPress);
 
+#ifdef PORT_SECOND_SCREEN_TEST
+/* Focused host oracle for the production ammo compositor.  Paints the A
+ * counter at x=0 and B at x=20*scale, and returns how many equipped items
+ * own a counter (including a real zero-ammo counter). */
+int Port_SecondScreen_TestPaintEquippedAmmo(uint32_t* pixels, int32_t width, int32_t height,
+                                            int32_t stride, const SecondScreenSnapshot* snap,
+                                            int32_t scale);
+#endif
+
 /* Which way round the two screens ended up this launch: nonzero when the
  * game's own window is on a secondary display and this panel therefore
  * owns the main one (the "swap screens" setting, applied by the Android

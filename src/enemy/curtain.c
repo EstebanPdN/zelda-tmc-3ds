@@ -39,7 +39,7 @@ void Curtain_OnGrabbed() {
 void sub_08048224(Entity* this) {
     this->spritePriority.b0 = 4;
 
-    if (CheckLocalFlagB(0x72) == 0) {
+    if (CheckLocalFlag(0x72) == 0) {
         this->action = 1;
         this->timer = 0;
     } else {
@@ -68,7 +68,7 @@ void sub_08048294(Entity* this) {
 
     if (this->frame & ANIM_DONE) {
         this->action = 3;
-        SetLocalFlagB(0x72);
+        SetLocalFlag(0x72);
         InitializeAnimation(this, 1);
     }
 }

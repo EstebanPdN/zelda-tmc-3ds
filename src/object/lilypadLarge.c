@@ -368,7 +368,7 @@ void sub_08085A98(LilypadLargeEntity* this) {
             super->y.HALF.HI += 0xd0;
             super->z.HALF.HI = -0xd0;
             this->unk_82 = 0x46;
-            SetLocalFlagB(0x73);
+            SetLocalFlag(0x73);
         } else {
             super->y.HALF.HI += 0x40;
             super->z.HALF.HI = -0x40;

@@ -405,7 +405,7 @@ void FrozenOctorok_Action1SubAction6(FrozenOctorokEntity* this) {
     if ((gRoomControls.origin_y + 0x1c8) < super->y.HALF.HI) {
         gRoomControls.scrollSpeed = 4;
         gRoomControls.camera_target = &gPlayerEntity.base;
-        SetLocalFlagB(0x9b);
+        SetLocalFlag(0x9b);
         DeleteEntity(super->parent);
         DeleteEntity(&this->heap->mouthObject->base);
         DeleteEntity(&this->heap->legObjects[0]->base);

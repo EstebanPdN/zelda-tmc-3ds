@@ -21,7 +21,9 @@
 #include "subtask.h"
 #include "pauseMenu.h"
 #include "port_scripts.h"
-
+#ifdef PC_PORT
+#include "port_widescreen.h"
+#endif
 
 typedef struct {
     /*0x00*/ Entity base;
@@ -146,7 +148,7 @@ void Bird_Type1_Action1_Subaction1(BirdEntity* this) {
         super->action = 1;
         super->z.WORD = 0;
         super->collisionLayer = 1;
-        SetLocalFlag(LV3_OCARINA_FALL);
+        SetLocalFlagB(LV3_OCARINA_FALL);
         SoundReq(SFX_SECRET);
         fx = CreateFx(super, FX_DASH, 0);
         if (fx != NULL) {
@@ -336,7 +338,11 @@ void Bird_Type9(BirdEntity* this) {
             child->spriteOrientation.flipY = super->spriteOrientation.flipY;
         }
         PausePlayer();
+#ifdef PC_PORT
+        if (gRoomControls.scroll_x + Port_Widescreen_GameplayViewWidth() / 2 < super->x.HALF.HI) {
+#else
         if (gRoomControls.scroll_x + 0x78 < super->x.HALF.HI) {
+#endif
             super->action++;
             super->spritePriority.b1 = 1;
             if (child != NULL) {

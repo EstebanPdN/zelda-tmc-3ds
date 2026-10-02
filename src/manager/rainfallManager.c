@@ -9,6 +9,10 @@
 #include "room.h"
 #include "enemy.h"
 
+#if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
+#include "port_widescreen.h"
+#endif
+
 void RainfallManager_Init(RainfallManager*);
 void RainfallManager_Action1(RainfallManager*);
 
@@ -36,8 +40,22 @@ void RainfallManager_Action1(RainfallManager* this) {
         super->timer = 15;
         waterDrop = CreateEnemy(WATER_DROP, 0);
         if (waterDrop != NULL) {
-            waterDrop->x.HALF.HI = gRoomControls.scroll_x + 0x78 + gUnk_08108C6C[Random() & 7];
-            waterDrop->y.HALF.HI = gRoomControls.scroll_y + 0x50 + gUnk_08108C7C[Random() & 3];
+            const u32 column = Random() & 7;
+            const u32 row = Random() & 3;
+#if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
+            const int viewWidth = Port_Widescreen_GameplayViewWidth();
+            const int viewHeight = Port_Widescreen_GameplayViewHeight();
+            if (viewWidth != DISPLAY_WIDTH || viewHeight != DISPLAY_HEIGHT) {
+                /* Preserve the retail eight-column/four-row distribution,
+                 * expanding its off-screen lead-in with the live viewport. */
+                waterDrop->x.HALF.HI = gRoomControls.scroll_x + 0x14 + column * ((viewWidth + 0x50) / 8);
+                waterDrop->y.HALF.HI = gRoomControls.scroll_y + 0x1e + row * ((viewHeight - 0x3c) / 4);
+            } else
+#endif
+            {
+                waterDrop->x.HALF.HI = gRoomControls.scroll_x + 0x78 + gUnk_08108C6C[column];
+                waterDrop->y.HALF.HI = gRoomControls.scroll_y + 0x50 + gUnk_08108C7C[row];
+            }
             waterDrop->z.HALF.HI = 0xff38;
         }
     }

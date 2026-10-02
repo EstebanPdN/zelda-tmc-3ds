@@ -779,22 +779,22 @@ void sub_0806B004(Entity* this, ScriptExecutionContext* context) {
     int idx = 0;
 
     if (CheckGlobalFlag(MIZUKAKI_START)) {
-        if (CheckLocalFlag(MIZUKAKI_BOOK_ALLBACK)) {
+        if (CheckLocalFlagB(MIZUKAKI_BOOK_ALLBACK)) {
             if (GetInventoryValue(ITEM_FLIPPERS) == 0) {
                 idx = 3;
-                if (CheckLocalFlag(KHOUSE51_00) == 0) {
+                if (CheckLocalFlagB(KHOUSE51_00) == 0) {
                     idx = 2;
                     if (context != NULL) {
                         context->condition = 1;
                     }
-                    SetLocalFlag(KHOUSE51_00);
+                    SetLocalFlagB(KHOUSE51_00);
                 }
             } else {
                 idx = 4;
             }
         } else {
             idx = 1;
-            SetLocalFlag(MIZUKAKI_KOBITO);
+            SetLocalFlagB(MIZUKAKI_KOBITO);
         }
     }
     MessageNoOverlap(messageIndices[idx], this);
@@ -810,7 +810,7 @@ void sub_0806B064(Entity* this, ScriptExecutionContext* context) {
 
     if (CheckGlobalFlag(MIZUKAKI_START)) {
         idx = 1;
-        if (CheckLocalFlagB(0x73)) {
+        if (CheckLocalFlag(0x73)) {
             idx = 2;
         }
     }
@@ -857,9 +857,9 @@ void sub_0806B134(Entity* this, ScriptExecutionContext* context) {
 
     if (GetInventoryValue(ITEM_POWER_BRACELETS)) {
         idx = 2;
-        if (CheckLocalFlag(KHOUSE42_00) == 0) {
+        if (CheckLocalFlagB(KHOUSE42_00) == 0) {
             idx = 1;
-            SetLocalFlag(KHOUSE42_00);
+            SetLocalFlagB(KHOUSE42_00);
         }
     } else {
         idx = 0;
@@ -882,4 +882,3 @@ void TownMinish_Fusion(Entity* this) {
         GetNextFrame(this);
     }
 }
-

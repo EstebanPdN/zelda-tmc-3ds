@@ -15,7 +15,10 @@
 
 #ifdef PC_PORT
 #include "port/port_generic_entity.h"
+#include "port/port_collision_diagnostics.h"
 #include "port/port_rom.h"
+#include "main.h"
+#include "room.h"
 #else
 #define GE_FIELD(ent, fname) (&((GenericEntity*)(ent))->fname)
 #endif
@@ -54,6 +57,79 @@ void sub_08079D84(void);
 void sub_080180BC(Entity*, Entity*);
 
 LinkedList2 gUnk_03003C70[16];
+
+#ifdef PC_PORT
+static PortPlayerDamageDiagnostic sLastPlayerDamage;
+
+void Port_Collision_RecordPlayerDamage(const Entity* player, const Entity* source, u32 effectiveDamage,
+                                       u32 healthBefore, s32 healthAfter) {
+    PortPlayerDamageDiagnostic next = { 0 };
+
+    next.sequence = sLastPlayerDamage.sequence + 1;
+    next.gameTick = gMain.ticks;
+    next.valid = 1;
+    next.area = gRoomControls.area;
+    next.room = gRoomControls.room;
+    next.effectiveDamage = (u8)effectiveDamage;
+    next.healthBefore = (u8)healthBefore;
+    next.healthAfter = healthAfter;
+
+    if (player != NULL) {
+        next.playerX = player->x.HALF.HI;
+        next.playerY = player->y.HALF.HI;
+        next.playerZ = player->z.HALF.HI;
+        if (Port_IsValidHostPtr(player->hitbox)) {
+            next.playerHasHitbox = 1;
+            next.playerHitboxOffsetX = player->hitbox->offset_x;
+            next.playerHitboxOffsetY = player->hitbox->offset_y;
+            next.playerHitboxWidth = player->hitbox->width;
+            next.playerHitboxHeight = player->hitbox->height;
+        }
+    }
+
+    if (source != NULL) {
+        next.sourceKind = source->kind;
+        next.sourceId = source->id;
+        next.sourceType = source->type;
+        next.sourceType2 = source->type2;
+        next.sourceAction = source->action;
+        next.sourceSubAction = source->subAction;
+        next.sourceHitType = source->hitType;
+        next.sourceHurtType = source->hurtType;
+        next.sourceCollisionLayer = source->collisionLayer;
+        next.sourceCollisionFlags = source->collisionFlags;
+        next.sourceCollisionMask = source->collisionMask;
+        next.sourceFlags = source->flags;
+        next.sourceDraw = source->spriteSettings.draw;
+        next.sourceFrameIndex = source->frameIndex;
+        next.sourceAffineIndex = source->spriteOrientation.b1;
+        next.sourceAffineMode = source->spriteRendering.b0;
+        next.sourceSpriteOffsetX = (s8)source->spriteOffsetX;
+        next.sourceSpriteOffsetY = source->spriteOffsetY;
+        next.sourceX = source->x.HALF.HI;
+        next.sourceY = source->y.HALF.HI;
+        next.sourceZ = source->z.HALF.HI;
+
+        /* CalculateDamage is normally reached from a validated collision
+         * pair, but do not rely on that ordering in a diagnostic path. */
+        if (Port_IsValidHostPtr(source->hitbox)) {
+            next.sourceHasHitbox = 1;
+            next.sourceHitboxOffsetX = source->hitbox->offset_x;
+            next.sourceHitboxOffsetY = source->hitbox->offset_y;
+            next.sourceHitboxWidth = source->hitbox->width;
+            next.sourceHitboxHeight = source->hitbox->height;
+        }
+    }
+
+    sLastPlayerDamage = next;
+}
+
+void Port_Collision_GetLastPlayerDamage(PortPlayerDamageDiagnostic* out) {
+    if (out != NULL) {
+        *out = sLastPlayerDamage;
+    }
+}
+#endif
 
 void ClearHitboxList(void) {
     gCollidableCount = 0;
@@ -244,6 +320,7 @@ s32 CalculateDamage(Entity* org, Entity* tgt) {
     s32 health;
 
     if (org->kind == PLAYER) {
+        u32 healthBefore = org->health;
         damage = tgt->damage;
         switch (gSave.stats.charm) {
             case BOTTLE_CHARM_NAYRU:
@@ -256,6 +333,11 @@ s32 CalculateDamage(Entity* org, Entity* tgt) {
         if (damage <= 0)
             damage = 1;
         health = ModHealth(-damage);
+#ifdef PC_PORT
+        if (org == &gPlayerEntity.base) {
+            Port_Collision_RecordPlayerDamage(org, tgt, (u32)damage, healthBefore, health);
+        }
+#endif
         SoundReqClipped(org, SFX_PLY_VO6);
     } else {
         damage = tgt->damage;

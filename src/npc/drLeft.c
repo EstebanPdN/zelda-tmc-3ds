@@ -73,9 +73,9 @@ void sub_0806C038(Entity* this) {
     if (GetInventoryValue(ITEM_FLIPPERS) == 0) {
         if (GetInventoryValue(ITEM_QST_BOOK2) == 0) {
             index = 6;
-            if (CheckLocalFlag(LEFT_TALK) == 0) {
+            if (CheckLocalFlagB(LEFT_TALK) == 0) {
                 index = 5;
-                SetLocalFlag(LEFT_TALK);
+                SetLocalFlagB(LEFT_TALK);
             }
         } else {
             index = 7;

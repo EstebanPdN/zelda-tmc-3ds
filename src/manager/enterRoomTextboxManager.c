@@ -15,6 +15,7 @@
 #include "fade.h"
 #ifdef PC_PORT
 #include "../port/port_tts.h"
+#include "../port/port_widescreen.h"
 #endif
 
 const u16 gUnk_08108DE8[] = { 0,     0x70b, 0x70c, 0x70d, 0x70e, 0x70f, 0x710, 0x711, 0x712, 0x713, 0x714,
@@ -83,6 +84,9 @@ void sub_0805E1D8(EnterRoomTextboxManager* this) {
     }
     MemClear(&gBG0Buffer[0xa0], 0x80);
     gScreen.bg0.updated = 1;
+#ifdef PC_PORT
+    Port_Widescreen_SetEnterRoomBannerActive(0);
+#endif
     DeleteThisEntity();
 }
 
@@ -104,6 +108,7 @@ void sub_0805E1F8(u32 unk0, bool32 isDungeon) {
     ShowTextBox((uintptr_t)&tmp, font);
     gScreen.bg0.updated = 1;
 #ifdef PC_PORT
+    Port_Widescreen_SetEnterRoomBannerActive(unk0 != 0);
     /* Announce the new area / dungeon name to TTS. The visual banner
      * is built around a tiny wrapper buffer that re-targets a textIndex,
      * so we just feed the textIndex directly to the speech path —

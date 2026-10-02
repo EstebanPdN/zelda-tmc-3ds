@@ -5,6 +5,7 @@
  * @brief Link Holding Item object
  */
 #include "scroll.h"
+#include "flags.h"
 #include "game.h"
 #include "item.h"
 #include "itemMetaData.h"
@@ -17,6 +18,7 @@
 typedef struct {
     /*0x00*/ Entity base;
     /*0x68*/ u16 unk_68;
+    /*0x6a*/ u16 completionFlag;
 } LinkHoldingItemEntity;
 
 void LinkHoldingItem_Init(LinkHoldingItemEntity*);
@@ -55,6 +57,10 @@ void LinkHoldingItem_Action1(LinkHoldingItemEntity* this) {
         case 0:
         case 1:
             this->unk_68 = GiveItem(super->type, super->type2);
+            if (this->completionFlag != 0) {
+                SetFlag(this->completionFlag);
+                this->completionFlag = 0;
+            }
             switch (super->type) {
                 case ITEM_EARTH_ELEMENT:
                 case ITEM_FIRE_ELEMENT:
@@ -68,6 +74,10 @@ void LinkHoldingItem_Action1(LinkHoldingItemEntity* this) {
             break;
         case 2:
             GiveItem(super->type, super->type2);
+            if (this->completionFlag != 0) {
+                SetFlag(this->completionFlag);
+                this->completionFlag = 0;
+            }
 #ifdef MULTI_REGION
             this->unk_68 = (REGION_IS_EU ? gUnk_080FD964_eu : gUnk_080FD964)[super->type].gotItemMessageId;
 #else

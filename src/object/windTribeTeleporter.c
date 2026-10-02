@@ -113,7 +113,7 @@ void WindTribeTeleporter_Action2(WindTribeTeleporterEntity* this) {
                     DoExitTransition(&gUnk_0813ADEC[super->type2]);
                 } else {
                     if (gRoomControls.area == 3) {
-                        SetLocalFlagB(0xf9);
+                        SetLocalFlag(0xf9);
                     }
                     DoExitTransition(&gUnk_0813ADEC[super->type2]);
                 }
