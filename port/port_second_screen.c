@@ -46,6 +46,7 @@
  */
 
 #include "port_second_screen.h"
+#include "port_second_screen_camera.h"
 #include "port_second_screen_dungeonmap.h"
 #include "port_second_screen_quest.h"
 #include "port_second_screen_render.h"
@@ -333,10 +334,18 @@ static struct {
 /* Follow-cam state: view center (map-image coords) and zoom glide toward
  * their targets each frame, which animates both the follow pan and the
  * follow<->whole toggle. Paint-thread private. */
-static struct {
-    int valid;
-    float x, y, scale;
-} sCam = { 0, 0, 0, 0 };
+static SecondScreenCamera sCam;
+#ifdef TMC_3DS
+/* Published under UI_LOCK; the scheduler must not read paint-owned sCam. */
+static int sMapCameraMoving;
+
+static void AdvanceMapCamera(float x, float y, float scale) {
+    int moving = SecondScreenCamera_Advance(&sCam, x, y, scale);
+    UI_LOCK();
+    sMapCameraMoving = moving;
+    UI_UNLOCK();
+}
+#endif
 
 /* ------------------------------------------------------------------ */
 /*  Surface + primitives                                               */
@@ -1069,6 +1078,20 @@ static void DrawMapChip(const SSurf* s, const char* label, float cx, float cyBot
     out[3] = y1;
 }
 
+#ifdef TMC_3DS
+static float WholeMapScale(float width, float height) {
+    float sx = width / (WMAP_CROP_X1 - WMAP_CROP_X0);
+    float sy = height / (WMAP_CROP_Y1 - WMAP_CROP_Y0);
+    return fminf(sx, sy) * 0.97f * 0.98f;
+}
+
+static float WholeMapCenterX(float width, float scale) {
+    /* Shift the artwork left by 1% of the panel width. Keep the panel,
+     * clipping bounds and controls fixed while the camera glides. */
+    return (WMAP_CROP_X0 + WMAP_CROP_X1) * 0.5f + width * 0.01f / scale;
+}
+#endif
+
 /* The interactive overworld map, full-bleed in the map area: a gliding
  * follow-cam centered on Link, tap to toggle the whole-map fitted view,
  * and from the whole view a tap on a map tile brackets it and zooms into
@@ -1099,6 +1122,9 @@ static void PaintOverworld(const SSurf* s, const SecondScreenSnapshot* snap, Tar
     float rw = rx1 - rx0, rh = ry1 - ry0;
     float wholeScale = (rw / cw < rh / chh) ? rw / cw : rh / chh;
     float followScale = wholeScale * 2.1f;
+#ifdef TMC_3DS
+    wholeScale = WholeMapScale(rw, rh);
+#endif
 
     /* Camera target: follow Link unless the whole map is asked for (or the
      * follow cam is switched off / there is no fix yet). */
@@ -1106,7 +1132,11 @@ static void PaintOverworld(const SSurf* s, const SecondScreenSnapshot* snap, Tar
     float tScale = wantWhole ? wholeScale : followScale;
     float tx, ty;
     if (wantWhole) {
+#ifdef TMC_3DS
+        tx = WholeMapCenterX(rw, wholeScale);
+#else
         tx = WMAP_CROP_X0 + cw / 2.0f;
+#endif
         ty = WMAP_CROP_Y0 + chh / 2.0f;
     } else {
         float halfW = rw / (2.0f * tScale), halfH = rh / (2.0f * tScale);
@@ -1128,6 +1158,9 @@ static void PaintOverworld(const SSurf* s, const SecondScreenSnapshot* snap, Tar
 
     /* Smooth glide toward the target (pan and zoom both), snapping on the
      * first frame so a fresh surface doesn't animate in from nowhere. */
+#ifdef TMC_3DS
+    AdvanceMapCamera(tx, ty, tScale);
+#else
     if (!sCam.valid) {
         sCam.valid = 1;
         sCam.x = tx;
@@ -1138,6 +1171,7 @@ static void PaintOverworld(const SSurf* s, const SecondScreenSnapshot* snap, Tar
         sCam.y += (ty - sCam.y) * 0.22f;
         sCam.scale += (tScale - sCam.scale) * 0.22f;
     }
+#endif
 
     float ox = (rx0 + rx1) / 2.0f - sCam.x * sCam.scale;
     float oy = (ry0 + ry1) / 2.0f - sCam.y * sCam.scale;
@@ -2845,12 +2879,39 @@ void Port_SecondScreen_PhaseTicks(unsigned long long* totals, unsigned long long
 #define SS_MARK(idx)   do { } while (0)
 #endif
 
+#ifdef TMC_3DS
+static void PaintUnavailableWorldMap(const SSurf* s, int x0, int y0, int x1, int y1) {
+    /* No terrain, hints, player marker or map hit targets before ITEM_MAP.
+     * Keep the other tabs and equipment available during the prologue. */
+    int32_t w, h;
+    const uint32_t* frame = Port_SecondScreenWorldMap_GetFrameImage(&w, &h);
+    if (frame) {
+        float scale = WholeMapScale(x1-x0, y1-y0);
+        float ox = (x0+x1)*0.5f - WholeMapCenterX(x1-x0, scale)*scale;
+        float oy = (y0+y1)*0.5f - (WMAP_CROP_Y0+WMAP_CROP_Y1)*0.5f*scale;
+        BlitMapRegion(s, frame, w, h, ox, oy, scale, x0, y0, x1, y1);
+    }
+    sCam.valid = 0;
+    sLastFix.valid = 0;
+    UI_LOCK();
+    sUi.mapLive = 0;
+    sUi.regionState = SS_REGION_OFF;
+    UI_UNLOCK();
+}
+#endif
+
 void Port_SecondScreen_PaintInto(uint32_t* pixels, int width, int height, int strideInPixels,
                                  const SecondScreenSnapshot* snap, uint32_t tick) {
     SSurf s = { pixels, width, height, strideInPixels };
     if (pixels == NULL || width <= 0 || height <= 0) {
         return;
     }
+
+#ifdef TMC_3DS
+    UI_LOCK();
+    sMapCameraMoving = 0;
+    UI_UNLOCK();
+#endif
 
     if (!snap->inGame) {
         UI_LOCK();
@@ -2950,6 +3011,10 @@ void Port_SecondScreen_PaintInto(uint32_t* pixels, int width, int height, int st
                            dumpFlashUntil, loadStateFlashUntil, loadStateResult);
     } else if (isDungeon) {
         PaintDungeon(&s, snap, &tl, mx0, my0, mx1, my1, u, ts, tick, returnCfg);
+#ifdef TMC_3DS
+    } else if (!snap->hasWorldMap) {
+        PaintUnavailableWorldMap(&s, (int32_t)mx0, (int32_t)my0, (int32_t)mx1, (int32_t)my1);
+#endif
     } else {
         /* A live region zoom replaces the map area; if its art can't be
          * drawn the view drops straight back to the world map, so the

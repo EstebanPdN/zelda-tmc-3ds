@@ -122,6 +122,9 @@ static const u8 sWorldMapPaletteGroups[] = { 11, 12, 181, 185 };
 #define LZ77_DECODED_CAP 0x20000u /* 128 KB — far above any BG tile/map blob */
 
 static uint32_t sImagePixels[WORLDMAP_IMAGE_W * WORLDMAP_IMAGE_H];
+#ifdef TMC_3DS
+static uint32_t sFramePixels[WORLDMAP_IMAGE_W * WORLDMAP_IMAGE_H];
+#endif
 static const uint32_t* volatile sPublishedImage = NULL;
 
 typedef struct {
@@ -399,6 +402,11 @@ static int BuildWorldMapImage(void) {
         DrawBgLayer(sImagePixels, bg3Map.data, bg3Map.len, chromeTiles.data, chromeTiles.len, bgPal, 0);
         DrawBgLayer(sImagePixels, bg2Map.data, bg2Map.len, chromeTiles.data, chromeTiles.len, bgPal,
                     MAP_LAYER_YSHIFT);
+#ifdef TMC_3DS
+        /* Preserve only the game's backdrop and stone chrome, before terrain
+         * is composited. No map pixels or discovery masks belong here. */
+        memcpy(sFramePixels, sImagePixels, sizeof(sFramePixels));
+#endif
         DrawBgLayer(sImagePixels, bg1Map.data, bg1Map.len, mapTiles.data, mapTiles.len, bgPal,
                     MAP_LAYER_YSHIFT);
 
@@ -428,6 +436,12 @@ const uint32_t* Port_SecondScreenWorldMap_GetImage(int32_t* outW, int32_t* outH)
     }
     return image;
 }
+
+#ifdef TMC_3DS
+const uint32_t* Port_SecondScreenWorldMap_GetFrameImage(int32_t* outW, int32_t* outH) {
+    return Port_SecondScreenWorldMap_GetImage(outW, outH) ? sFramePixels : NULL;
+}
+#endif
 
 /* The game's own world→map-screen scaling, ported verbatim per marker type
  * (the two screens use slightly different Y math and we keep that):

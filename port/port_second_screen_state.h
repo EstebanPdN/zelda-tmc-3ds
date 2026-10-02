@@ -48,6 +48,8 @@ typedef struct {
 
 typedef struct {
     uint8_t inGame; /* gMain.task == TASK_GAME; nothing else below is valid otherwise */
+    uint8_t introCinema; /* Picori legend auxiliary cutscene, including its fades. */
+    uint8_t hasWorldMap; /* The actual ITEM_MAP inventory entitlement. */
     uint8_t area;
     uint8_t room;
     uint8_t equippedA;
