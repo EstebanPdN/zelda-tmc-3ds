@@ -21,6 +21,7 @@ USA-рому. Тому майже вся локалізація живе в **р
 | Зсув заголовка «УЛАМКИ ДИВОКАМЕНІВ» у меню паузи | **код** (`pauseMenu.c`) | `Port_UA_KinstoneHeaderX` у `port/port_ua.h` + хук |
 | Фікс перевірки контрольної суми збереження (ARHafer) | код (`save.c`) | уже є в апстрімі порту, нічого не треба |
 | Написи самого порту (нижній екран, налаштування, оновлювач) | **код** порту, англійські рядки | `port/port_ua_panel.h` + 4 хуки в `port/port_second_screen_theme.c` |
+| Лого «ЛЕГЕНДА ПРО ЗЕЛЬДУ / Диво-Ковпак» на заставці при запуску (до завантаження рому) | **код і romfs** порту (`romfs:/splash.rgb565`) | `port/port_ua_splash.h` + хук у `platform/3ds/source/platform_3ds.c`, `romfs/splash-ua.rgb565` |
 
 Ром для порту збирається в репозиторії tloz-tmc-ua командою `bash make-port.sh` →
 `tmc-ua-port.gba`. Його розкладка побайтово збігається з чистим USA-ромом (скрипт
@@ -58,9 +59,23 @@ USA-рому. Тому майже вся локалізація живе в **р
 - `port/port_second_screen_theme.c` — п'ять однорядкових вставок з позначкою
   `tloz-tmc-ua`: `PORT_UA_PANEL_TEXT` на вході чотирьох функцій тексту і
   гілка для кодів ≥ 0x80 (банк 2 шрифту) у `GlyphData()`.
+- `port/port_ua_marker.h` — **новий файл**: константи маркера `TMC-UA`, спільні для
+  `port_ua.h` і `port_ua_splash.h`.
+- `port/port_ua_splash.h` — **новий файл**: логотип при запуску. Його порт малює
+  ще до завантаження рому, тому `Port_IsUkrainianRom()` тут не працює; натомість
+  `Port_UA_SplashPath()` читає маркер у `.gba`-файлах теки
+  `sdmc:/3ds/The Minish Cap 3DS/` і, якщо знаходить український ром, віддає
+  `romfs:/splash-ua.rgb565` замість `romfs:/splash.rgb565`.
+- `platform/3ds/source/platform_3ds.c` — include і виклик `Port_UA_SplashPath()`
+  у `Platform3DS_ShowSplash()`, з позначкою `tloz-tmc-ua`.
+- `platform/3ds/assets/splash-ua.png` (джерело, прозорий фон) →
+  `platform/3ds/romfs/splash-ua.rgb565` (400×240 RGB565 на чорному) скриптом
+  `python3 ua/make_splash.py`; після зміни PNG перегенеруйте й закомітьте обидва.
+- `platform/3ds/CMakeLists.txt` — один `configure_file`, що копіює
+  `splash-ua.rgb565` у romfs (з позначкою `tloz-tmc-ua`).
 - `ua/` — ця документація та перевірка `ua/check.sh`.
 
-Файли збірки (`CMakeLists.txt`, `xmake.lua`) не змінені: `port_ua.h` — header-only.
+Інших змін у файлах збірки немає; `port_ua*.h` — header-only.
 
 ## Оновлення з апстріму
 
@@ -72,8 +87,10 @@ bash ua/check.sh               # хук на місці, компілюєтьс�
 
 Конфлікти можливі лише біля хуків: `src/gameOverTask.c` (`DrawGameOverText()`),
 `src/title.c` (`HandleTitlescreen()`), `src/object/titleScreenObject.c`,
-`src/object/japaneseSubtitle.c`, `src/menu/kinstoneMenu.c`, `src/menu/pauseMenu.c`
-та `port/port_second_screen_theme.c` (функції тексту й `GlyphData`).
+`src/object/japaneseSubtitle.c`, `src/menu/kinstoneMenu.c`, `src/menu/pauseMenu.c`,
+`port/port_second_screen_theme.c` (функції тексту й `GlyphData`),
+`platform/3ds/source/platform_3ds.c` (`Platform3DS_ShowSplash()`) та
+`platform/3ds/CMakeLists.txt` (копіювання romfs).
 Тоді досить повернути рядки з позначкою `tloz-tmc-ua` і знову запустити
 `ua/check.sh` — він впаде, якщо якийсь хук загубився. Нові англійські написи,
 що з'являться в апстрімі, просто додайте до `kPortUaStrings`.

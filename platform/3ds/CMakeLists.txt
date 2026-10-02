@@ -187,6 +187,12 @@ configure_file(
     "${TMC_ROMFS}/splash.rgb565"
     COPYONLY
 )
+# tloz-tmc-ua: Ukrainian boot logo, see port/port_ua_splash.h
+configure_file(
+    "${CMAKE_CURRENT_LIST_DIR}/romfs/splash-ua.rgb565"
+    "${TMC_ROMFS}/splash-ua.rgb565"
+    COPYONLY
+)
 
 set(TMC_SMDH "${CMAKE_CURRENT_BINARY_DIR}/tmc-3ds.smdh")
 ctr_generate_smdh(

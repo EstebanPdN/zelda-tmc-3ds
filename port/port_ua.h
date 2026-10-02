@@ -28,9 +28,7 @@
 #include "gba/types.h"
 #include "port_rom.h"
 
-#define PORT_UA_MARKER_OFFSET 0xFFFFF0u
-#define PORT_UA_MARKER "TMC-UA"
-#define PORT_UA_MARKER_LEN 6u
+#include "port_ua_marker.h"
 
 /** True when the loaded ROM is the tloz-tmc-ua Ukrainian build. */
 static inline bool32 Port_IsUkrainianRom(void) {

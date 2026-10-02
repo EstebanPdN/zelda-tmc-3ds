@@ -18,6 +18,9 @@ grep -q 'Port_UA_TitleScreenObject(this)' src/object/titleScreenObject.c || fail
 grep -q 'Port_UA_JapaneseSubtitle(this)' src/object/japaneseSubtitle.c || fail "japaneseSubtitle.c lost its tloz-tmc-ua hook"
 grep -q 'Port_UA_KinstoneFuserName' src/menu/kinstoneMenu.c || fail "kinstoneMenu.c lost the Port_UA_KinstoneFuserName hook"
 grep -q 'Port_UA_KinstoneHeaderX' src/menu/pauseMenu.c || fail "pauseMenu.c lost the Port_UA_KinstoneHeaderX hook"
+grep -q 'Port_UA_SplashPath' platform/3ds/source/platform_3ds.c || fail "platform_3ds.c lost the Port_UA_SplashPath() splash hook"
+grep -q 'splash-ua.rgb565' platform/3ds/CMakeLists.txt || fail "platform/3ds/CMakeLists.txt no longer copies romfs/splash-ua.rgb565"
+[ "$(stat -c %s platform/3ds/romfs/splash-ua.rgb565)" = "192000" ] || fail "romfs/splash-ua.rgb565 must be 400x240 RGB565 (192000 bytes); run ua/make_splash.py"
 
 # 2. Compile the touched game file with the 3DS build's defines (see platform/3ds/CMakeLists.txt).
 DEFS="-DPC_PORT -DNON_MATCHING -DUSE_HDMA -DTMC_3DS -DMULTI_REGION -DUSA -DENGLISH -DREVISION=0 -DMODE1_GBA_WIDTH=400 -DMODE1_GBA_HEIGHT=240"
@@ -50,4 +53,16 @@ grep -q '^NEW 3DS	5253434120334656$' "$OUT/big.txt" || fail "NEW 3DS whole-strin
 grep -q '^Version v2.1	8c67f4f66c737420f9322e31$' "$OUT/small.txt" || fail "Latin fallback for the message font broke"
 printf 'BACK\n' | "$OUT/test_panel_text" big off | grep -q '^BACK	4241434b$' || fail "non-UA ROM must leave panel text untouched"
 echo "PASS panel text translation/encoding"
+# 5. Boot splash: only a .gba with the TMC-UA marker selects the Ukrainian logo.
+cat > "$OUT/test_splash.c" <<'C'
+#include "port_ua_splash.h"
+int main(int argc, char** argv) { return Port_UA_FileHasMarker(argv[1]) ? 0 : 1; }
+C
+${CC:-gcc} -std=gnu11 -Wall -Werror -Iport "$OUT/test_splash.c" -o "$OUT/test_splash"
+python3 -c 'import sys; open(sys.argv[1], "wb").write(b"\xff" * 0x1000000)' "$OUT/retail.gba"
+python3 -c 'import sys; d = bytearray(b"\xff" * 0x1000000); d[0xFFFFF0:0xFFFFF8] = b"TMC-UA\x00\x01"; open(sys.argv[1], "wb").write(d)' "$OUT/ua.gba"
+"$OUT/test_splash" "$OUT/ua.gba" || fail "Ukrainian ROM marker not detected for the splash"
+! "$OUT/test_splash" "$OUT/retail.gba" || fail "retail ROM must keep the upstream splash"
+! "$OUT/test_splash" "$OUT/missing.gba" || fail "missing ROM must keep the upstream splash"
+echo "PASS boot splash selection"
 echo "All tloz-tmc-ua checks passed."
