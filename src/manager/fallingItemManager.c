@@ -28,6 +28,7 @@ void FallingItemManager_Init(FallingItemManager* this) {
     super->action = 1;
     if (CheckFlags(this->field_0x3c)) {
         DeleteThisEntity();
+        return;
     }
     FallingItemManager_Action1(this);
 }
@@ -41,7 +42,7 @@ void FallingItemManager_Action1(FallingItemManager* this) {
             object->base.x.HALF.HI = this->field_0x38 + gRoomControls.origin_x;
             object->base.y.HALF.HI = this->field_0x3a + gRoomControls.origin_y;
             object->flag = this->field_0x3c;
+            DeleteThisEntity();
         }
-        DeleteThisEntity();
     }
 }

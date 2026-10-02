@@ -28,6 +28,7 @@
 #include "save.h"
 #include "subtask.h" /* sub_080A6F40 — the map screens' hint-visibility word */
 #include "ui.h"
+#include "port_runtime_config.h"
 
 /* The HUD's per-language button-label frame offsets (data/const/ui.s),
  * declared exactly as src/ui.c declares them. */
@@ -92,6 +93,9 @@ void Port_SecondScreenState_Publish(void) {
         next.equippedSlotB = next.equippedB ? gItemMetaData[next.equippedB].menuSlot : 0xFF;
         next.health = gSave.stats.health;
         next.maxHealth = gSave.stats.maxHealth;
+        next.topHudHidden = Port_Config_GetHideTopHud() ? 1 : 0;
+        next.chargeAction = gPlayerState.chargeState.action;
+        next.chargeTimer = gPlayerState.chargeState.chargeTimer;
         next.rupees = gSave.stats.rupees;
 
         /* Area identity + per-dungeon save state, gated exactly like the

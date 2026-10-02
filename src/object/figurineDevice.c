@@ -82,7 +82,7 @@ void FigurineDevice_Init(FigurineDeviceEntity* this) {
     super->action = super->type + 1;
     switch (super->type) {
         case 0:
-            if (CheckLocalFlag(SHOP07_TANA)) {
+            if (CheckLocalFlagB(SHOP07_TANA)) {
                 this->unk_7a = 1;
                 AddInteractableCheckableObject(super);
             } else {
@@ -134,7 +134,7 @@ void FigurineDevice_Action1(FigurineDeviceEntity* this) {
             if (super->interactType != INTERACTION_NONE) {
                 super->interactType = INTERACTION_NONE;
                 ResetPlayerAnimationAndAction();
-                if (CheckLocalFlag(SHOP07_TANA)) {
+                if (CheckLocalFlagB(SHOP07_TANA)) {
                     this->unk_7a = 2;
                     SetRoomFlag(2);
                     MenuFadeIn(7, 0xff);
@@ -160,7 +160,7 @@ void FigurineDevice_Action2(FigurineDeviceEntity* this) {
     switch (this->unk_7a) {
         case 0:
             if (CheckRoomFlag(0)) {
-                if (CheckLocalFlag(SHOP07_TANA)) {
+                if (CheckLocalFlagB(SHOP07_TANA)) {
                     this->unk_7a = 1;
                 } else {
                     this->unk_7a = 2;
@@ -168,7 +168,7 @@ void FigurineDevice_Action2(FigurineDeviceEntity* this) {
             }
             break;
         case 2:
-            SetLocalFlag(SHOP07_TANA);
+            SetLocalFlagB(SHOP07_TANA);
         case 1:
             this->unk_7a = 0;
             FigurineDevice_Draw((FigurineDeviceEntity*)super->child);
@@ -327,7 +327,7 @@ void FigurineDevice_ChangeShellAmount(FigurineDeviceEntity* this, s32 shellDiffe
     u32 newChance;
 
     newChance = this->chance + shellDifference;
-    if (CheckLocalFlag(SHOP07_COMPLETE)) {
+    if (CheckLocalFlagB(SHOP07_COMPLETE)) {
         FigurineDevice_PlayErrorSound(this);
         return;
     }
@@ -376,7 +376,7 @@ void FigurineDevice_ChangeShellAmount(FigurineDeviceEntity* this, s32 shellDiffe
         u32 euNewChance;
 
         euNewChance = this->chance + shellDifference;
-        if (CheckLocalFlag(SHOP07_COMPLETE)) {
+        if (CheckLocalFlagB(SHOP07_COMPLETE)) {
             FigurineDevice_PlayErrorSound(this);
             return;
         }
@@ -431,7 +431,7 @@ void FigurineDevice_ChangeShellAmount(FigurineDeviceEntity* this, s32 shellDiffe
         s32 newChance;
         s32 prevChance, prevShells;
 
-        if (CheckLocalFlag(SHOP07_COMPLETE)) {
+        if (CheckLocalFlagB(SHOP07_COMPLETE)) {
             FigurineDevice_PlayErrorSound(this);
             return;
         }
@@ -549,9 +549,9 @@ void sub_0808804C(FigurineDeviceEntity* this) {
         result = 9;
     } else if (CheckGlobalFlag(LV5_CLEAR)) {
         result = 7;
-    } else if (CheckLocalFlagByBank(FLAG_BANK_9, LV5_31_CAP_0)) {
+    } else if (CheckLocalFlagByBankB(FLAG_BANK_9, LV5_31_CAP_0)) {
         result = 6;
-    } else if (CheckLocalFlagByBank(FLAG_BANK_3, OUBO_KAKERA)) {
+    } else if (CheckLocalFlagByBankB(FLAG_BANK_3, OUBO_KAKERA)) {
         result = 5;
     } else if (CheckGlobalFlag(LV4_CLEAR)) {
         result = 4;
@@ -585,8 +585,8 @@ void sub_080880D8(FigurineDeviceEntity* this) {
             }
             gSave.available_figurines = this->unk_80;
         }
-        if (CheckLocalFlag(SHOP07_COMPLETE) && (this->unk_80 != gSave.stats.figurineCount)) {
-            ClearLocalFlag(SHOP07_COMPLETE);
+        if (CheckLocalFlagB(SHOP07_COMPLETE) && (this->unk_80 != gSave.stats.figurineCount)) {
+            ClearLocalFlagB(SHOP07_COMPLETE);
         }
     }
 }
@@ -733,7 +733,7 @@ void sub_0808826C(FigurineDeviceEntity* this) {
         }
     }
 #endif
-    if (tmp == 0 && !CheckLocalFlag(SHOP07_COMPLETE)) {
+    if (tmp == 0 && !CheckLocalFlagB(SHOP07_COMPLETE)) {
         tmp = 1;
     }
     this->chance = tmp;
@@ -848,7 +848,7 @@ void FigurineDevice_Draw(FigurineDeviceEntity* this) {
         if (gSave.stats.figurineCount != this->unk_80) {
             SetRoomFlag(7);
         } else {
-            SetLocalFlag(SHOP07_COMPLETE);
+            SetLocalFlagB(SHOP07_COMPLETE);
             SetRoomFlag(8);
         }
     }
@@ -952,7 +952,7 @@ void FigurineDevice_NewFigurinesMessage(void) {
 void FigurineDevice_TryAgainMessage(void) {
     u32 messageIndex;
     if (REGION_IS_EU ? CheckRoomFlag(10) : CheckRoomFlag(9)) {
-        if (CheckLocalFlag(SHOP07_COMPLETE)) {
+        if (CheckLocalFlagB(SHOP07_COMPLETE)) {
             messageIndex = TEXT_INDEX(TEXT_CARLOV, 19); // ...already have all ... still want to have a try?
         } else {
             messageIndex = TEXT_INDEX(TEXT_CARLOV, 12); // Want to try another drawing?

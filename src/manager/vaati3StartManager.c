@@ -46,7 +46,7 @@ void Vaati3StartManager_Type0(Vaati3StartManager* this) {
 }
 
 void Vaati3StartManager_Type0_Init(Vaati3StartManager* this) {
-    if (CheckLocalFlagB(0x7b) == 0) {
+    if (CheckLocalFlag(0x7b) == 0) {
         DeleteThisEntity();
     }
     super->action = 1;

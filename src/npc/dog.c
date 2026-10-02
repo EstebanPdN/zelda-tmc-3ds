@@ -529,7 +529,7 @@ void sub_0806A144(Entity* this) {
     if (gPlayerState.flags & PL_MINISH) {
         dialog = 3;
         if (GetInventoryValue(ITEM_FLIPPERS) == 0 && CheckGlobalFlag(MIZUKAKI_START)) {
-            if (CheckLocalFlagB(0x85) == 0) {
+            if (CheckLocalFlag(0x85) == 0) {
                 dialog = 1;
             } else {
                 dialog = 2;

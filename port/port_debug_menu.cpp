@@ -78,7 +78,7 @@ void Port_Config_SetAutosaveIntervalMs(unsigned int ms);
 
 /* Save profiles (port_save.c + port_runtime_config.cpp). */
 const char* Port_Save_GetActivePath(void);
-void Port_Save_SetActivePath(const char* path);
+int Port_Save_SetActivePath(const char* path);
 int Port_Save_SaveAsProfile(const char* path);
 int Port_Save_FilenameMax(void);
 int Port_Save_ListProfiles(char (*out)[64], int max);
@@ -934,9 +934,12 @@ MenuPage BuildSaveProfilesPage(void) {
         bool isActive = (name == activeNow);
         MenuItem it;
         it.action = [name]() {
-            Port_Save_SetActivePath(name.c_str());
-            Port_Config_SetActiveSaveProfile(name.c_str());
-            Toast(("Active: " + name + " — go to title to load").c_str());
+            if (Port_Save_SetActivePath(name.c_str())) {
+                Port_Config_SetActiveSaveProfile(name.c_str());
+                Toast(("Active: " + name + " — go to title to load").c_str());
+            } else {
+                Toast("Profile switch failed — pending save was not written");
+            }
         };
         /* labelFn so the active marker updates after switching without
          * forcing a page rebuild. */

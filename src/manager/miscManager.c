@@ -205,14 +205,14 @@ void MiscManager_Type3(MiscManager* this) {
     u32 tmp = 0;
     if (super->action == 0) {
         super->action = 1;
-        if (CheckLocalFlagB(0x60)) {
+        if (CheckLocalFlag(0x60)) {
             tmp = 1;
         } else {
-            SetLocalFlagB(0x5F);
+            SetLocalFlag(0x5F);
         }
     } else {
-        if (CheckLocalFlagB(0x60)) {
-            ClearLocalFlagB(0x5F);
+        if (CheckLocalFlag(0x60)) {
+            ClearLocalFlag(0x5F);
             tmp = 1;
         }
     }
@@ -227,14 +227,14 @@ void MiscManager_Type4(MiscManager* this) {
         super->action = 1;
         SetEntityPriority((Entity*)this, PRIO_PLAYER_EVENT);
     }
-    if (CheckLocalFlagB(0x6c)) {
-        if (CheckLocalFlagB(0x4b)) {
-            SetLocalFlagB(0x4a);
+    if (CheckLocalFlag(0x6c)) {
+        if (CheckLocalFlag(0x4b)) {
+            SetLocalFlag(0x4a);
         } else {
-            ClearLocalFlagB(0x4a);
+            ClearLocalFlag(0x4a);
         }
     } else {
-        ClearLocalFlagB(0x4a);
+        ClearLocalFlag(0x4a);
     }
 }
 
@@ -423,7 +423,7 @@ void MiscManager_TypeE(MiscManager* this) {
         case 1:
             if (!GetInventoryValue(ITEM_FOURSWORD))
                 return;
-            if (CheckLocalFlagByBank(FLAG_BANK_10, LV6SOTO_01_CAP_0))
+            if (CheckLocalFlagByBankB(FLAG_BANK_10, LV6SOTO_01_CAP_0))
                 return;
             super->action = 2;
             SetNextAreaHint(TEXT_INDEX(TEXT_EZLO, 0xf));
@@ -433,7 +433,7 @@ void MiscManager_TypeE(MiscManager* this) {
             if (gArea.unk28.textBaseIndex != 0xFF) {
                 DeleteThisEntity();
             }
-            if (CheckLocalFlagByBank(FLAG_BANK_10, LV6SOTO_01_CAP_0)) {
+            if (CheckLocalFlagByBankB(FLAG_BANK_10, LV6SOTO_01_CAP_0)) {
                 sub_0801855C();
                 DeleteThisEntity();
             }

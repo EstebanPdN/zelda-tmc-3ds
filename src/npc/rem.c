@@ -119,7 +119,7 @@ void sub_0806A458(RemEntity* this) {
             if ((super->frame & ANIM_DONE) != 0) {
                 super->subAction = 2;
                 InitializeAnimation(super, 10);
-                ClearLocalFlagB(0x62);
+                ClearLocalFlag(0x62);
             }
             break;
         case 2:
@@ -336,7 +336,7 @@ void sub_0806A890(RemEntity* this) {
 
 void sub_0806A8C8(Entity* this) {
     Entity* entity;
-    if ((CheckLocalFlag(SHOP02_KUTSU_00) == 0) && (entity = CreateNPC(REM, 2, 0), entity != NULL)) {
+    if ((CheckLocalFlagB(SHOP02_KUTSU_00) == 0) && (entity = CreateNPC(REM, 2, 0), entity != NULL)) {
         CopyPosition(this, entity);
         entity->parent = this;
     }
@@ -391,7 +391,7 @@ void sub_0806A9B0(RemEntity* this, ScriptExecutionContext* context) {
     super->timer = gUnk_081122A0[Random() & 7];
     this->unk_80 = 9;
     InitializeAnimation(super, 9);
-    SetLocalFlag(NPC37_REM_SLEEP);
+    SetLocalFlagB(NPC37_REM_SLEEP);
 }
 
 void sub_0806A9E8(Entity* this) {
@@ -431,7 +431,7 @@ void sub_0806AA50(Entity* this, ScriptExecutionContext* context) {
     switch (context->unk_18) {
         case 0:
             context->condition = 0;
-            if (CheckLocalFlagB(0x8f) == 0) {
+            if (CheckLocalFlag(0x8f) == 0) {
                 messageIndex = gUnk_081122A8[gRoomVars.animFlags];
             } else if (GetInventoryValue(ITEM_PEGASUS_BOOTS) == 0) {
                 messageIndex = gUnk_081122B0[gRoomVars.animFlags];
@@ -461,7 +461,7 @@ void sub_0806AA50(Entity* this, ScriptExecutionContext* context) {
                     break;
             }
             if (messageIndex == TEXT_INDEX(TEXT_REM, 0x1e)) {
-                SetLocalFlagB(0x8f);
+                SetLocalFlag(0x8f);
                 context->condition = 1;
             }
             context->unk_18 = 1;

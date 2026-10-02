@@ -62,7 +62,7 @@ void CabinFurniture_Init(CabinFurnitureEntity* this) {
             SetTile(SPECIAL_TILE_34, uVar6, layer);
             SetTile(SPECIAL_TILE_34, uVar6 + 0x40, layer);
             SetTile(SPECIAL_TILE_37, uVar6 + 0x41, layer);
-            if (CheckLocalFlagB(0x4f) == 0) {
+            if (CheckLocalFlag(0x4f) == 0) {
                 SetTile(SPECIAL_TILE_47, uVar6 + 1, layer);
             } else {
                 SetTile(SPECIAL_TILE_45, uVar6 + 1, layer);

@@ -15,10 +15,12 @@
  * children exit fully off-screen on a wide frame. 0x108/0x118 = 240+0x18/
  * 240+0x28 — collapse to the originals at native width / GBA. */
 #if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
-extern int Port_Widescreen_EffectiveViewWidth(void);
-#define WS_VIEW_W ((s32)Port_Widescreen_EffectiveViewWidth())
+#include "port_widescreen.h"
+#define WS_VIEW_W ((s32)Port_Widescreen_GameplayViewWidth())
+#define WS_VIEW_H ((s32)Port_Widescreen_GameplayViewHeight())
 #else
 #define WS_VIEW_W 240
+#define WS_VIEW_H 160
 #endif
 
 void GyorgChild_OnTick(GyorgChildEntity*);
@@ -140,7 +142,7 @@ void GyorgChild_Action1(GyorgChildEntity* this) {
             }
             break;
         case 2:
-            if (super->y.HALF.HI < gRoomControls.scroll_y + 0xb8) {
+            if (super->y.HALF.HI < gRoomControls.scroll_y + WS_VIEW_H + 0x18) {
                 return;
             }
             break;
@@ -201,7 +203,7 @@ void GyorgChild_Action3(GyorgChildEntity* this) {
             }
             break;
         case 2:
-            if (super->y.HALF.HI < gRoomControls.scroll_y + 0xc8) {
+            if (super->y.HALF.HI < gRoomControls.scroll_y + WS_VIEW_H + 0x28) {
                 return;
             }
             break;

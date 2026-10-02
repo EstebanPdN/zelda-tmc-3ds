@@ -15,6 +15,10 @@
 #include "structures.h"
 #include "ui.h"
 
+#ifdef PC_PORT
+#include "cpu/mode1.h"
+#endif
+
 extern void CreateSparkle(Entity* entity);
 extern void sub_080ADD70(void);
 
@@ -102,6 +106,11 @@ void UpdateDisplayControls(void) {
         gOAMControls.field_0x0 = 0;
 
         DmaCopy32(3, &gOAMControls.oam, OAM, OAM_SIZE);
+#ifdef PC_PORT
+        /* Publish signed-Y and swamp clipping metadata with the same OAM
+         * generation copied above; the renderer never observes a torn pair. */
+        virtuappu_mode1_commit_obj_metadata();
+#endif
 
     }
     sub_08016CA8(&gScreen.bg0);

@@ -27,8 +27,11 @@
 #include "gfx.h"
 #include "fade.h"
 #ifdef PC_PORT
+#include "port_cloud_tops_fight.h"
+#include "port_vaati_progress.h"
 #include "port_ppu.h"
 #include "port_runtime_config.h"
+#include "port_save.h"
 #include "port_tts.h"
 #endif
 #include <stdio.h>
@@ -599,7 +602,7 @@ static const u16 gUnk_080FC8DE[] = {
 #define PORT_SETTINGS_ROW_COUNT 5
 #define PORT_PROFILE_ROW 4
 extern const char* Port_Save_GetActivePath(void);
-extern void Port_Save_SetActivePath(const char* path);
+extern int Port_Save_SetActivePath(const char* path);
 extern int Port_Save_ListProfiles(char (*out)[64], int max);
 extern void Port_Config_SetActiveSaveProfile(const char* path);
 
@@ -623,7 +626,8 @@ static void Port_FileSelect_CycleProfile(int direction) {
     }
     cur = (cur + direction + n) % n;
 
-    Port_Save_SetActivePath(profiles[cur]);
+    if (!Port_Save_SetActivePath(profiles[cur]))
+        return;
     Port_Config_SetActiveSaveProfile(profiles[cur]);
 
     /* Re-read the three engine save slots so the on-screen file tiles
@@ -787,6 +791,54 @@ void SetActiveSave(u32 idx) {
 #ifdef PC_PORT
     if (idx < NUM_SAVE_SLOTS) {
 
+
+        if (!!Port_Save_IsStandardProfile() && Port_VaatiProgressNeedsRepair(&gSave)) {
+            if (!Port_Save_PreserveBeforeVaatiProgressRepair()) {
+                fprintf(stderr,
+                        "[SAVE] Refused Vaati progression repair for slot %u because the permanent backup failed.\n",
+                        idx);
+            } else if (Port_RepairVaatiProgress(&gSave)) {
+                MemCopy(&gSave, &gFileSelectState.saves[idx], sizeof(gSave));
+                if (WriteSaveFile(idx, &gSave) != 0) {
+                    fprintf(stderr, "[SAVE] Restored the missing Vaati 1 progression flag in slot %u.\n", idx);
+                } else {
+                    fprintf(stderr,
+                            "[SAVE] Restored the missing Vaati 1 progression flag in slot %u in memory; durable "
+                            "persistence will retry on the next save.\n",
+                            idx);
+                }
+            }
+        }
+
+        if (!!Port_Save_IsStandardProfile() && Port_CloudTopsHasLostGoldenKinstone(&gSave)) {
+            if (!Port_Save_PreserveBeforeCloudTopsRepair()) {
+                fprintf(stderr,
+                        "[SAVE] Refused Cloud Tops reward repair for slot %u because the permanent backup "
+                        "failed.\n",
+                        idx);
+            } else {
+                AddKinstoneToBag(PORT_CLOUD_TOPS_GOLDEN_KINSTONE);
+                if (Port_CloudTopsHasLostGoldenKinstone(&gSave)) {
+                    fprintf(stderr,
+                            "[SAVE] Refused Cloud Tops reward repair for slot %u because the Kinstone bag has "
+                            "no free entry.\n",
+                            idx);
+                } else {
+                    MemCopy(&gSave, &gFileSelectState.saves[idx], sizeof(gSave));
+                    if (WriteSaveFile(idx, &gSave) != 0) {
+                        fprintf(stderr,
+                                "[SAVE] Recovered the missing Cloud Tops golden Kinstone in slot %u and "
+                                "persisted the repaired save.\n",
+                                idx);
+                    } else {
+                        fprintf(stderr,
+                                "[SAVE] Recovered the missing Cloud Tops golden Kinstone in slot %u in memory; "
+                                "durable persistence will retry on the next save.\n",
+                                idx);
+                    }
+                }
+            }
+        }
     }
 
 #endif

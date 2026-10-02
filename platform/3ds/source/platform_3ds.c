@@ -1,5 +1,6 @@
 #include "platform_3ds.h"
 #include "old3ds_frame_pacer.h"
+#include "platform_gpu_3ds.h"
 #include "port_audio_3ds.h"
 #include "port_second_screen_3ds.h"
 #include "port_second_screen_sync_3ds.h"
@@ -75,6 +76,7 @@ static void OnAptEvent(APT_HookType hook, void* parameter) {
              * mark is consumed at the next logic boundary, so suspend and
              * restore callbacks before that boundary coalesce into one resync. */
             Platform3DS_MarkFrameDiscontinuity(OLD3DS_FRAME_PACER_DISCONTINUITY_APT);
+            PlatformGpu3DS_InvalidateBottomTarget();
             break;
         default:
             break;

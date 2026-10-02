@@ -67,7 +67,16 @@ void SpikedRollers_Action1(SpikedRollersEntity* this) {
         unk_0x6c = -unk_0x6c;
     }
 
+#ifdef PC_PORT
+    /* Negative-travel rollers negate a positive delta above, so diff is
+     * deliberately negative on their first frame.  Shift after converting
+     * to unsigned to reproduce the ARM `lsls` wraparound without invoking C
+     * undefined behaviour (which could corrupt the endpoint/flip decision
+     * under an optimizing host compiler). */
+    if (((u32)diff << 0x10) > ((u32)unk_0x6c << 0x10)) {
+#else
     if ((u32)(diff << 0x10) > (unk_0x6c << 0x10)) {
+#endif
         super->direction ^= 0x10;
         if (super->type2 == 0) {
             super->x.HALF.HI = this->x2;

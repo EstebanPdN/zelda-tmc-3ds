@@ -82,11 +82,11 @@ void sub_0806CE80(Entity* this) {
     v = gSave.global_progress;
     if (v == 5) {
         if (GetInventoryValue(ITEM_FLIPPERS) == 0) {
-            if (CheckLocalFlagB(0x70) != 0) {
-                v2 = CheckLocalFlag(MIZUKAKI_HINT3_MAYOR);
+            if (CheckLocalFlag(0x70) != 0) {
+                v2 = CheckLocalFlagB(MIZUKAKI_HINT3_MAYOR);
                 if (v2 == 0) {
                     v = 0xb;
-                    SetLocalFlag(MIZUKAKI_HINT3_MAYOR);
+                    SetLocalFlagB(MIZUKAKI_HINT3_MAYOR);
                 } else {
                     v = 0xc;
                 }
@@ -94,10 +94,10 @@ void sub_0806CE80(Entity* this) {
                 v = 0xa;
             }
         } else {
-            v2 = CheckLocalFlag(MAYOR_2_TALK1ST);
+            v2 = CheckLocalFlagB(MAYOR_2_TALK1ST);
             if (v2 == 0) {
                 v = 0xd;
-                SetLocalFlag(MAYOR_2_TALK1ST);
+                SetLocalFlagB(MAYOR_2_TALK1ST);
             } else {
                 v = 0xe;
             }

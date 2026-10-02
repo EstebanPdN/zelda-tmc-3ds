@@ -41,7 +41,7 @@ void Pinwheel(PinwheelEntity* this) {
 void Pinwheel_Init(PinwheelEntity* this) {
     this->flag = gPinwheelFlags[super->type2];
     super->spritePriority.b0 = 7;
-    if (CheckLocalFlag(this->flag) != 0) {
+    if (CheckLocalFlagB(this->flag) != 0) {
         super->action = 2;
     } else {
         super->action = 1;
@@ -50,7 +50,7 @@ void Pinwheel_Init(PinwheelEntity* this) {
 }
 
 void Pinwheel_Action1(PinwheelEntity* this) {
-    if (CheckLocalFlag(this->flag) != 0) {
+    if (CheckLocalFlagB(this->flag) != 0) {
         super->action = 2;
         CreateDeathFx(super);
     }

@@ -167,7 +167,7 @@ void WorldEvent_17_0(void) {
     gUpdateVisibleTiles = 1;
     SetFade(FADE_INSTANT, 0x10);
     gMenu.field_0xa = 0;
-    if (CheckLocalFlagByBank(FLAG_BANK_4, GORON_DOUKUTU_01_T1) && (ptr[2] == 0x2f)) {
+    if (CheckLocalFlagByBankB(FLAG_BANK_4, GORON_DOUKUTU_01_T1) && (ptr[2] == 0x2f)) {
         gMenu.field_0xa = 1;
     }
 }

@@ -1,5 +1,6 @@
 #include "port_runtime_config.h"
 #include "platform_3ds.h"
+#include "config_values_3ds.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,8 +20,8 @@ static _Atomic bool sHoldText;
 static _Atomic bool sColorCorrection;
 static _Atomic bool sAutosave;
 static bool sConsoleParity;
-static _Atomic Port3DSAspectRatio sAspectRatio = PORT_3DS_ASPECT_STRETCH;
-static _Atomic Port3DSDisplayStyle sDisplayStyle = PORT_3DS_DISPLAY_BLUR;
+static _Atomic Port3DSAspectRatio sAspectRatio = CONFIG_3DS_DEFAULT_ASPECT;
+static _Atomic Port3DSDisplayStyle sDisplayStyle = CONFIG_3DS_DEFAULT_DISPLAY;
 /* The desktop file-select overlay is rendered on the gameplay screen and
  * has no useful 3DS interaction path. Keep the native second-screen UI
  * separate and leave this desktop-only overlay disabled. */
@@ -35,35 +36,6 @@ static char sConfigPath[256] = "tmc3ds.ini";
 static bool ParseBool(const char* value) {
     return value != NULL && (value[0] == '1' || value[0] == 't' || value[0] == 'T' ||
                              value[0] == 'y' || value[0] == 'Y');
-}
-
-static const char* AspectRatioConfigName(Port3DSAspectRatio mode) {
-    static const char* const names[PORT_3DS_ASPECT_COUNT] = { "wide", "original", "stretch" };
-    return mode >= 0 && mode < PORT_3DS_ASPECT_COUNT ? names[mode] : names[PORT_3DS_ASPECT_STRETCH];
-}
-
-static const char* DisplayStyleConfigName(Port3DSDisplayStyle style) {
-    static const char* const names[PORT_3DS_DISPLAY_COUNT] = { "pixel-perfect", "scaled", "blur" };
-    return style >= 0 && style < PORT_3DS_DISPLAY_COUNT ? names[style]
-                                                        : names[PORT_3DS_DISPLAY_BLUR];
-}
-
-static Port3DSAspectRatio ParseAspectRatio(const char* value) {
-    for (int i = 0; i < PORT_3DS_ASPECT_COUNT; ++i) {
-        if (strcmp(value, AspectRatioConfigName((Port3DSAspectRatio)i)) == 0) {
-            return (Port3DSAspectRatio)i;
-        }
-    }
-    return PORT_3DS_ASPECT_STRETCH;
-}
-
-static Port3DSDisplayStyle ParseDisplayStyle(const char* value) {
-    for (int i = 0; i < PORT_3DS_DISPLAY_COUNT; ++i) {
-        if (strcmp(value, DisplayStyleConfigName((Port3DSDisplayStyle)i)) == 0) {
-            return (Port3DSDisplayStyle)i;
-        }
-    }
-    return PORT_3DS_DISPLAY_BLUR;
 }
 
 static void SaveConfig(void) {
@@ -86,8 +58,8 @@ static void SaveConfig(void) {
     fprintf(file, "color_correction=%u\n", sColorCorrection ? 1u : 0u);
     fprintf(file, "autosave=%u\n", sAutosave ? 1u : 0u);
     fprintf(file, "widescreen=%u\n", sAspectRatio == PORT_3DS_ASPECT_WIDE ? 1u : 0u);
-    fprintf(file, "screen_aspect=%s\n", AspectRatioConfigName(sAspectRatio));
-    fprintf(file, "display_style=%s\n", DisplayStyleConfigName(sDisplayStyle));
+    fprintf(file, "screen_aspect=%s\n", ConfigValues3DS_AspectName(sAspectRatio));
+    fprintf(file, "display_style=%s\n", ConfigValues3DS_DisplayName(sDisplayStyle));
     fprintf(file, "master_volume=%.2f\n", (double)sVolume);
     fprintf(file, "panel_backdrop=%d\n", sBackdrop);
     fprintf(file, "turbo_multiplier=%u\n", sTurboMultiplier);
@@ -138,10 +110,10 @@ void Port_Config_Load(const char* path) {
             else if (strcmp(key, "widescreen") == 0 && !hasScreenAspect)
                 sAspectRatio = ParseBool(value) ? PORT_3DS_ASPECT_WIDE : PORT_3DS_ASPECT_ORIGINAL;
             else if (strcmp(key, "screen_aspect") == 0) {
-                sAspectRatio = ParseAspectRatio(value);
+                sAspectRatio = ConfigValues3DS_ParseAspect(value);
                 hasScreenAspect = true;
             } else if (strcmp(key, "display_style") == 0) {
-                sDisplayStyle = ParseDisplayStyle(value);
+                sDisplayStyle = ConfigValues3DS_ParseDisplay(value);
             }
             else if (strcmp(key, "master_volume") == 0) sVolume = strtof(value, NULL);
             else if (strcmp(key, "panel_backdrop") == 0) sBackdrop = (int)strtol(value, NULL, 10);
@@ -334,10 +306,18 @@ void Port_Config_Cycle3DSAspectRatio(void) {
 }
 int Port_Config_Get3DSDisplayStyle(void) { return (int)sDisplayStyle; }
 const char* Port_Config_Get3DSDisplayStyleName(void) {
-    static const char* const names[PORT_3DS_DISPLAY_COUNT] = { "PIXEL PERFECT", "SCALED", "BLUR" };
-    return names[sDisplayStyle];
+    return ConfigValues3DS_DisplayLabel(sDisplayStyle);
 }
 void Port_Config_Cycle3DSDisplayStyle(void) {
     sDisplayStyle = (Port3DSDisplayStyle)((sDisplayStyle + 1) % PORT_3DS_DISPLAY_COUNT);
     SaveConfig();
+}
+bool Port_Config_3DSFullViewComboEnabled(void) {
+    /* Load each atomic once so a bottom-screen option tap can only select one
+     * complete policy on this call. A mixed/transient value fails closed on
+     * the following scene latch before any 400x240 geometry is published. */
+    const Port3DSAspectRatio aspect = sAspectRatio;
+    const Port3DSDisplayStyle style = sDisplayStyle;
+    return Platform3DS_IsNew3DS() && aspect == PORT_3DS_ASPECT_WIDE &&
+           style == PORT_3DS_DISPLAY_PIXEL_PERFECT;
 }

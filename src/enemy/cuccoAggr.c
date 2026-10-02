@@ -17,10 +17,12 @@
 /* Widescreen (PC): cull against the live view width instead of the GBA 240.
  * Collapses to the original 0x108 (= 240 + 0x18) at native width / GBA. */
 #if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
-extern int Port_Widescreen_EffectiveViewWidth(void);
-#define WS_VIEW_W ((u32)Port_Widescreen_EffectiveViewWidth())
+#include "port_widescreen.h"
+#define WS_VIEW_W ((u32)Port_Widescreen_GameplayViewWidth())
+#define WS_VIEW_H ((u32)Port_Widescreen_GameplayViewHeight())
 #else
 #define WS_VIEW_W 240u
+#define WS_VIEW_H 160u
 #endif
 
 typedef struct {
@@ -309,7 +311,7 @@ void sub_08039140(CuccoAggrEntity* this) {
 bool32 CuccoAggr_IsOutsideScroll(CuccoAggrEntity* this) {
     if ((u32)super->x.HALF.HI - 0xc - gRoomControls.scroll_x > WS_VIEW_W + 0x18)
         return 1;
-    if ((u32)super->y.HALF.HI - 0xc - gRoomControls.scroll_y > 0xb8)
+    if ((u32)super->y.HALF.HI - 0xc - gRoomControls.scroll_y > WS_VIEW_H + 0x18u)
         return 1;
 
     return 0;
@@ -321,9 +323,35 @@ void sub_080391B4(CuccoAggrEntity* this) {
             Entity* entity = CreateEnemy(CUCCO_AGGR, 2);
             if (entity != NULL) {
                 u32 rand = (Random() & 0x17);
+#if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
+                s32 spawnX;
+                s32 spawnY;
+                const s32 viewWidth = (s32)WS_VIEW_W;
+                const s32 viewHeight = (s32)WS_VIEW_H;
+
+                /* Keep the retail 7+7+5+5 spawn ring just outside the live
+                 * viewport. At 240x160 these formulas reproduce every entry
+                 * in gCuccoAggrSpawnPoints exactly. */
+                if (rand < 7) {
+                    spawnX = 24 + (s32)rand * (viewWidth - 48) / 6;
+                    spawnY = -8;
+                } else if (rand < 14) {
+                    spawnX = 24 + (s32)(rand - 7) * (viewWidth - 48) / 6;
+                    spawnY = viewHeight + 8;
+                } else if (rand < 19) {
+                    spawnX = -8;
+                    spawnY = 16 + (s32)(rand - 14) * (viewHeight - 32) / 4;
+                } else {
+                    spawnX = viewWidth + 8;
+                    spawnY = 16 + (s32)(rand - 19) * (viewHeight - 32) / 4;
+                }
+                entity->x.HALF.HI = gRoomControls.scroll_x + spawnX;
+                entity->y.HALF.HI = gRoomControls.scroll_y + spawnY;
+#else
                 const PosOffset* ptr = &gCuccoAggrSpawnPoints[rand];
                 entity->x.HALF.HI = gRoomControls.scroll_x + ptr->x;
                 entity->y.HALF.HI = gRoomControls.scroll_y + ptr->y;
+#endif
                 entity->collisionLayer = super->collisionLayer;
             }
         }

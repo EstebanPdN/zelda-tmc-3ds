@@ -23,7 +23,9 @@
 #include "scroll.h"
 #include "sound.h"
 #include "tiles.h"
-
+#ifdef PC_PORT
+#include "port_widescreen.h"
+#endif
 extern u8 gUnk_08122AE0[];
 extern u16 gUnk_08122AE8[];
 extern s8 gUnk_08122AF8[]; // TODO struct s8XY
@@ -336,8 +338,15 @@ void CutsceneMiscObject_Type5(CutsceneMiscObjectEntity* this) {
         if ((gRoomTransition.frameCount % 32) == 0) {
             Entity* e = CreateObject(0x6A, 5, 1);
             if (e != NULL) {
-                e->x.HALF.HI = gRoomControls.scroll_x + (s32)Random() % DISPLAY_WIDTH;
-                e->y.HALF.HI = gRoomControls.scroll_y + (s32)Random() % DISPLAY_HEIGHT;
+#if defined(PC_PORT) && MODE1_GBA_WIDTH > 240
+                const s32 viewWidth = Port_Widescreen_GameplayViewWidth();
+                const s32 viewHeight = Port_Widescreen_GameplayViewHeight();
+#else
+                const s32 viewWidth = DISPLAY_WIDTH;
+                const s32 viewHeight = DISPLAY_HEIGHT;
+#endif
+                e->x.HALF.HI = gRoomControls.scroll_x + (s32)Random() % viewWidth;
+                e->y.HALF.HI = gRoomControls.scroll_y + (s32)Random() % viewHeight;
             }
         }
         return;

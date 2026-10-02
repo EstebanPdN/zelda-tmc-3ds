@@ -142,10 +142,10 @@ void ClearRoomFlag(u32 flag) {
  * fat binary compiles flags.h with USA-baseline ordinals, but area/room/script
  * data loaded from an EU/JP ROM references flags by that region's ordinals
  * (port_rom.c Port_Resolve*FromRom). ROM-sourced references are therefore
- * already region-correct and untouched; only C *baseline* references (literals,
- * named flag enums, compiled C const-table fields) are remapped via the *B
- * helpers below. The mapping is identity on USA (default config unaffected) and
- * identity outside the one diverging bank (LocalFlags1).
+ * already region-correct and untouched; only C references proven to have USA
+ * provenance (named USA enums and compiled USA const-table fields) are remapped
+ * via the *B helpers below. A USA-only name is invalid in a target region even
+ * when an unrelated target flag happens to have the same numeric ordinal.
  */
 static int LocalBankNumberForOffset(u32 offset) {
     int i;
@@ -160,87 +160,133 @@ static int LocalBankNumberForOffset(u32 offset) {
 
 u32 Port_RemapBaselineLocalFlag(u32 offset, u32 ord) {
     int bank;
+    const unsigned char(*remap)[FLAG_REMAP_TABLE_WIDTH];
+    const unsigned char(*valid)[FLAG_REMAP_TABLE_WIDTH];
+
     if (gActiveRegion == TMC_REGION_USA) {
         return ord;
     }
     if (ord >= FLAG_REMAP_TABLE_WIDTH) {
-        return ord;
+        return PORT_FLAG_REMAP_INVALID;
     }
     bank = LocalBankNumberForOffset(offset);
     if (bank < 1 || bank > FLAG_REMAP_BANK_COUNT) {
         return ord;
     }
     if (gActiveRegion == TMC_REGION_EU) {
-        return gFlagRemapEU[bank - 1][ord];
+        remap = gFlagRemapEU;
+        valid = gFlagRemapEUValid;
+    } else {
+        remap = gFlagRemapJP;
+        valid = gFlagRemapJPValid;
     }
-    return gFlagRemapJP[bank - 1][ord];
+    if (!valid[bank - 1][ord]) {
+        return PORT_FLAG_REMAP_INVALID;
+    }
+    return remap[bank - 1][ord];
 }
 
 u32 CheckLocalFlagB(u32 ord) {
-    return CheckLocalFlagByBank(gArea.localFlagOffset, Port_RemapBaselineLocalFlag(gArea.localFlagOffset, ord));
+    u32 remapped = Port_RemapBaselineLocalFlag(gArea.localFlagOffset, ord);
+    return remapped == PORT_FLAG_REMAP_INVALID ? FALSE : CheckLocalFlagByBank(gArea.localFlagOffset, remapped);
 }
 
 void SetLocalFlagB(u32 ord) {
-    SetLocalFlagByBank(gArea.localFlagOffset, Port_RemapBaselineLocalFlag(gArea.localFlagOffset, ord));
+    u32 remapped = Port_RemapBaselineLocalFlag(gArea.localFlagOffset, ord);
+    if (remapped != PORT_FLAG_REMAP_INVALID) {
+        SetLocalFlagByBank(gArea.localFlagOffset, remapped);
+    }
 }
 
 void ClearLocalFlagB(u32 ord) {
-    ClearLocalFlagByBank(gArea.localFlagOffset, Port_RemapBaselineLocalFlag(gArea.localFlagOffset, ord));
+    u32 remapped = Port_RemapBaselineLocalFlag(gArea.localFlagOffset, ord);
+    if (remapped != PORT_FLAG_REMAP_INVALID) {
+        ClearLocalFlagByBank(gArea.localFlagOffset, remapped);
+    }
 }
 
 /*
  * Explicit-bank variants for call sites whose bank does not come from
  * gArea.localFlagOffset (compiled tables carrying a bank + baseline ordinal
- * pair, e.g. WorldEvent rewards). Identity on USA and outside bank 1.
+ * pair, e.g. WorldEvent rewards).
  */
 bool32 CheckLocalFlagByBankB(u32 offset, u32 ord) {
-    return CheckLocalFlagByBank(offset, Port_RemapBaselineLocalFlag(offset, ord));
+    u32 remapped = Port_RemapBaselineLocalFlag(offset, ord);
+    return remapped == PORT_FLAG_REMAP_INVALID ? FALSE : CheckLocalFlagByBank(offset, remapped);
 }
 
 void SetLocalFlagByBankB(u32 offset, u32 ord) {
-    SetLocalFlagByBank(offset, Port_RemapBaselineLocalFlag(offset, ord));
+    u32 remapped = Port_RemapBaselineLocalFlag(offset, ord);
+    if (remapped != PORT_FLAG_REMAP_INVALID) {
+        SetLocalFlagByBank(offset, remapped);
+    }
 }
 
 void ClearLocalFlagByBankB(u32 offset, u32 ord) {
-    ClearLocalFlagByBank(offset, Port_RemapBaselineLocalFlag(offset, ord));
+    u32 remapped = Port_RemapBaselineLocalFlag(offset, ord);
+    if (remapped != PORT_FLAG_REMAP_INVALID) {
+        ClearLocalFlagByBank(offset, remapped);
+    }
 }
 
 /*
- * Multi-bit local check. Remaps the start ordinal; the `count` consecutive
- * baseline ordinals are assumed to remap to `count` consecutive region ordinals
- * (true for the only diverging bank, LocalFlags1, where adjacent flags shift by
- * the same delta — verified by tools/flag_remap_test.py). Identity on USA.
+ * Multi-bit local check. Remap every semantic bit independently: insertions in
+ * another region can make a USA-consecutive range non-contiguous. Preserve
+ * CheckBits semantics: true only when every bit in the range is set.
  */
 u32 CheckLocalFlagsB(u32 ord, u32 count) {
-    return CheckLocalFlagsByBank(gArea.localFlagOffset, Port_RemapBaselineLocalFlag(gArea.localFlagOffset, ord), count);
+    u32 i;
+    for (i = 0; i < count; ++i) {
+        u32 remapped = Port_RemapBaselineLocalFlag(gArea.localFlagOffset, ord + i);
+        if (remapped == PORT_FLAG_REMAP_INVALID) {
+            return FALSE;
+        }
+        if (!CheckLocalFlagByBank(gArea.localFlagOffset, remapped)) {
+            return FALSE;
+        }
+    }
+    return TRUE;
 }
 
 /*
- * Packed (type/length-encoded) variants for script/data-style call sites. Only
- * single-bit LOCAL flags are remapped: multi-bit groups (length>1) are not
- * guaranteed contiguous after remap, and global(type 1)/room(type 2) flags do
- * not diverge.
+ * Packed (type/length-encoded) variants for compiled-USA data. Global and room
+ * flags are region-stable. Local ranges use the per-bit path above; writes
+ * still target the single index used by SetFlag/ClearFlag.
  */
-static u32 RemapPackedBaseline(u32 flag) {
+static u32 RemapPackedBaselineIndex(u32 flag) {
     u32 type = (flag & 0xc000) >> 0xe;
-    u32 length = (((flag & ((0xf0) << 0x6)) >> 0xa) + 1);
-    if (type == 0 && length == 1) {
+    if (type == 0) {
         u32 index = flag & 0x3ff;
         u32 remapped = Port_RemapBaselineLocalFlag(gArea.localFlagOffset, index);
+        if (remapped == PORT_FLAG_REMAP_INVALID) {
+            return PORT_FLAG_REMAP_INVALID;
+        }
         flag = (flag & ~0x3ffu) | (remapped & 0x3ff);
     }
     return flag;
 }
 
 u32 CheckFlagsB(u32 flag) {
-    return CheckFlags(RemapPackedBaseline(flag));
+    u32 type = (flag & 0xc000) >> 0xe;
+    if (type == 0) {
+        u32 index = flag & 0x3ff;
+        u32 length = (((flag & ((0xf0) << 0x6)) >> 0xa) + 1);
+        return CheckLocalFlagsB(index, length);
+    }
+    return CheckFlags(flag);
 }
 
 void SetFlagB(u32 flag) {
-    SetFlag(RemapPackedBaseline(flag));
+    flag = RemapPackedBaselineIndex(flag);
+    if (flag != PORT_FLAG_REMAP_INVALID) {
+        SetFlag(flag);
+    }
 }
 
 void ClearFlagB(u32 flag) {
-    ClearFlag(RemapPackedBaseline(flag));
+    flag = RemapPackedBaselineIndex(flag);
+    if (flag != PORT_FLAG_REMAP_INVALID) {
+        ClearFlag(flag);
+    }
 }
 #endif /* PC_PORT && MULTI_REGION */

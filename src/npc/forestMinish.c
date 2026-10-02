@@ -764,9 +764,9 @@ void sub_08060270(Entity* this) {
         }
     } else {
         index = 3;
-        if (CheckLocalFlagB(0x76) == 0) {
+        if (CheckLocalFlag(0x76) == 0) {
             index = 2;
-            SetLocalFlagB(0x76);
+            SetLocalFlag(0x76);
         }
     }
     MessageNoOverlap(gUnk_0810A35A[index], this);

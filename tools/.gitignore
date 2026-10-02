@@ -1,4 +1,7 @@
 bin
 cmake-build*
 *.cmake
+!generate_flag_remap.py
+!flag_remap_test.py
+!verify_eu_region_data.py
 json*.hpp

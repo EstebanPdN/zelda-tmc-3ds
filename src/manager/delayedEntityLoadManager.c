@@ -96,27 +96,56 @@ void DelayedEntityLoadManager_Main(DelayedEntityLoadManager* this) {
     while (npcPtr2->id != 0xff) {
         if (!CheckRectOnScreen(npcPtr2->x, npcPtr2->y, 0x18, 0x20)) {
             ClearBit(bitfield, index2);
+#ifdef PC_PORT
+        } else if ((npcPtr2->progressBitfield & progressMask) && gEntCount < 0x47 &&
+                   !ReadBit(bitfield, index2)) {
+            /* Reserve every resource before publishing the delayed-slot bit.
+             * Previously WriteBit ran first in the condition below.  If all
+             * 32 script contexts happened to be occupied, the entity was not
+             * created but its slot stayed marked as spawned until it left the
+             * viewport.  That permanently hid scripted escape objects such as
+             * the Cloud Tops whirlwinds while the player was trapped on their
+             * island (especially easy to hit while using turbo). */
+            context = NULL;
+            if (npcPtr2->script == NULL || (context = CreateScriptExecutionContext()) != NULL) {
+#else
         } else if ((npcPtr2->progressBitfield & progressMask) && gEntCount < 0x47 && !WriteBit(bitfield, index2) &&
                    (npcPtr2->script == NULL || (context = CreateScriptExecutionContext(), context != NULL))) {
-            if (super->timer == 0) {
-                entity = CreateNPC(npcPtr2->id, npcPtr2->type, npcPtr2->type2);
-            } else {
-                entity = CreateObject(npcPtr2->id, npcPtr2->type, npcPtr2->type2);
-            }
-            if (entity != NULL) {
-                tmp = this->unk_20 + 1;
-                entity->health = index2 + tmp;
-                entity->timer = npcPtr2->timer;
-                entity->x.HALF.HI = npcPtr2->x + gRoomControls.origin_x;
-                entity->y.HALF.HI = npcPtr2->y + gRoomControls.origin_y;
-                entity->collisionLayer = npcPtr2->collisionLayer;
-                if (npcPtr2->script != NULL) {
-                    InitScriptForEntity(entity, context, npcPtr2->script);
+#endif
+                if (super->timer == 0) {
+                    entity = CreateNPC(npcPtr2->id, npcPtr2->type, npcPtr2->type2);
+                } else {
+                    entity = CreateObject(npcPtr2->id, npcPtr2->type, npcPtr2->type2);
                 }
-            } else {
-                /* Retry spawn later if allocation failed this frame. */
-                ClearBit(bitfield, index2);
+                if (entity != NULL) {
+#ifdef PC_PORT
+                    /* The entity and (when needed) its context now exist. */
+                    WriteBit(bitfield, index2);
+#endif
+                    tmp = this->unk_20 + 1;
+                    entity->health = index2 + tmp;
+                    entity->timer = npcPtr2->timer;
+                    entity->x.HALF.HI = npcPtr2->x + gRoomControls.origin_x;
+                    entity->y.HALF.HI = npcPtr2->y + gRoomControls.origin_y;
+                    entity->collisionLayer = npcPtr2->collisionLayer;
+                    if (npcPtr2->script != NULL) {
+                        InitScriptForEntity(entity, context, npcPtr2->script);
+                    }
+                } else {
+                    /* Retry spawn later if allocation failed this frame. */
+#ifdef PC_PORT
+                    if (context != NULL) {
+                        /* CreateScriptExecutionContext only locates a free
+                         * slot; make the rollback explicit so no stale state
+                         * from a failed entity allocation can retain it. */
+                        DestroyScriptExecutionContext(context);
+                    }
+#endif
+                    ClearBit(bitfield, index2);
+                }
+#ifdef PC_PORT
             }
+#endif
         }
         npcPtr2++;
         index2++;

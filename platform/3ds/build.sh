@@ -38,11 +38,11 @@ fi
   -l "The Minish Cap 3DS v${VERSION}" \
   -p "Esteban PDN / Project Picori / samyost1" \
   -i "${ROOT}/platform/3ds/assets/icon-48.png" \
-  -f visible,nosavebackups \
+  -f visible,allow3d,extendedbanner,nosavebackups \
   -o "${BUILD}/tmc-3ds.icn"
 
 "${BANNERTOOL}" makebanner \
-  -i "${ROOT}/platform/3ds/assets/banner.png" \
+  -ci "${ROOT}/platform/3ds/assets/banner.cgfx" \
   -a "${ROOT}/platform/3ds/assets/banner.wav" \
   -o "${BUILD}/tmc-3ds.bnr"
 
