@@ -377,8 +377,43 @@ static int BuildLegacyMarkerPath(const char* savePath, char* sidecar, size_t sid
     return length >= 0 && (size_t)length < sidecarSize - strlen(sidecar);
 }
 
-/* Older optional modes used separate profiles and metadata. Recognize their
- * filenames only to preserve them; this build never loads or modifies them. */
+/* Released v1.0-v2.1 builds also wrote an empty metadata file when resetting
+ * or copying ordinary slots. Its presence alone does not identify an optional
+ * mode profile. Accept only the exact known v6 format with every record byte
+ * zero; active, damaged or unknown metadata remains protected. This bounded,
+ * read-only check runs on profile selection/loading, never in the frame path.
+ * No settings, seeds or tables are decoded, loaded or modified. */
+static int HasInactiveLegacyMetadata(const char* path) {
+    enum { HEADER_SIZE = 16, BODY_SIZE = 3 * 6424 };
+    u8 header[HEADER_SIZE];
+    u8 bytes[256];
+    size_t remaining = BODY_SIZE;
+    FILE* file = fopen(path, "rb");
+    int ok;
+    if (file == NULL) return 0;
+    ok = fread(header, 1, sizeof(header), file) == sizeof(header) &&
+         memcmp(header, "TMCRNDO1", 8) == 0 && ReadU32LE(header + 8) == 6 && ReadU32LE(header + 12) == 228;
+    while (ok && remaining != 0) {
+        size_t i;
+        const size_t count = remaining < sizeof(bytes) ? remaining : sizeof(bytes);
+        if (fread(bytes, 1, count, file) != count) {
+            ok = 0;
+            break;
+        }
+        for (i = 0; i < count; ++i) {
+            if (bytes[i] != 0) {
+                ok = 0;
+                break;
+            }
+        }
+        remaining -= count;
+    }
+    if (ok) ok = fgetc(file) == EOF && !ferror(file);
+    if (fclose(file) != 0) ok = 0;
+    return ok;
+}
+
+/* Explicit optional-mode filenames remain protected even with empty metadata. */
 static int HasUnsupportedProfile(const char* path) {
     char marker[SAVE_AUX_PATH_MAX];
     size_t n;
@@ -386,7 +421,8 @@ static int HasUnsupportedProfile(const char* path) {
     n = strlen(path);
     if (n >= 10 && strcmp(path + n - 10, "_rando.sav") == 0) return 1;
     if (!BuildLegacyMarkerPath(path, marker, sizeof(marker))) return 1;
-    return GetPathState(marker) != PATH_STATE_MISSING;
+    if (GetPathState(marker) == PATH_STATE_MISSING) return 0;
+    return !HasInactiveLegacyMetadata(marker);
 }
 
 static int sStandardProfile = 1;
