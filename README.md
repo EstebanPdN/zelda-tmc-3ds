@@ -49,6 +49,14 @@ The bottom-screen worker avoids redundant static redraws while keeping touch inp
 
 ## Installation
 
+**Experimental v2.2-E1** fixes normal saves being rejected when previous
+versions left empty legacy metadata beside them. Install it over the existing
+application; keep your `.sav` and companion files. The fix recognizes that
+inactive metadata without deleting it. Active or unrecognized legacy profiles
+remain protected. Download the experimental CIA or 3DSX from
+[v2.2-E1](https://github.com/EstebanPdN/zelda-tmc-3ds/releases/tag/v2.2-E1).
+The stable release remains v2.1.
+
 1. Install the CIA with FBI, or use the 3DSX build with the Homebrew Launcher.
 
 ```text
@@ -171,8 +179,8 @@ chmod +x platform/3ds/build.sh
 Builds are generated under:
 
 ```text
-build-3ds/game/tmc-3ds-v2.1.cia
-build-3ds/game/tmc-3ds-v2.1.3dsx
+build-3ds/game/tmc-3ds-v2.2-E1.cia
+build-3ds/game/tmc-3ds-v2.2-E1.3dsx
 ```
 
 The build does not include or embed a ROM.

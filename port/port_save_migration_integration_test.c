@@ -34,6 +34,7 @@
 #define SLOT0_BLOCK2 (SLOT0_DATA2 / EEPROM_BLOCK_SIZE)
 
 extern s32 ReadSaveFile(u32 index, SaveFile* saveFile);
+extern u32 WriteSaveFile(u32 index, SaveFile* saveFile);
 extern bool32 Port_Save_TestLastDoubleWriteFullyRedundant(void);
 extern u16 EEPROMConfigure(u16 type);
 extern void Port_Save_TestResetMemory(void);
@@ -204,7 +205,8 @@ static void WriteStatus(u8* ram, u32 statusOffset, u32 dataOffset) {
 }
 
 static void BuildRawProfile(u8 disk[EEPROM_SIZE], const SaveFile* first, const SaveFile* second) {
-    static const char signature[0x21] = "AGBZELDA:THE MINISH CAP:ZELDA 5";
+    const char* signature = REGION_IS_EU || REGION_IS_JP ? "AGBZELDA:THE MINISH CAP:ZELDA 3" :
+                                                        "AGBZELDA:THE MINISH CAP:ZELDA 5";
     memset(disk, 0xFF, EEPROM_SIZE);
     memcpy(disk, signature, 0x20);
     memcpy(disk + 0x1000, signature, 0x20);
@@ -253,6 +255,124 @@ static void TestCanonicalCompatibility(void) {
           "canonical prior raw profile is never rewritten");
     CHECK(!FileExists("tmc_migration_canonical.sav.pre-migration.bak"),
           "canonical prior save creates no migration backup");
+}
+
+/* Ordinary slot reset/copy operations in the previous releases wrote this
+ * empty v6 metadata file even when the optional mode had never been used.
+ * Generate it in the isolated test directory, without importing that engine. */
+static void TestInactiveLegacyMetadata(void) {
+    const char* path = "tmc_metadata.sav";
+    const char* marker = "tmc_metadata.randomizer";
+    u8 metadata[16 + 3 * 6424];
+    u8 metadataAfter[sizeof(metadata)];
+    u8 original[EEPROM_SIZE];
+    u8 after[EEPROM_SIZE];
+    SaveFile canonical;
+    SaveFile loaded;
+    char profiles[64][64];
+    int count;
+    int found = 0;
+    size_t i;
+
+    memset(metadata, 0, sizeof(metadata));
+    memcpy(metadata, "TMCRNDO1", 8);
+    WriteU32(metadata + 8, 6);
+    WriteU32(metadata + 12, 228);
+    BuildCanonicalVanilla(&canonical);
+    BuildRawProfile(original, &canonical, &canonical);
+    /* Exercise all three retail slots, each with both checksum duplicates. */
+    ReverseBlocks(original);
+    for (i = 1; i < 3; ++i) {
+        memcpy(original + SLOT0_DATA1 + i * SLOT_SIZE, &canonical, sizeof(canonical));
+        memcpy(original + SLOT0_DATA2 + i * SLOT_SIZE, &canonical, sizeof(canonical));
+        WriteStatus(original, SLOT0_STATUS1 + i * 16, SLOT0_DATA1 + i * SLOT_SIZE);
+        WriteStatus(original, SLOT0_STATUS2 + i * 16, SLOT0_DATA2 + i * SLOT_SIZE);
+    }
+    ReverseBlocks(original);
+    CHECK(WriteBytes(path, original, sizeof(original)), "legacy normal three-slot profile is written");
+    CHECK(WriteBytes(marker, metadata, sizeof(metadata)), "old inactive v6 metadata is written");
+    ActivateProfile(path);
+    CHECK(Port_Save_IsStandardProfile(), "inactive metadata identifies a normal profile");
+    for (i = 0; i < 3; ++i) {
+        CHECK(ReadSaveFile((u32)i, &loaded) == 1, "normal slot with inactive metadata loads");
+        CHECK(memcmp(&loaded, &canonical, sizeof(loaded)) == 0, "normal slot data remains identical");
+    }
+    CHECK(ReadBytes(path, after, sizeof(after)) == sizeof(after) && !memcmp(after, original, sizeof(after)),
+          "reading all slots leaves the raw save unchanged");
+    count = Port_Save_ListProfiles(profiles, 64);
+    for (i = 0; i < (size_t)count; ++i) if (!strcmp(profiles[i], path)) found = 1;
+    CHECK(found, "normal profile remains available in the profile list");
+    CHECK(Port_Save_SaveAsProfile("tmc_metadata_copy.sav"), "normal profile can be copied with inactive metadata");
+    CHECK(FilesEqual(path, "tmc_metadata_copy.sav"), "profile copy preserves exact EEPROM bytes");
+    CHECK(!FileExists("tmc_metadata_copy.randomizer"), "normal copy does not create legacy metadata");
+    CHECK(ReadBytes(marker, metadataAfter, sizeof(metadataAfter)) == sizeof(metadataAfter) &&
+              !memcmp(metadata, metadataAfter, sizeof(metadata)), "inactive metadata is never modified");
+    for (i = 0; i < 3; ++i) {
+        CHECK(WriteSaveFile((u32)i, &canonical) == 1, "normal retail save writes succeed with inactive metadata");
+    }
+    Port_Save_TestResetMemory();
+    ActivateProfile(path);
+    for (i = 0; i < 3; ++i) {
+        CHECK(ReadSaveFile((u32)i, &loaded) == 1 && !memcmp(&loaded, &canonical, sizeof(loaded)),
+              "normal slots remain readable after saving and restarting");
+    }
+    CHECK(ReadBytes(path, after, sizeof(after)) == sizeof(after) && !memcmp(after, original, sizeof(after)),
+          "unchanged retail records persist without changing the raw image");
+    CHECK(ReadBytes(marker, metadataAfter, sizeof(metadataAfter)) == sizeof(metadataAfter) &&
+              !memcmp(metadata, metadataAfter, sizeof(metadata)), "normal saving leaves metadata byte-identical");
+    CHECK(WriteBytes("tmc_guard_rando.sav", original, sizeof(original)), "explicit optional-mode profile is written");
+    CHECK(WriteBytes("tmc_guard_rando.randomizer", metadata, sizeof(metadata)),
+          "explicit optional-mode profile has otherwise inactive metadata");
+    ActivateProfile("tmc_guard_rando.sav");
+    CHECK(!Port_Save_IsStandardProfile() && ReadSaveFile(0, &loaded) == -1,
+          "explicit optional-mode filename remains protected even with empty metadata");
+    Port_Save_TestResetMemory();
+
+    /* Active content in any slot, malformed/truncated/trailing data and unknown
+     * formats still fail closed. Attempts to write must preserve both files. */
+    for (i = 0; i < 10; ++i) {
+        size_t length = sizeof(metadata);
+        memset(metadata + 16, 0, sizeof(metadata) - 16);
+        WriteU32(metadata + 8, 6);
+        WriteU32(metadata + 12, 228);
+        memcpy(metadata, "TMCRNDO1", 8);
+        if (i < 3) metadata[16 + i * 6424] = 1;
+        else if (i == 3) metadata[sizeof(metadata) - 1] = 1;
+        else if (i == 4) WriteU32(metadata + 8, 7);
+        else if (i == 5) WriteU32(metadata + 12, 229);
+        else if (i == 6) metadata[0] = 'X';
+        else if (i == 7) length -= 1;
+        else if (i == 8) length = 0;
+        CHECK(WriteBytes(marker, metadata, length), "unsupported metadata fixture is written");
+        if (i == 9) {
+            FILE* file = fopen(marker, "ab");
+            CHECK(file != NULL && fputc(0, file) != EOF, "trailing metadata byte is written");
+            if (file != NULL) fclose(file);
+        }
+        Port_Save_TestResetMemory();
+        ActivateProfile(path);
+        CHECK(!Port_Save_IsStandardProfile(), "unsupported metadata remains protected");
+        CHECK(ReadSaveFile(0, &loaded) == -1, "unsupported profile is not interpreted as normal");
+        CHECK(WriteSaveFile(0, &canonical) == 0, "unsupported profile rejects retail writes");
+        CHECK(!Port_Save_SaveAsProfile("tmc_metadata_rejected.sav"), "unsupported profile cannot be copied");
+        CHECK(ReadBytes(path, after, sizeof(after)) == sizeof(after) && !memcmp(after, original, sizeof(after)),
+              "unsupported metadata never overwrites the original save");
+        {
+            FILE* file = fopen(marker, "rb");
+            int unchanged = file != NULL && fread(metadataAfter, 1, length, file) == length &&
+                            !memcmp(metadata, metadataAfter, length);
+            if (unchanged && i == 9) unchanged = fgetc(file) == 0;
+            if (unchanged) unchanged = fgetc(file) == EOF && !ferror(file);
+            if (file != NULL && fclose(file) != 0) unchanged = 0;
+            CHECK(unchanged, "unsupported metadata remains byte-identical after rejected reads and writes");
+        }
+    }
+    Port_Save_TestResetMemory();
+    remove(path);
+    remove(marker);
+    remove("tmc_metadata_copy.sav");
+    remove("tmc_guard_rando.sav");
+    remove("tmc_guard_rando.randomizer");
 }
 
 static void TestAmbiguousAndUnsupportedFailClosed(void) {
@@ -456,6 +576,10 @@ int main(void) {
     if (tempDirectory == NULL || chdir(tempDirectory) != 0) return 1;
 
     TestCanonicalCompatibility();
+    TestInactiveLegacyMetadata();
+    gActiveRegion = TMC_REGION_EU;
+    TestInactiveLegacyMetadata();
+    gActiveRegion = TMC_REGION_USA;
     TestAmbiguousAndUnsupportedFailClosed();
     TestSuccessfulMigration();
     TestBackupFailure();
