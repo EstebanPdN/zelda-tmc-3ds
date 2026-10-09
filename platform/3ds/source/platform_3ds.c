@@ -603,6 +603,25 @@ static void PollInput(void) {
     hidScanInput();
     sHeld = hidKeysHeld();
     sDown = hidKeysDown();
+    if (Port_SecondScreen_3DS_ChangelogOpen()) {
+        /* An open changelog takes the scroll keys from the game.
+         * D-pad / Circle Pad up-down: a line; left-right and L / R: a page
+         * (like the bottom-screen PREV / NEXT); ZL / ZR: top / bottom.
+         * Lines and pages repeat while held, after ~1/3 s. */
+        static unsigned repeat;
+        const u32 up = KEY_DUP | KEY_CPAD_UP, down = KEY_DDOWN | KEY_CPAD_DOWN;
+        const u32 left = KEY_DLEFT | KEY_CPAD_LEFT | KEY_L, right = KEY_DRIGHT | KEY_CPAD_RIGHT | KEY_R;
+        const u32 keys = up | down | left | right | KEY_ZL | KEY_ZR;
+        const u32 dir = sHeld & (up | down | left | right);
+        const int page = PORT_3DS_CHANGELOG_PAGE_LINES;
+        if (!dir) repeat = 0;
+        if (sDown & KEY_ZL) Port_SecondScreen_3DS_ScrollChangelog(-0x10000);
+        else if (sDown & KEY_ZR) Port_SecondScreen_3DS_ScrollChangelog(0x10000);
+        else if ((sDown & dir) || (dir && ++repeat > 20 && repeat % 4 == 0))
+            Port_SecondScreen_3DS_ScrollChangelog((dir & up) ? -1 : (dir & down) ? 1 : (dir & left) ? -page : page);
+        sHeld &= ~keys;
+        sDown &= ~keys;
+    }
     hidCircleRead(&sCirclePosition);
     if (sIsNew3DS) {
         hidCstickRead(&sCStickPosition);

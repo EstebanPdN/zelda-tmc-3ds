@@ -13,6 +13,10 @@ extern "C" {
 
 bool Port_SecondScreen_3DS_UpdateOpen(void);
 bool Port_SecondScreen_3DS_PaintUpdateTop(uint32_t* pixels, int stride);
+/* Button scrolling of the changelog (see PollInput in platform_3ds.c). */
+#define PORT_3DS_CHANGELOG_PAGE_LINES 9
+bool Port_SecondScreen_3DS_ChangelogOpen(void);
+void Port_SecondScreen_3DS_ScrollChangelog(int lines);
 
 uint32_t Port_SecondScreen_3DS_PaintInto(uint32_t* pixels, int width, int height, int strideInPixels,
                                         const SecondScreenSnapshot* snap, uint32_t tick);
