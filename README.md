@@ -18,7 +18,7 @@ No ROM or extracted Nintendo game assets are distributed with this project. You 
 
 Join my Discord for updates, support, bug reports, testing builds, suggestions, and other Nintendo 3DS homebrew projects:
 
-https://discord.gg/SMW49UMkw
+https://discord.gg/zy8BqH5ss
 
 ## Features
 
