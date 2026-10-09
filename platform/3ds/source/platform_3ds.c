@@ -5,6 +5,7 @@
 #include "port_audio_3ds.h"
 #include "port_second_screen_3ds.h"
 #include "port_second_screen_sync_3ds.h"
+#include "port_ua_splash.h" /* tloz-tmc-ua */
 
 #include <3ds.h>
 #include <stdbool.h>
@@ -209,7 +210,7 @@ void Platform3DS_SetTurboMultiplier(unsigned multiplier) {
 }
 
 void Platform3DS_ShowSplash(void) {
-    FILE* file = fopen("romfs:/splash.rgb565", "rb");
+    FILE* file = fopen(Port_UA_SplashPath("romfs:/splash.rgb565"), "rb"); /* tloz-tmc-ua */
     uint16_t* pixels = NULL;
     if (file) {
         pixels = (uint16_t*)malloc(400u * 240u * sizeof(uint16_t));

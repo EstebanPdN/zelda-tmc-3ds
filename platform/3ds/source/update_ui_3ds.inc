@@ -1,6 +1,8 @@
 /* Included by the existing compositor: reuse Minish Cap's runtime-decoded
  * stone plate, red header chip, pale buttons and native message fonts. */
 #include "updater.h"
+#include "port_ua.h" /* tloz-tmc-ua: Update_FormatNotesUtf8 for Cyrillic changelogs */
+#define UPDATE_LINE 129 /* tloz-tmc-ua: was 43; Cyrillic takes 2 bytes a letter */
 #include <ctype.h>
 
 static bool sUpdateConfirm, sUpdateNotes;
@@ -36,6 +38,18 @@ static int UpdateTextWidth(const char* text) {
     text=label;
     int w = Port_SecondScreenTheme_BigTextWidth(text, 1);
     return w ? w : TextWidthPx(text, 1);
+}
+
+/* tloz-tmc-ua: with the Ukrainian ROM the changelog body uses the message
+ * font, which keeps both Cyrillic and Latin (the banner font holds Cyrillic
+ * only, so Latin file names and hashes would be transliterated). */
+static bool UpdateUaNotesFont(bool notes) { return notes && Port_IsUkrainianRom(); }
+static int UpdateBodyWidth(const char* text, bool ua) {
+    return ua ? Port_SecondScreenTheme_TextWidth(text, 1) : UpdateTextWidth(text);
+}
+static void UpdateBodyText(const SSurf* s, const char* text, int x, int y, int style, bool ua) {
+    if (!ua || !Port_SecondScreenTheme_DrawText(s->px, s->w, s->h, s->stride, x, y, 1, style, text))
+        UpdateSmallText(s, text, x, y, style);
 }
 
 static void UpdateCenteredText(const SSurf* s, const char* text, int cx, int y) {
@@ -148,27 +162,29 @@ bool Port_SecondScreen_3DS_PaintUpdateTop(uint32_t* pixels, int stride) {
     static bool paintedNotes;
     if (paintedRevision == st.revision && paintedPage == page && paintedNotes == notes) return false;
     paintedRevision=st.revision; paintedPage=page; paintedNotes=notes;
-    static char lines[512][43];
+    static char lines[512][UPDATE_LINE]; /* tloz-tmc-ua */
     static unsigned count, revision = UINT32_MAX;
     static bool lastNotes;
     if (revision != st.revision || notes != lastNotes) {
-        static char body[12289], formatted[512][43];
+        static char body[12289], formatted[512][UPDATE_LINE]; /* tloz-tmc-ua */
         if (notes && st.version[0]) Updater_GetNotes(body,sizeof(body));
         else snprintf(body,sizeof(body),"Installed: v%s\n\n%s\n\nSelect a release below to read its changelog.\nChoose Stable or Pre-release to check that channel.",TMC_PORT_VERSION,st.message);
-        unsigned n = Update_FormatNotes(body,formatted,512);
+        const bool ua = Port_IsUkrainianRom(); /* tloz-tmc-ua */
+        unsigned n = Update_FormatNotesUtf8(body,&formatted[0][0],UPDATE_LINE,ua ? UPDATE_LINE-1 : 42,512,ua);
         count = 0;
         for (unsigned i=0; i<n && count<512; i++) {
             const char* text = formatted[i];
             do {
                 size_t take = strlen(text);
-                char part[43]; snprintf(part,sizeof(part),"%s",text);
-                while (take && UpdateTextWidth(part)>354) part[--take]=0;
+                char part[UPDATE_LINE]; snprintf(part,sizeof(part),"%s",text); /* tloz-tmc-ua */
+                while (take && UpdateBodyWidth(part,UpdateUaNotesFont(notes))>354) part[--take]=0; /* tloz-tmc-ua */
                 if (take<strlen(text)) {
                     char* space = strrchr(part,' ');
                     if (space && space!=part) { take = space-part; part[take]=0; }
                 }
+                while (take && ((unsigned char)text[take] & 0xC0) == 0x80) part[--take]=0; /* tloz-tmc-ua */
                 if (!take && *text) { take=1; part[0]=*text; part[1]=0; }
-                snprintf(lines[count++],43,"%s",part);
+                snprintf(lines[count++],sizeof(lines[0]),"%s",part); /* tloz-tmc-ua */
                 text += take; while (*text==' ') ++text;
             } while (*text && count<512);
         }
@@ -185,7 +201,7 @@ bool Port_SecondScreen_3DS_PaintUpdateTop(uint32_t* pixels, int stride) {
     DrawPanelHeaderChip(&s,200,14,title,1,1.0f/3);
     Port_SecondScreenTheme_DrawWell(pixels,400,240,stride,17,47,366,165,1);
     for (unsigned i=page*9;i<count && i<(page+1)*9;i++)
-        UpdateSmallText(&s,lines[i],23,49+(i-page*9)*18,SS_TEXT_INK);
+        UpdateBodyText(&s,lines[i],23,49+(i-page*9)*18,SS_TEXT_INK,UpdateUaNotesFont(notes)); /* tloz-tmc-ua */
     char footer[64]; snprintf(footer,sizeof(footer),"PAGE %u OF %u",page+1,pages);
     const int footerW=UpdateTextWidth(footer)+24;
     const int footerY=211, footerH=24;

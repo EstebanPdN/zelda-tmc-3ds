@@ -86,6 +86,7 @@ extern u8 gUnk_081094CE[];    /* color LUTs, 0xC0 bytes per fill_type */
 extern u32 gUnk_0810926C[];   /* window fill patterns, u32 each */
 extern u8 gUnk_0810942E[];    /* color-table head (first 160 logical bytes) */
 extern void* gUnk_08109248[]; /* message font glyph banks (bank 0 = latin) */
+#include "port_ua_panel.h" /* tloz-tmc-ua: Ukrainian panel text */
 
 /* Resolved ROM group tables (port_rom.c) — for the group-record walk the
  * pause-screen tilemap fetch needs (EWRAM-destined records fall outside
@@ -1926,6 +1927,10 @@ static void GlyphMetrics(const u8* glyph, int32_t* outStart, int32_t* outWidth) 
  * of the 256-glyph bank. */
 static const u8* GlyphData(char c) {
     u8 code = (u8)c;
+    const u8* ua = Port_UA_MessageGlyphHigh(code, gUnk_08109248); /* tloz-tmc-ua */
+    if (ua != NULL) {
+        return ua;
+    }
     if (code < 0x20) {
         code = '?';
     }
@@ -1937,6 +1942,7 @@ int32_t Port_SecondScreenTheme_TextWidth(const char* str, int32_t scale) {
     if (!sBuilt || !sFontOk || str == NULL) {
         return 0;
     }
+    PORT_UA_PANEL_TEXT(str, 0); /* tloz-tmc-ua */
     for (; *str; str++) {
         GlyphMetrics(GlyphData(*str), &gs, &gw);
         w += gw;
@@ -1952,6 +1958,7 @@ int32_t Port_SecondScreenTheme_DrawText(uint32_t* pixels, int32_t bufW, int32_t 
     if (!sBuilt || !sFontOk || str == NULL) {
         return 0;
     }
+    PORT_UA_PANEL_TEXT(str, 0); /* tloz-tmc-ua */
     if (style < 0 || style >= SS_TEXT_STYLE_COUNT) {
         style = SS_TEXT_INK;
     }
@@ -2021,6 +2028,7 @@ int32_t Port_SecondScreenTheme_BigTextWidth(const char* str, int32_t scale) {
     if (!sBuilt || !sBigFontOk || str == NULL) {
         return 0;
     }
+    PORT_UA_PANEL_TEXT(str, 1); /* tloz-tmc-ua */
     if (scale < 1) {
         scale = 1;
     }
@@ -2053,6 +2061,7 @@ static int32_t DrawBigTextPal(uint32_t* pixels, int32_t bufW, int32_t bufH, int3
     if (!sBuilt || !sBigFontOk || str == NULL) {
         return 0;
     }
+    PORT_UA_PANEL_TEXT(str, 1); /* tloz-tmc-ua */
     if (scale < 1) {
         scale = 1;
     }

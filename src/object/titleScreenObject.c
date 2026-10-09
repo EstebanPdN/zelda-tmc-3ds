@@ -11,6 +11,9 @@ void TitleScreenObject_Type0(Entity*);
 void TitleScreenObject_Type1(Entity*);
 void TitleScreenObject_Type4(Entity*);
 void sub_080A2340(Entity*);
+#ifdef PC_PORT
+static bool32 Port_UA_TitleScreenObject(Entity*); /* tloz-tmc-ua: port/port_ua_title_object.inc */
+#endif
 
 typedef struct {
     u16 unk_0;
@@ -25,6 +28,11 @@ const struct_08125014 gUnk_08125014[] = {
 };
 
 void TitleScreenObject(Entity* this) {
+#ifdef PC_PORT
+    if (Port_UA_TitleScreenObject(this)) { /* tloz-tmc-ua */
+        return;
+    }
+#endif
     static void (*const TitleScreenObject_Types[])(Entity*) = {
         TitleScreenObject_Type0, TitleScreenObject_Type1, TitleScreenObject_Type1,
         TitleScreenObject_Type1, TitleScreenObject_Type4,
@@ -108,3 +116,7 @@ void sub_080A2340(Entity* this) {
     this->spriteSettings.draw = 2;
     this->action = 1;
 }
+
+#ifdef PC_PORT
+#include "port_ua_title_object.inc" /* tloz-tmc-ua */
+#endif

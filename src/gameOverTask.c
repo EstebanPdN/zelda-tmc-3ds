@@ -14,6 +14,9 @@
 #include "sound.h"
 #include "subtask.h"
 #include "affine.h"
+#ifdef PC_PORT
+#include "port_ua.h" /* tloz-tmc-ua: Ukrainian GAME OVER layout */
+#endif
 
 typedef void(GameOverState)(void);
 
@@ -220,6 +223,11 @@ void DrawGameOverText(void) {
     gOamCmd.y = gGenericMenu.unk10.a[0];
     for (i = 0; i < 8; ++i) {
         gOamCmd.x = sOffsets[i];
+#ifdef PC_PORT
+        if (!Port_UA_GameOverLetter(i, &gOamCmd.x)) { /* tloz-tmc-ua */
+            continue;
+        }
+#endif
         if (REGION_IS_EU) {
             DrawDirect(0x1fc, i);
         } else {
