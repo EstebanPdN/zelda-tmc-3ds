@@ -140,7 +140,7 @@ void port_hdma_vblank_reset(void) {
     /*
      * TMC re-arms its HBlank DMA via SetVBlankDMA each frame, so registers
      * are typically refreshed during VBlank. If a channel happens to outlive
-     * the frame, rewind src/dest so the same per-scanline table replays.
+     * the frame, rewind engine/src/dest so the same per-scanline table replays.
      */
     for (ch = 0; ch < HDMA_CHANNELS; ++ch) {
         HdmaChannel* c = &s_channels[ch];

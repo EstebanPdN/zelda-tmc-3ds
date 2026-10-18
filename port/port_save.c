@@ -10,7 +10,7 @@
  * Files are stored in the byte order mGBA/VBA-M use for EEPROM saves:
  * each 8-byte block holds its 64-bit unit in wire-transmission order,
  * which is byte-reversed relative to the game's RAM buffer (the GBA
- * driver in src/eeprom.c shifts units out data[3]→data[0], MSB-first).
+ * driver in engine/src/eeprom.c shifts units out data[3]→data[0], MSB-first).
  * In memory we keep game-RAM order so the BIOS shims stay straight
  * memcpys; blocks are reversed on load/flush. A Minish Cap .sav from
  * mGBA drops in directly and vice versa. Legacy port saves (RAM order
@@ -1170,7 +1170,7 @@ static void FlushEepromFile(void) {
  * (two full SaveFile copies + status blocks). Flushing the 8 KB file
  * atomically (temp+fsync+rename) per BLOCK meant ~324 fsync'd rewrites on
  * the game thread — a 150 ms..multi-second hitch. The game's save entry
- * points (src/save.c DataDoubleWriteWithStatus) bracket the burst so the
+ * points (engine/src/save.c DataDoubleWriteWithStatus) bracket the burst so the
  * whole transaction flushes exactly once at the end. */
 void Port_Save_BeginTransaction(void) {
     sSaveTxnDepth++;

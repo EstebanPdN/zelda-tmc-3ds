@@ -25,10 +25,10 @@
 extern "C" {
 #endif
 
-/* Matches MAX_ROOMS (include/area.h). */
+/* Matches MAX_ROOMS (engine/include/area.h). */
 #define SECOND_SCREEN_MAX_ROOMS 64
 
-/* MENU_SLOT_SWORD..MENU_SLOT_BOTTLE3 (include/itemMetaData.h) — the 16
+/* MENU_SLOT_SWORD..MENU_SLOT_BOTTLE3 (engine/include/itemMetaData.h) — the 16
  * equipable slots of the pause menu's item screen, excluding the save
  * button pseudo-slots. */
 #define SECOND_SCREEN_ITEM_SLOTS 16
@@ -38,9 +38,9 @@ typedef struct {
     uint16_t w, h; /* room size, pixels; w==0 or h==0 -> slot unused */
 } SecondScreenRoom;
 
-/* gArea.areaMetadata bits (include/area.h AreaStateFlags) — republished
+/* gArea.areaMetadata bits (engine/include/area.h AreaStateFlags) — republished
  * verbatim so the render side applies the same gating the engine does
- * (AreaIsDungeon / AreaHasKeys / AreaHasMap in src/gameUtils.c). */
+ * (AreaIsDungeon / AreaHasKeys / AreaHasMap in engine/src/gameUtils.c). */
 #define SECOND_SCREEN_AR_IS_OVERWORLD 0x01
 #define SECOND_SCREEN_AR_HAS_KEYS 0x02
 #define SECOND_SCREEN_AR_IS_DUNGEON 0x04
@@ -78,7 +78,7 @@ typedef struct {
     /* Current dungeon's save state (zeroed outside key-bearing areas):
      * key count plus the raw gSave.dungeonItems byte — bit 0 map, bit 1
      * compass, bit 2 big key, exactly what HasDungeonMap/Compass/BigKey
-     * (src/gameUtils.c) test. */
+     * (engine/src/gameUtils.c) test. */
     uint8_t dungeonKeys;
     uint8_t dungeonItemBits;
     /* Quest state for the status strip. */
@@ -131,7 +131,7 @@ typedef struct {
      * the techniques list has to know WHICH eight. */
     uint8_t swordSkillBits;
     /* gSave.windcrests verbatim; bits 24..31 are the WindcrestID unlock
-     * flags (include/windcrest.h) the fast-travel screen checks. */
+     * flags (engine/include/windcrest.h) the fast-travel screen checks. */
     uint32_t windcrests;
     /* gSave.kinstones fusion-marker state, verbatim: which fusions have
      * happened and which map markers the game has retired — the world-map
@@ -155,7 +155,7 @@ typedef struct {
      * the top HUD never costs the player that cue. */
     uint8_t rActionFrame;
     /* The same prompt BEFORE the language offset, i.e. the raw
-     * ActionRButton value (include/player.h): R_ACTION_SPEAK, _LIFT, ...
+     * ActionRButton value (engine/include/player.h): R_ACTION_SPEAK, _LIFT, ...
      * 0 = none, always 0 exactly when rActionFrame is. The frame id above
      * indexes the game's own label art; this one is what a caller needs to
      * name the action itself (the compositor letters the word with the
@@ -207,7 +207,7 @@ static inline int16_t Port_SecondScreenItemAmmo(const SecondScreenSnapshot* snap
     return -1;
 }
 
-/* Called once per game tick from the main loop (src/main.c). Builds a fresh
+/* Called once per game tick from the main loop (engine/src/main.c). Builds a fresh
  * snapshot from gRoomControls/gPlayerEntity/gSave/gArea, applies any
  * pending equip request, and swaps the snapshot in under a short-held
  * lock. No-op off Android (there is no second-screen thread to publish

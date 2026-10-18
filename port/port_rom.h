@@ -26,7 +26,7 @@ static inline u8* Port_MapDataFromRom(u8* romData, u32 romSize, u32 mapDataBase)
  * unconverted, kernel-space, and sign-extended negatives; accept anything
  * that could be a live host allocation. Use to gate a deref on paths that
  * (unlike IsColliding) have no other range guard — e.g. the player
- * interactable scan in src/playerUtils.c::sub_080784E4.
+ * interactable scan in engine/src/playerUtils.c::sub_080784E4.
  *
  * Bounds are per-ABI, NOT per-distro:
  *  - 3DS: query the ARM11 memory map. Persistent engine pointers cannot live

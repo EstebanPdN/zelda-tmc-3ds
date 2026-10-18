@@ -63,7 +63,7 @@ int Port_SecondScreenWorldMap_LocatePlayer(uint8_t area, int32_t areaX, int32_t 
  * from the snapshot which ones are unlocked and how to draw them). Returns
  * 1 and fills the position when the id is a real windcrest, 0 past the end
  * or while map data isn't ready. Positions come from the same static
- * tables the fast-travel screen (src/subtask/subtaskFastTravel.c) uses. */
+ * tables the fast-travel screen (engine/src/subtask/subtaskFastTravel.c) uses. */
 int Port_SecondScreenWorldMap_GetWindcrestPin(int32_t windcrestId, int32_t* outMapX, int32_t* outMapY);
 
 /* One marker the game's map screens stamp: a position and the DrawDirect
@@ -109,7 +109,7 @@ int32_t Port_SecondScreenWorldMap_GetMapHints(uint32_t hintMask, SecondScreenMap
  *
  * Known gap, on the stale-not-cheating side: the game refreshes
  * fusionUnmarked from each event's completion flag only when the pause
- * menu opens (UpdateVisibleFusionMapMarkers, src/common.c) — that flag
+ * menu opens (UpdateVisibleFusionMapMarkers, engine/src/common.c) — that flag
  * state isn't in these two arrays, so a fusion reward claimed since the
  * last pause keeps its marker until the game's own retire pass next runs.
  * Stale info the player already had, never an unearned reveal. */

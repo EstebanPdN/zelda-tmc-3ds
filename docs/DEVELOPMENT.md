@@ -1,8 +1,7 @@
 # Development and verification
 
-The Nintendo 3DS build starts at `platform/3ds/build.sh`. The inherited desktop
-and matching-GBA entry points remain available; they are separate targets and
-are not proof of 3DS behavior. Read [architecture](ARCHITECTURE.md) to locate
+The Nintendo 3DS build starts at `platform/3ds/build.sh`. Host regression targets are declared in `xmake.lua`; independent desktop and
+matching-GBA application builds have been retired from this branch. Read [architecture](ARCHITECTURE.md) to locate
 owners before changing code.
 
 ## Build the 3DS packages
@@ -37,7 +36,7 @@ python3 scripts/dev/format.py --write --clang-format /tmp/tmc-format/bin/clang-f
 
 The default is a read-only check; `--write` applies formatting. `format.sh`
 forwards to the same command. The scope includes maintained C, C++, headers and
-include fragments in `src`, `include`, `port`, `platform` and `tests`. The script
+include fragments in `engine`, `port`, `platform` and `tests`. The script
 lists explicit generated-file exclusions; imported SDL headers and `libs/`
 retain upstream style. Formatting never invokes clang-tidy fixes. Keep semantic
 refactors and formatter changes separately reviewable. The repository style
@@ -47,8 +46,7 @@ function signatures merely to improve a formatting metric.
 
 ## Host regressions
 
-Install xmake and a native C/C++ compiler. Configure xmake as required by the
-inherited desktop build; xmake resolves its declared package dependencies. Run:
+Install xmake and a native C/C++ compiler. xmake resolves the SDL3 dependency used by selected host fixtures. Run:
 
 ```sh
 python3 scripts/dev/run-tests.py --output /tmp/tmc-regressions

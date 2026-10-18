@@ -7,22 +7,22 @@
  * port_second_screen_render.c.
  *
  * Sources in the decomp this mirrors:
- *   - Room shapes: DrawDungeonFeatures (src/common.c) — per-room 2bpp
+ *   - Room shapes: DrawDungeonFeatures (engine/src/common.c) — per-room 2bpp
  *     bitmaps at gMapData + DungeonLayout.mapDataOffset, one map pixel per
  *     16px game tile, placed by the room's RoomHeader.map_x/map_y inside a
  *     128x128 map-pixel floor. map_y's bits 11+ are the floor row
  *     (sub_0801DB94), so floors stack in y at 0x800-pixel strides.
  *   - Floor structure: gDungeonLayouts[dungeon][floor] room lists +
- *     gDungeonFloorMetadatas[dungeon].numFloors (src/common.c), display
+ *     gDungeonFloorMetadatas[dungeon].numFloors (engine/src/common.c), display
  *     order top floor first — the same tables PauseMenu_Screen_5 pages
  *     through with the dpad.
  *   - Colors: BG palette bank 12, loaded for the map tab by palette group
- *     184 (gUnk_08128AD8[3] in src/data/figurineMenuData.c). Raw pixel 1 =
+ *     184 (gUnk_08128AD8[3] in engine/src/data/figurineMenuData.c). Raw pixel 1 =
  *     wall, 3 -> 7 = doorways, 2 = floor fill recolored by room state
  *     (sub_0801DF78), and the current room's fill (index 8) pulses because
  *     PauseMenu_Screen_5 rotates bank 12's colors 8..15 every 8 ticks.
- *   - Markers: DrawDungeonMap + DrawDungeonMapActually (src/common.c,
- *     src/menu/pauseMenu.c) — DrawDirect frames 0x7d (player), 0x80
+ *   - Markers: DrawDungeonMap + DrawDungeonMapActually (engine/src/common.c,
+ *     engine/src/menu/pauseMenu.c) — DrawDirect frames 0x7d (player), 0x80
  *     (chest), 0x81 (boss) of the direct sprite sheet, decoded from
  *     gFrameObjLists + the OBJ tiles the map screen's gfx groups load.
  *
@@ -34,9 +34,9 @@
  *   - rooms flagged hidden (DungeonLayout.unk_2 & 1) never draw,
  *   - chest and boss markers draw only with the COMPASS, like the game.
  *
- * Dungeon item bits: include/save.h's comment ("4: compass, 2: big key,
+ * Dungeon item bits: engine/include/save.h's comment ("4: compass, 2: big key,
  * 1: small key") is wrong — per HasDungeonMap / HasDungeonCompass /
- * HasDungeonBigKey (src/gameUtils.c) the real encoding of
+ * HasDungeonBigKey (engine/src/gameUtils.c) the real encoding of
  * gSave.dungeonItems[] is bit 0 (1) = dungeon map, bit 1 (2) = compass,
  * bit 2 (4) = big key; small keys live in gSave.dungeonKeys[] instead.
  * dungeonItemBits carries that byte raw, so map = &1, compass = &2 here.
@@ -57,7 +57,7 @@
  *
  * Threading contract matches port_second_screen_worldmap.h: ROM-constant
  * data only (gMapData, layout tables, the raw palette/gfx/frame accessors
- * appended to src/common.c and port/port_draw.c); every live value arrives
+ * appended to engine/src/common.c and port/port_draw.c); every live value arrives
  * as a parameter. The canvas below makes Draw single-caller — fine, it
  * only ever runs on the second-screen render thread.
  */
@@ -72,11 +72,11 @@
 
 #include <string.h>
 
-/* src/common.c (tables live at the end of that file; only
+/* engine/src/common.c (tables live at the end of that file; only
  * gDungeonFloorMetadatas has a header declaration). */
 extern const DungeonLayout* const* const gDungeonLayouts[];
 
-/* Raw-data accessors: src/common.c (palette groups, gfx groups, room
+/* Raw-data accessors: engine/src/common.c (palette groups, gfx groups, room
  * headers) and port/port_draw.c (frame pieces, OAM size table). */
 extern const u8* Port_GetRawPaletteGroupBankData(u32 group, u32 destPaletteNum, u32* outNumColors);
 extern const u8* Port_GetRawGfxSpanForVram(u32 group, u32 vramAddr, u32 numBytes);
@@ -90,11 +90,11 @@ extern const u8* Port_GetSpriteSizeTable(void);
 /* One floor of the in-game map is a 128x128 map-pixel image. */
 #define MAP_PX 128
 
-/* DrawDirect sheet holding the map markers (include/subtask.h's
+/* DrawDirect sheet holding the map markers (engine/include/subtask.h's
  * DRAW_DIRECT_SPRITE_INDEX). */
 #define DIRECT_SPRITE_INDEX (REGION_IS_EU ? 0x1fau : 0x1fbu)
 
-/* Marker frames, from DrawDungeonMapActually's switch (src/menu/pauseMenu.c). */
+/* Marker frames, from DrawDungeonMapActually's switch (engine/src/menu/pauseMenu.c). */
 #define FRAME_MARKER_PLAYER 0x7du
 #define FRAME_MARKER_CHEST 0x80u
 #define FRAME_MARKER_BOSS 0x81u

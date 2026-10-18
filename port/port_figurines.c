@@ -4,7 +4,7 @@
  * On GBA the figurine viewer (figurineMenu.c) reads
  *   gFigurines[idx] -> { u8* pal, u8* gfx, int size, int zero }
  * and feeds pal/gfx to LoadPalettes / LoadResourceAsync. The original
- * gFigurines lives in `data/gfx/figurines.s` as 136 packed (4-byte ptr,
+ * gFigurines lives in `engine/data/gfx/figurines.s` as 136 packed (4-byte ptr,
  * 4-byte ptr, 4-byte size, 4-byte 0) entries pointing into the palette and
  * gfx blobs in ROM.
  *
@@ -40,7 +40,7 @@ typedef struct {
 } FigurineRomEntry;
 
 /* Addresses + sizes pulled from port_asset_index.c (gFigurinePalN.gbapal,
- * gFigurineGfxN.4bpp). Sizes match data/gfx/figurines.s. Identical on USA
+ * gFigurineGfxN.4bpp). Sizes match engine/data/gfx/figurines.s. Identical on USA
  * and EU — figurines.s has no #ifdef.
  *
  * Stored as ROM-relative offsets (matching port_asset_index.c convention);

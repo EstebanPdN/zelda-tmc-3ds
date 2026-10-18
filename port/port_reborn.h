@@ -52,7 +52,7 @@ const char* Port_Reborn_FeatureLabel(RebornFeature f);
 const char* Port_Reborn_FeatureDescription(RebornFeature f);
 
 /* Marks that a save-resume just happened. Set by Port_QuickLoad and
- * by the save-load entry path in src/save.c (PC_PORT only). The next
+ * by the save-load entry path in engine/src/save.c (PC_PORT only). The next
  * area-init that would have fired an Ezlo hint consumes this flag
  * and suppresses the hint when REBORN_FEAT_NO_EZLO_ON_RESUME is on. */
 void Port_Reborn_NotifyJustResumed(void);

@@ -213,9 +213,9 @@ u32 CalcCollisionStaticEntity(Entity* target, Entity* origin) {
 /* CreateLavaDrownFX -- implemented in port_gameplay_stubs.c */
 /* CreateSwampDrownFX -- implemented in port_gameplay_stubs.c */
 /* CreatePitFallFX -- implemented in port_gameplay_stubs.c */
-/* CutsceneMain_Exit -- real implementation in src/cutscene.c */
-/* CutsceneMain_Init -- real implementation in src/cutscene.c */
-/* CutsceneMain_Update -- real implementation in src/cutscene.c */
+/* CutsceneMain_Exit -- real implementation in engine/src/cutscene.c */
+/* CutsceneMain_Init -- real implementation in engine/src/cutscene.c */
+/* CutsceneMain_Update -- real implementation in engine/src/cutscene.c */
 /* Div -- implemented in port_bios.c */
 /* DoItemTileInteraction -- implemented in port_gameplay_stubs.c */
 /* DoTileInteraction -- implemented in port_gameplay_stubs.c */
@@ -224,17 +224,17 @@ u32 CalcCollisionStaticEntity(Entity* target, Entity* origin) {
 /* DrawEntity -- defined in port_draw.c */
 /* EEPROM functions -- defined in port_save.c */
 /* Enemies_LakeHylia_Main -- defined in port_linked_stubs.c */
-/* EnemyFunctionHandler -- implemented in src/enemyUpdate.c */
-/* EnemyUpdate -- implemented in src/enemyUpdate.c */
+/* EnemyFunctionHandler -- implemented in engine/src/enemyUpdate.c */
+/* EnemyUpdate -- implemented in engine/src/enemyUpdate.c */
 /* EnqueueSFX -- implemented in port_gameplay_stubs.c */
 /* Entities_HouseInteriors1_Mayor_080D6210 -- defined in port_linked_stubs.c */
 /* Entities_MinishPaths_MayorsCabin_gUnk_080D6138 -- defined in port_linked_stubs.c */
 /* EntityInRectRadius -- implemented in port_linked_stubs.c */
 /* EzloNagUIElement_Actions -- defined in port_linked_stubs.c */
 /* FindValueForKey -- implemented in port_gameplay_stubs.c */
-/* GenericConfused -- implemented in src/enemyUpdate.c */
-/* GenericKnockback -- implemented in src/enemyUpdate.c */
-/* GenericKnockback2 -- implemented in src/enemyUpdate.c */
+/* GenericConfused -- implemented in engine/src/enemyUpdate.c */
+/* GenericKnockback -- implemented in engine/src/enemyUpdate.c */
+/* GenericKnockback2 -- implemented in engine/src/enemyUpdate.c */
 /* GetActTileAtEntity -- implemented in port_linked_stubs.c */
 /* GetActTileAtRoomCoords -- implemented in port_linked_stubs.c */
 /* GetActTileAtTilePos -- implemented in port_linked_stubs.c */
@@ -307,7 +307,7 @@ void LoadResourceAsync(const void* src, void* dest, u32 size) {
 /* Mod — implemented in port_linked_stubs.c */
 /* PlayerCheckNEastTile -- implemented in port_gameplay_stubs.c */
 
-/* ProjectileUpdate -- implemented in src/projectileUpdate.c */
+/* ProjectileUpdate -- implemented in engine/src/projectileUpdate.c */
 /* RAMFUNCS_END -- defined in port_linked_stubs.c */
 /* Random — implemented in port_linked_stubs.c */
 void ResetCollisionLayer(Entity* entity) {
@@ -723,10 +723,10 @@ u32 ram_IntrMain(void) {
 /* script_ZeldaMagic -- defined in port_linked_stubs.c */
 /* sub_08000E44 -- implemented in port_gameplay_stubs.c */
 /* sub_08000E62 -- implemented in port_gameplay_stubs.c */
-/* sub_08001290 -- implemented in src/enemyUpdate.c */
-/* sub_080012DC -- implemented in src/enemyUpdate.c */
-/* sub_08001318 -- implemented in src/enemyUpdate.c */
-/* sub_0800132C -- implemented in src/enemyUpdate.c */
+/* sub_08001290 -- implemented in engine/src/enemyUpdate.c */
+/* sub_080012DC -- implemented in engine/src/enemyUpdate.c */
+/* sub_08001318 -- implemented in engine/src/enemyUpdate.c */
+/* sub_0800132C -- implemented in engine/src/enemyUpdate.c */
 /* sub_080026C4 — implemented in port_text_render.c */
 /* sub_080026F2 — implemented in port_text_render.c */
 /* sub_080028E0 -- implemented in port_linked_stubs.c */

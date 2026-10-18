@@ -65,7 +65,7 @@ calling `Port_GPU_PresentFrame(virtuappu_frame_buffer, ...)`, the
 runtime would iterate the GBA's OAM table + BG layers, calling
 `RenderLayerManager::drawSprite/drawBgQuad` per visible element with
 the original 16×16 / 8×8 tile UVs into a pre-baked diffuse atlas.
-The atlas is the existing extracted graphics under `assets/`; the
+The atlas is the existing extracted graphics under `engine/assets/`; the
 RT path would build it once at boot.
 
 This is a multi-week integration project — not on the current

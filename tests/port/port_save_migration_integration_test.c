@@ -1,6 +1,6 @@
 /* End-to-end legacy-save migration test.
  *
- * Unlike port_save_layout_test, this links the real src/save.c and the real
+ * Unlike port_save_layout_test, this links the real engine/src/save.c and the real
  * file-backed EEPROM implementation.  Fixtures enter through an exact raw
  * 8 KiB profile and leave through ReadSaveFile, including preservation,
  * normalization, duplicate-record writes and durability failures. */
@@ -43,7 +43,7 @@ int gActiveRegion = TMC_REGION_USA;
 
 static int sFailures;
 
-/* src/save.c uses CpuSet to clear a failed read.  Keep the host shim local so
+/* engine/src/save.c uses CpuSet to clear a failed read.  Keep the host shim local so
  * this harness does not pull the full game/BIOS executable into the test. */
 void CpuSet(const void* source, void* destination, u32 control) {
     const size_t units = control & 0x1FFFFFu;

@@ -20,8 +20,8 @@
  * What "the game's own map screen" concretely is: subtaskMapHint.c and the
  * pause menu's Map tab both run pause-menu screen 4, whose row in
  * gUnk_08128A38 selects gUnk_08128AD8[2] = { paletteGroup 185, gfxGroup 94,
- * dispcnt bits, bg1Control 0x1C03, bg2Control 0x1D0B } (src/data/
- * figurineMenuData.c, applied by sub_080A4DB8 in src/menu/figurineMenu.c).
+ * dispcnt bits, bg1Control 0x1C03, bg2Control 0x1D0B } (engine/src/data/
+ * figurineMenuData.c, applied by sub_080A4DB8 in engine/src/menu/figurineMenu.c).
  * Reading those control words plus the setup path gives the full recipe:
  *
  *   BG1 (map artwork):  4bpp tiles at charBase 0 (0x06000000, gfx group 94's
@@ -71,8 +71,8 @@ extern const void* gPaletteGroups[];
 extern const u8* gGlobalGfxAndPalettes;
 
 /* Windcrest warp targets — the compiled table the fast-travel screen indexes
- * by windcrest bit (src/menu/kinstoneMenu.c; used by sub_080A6EE0 in
- * src/subtask/subtaskFastTravel.c). */
+ * by windcrest bit (engine/src/menu/kinstoneMenu.c; used by sub_080A6EE0 in
+ * engine/src/subtask/subtaskFastTravel.c). */
 extern const Transition gUnk_08128024[];
 
 /* pauseMenu.c keeps this packed type private, but screen 4 only needs bytes
@@ -84,7 +84,7 @@ extern const u8 gUnk_08128DE8[];
  * regions, which an off-screen decode must not touch). */
 extern void Port_LZ77DecompressToBuffer(const void* src, void* dst, size_t dstCap);
 
-/* Raw-data accessors (src/common.c, port/port_draw.c) — the same read-only
+/* Raw-data accessors (engine/src/common.c, port/port_draw.c) — the same read-only
  * faces port_second_screen_dungeonmap.c redraws its markers through. */
 extern const u8* Port_GetRawGfxSpanForVram(u32 group, u32 vramAddr, u32 numBytes);
 extern const u8* Port_GetRawPaletteGroupBankData(u32 group, u32 destPaletteNum, u32* outNumColors);
@@ -101,7 +101,7 @@ extern const u8* Port_GetSpriteSizeTable(void);
 /* GfxItem destinations that identify the entries we need within those
  * groups. VRAM addresses are fixed by the BG control words on every region;
  * the EWRAM ones are the USA link addresses of the tilemap staging buffers
- * (include/vram.h) — EU/JP retail links may place those buffers elsewhere,
+ * (engine/include/vram.h) — EU/JP retail links may place those buffers elsewhere,
  * so EWRAM entries are ALSO matched positionally (nth EWRAM-destined record
  * of the group) as a region-agnostic fallback. */
 #define DEST_MAP_TILES 0x06000000u    /* BG charBase 0 (bg1Control 0x1C03) */
@@ -156,7 +156,7 @@ static int RangeInRom(const u8* p, u32 len) {
 }
 
 /* Hand back one gfx-group record's payload. Mirrors LoadGfxGroup's walk
- * (src/common.c:513): 12-byte records { u32 offset|ctrl<<24, u32 dest,
+ * (engine/src/common.c:513): 12-byte records { u32 offset|ctrl<<24, u32 dest,
  * s32 size }, chained while bit 31 of the first word is set; ctrl 0xD ends
  * the group, ctrl 0x7 means always-load, other values are language-
  * conditional. Records are selected by exact dest address, or — when
@@ -264,7 +264,7 @@ static void FreeGfxBlob(GfxBlob* blob) {
 }
 
 /* Apply one palette group to a private BG palette (banks 0-15, 16 colors
- * each, RGB555). Mirrors LoadPaletteGroup's chain walk (src/common.c:361):
+ * each, RGB555). Mirrors LoadPaletteGroup's chain walk (engine/src/common.c:361):
  * 4-byte records { u16 paletteId, u8 destBank, u8 count|more<<7 }, count 0
  * meaning 16; palette data at gGlobalGfxAndPalettes[paletteId * 32]. OBJ
  * banks (destBank >= 16) are skipped — this composite has no sprites. */
@@ -441,9 +441,9 @@ const uint32_t* Port_SecondScreenWorldMap_GetFrameImage(int32_t* outW, int32_t* 
 
 /* The game's own world→map-screen scaling, ported verbatim per marker type
  * (the two screens use slightly different Y math and we keep that):
- *   player dot, pause map (src/menu/pauseMenu.c sub_080A6378):
+ *   player dot, pause map (engine/src/menu/pauseMenu.c sub_080A6378):
  *       x = worldX * 160 / 0xF90 + 0x28;   y = worldY * 128 / 0xC60 + 0xC
- *   windcrest flags, fast travel (src/subtask/subtaskFastTravel.c
+ *   windcrest flags, fast travel (engine/src/subtask/subtaskFastTravel.c
  *   sub_080A6EE0):
  *       x = worldX * 160 / 0xF90 + 0x28;   y = worldY * 160 / 0xF90 + 0xC
  * 0xF90/0xC60 are the overworld's pixel extents (the ~249x198 16px-tile
@@ -468,8 +468,8 @@ static int32_t ClampMapY(int32_t y) {
 
 int Port_SecondScreenWorldMap_LocatePlayer(uint8_t area, int32_t areaX, int32_t areaY, int32_t* outMapX,
                                            int32_t* outMapY) {
-    /* Overworld test = CheckAreaOverworld (src/gameUtils.c): the compiled
-     * gAreaMetadata row (src/data/areaMetadata.c, 153 rows) must carry
+    /* Overworld test = CheckAreaOverworld (engine/src/gameUtils.c): the compiled
+     * gAreaMetadata row (engine/src/data/areaMetadata.c, 153 rows) must carry
      * exactly AR_IS_OVERWORLD|AR_ALLOWS_WARP. Interiors/dungeons fail here
      * and the caller keeps its last outdoor fix — the same reason the
      * game's own marker freezes at the doorway (UpdatePlayerMapCoords only
@@ -525,7 +525,7 @@ static int EnsureWindcrestPins(void) {
     return 1;
 }
 
-/* ReadBit (src/common.c): LSB-first within bytes — the exact indexing
+/* ReadBit (engine/src/common.c): LSB-first within bytes — the exact indexing
  * CheckKinstoneFused/CheckFusionMapMarkerDisabled apply to these arrays. */
 static u32 SaveBit(const uint8_t* arr, u32 bit) {
     return (arr[bit >> 3] >> (bit & 7u)) & 1u;
@@ -537,7 +537,7 @@ static u32 SaveBit(const uint8_t* arr, u32 bit) {
 #define MAP_HINT_ROW_MAX 16
 
 int32_t Port_SecondScreenWorldMap_GetMapHints(uint32_t hintMask, SecondScreenMapMarker* out, int32_t maxMarkers) {
-    /* The world map's own marker pass, ported: sub_080A6438 (src/menu/
+    /* The world map's own marker pass, ported: sub_080A6438 (engine/src/menu/
      * pauseMenu.c) walks gUnk_08128F58 and stamps row i when bit i of
      * `gSave.map_hints & gGenericMenu.unk10.h[0]` is set — that second word
      * being sub_080A6F40()'s, cached when the screen opened. Positions are
@@ -597,17 +597,17 @@ int Port_SecondScreenWorldMap_GetWindcrestPin(int32_t windcrestId, int32_t* outM
 
 /* --- Regional zoom ------------------------------------------------------
  *
- * The map screen's zoom grid is gOverworldLocations (src/data/areaMetadata.c):
+ * The map screen's zoom grid is gOverworldLocations (engine/src/data/areaMetadata.c):
  * 17 rects over the overworld's 16px tile grid, one per WindcrestID, and the
  * id the whole map screen family indexes by (gMenu.field_0x3). The world map
  * draws its cursor brackets on them — frame gMenu.field_0x3 * 3 + 0x26 at
  * gUnk_08128DE8[id].unk6/unk7 — and pressing A opens pause screen 6, the
  * enlarged map of that one region.
  *
- * Screen 6's artwork recipe comes out of sub_080A67C4 (src/menu/
+ * Screen 6's artwork recipe comes out of sub_080A67C4 (engine/src/menu/
  * pauseMenuScreen6.c) plus the screen's row in gUnk_08128AD8 (screen 6 ->
  * { paletteGroup 185, gfxGroup 129, dispcnt, bg1Control 0x1C0A, bg2Control
- * 0x1D03 }, src/data/figurineMenuData.c):
+ * 0x1D03 }, engine/src/data/figurineMenuData.c):
  *
  *   LoadPaletteGroup(region + 0xBA)  -> palette group 186 + region, applied
  *                                       after the 11 / 12 / 181 / 185 ladder
@@ -714,7 +714,7 @@ static int GetRegionGeometry(int32_t region, RegionGeometry* out) {
 
 int Port_SecondScreenWorldMap_GetRegionAt(int32_t mapX, int32_t mapY, int32_t* outRegion, int32_t* outX0,
                                           int32_t* outY0, int32_t* outX1, int32_t* outY1) {
-    /* GetOverworldLocation's own walk (src/menu/pauseMenuScreen6.c), just
+    /* GetOverworldLocation's own walk (engine/src/menu/pauseMenuScreen6.c), just
      * run in world-map pixels instead of overworld tiles: first row whose
      * rect contains the point wins, which is what makes the one overlap in
      * the table (row 12 reaches into rows 14-16's column) resolve the way
@@ -894,7 +894,7 @@ int Port_SecondScreenWorldMap_DrawRegion(uint32_t* pixels, int32_t bufW, int32_t
     return 1;
 }
 
-/* sub_080A69E0 verbatim (src/menu/pauseMenuScreen6.c), minus the -1 returns
+/* sub_080A69E0 verbatim (engine/src/menu/pauseMenuScreen6.c), minus the -1 returns
  * the callers express as "not in this region": an overworld pixel position
  * must resolve to a region row, that row must be the one being drawn, and
  * the result is that region's enlarged-map pixel, rescaled from the
@@ -955,7 +955,7 @@ int32_t Port_SecondScreenWorldMap_GetRegionMarkers(int32_t region, uint32_t hint
      * fusions. The id's location is ROM-constant — gKinstoneWorldEvents[id]
      * .worldEventId -> gWorldEvents[..]._c/._e, the event's overworld pixel
      * position, which sub_080A698C hands straight to sub_080A69E0. Table
-     * variants are per-region twins selected like src/kinstone.c does;
+     * variants are per-region twins selected like engine/src/kinstone.c does;
      * REGION_IS_* is ROM identity, not live save state.
      *
      * Everything is dropped that sub_080A69E0 drops: a (0, 0) position, one

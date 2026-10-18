@@ -73,7 +73,7 @@ class PakBuilder {
     PakBuilder& operator=(PakBuilder&&) = delete;
 
     /* Stage an entry. relativePath is the asset's path relative to
-     * assets/ (e.g. "gfx/gfx_12345_64x64_4bpp_uncompressed.bin"). data
+     * engine/assets/ (e.g. "gfx/gfx_12345_64x64_4bpp_uncompressed.bin"). data
      * is copied into an owning staging buffer so the caller may release
      * its memory immediately. */
     void Add(std::string relativePath, const uint8_t* data, std::size_t size);

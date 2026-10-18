@@ -15,11 +15,11 @@
  * The pause menu's QUEST STATUS screen, rebuilt from ROM so the panel's tab
  * is the screen pressing START shows rather than a paraphrase of it.
  *
- * Which screen, exactly: PauseMenuScreen_2 (src/menu/pauseMenu.c's
- * PauseMenu2 — the one src/menu/pauseMenu.c:123 calls "the QUEST STATUS
+ * Which screen, exactly: PauseMenuScreen_2 (engine/src/menu/pauseMenu.c's
+ * PauseMenu2 — the one engine/src/menu/pauseMenu.c:123 calls "the QUEST STATUS
  * screen"). gUnk_08128A38[2].unk0 = 1 selects gUnk_08128AD8[1] =
  * { paletteGroup 183, gfxGroup 91, dispcnt 0x400, bg1Control 0x1C05,
- * bg2Control 0x1D03 } (src/data/figurineMenuData.c), which sub_080A4DB8
+ * bg2Control 0x1D03 } (engine/src/data/figurineMenuData.c), which sub_080A4DB8
  * applies after sub_080A4D34 has loaded the shared pause chrome. That makes
  * the screen, in the order the GBA composes it:
  *
@@ -74,14 +74,14 @@
  * thread) as port_second_screen_worldmap.c's image.
  */
 
-/* src/common.c (appended accessors — ROM-const reads only), the same faces
+/* engine/src/common.c (appended accessors — ROM-const reads only), the same faces
  * the other second-screen art modules decode through. */
 extern const u8* Port_ResolveGfxGroupVram(u32 group, u32 vramAddr, u32* outAvail);
 extern const u8* Port_GetRawPaletteGroupEntryData(u32 group, u32 entryIdx, u32* outNumColors, u32* outDestPaletteNum);
 extern const u8* Port_GetRawPaletteGroupBankData(u32 group, u32 destPaletteNum, u32* outNumColors);
 extern u32 Port_GetKinstonePieceTiles(u32 gfxOffset, u8* out, u32 outBytes);
 
-/* src/affine.c — frame OBJ piece list for (sprite, frame). */
+/* engine/src/affine.c — frame OBJ piece list for (sprite, frame). */
 extern void* sub_080AD8F0(u32 sprite, u32 frame);
 
 /* Resolved ROM group table (port_rom.c) — for the EWRAM-destined tilemap
@@ -89,7 +89,7 @@ extern void* sub_080AD8F0(u32 sprite, u32 frame);
 extern const void* gGfxGroups[];
 extern const u8* gGlobalGfxAndPalettes;
 
-/* Quest-screen slot table (data/const/subtask.s): 16 entries of
+/* Quest-screen slot table (engine/data/const/subtask.s): 16 entries of
  * { up, down, left, right, cursorFrameBase, itemFrameBase, x, y }.
  * gUnk_08128C14 is the language-0 table and gUnk_08128C94 every other
  * language's; sub_080A57F4 picks between them on gSaveHeader->language, which

@@ -1,7 +1,7 @@
 /*
  * port/port_audio_mute.h — per-category SFX mute toggles.
  *
- * Plumbed into src/sound.c::SoundReq so individual sound IDs (or
+ * Plumbed into engine/src/sound.c::SoundReq so individual sound IDs (or
  * ranges) can be suppressed at dispatch time without touching the
  * caller. The toggles are surfaced in the F8 → Audio tab.
  *
@@ -31,7 +31,7 @@ void Port_AudioMute_SetEnabled(AudioMuteCategory c, bool on);
 const char* Port_AudioMute_Label(AudioMuteCategory c);
 const char* Port_AudioMute_Description(AudioMuteCategory c);
 
-/* Filter hook called from src/sound.c::SoundReq. Returns true when
+/* Filter hook called from engine/src/sound.c::SoundReq. Returns true when
  * the given sound ID should be dropped (i.e. *not* played) based on
  * the current toggle state. The full SoundReq word is passed so range
  * checks can include the high-half "SONG_*" command bits if ever

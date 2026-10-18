@@ -1,6 +1,6 @@
 /* Production-path Kinstone save repair and retail-fickleness integration.
  *
- * This links src/common.c and calls GetFusionToOffer itself.  A synthetic ROM
+ * This links engine/src/common.c and calls GetFusionToOffer itself.  A synthetic ROM
  * models the exact E1 EU table displacement without embedding retail assets;
  * the real semantic validators, real gSave mutation order and real durable
  * profile preservation are exercised together. */

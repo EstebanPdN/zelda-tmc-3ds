@@ -1,9 +1,9 @@
 # Decomp & Dual-Build Onboarding
 
-This guide is for contributors working in the **decompiled engine** (`src/`) and
+This guide is for contributors working in the **decompiled engine** (`engine/src/`) and
 the **dual GBA/PC build**. That seam is the steepest part of the repo: the same
-C in `src/` is compiled into two very different binaries, and the code does not
-read like normal application code. Read this before touching `src/`.
+C in `engine/src/` is compiled into two very different binaries, and the code does not
+read like normal application code. Read this before touching `engine/src/`.
 
 For the PC port layer (`port/`), GBA→PC bug classes, and submission rules, see
 [`CONTRIBUTING.md`](CONTRIBUTING.md). This document deliberately does not
@@ -25,54 +25,54 @@ The code a contributor touches, by directory:
 
 | Path | What it is |
 |------|------------|
-| `src/` | Decompiled GBA game logic (C). Compiled into **both** builds. Edit carefully — most of it still pattern-matches the ARM original. |
-| `include/` | Shared GBA engine structs, globals, entity/save/screen/map definitions. |
-| `asm/` | Still-undecompiled functions as hand-written ARM `.s`. Used by the **ROM build only**. |
-| `data/` | GBA data tables as `.s`. ROM build only. |
-| `port/` | PC-only glue: SDL3 entry, renderer, audio, ROM/address bridge, and the **stubs** that replace `asm/` on PC. |
-| `linker.ld` | ROM link script — hardcodes per-object `.text`/`.rodata` placement (ROM build only). |
+| `engine/src/` | Decompiled GBA game logic (C). Compiled into **both** builds. Edit carefully — most of it still pattern-matches the ARM original. |
+| `engine/include/` | Shared GBA engine structs, globals, entity/save/screen/map definitions. |
+| `engine/asm/` | Still-undecompiled functions as hand-written ARM `.s`. Used by the **ROM build only**. |
+| `engine/data/` | GBA data tables as `.s`. ROM build only. |
+| `port/` | PC-only glue: SDL3 entry, renderer, audio, ROM/address bridge, and the **stubs** that replace `engine/asm/` on PC. |
+| `config/gba/linker.ld` | ROM link script — hardcodes per-object `.text`/`.rodata` placement (ROM build only). |
 | `xmake.lua` | Build graph for both targets and all tools. |
 
-The single most important fact: **`src/**.c` is shared.** A function you
+The single most important fact: **`engine/src/**.c` is shared.** A function you
 decompile there must satisfy two consumers at once — see §2.
 
 ---
 
 ## 2. The two builds and the seam
 
-There are two completely separate link targets driven by the same `src/`:
+There are two completely separate link targets driven by the same `engine/src/`:
 
 ```
  GBA ROM (byte-matching, xmake "rom" task)
-   asm/src/*.s  ──┐
-   data/**.s    ──┤
-   src/**.c     ──┼──► agbcc + arm-none-eabi-{as,ld}  ──►  tmc.gba / tmc.elf
-                  │     (linked per-object via linker.ld)
+   engine/asm/src/*.s  ──┐
+   engine/data/**.s    ──┤
+   engine/src/**.c     ──┼──► agbcc + arm-none-eabi-{as,ld}  ──►  tmc.gba / tmc.elf
+                  │     (linked per-object via config/gba/linker.ld)
                   └───────────────────────────────────────────────┐
-                                                                   │ src/ is
+                                                                   │ engine/src/ is
  PC port (native, target "tmc_pc")                                 │ shared
-   src/**.c (the same files) ──┐                                   │
+   engine/src/**.c (the same files) ──┐                                   │
    port/port_*.c, *.cpp        ├──► system C/C++ toolchain (SDL3) ─┘──► tmc_pc
    port/*_stubs*.c (hand)      │
    port/*_autogen.c (generated)┘
 ```
 
 **GBA ROM target** (`xmake rom`, see `xmake.lua` `task("rom")`):
-- Compiles every `src/**.c` with **agbcc** (`tools/agbcc/bin/agbcc`, an old
+- Compiles every `engine/src/**.c` with **agbcc** (`tools/agbcc/bin/agbcc`, an old
   GBA-era C compiler) plus the `arm-none-eabi` binutils, and assembles every
-  `asm/**.s` + `data/**.s` (`xmake.lua:1318,1397-1398`).
+  `engine/asm/**.s` + `engine/data/**.s` (`xmake.lua:1318,1397-1398`).
 - The output bytes must match the original retail ROM. This verification (and
   the SHA1 check) is the **upstream zeldaret/tmc** project's job — the PC fork,
   built for x86-64, cannot produce a matching ROM. See `CONTRIBUTING.md` →
   "Decompiling new functions".
-- Links with `linker.ld`, which lists each object's section explicitly
-  (`linker.ld:226+`).
+- Links with `config/gba/linker.ld`, which lists each object's section explicitly
+  (`config/gba/linker.ld:226+`).
 
 **PC port target** (`xmake build -y tmc_pc`, see `xmake.lua` `target("tmc_pc")`):
-- Compiles the same `src/**.c` with the host compiler (`-O0 -g`,
+- Compiles the same `engine/src/**.c` with the host compiler (`-O0 -g`,
   `xmake.lua:1019`), links it against the `port/` layer, SDL3, ViruaPPU, and the
   audio libs.
-- Does **not** touch `asm/` at all. The GBA symbols that `asm/` would have
+- Does **not** touch `engine/asm/` at all. The GBA symbols that `engine/asm/` would have
   provided are instead supplied by:
   - hand-written stubs: `port/port_stubs.c`, `port/port_gameplay_stubs.c`,
     `port/port_linked_stubs.c` (`xmake.lua:860,881,868`);
@@ -90,8 +90,8 @@ for the PC build; the `#else` (or unguarded) branch is what the ROM build / GBA
 hardware sees. Keep the GBA branch byte-faithful and put PC-only behavior behind
 the guard, so the same file stays valid for both consumers.
 
-Worked example — `src/projectileUpdate.c` (recently converted from
-`asm/src/projectileUpdate.s`):
+Worked example — `engine/src/projectileUpdate.c` (recently converted from
+`engine/asm/src/projectileUpdate.s`):
 
 ```c
 #ifdef PC_PORT
@@ -110,19 +110,19 @@ shared `ProjectileUpdate()` body below the guard is identical for both builds.
 
 ---
 
-## 3. Reading decompiled code (do not read `src/` like normal code)
+## 3. Reading decompiled code (do not read `engine/src/` like normal code)
 
 Decomp source is generated/transcribed from machine code, then progressively
 humanized. Two naming conventions dominate:
 
 - **`sub_080XXXXX`** — an as-yet-unnamed function, where `080XXXXX` is its ROM
   address (`0x08……` is GBA cartridge ROM). Example: `sub_080028E0` called in
-  `src/projectileUpdate.c`.
+  `engine/src/projectileUpdate.c`.
 - **`gUnk_080XXXXX`** / **`gUnk_020XXXXX`** — unnamed data. `08…` is ROM
   (const tables), `02…` is EWRAM, `03…` is IWRAM (mutable globals). The
-  `linker.ld` EWRAM/IWRAM maps (`linker.ld:13-224`) place many of these by hand.
+  `config/gba/linker.ld` EWRAM/IWRAM maps (`config/gba/linker.ld:13-224`) place many of these by hand.
 
-These are not rare. As of this writing `src/` contains roughly **12,000**
+These are not rare. As of this writing `engine/src/` contains roughly **12,000**
 `sub_080…` call sites and roughly **6,900** `gUnk_…` references (most in ROM
 space). So expect to read code like `sub_080028E0(this)` where the name tells
 you nothing but the address.
@@ -150,37 +150,37 @@ layout guards.
 ## 4. Decompiling a function end-to-end (byte-matching workflow)
 
 This is the upstream zeldaret/tmc loop; it is summarized here because its
-*output* — a function moving from `asm/` into `src/` plus a `linker.ld` edit —
+*output* — a function moving from `engine/asm/` into `engine/src/` plus a `config/gba/linker.ld` edit —
 is what you import into this port. The authoritative walk-through is upstream's
 CONTRIBUTING (`CONTRIBUTING.md` → "Decompiling new functions").
 
 High-level steps:
 
-1. **Pick a function** still living in an `asm/src/*.s` file (e.g. the
-   `EnemyUpdate` body in `asm/src/enemy.s`, `thumb_func_start EnemyUpdate`).
-2. **Write equivalent C** in the right `src/` file. The goal is C that, compiled
+1. **Pick a function** still living in an `engine/asm/src/*.s` file (e.g. the
+   `EnemyUpdate` body in `engine/asm/src/enemy.s`, `thumb_func_start EnemyUpdate`).
+2. **Write equivalent C** in the right `engine/src/` file. The goal is C that, compiled
    under agbcc with the ROM build's flags, emits the *same ARM/THUMB bytes* as
-   the original. (Compare `asm/src/enemy.s`'s `EnemyUpdate` to the now-C
-   `ProjectileUpdate` in `src/projectileUpdate.c` — same init/disabled/dispatch
+   the original. (Compare `engine/asm/src/enemy.s`'s `EnemyUpdate` to the now-C
+   `ProjectileUpdate` in `engine/src/projectileUpdate.c` — same init/disabled/dispatch
    shape.)
-3. **Match the bytes.** The ROM build compiles `src/**.c` with agbcc at `-O2`
+3. **Match the bytes.** The ROM build compiles `engine/src/**.c` with agbcc at `-O2`
    (`xmake.lua:1219`: `-O2 -Wimplicit -Wparentheses -Werror -Wno-multichar
    -g3`); a few files need `-mthumb-interwork` (the `interwork_files` list,
    `xmake.lua:1222-1225`). Iterate on the C until the assembled object matches.
 4. **Remove the function from the `.s`** so it is no longer assembled from
-   `asm/`, leaving the C as the single source.
-5. **Update `linker.ld`.** The ROM section map places objects explicitly, so the
+   `engine/asm/`, leaving the C as the single source.
+5. **Update `config/gba/linker.ld`.** The ROM section map places objects explicitly, so the
    newly-C object must appear where the original `.text` lived. After
-   `ProjectileUpdate` was decompiled, `linker.ld:254` reads
-   `src/projectileUpdate.o(.text);` — slotted right after the script/data objects
+   `ProjectileUpdate` was decompiled, `config/gba/linker.ld:254` reads
+   `engine/src/projectileUpdate.o(.text);` — slotted right after the script/data objects
    it followed in ROM, ahead of the interworking-compiled C block.
 6. **No xmake edit needed for the file list.** The ROM task globs
-   `os.files("src/**.c")` (`xmake.lua:1318`), so a new `src/` file is picked up
-   automatically; ordering is controlled by `linker.ld`, not the glob.
+   `os.files("engine/src/**.c")` (`xmake.lua:1318`), so a new `engine/src/` file is picked up
+   automatically; ordering is controlled by `config/gba/linker.ld`, not the glob.
 
 Bringing it into this PC fork: add the file to `tmc_pc` (the PC target lists
-`src/` files explicitly, e.g. `xmake.lua:944` `add_files("src/projectileUpdate.c")`),
-wrap any PC-divergent data/behavior in `#ifdef PC_PORT` (§2), and keep the
+`engine/src/` files explicitly, e.g. `xmake.lua:944` `add_files("engine/src/projectileUpdate.c")`),
+wrap any PC-divergent engine/data/behavior in `#ifdef PC_PORT` (§2), and keep the
 `PORT_STATIC_ASSERT_OFFSET/SIZE` layout guards intact for 8-byte pointers.
 
 ---
@@ -189,7 +189,7 @@ wrap any PC-divergent data/behavior in `#ifdef PC_PORT` (§2), and keep the
 
 agbcc (`tools/agbcc/bin/agbcc`) is a C89-era compiler/preprocessor used only for
 the ROM build. It is fussy in ways modern GCC/Clang are not. Because the file is
-shared, your `src/` C must satisfy agbcc even though you usually only build
+shared, your `engine/src/` C must satisfy agbcc even though you usually only build
 `tmc_pc`. Common traps:
 
 - **No preprocessor `#if/#elif/#else` *inside a function body across brace
@@ -200,7 +200,7 @@ shared, your `src/` C must satisfy agbcc even though you usually only build
 - **Declarations must precede statements** (C89). Don't declare a variable after
   the first statement in a block.
 - **Use `bool32`, not C99 `bool`** in engine code. The GBA ABI expects the
-  32-bit boolean type used throughout `src/`/`include/`.
+  32-bit boolean type used throughout `engine/src/`/`engine/include/`.
 - **Multi-char char constants are normal** (`-Wno-multichar` is on,
   `xmake.lua:1219`) — used deliberately for 4-byte tags; don't "fix" them.
 - **Packed-bitfield writes are common and layout-sensitive.** Bitfield packing
@@ -253,8 +253,8 @@ xmake rom            # uses tools/agbcc + arm-none-eabi binutils
 This requires `arm-none-eabi-gcc`/`as`/`ld`/`objcopy` (or DEVKITARM) and
 `tools/agbcc/bin/agbcc`; the task errors out early if either is missing
 (`xmake.lua:1152-1195`). It extracts assets if needed, generates enum includes,
-preprocesses `linker.ld`, compiles `src/**.c` with agbcc, assembles
-`asm/**.s` + `data/**.s`, links via `linker.ld`, and `objcopy`s to `.gba`.
+preprocesses `config/gba/linker.ld`, compiles `engine/src/**.c` with agbcc, assembles
+`engine/asm/**.s` + `engine/data/**.s`, links via `config/gba/linker.ld`, and `objcopy`s to `.gba`.
 
 A ROM is required at the repo root for asset extraction / full runtime (USA
 `baserom.gba`, SHA1 `b4bd50e4131b027c334547b4524e2dbbd4227130`; see

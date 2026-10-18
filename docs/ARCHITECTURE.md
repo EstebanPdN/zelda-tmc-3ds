@@ -8,10 +8,10 @@ renaming those symbols is not part of a presentation or formatting change.
 
 | Location | Responsibility | Change boundary |
 | --- | --- | --- |
-| `src/`, `include/` | Game tasks, entities, rooms, scripts, saves and public engine declarations | Preserve retail state, region behavior, callback order and layouts. |
-| `src/enemy/`, `src/npc/`, `src/object/`, `src/playerItem/`, `src/projectile/`, `src/manager/` | Entity behavior by engine kind | Retain existing names, dispatch tables and allocation contracts. |
-| `src/menu/`, `src/subtask/`, `src/worldEvent/`, `src/item/` | Menus, temporary game tasks, scripted world events and item behavior | Preserve restoration of suspended engine state. |
-| `src/data/`, `data/`, `constants/`, `asm/` | Upstream declarations, assembly and symbolic data descriptions | Preserve byte order, table order, provenance and regional addresses. |
+| `engine/src/`, `engine/include/` | Game tasks, entities, rooms, scripts, saves and public engine declarations | Preserve retail state, region behavior, callback order and layouts. |
+| `engine/src/enemy/`, `engine/src/npc/`, `engine/src/object/`, `engine/src/playerItem/`, `engine/src/projectile/`, `engine/src/manager/` | Entity behavior by engine kind | Retain existing names, dispatch tables and allocation contracts. |
+| `engine/src/menu/`, `engine/src/subtask/`, `engine/src/worldEvent/`, `engine/src/item/` | Menus, temporary game tasks, scripted world events and item behavior | Preserve restoration of suspended engine state. |
+| `engine/src/data/` | Native data declarations compiled into the engine | Preserve table order, provenance and regional addresses. |
 | `port/` | Shared native adaptations and engine bridges | Platform-independent compatibility and bounded data access. |
 | `port/ppu/` | Software PPU, register/memory interfaces and renderer regressions | Preserve palette, blending, window, sprite and HDMA semantics. |
 | `platform/3ds/source/` | libctru, Citro2D/3D, input, audio, display, lifecycle and updater adapters | Hardware effects and service ownership stay here. |
@@ -20,7 +20,6 @@ renaming those symbols is not part of a presentation or formatting change.
 | `libs/`, `port/SDL3/` | Imported dependencies | Keep upstream notices, attribution and imported style. |
 | `tools/`, `scripts/dev/` | Data producers, development commands and repository checks | Tools are not game-loop code; document their inputs and effects. |
 | `platform/3ds/cia/`, `platform/3ds/romfs/`, `platform/3ds/assets/` | Packaging metadata, public certificates and original presentation assets | No ROM, save, extracted game asset or private diagnostic input. |
-| `android/`, `mods/`, `translations/` | Inherited platform shell, mod examples and localization sources | Keep inherited consumers and build paths available. |
 | `build/USA/assets/`, `build/EU/assets/` | Tracked symbolic offset headers | Generated symbol-to-offset descriptions, not game assets. |
 | `docs/` | Current guides, technical references and dated investigation history | Start at the documentation index; historical reports are not current guarantees. |
 

@@ -18,7 +18,7 @@ const u8 gUnk_0800275C[64] = {
     0x60, 0x00, 0x60, 0x06, 0x60, 0x06, 0x60, 0x06, 0x60, 0x06, 0x60, 0x06, 0x60, 0x06, 0x60, 0x06,
     0x00, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06,
 };
-/* gUnk_080046A4 and gUnk_080047F6 now provided by src/data/data_080046A4.c */
+/* gUnk_080046A4 and gUnk_080047F6 now provided by engine/src/data/data_080046A4.c */
 /* BG tilemap DMA size table (u16[4]): sizes for screen sizes 0-3 */
 const u16 gUnk_080B2CD8[4] = { 0x0800, 0x1000, 0x1000, 0x2000 };
 /* Direction offset table (s16 xy pairs, indexed by animationState & 6).
@@ -65,7 +65,7 @@ const u16 gUnk_080B44C0[] = { 0xFFFF };
    Data { tileType=0x75, kind=9, id=0x25, type=0, type2=0, unk_a=1 } */
 const u16 gUnk_080B44C2[] = { 0x0075, 0x0009, 0x0025, 0x0000, 0x0000, 0x0001, 0xFFFF };
 u8 gUnk_080C9044[8] = { 0 };
-/* Hitbox data (gUnk_080FD178 through gUnk_080FD588) is now provided by src/data/hitbox.c */
+/* Hitbox data (gUnk_080FD178 through gUnk_080FD588) is now provided by engine/src/data/hitbox.c */
 /* Font/text data â€” loaded from ROM by Port_LoadRom */
 void* gTextVariableSources[5];
 u8 gUnk_08109244[4] __attribute__((aligned(4)));
@@ -86,9 +86,9 @@ void* gUnk_0810B6EC[21]; /* SpriteLoadData* pointer table â€” resolved at i
 /* gUnk_08128E78: func ptr table, defined in port_linked_stubs.c */
 /* gUnk_08128F1C: func ptr table, defined in port_linked_stubs.c */
 /* gUnk_0812901C -- defined in port_stubs.c as proper function pointer table */
-/* gUnk_08133368 (OBJ palettes) now provided by src/data/objPalettes.c */
-/* gUnk_08134FBC, gUnk_08135048, gUnk_08135190, gUnk_0813A76C now provided by src/data/transitions.c */
-/* gUnk_0813AB58..gUnk_0813ADEC (screen transitions) now provided by src/data/screenTransitions.c */
+/* gUnk_08133368 (OBJ palettes) now provided by engine/src/data/objPalettes.c */
+/* gUnk_08134FBC, gUnk_08135048, gUnk_08135190, gUnk_0813A76C now provided by engine/src/data/transitions.c */
+/* gUnk_0813AB58..gUnk_0813ADEC (screen transitions) now provided by engine/src/data/screenTransitions.c */
 const SongHeader sfx100 = { 0 };
 const SongHeader sfx101 = { 0 };
 const SongHeader sfx102 = { 0 };
@@ -550,8 +550,8 @@ void Port_InitDataStubs(void) {
         return;
     }
     u32 count = 0;
-    /* gUnk_080046A4 and gUnk_080047F6 — now provided by src/data/data_080046A4.c */
-    /* Hitbox data (gUnk_080FD178 through gUnk_080FD588) now provided by src/data/hitbox.c - no ROM loading needed */
+    /* gUnk_080046A4 and gUnk_080047F6 — now provided by engine/src/data/data_080046A4.c */
+    /* Hitbox data (gUnk_080FD178 through gUnk_080FD588) now provided by engine/src/data/hitbox.c - no ROM loading needed */
     /* gUnk_0810B6EC — SpriteLoadData* pointer table (Hyrule-Town NPCs), resolve GBA addrs.
      * The table is region-relocated (USA 0x10B6EC, JP 0x10B3B0, EU 0x10AE40); a fixed USA
      * offset on a JP/EU ROM yields all-NULL pointers and a NULL-deref crash on town entry.
@@ -578,7 +578,7 @@ void Port_InitDataStubs(void) {
     /* gUnk_08128DCC: func ptr table â€” defined in port_linked_stubs.c, skip ROM loading */
     /* gUnk_08128E78: func ptr table â€” defined in port_linked_stubs.c, skip ROM loading */
     /* gUnk_08128F1C: func ptr table â€” defined in port_linked_stubs.c, skip ROM loading */
-    /* gUnk_08134FBC..gUnk_0813ADEC (transitions + screen transitions) now provided by src/data/ */
+    /* gUnk_08134FBC..gUnk_0813ADEC (transitions + screen transitions) now provided by engine/src/data/ */
     /* gCollisionMtx — populate the full buffer from ROM.
      * collision.c declares it as `extern ColSettings gCollisionMtx[173*34]`
      * (each ColSettings = 12 bytes).  On GBA, reads go well beyond the 1210

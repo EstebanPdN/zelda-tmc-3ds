@@ -551,7 +551,7 @@ int Port_DebugAction_TeleportXY(unsigned short x, unsigned short y) {
 }
 
 /* Noclip (walk-through-walls). In-memory debug state only (not persisted). The
- * engine hook in src/movement.c zeroes the player's tile collisions while this
+ * engine hook in engine/src/movement.c zeroes the player's tile collisions while this
  * is on; force-disabled under Console-Parity so parity runs stay GBA-faithful. */
 static bool sNoclip = false;
 
@@ -1312,9 +1312,9 @@ int Port_DebugQuery_RoomDimensions(unsigned char area, unsigned char room, unsig
 }
 
 /* Friendly area names for the warp menu. NULL entries mean "no useful
- * name" (typically NULL_xx unused slots from include/area.h); the menu
+ * name" (typically NULL_xx unused slots from engine/include/area.h); the menu
  * falls back to "Area 0xXX" for those. Indexed by AreaID. Keep aligned
- * with the AreaID enum in include/area.h. */
+ * with the AreaID enum in engine/include/area.h. */
 static const char* const kAreaNames[DEBUG_AREA_COUNT] = {
     [0x00] = "Minish Woods",
     [0x01] = "Minish Village",

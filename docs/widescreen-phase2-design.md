@@ -143,7 +143,7 @@ BGCNT_TXT512x256 extension") implies the BG buffers are 32-tile wide
 and need to grow. Survey of the actual code shows the situation is
 more layered:
 
-### BG buffer layout (`include/vram.h`)
+### BG buffer layout (`engine/include/vram.h`)
 
 ```
 gBG0Buffer: u16[0x400]   (32×32 = 1024 entries)
@@ -152,7 +152,7 @@ gBG2Buffer: u16[0x400]
 gBG3Buffer: u16[0x800]   (32×64 = 2048 entries — NOT 64×32)
 ```
 
-**gBG3 is taller, not wider.** Confirmed by `src/enemy/waterDrop.c:76`
+**gBG3 is taller, not wider.** Confirmed by `engine/src/enemy/waterDrop.c:76`
 which addresses the bottom half as `(y & 0x1fU) * 0x20 + 0x400`. The
 extra 0x400 entries are a vertical pre-load buffer used during
 vertical room transitions, not a wider BG.
@@ -160,12 +160,12 @@ vertical room transitions, not a wider BG.
 ### Tile rendering pipeline
 
 1. `RenderMapLayerToSubTileMap(gMapDataBottomSpecial, &gMapBottom)`
-   in `src/beanstalkSubtask.c:1126` renders the full room layer into
+   in `engine/src/beanstalkSubtask.c:1126` renders the full room layer into
    `gMapDataBottomSpecial` (`u16[0x4000]` = 128KB intermediate).
    Uses **0x80 row stride** = 128 u16 = 64 subtiles wide. This is the
    intermediate's layout, NOT any BG buffer.
 
-2. The "scroll modes" in `src/scroll.c` (`Scroll0`..`Scroll5`) copy a
+2. The "scroll modes" in `engine/src/scroll.c` (`Scroll0`..`Scroll5`) copy a
    32-tile window from `gMapDataTopSpecial` / `gMapDataBottomSpecial`
    into `gBGnBuffer` based on camera position. Each mode handles a
    different room transition pattern (continuous scroll, screen-by-
@@ -177,8 +177,8 @@ vertical room transitions, not a wider BG.
 
 - BGCNT bits 14–15: `00` = 256×256 (1 screen block), `01` = 512×256,
   `10` = 256×512, `11` = 512×512.
-- TMC sets BG0–3 to `00` at `src/common.c:647`. Title screen at
-  `src/title.c:251` already overrides BG2 to `512×256` (`| BGCNT_TXT512x256`),
+- TMC sets BG0–3 to `00` at `engine/src/common.c:647`. Title screen at
+  `engine/src/title.c:251` already overrides BG2 to `512×256` (`| BGCNT_TXT512x256`),
   proving the PPU + hardware path handles it.
 - 512×256 mode requires 2 screen blocks in VRAM (left + right). The
   EWRAM-side buffer needs to mirror this: u16[0x800] with the right
@@ -192,23 +192,23 @@ For each BG layer that should be widescreen (BG1, BG2, BG3 — leave
 BG0 as 32-tile so UI offsets stay stable):
 
 1. Grow `gBGnBuffer` from `u16[0x400]` to `u16[0x800]` in
-   `include/vram.h`. For gBG3, expand from 32×64 to a layout that
+   `engine/include/vram.h`. For gBG3, expand from 32×64 to a layout that
    covers both horizontal (64) and vertical (64) — i.e.
    `u16[0x1000]`. (Or accept losing the vertical pre-load buffer in
    exchange for horizontal — needs to be evaluated.)
 2. Update every `MemClear`/`MemCopy` `sizeof(gBGnBuffer)` / hardcoded
    `0x800` to track the new size. ~30 sites already mapped:
-   - `src/debug.c:29-30`
-   - `src/cutscene.c:263`
-   - `src/gameUtils.c:972-975`
-   - `src/common.c:628`
-   - `src/menu/figurineMenu.c:121-122,577-578,648-650`
-   - `src/staffroll.c:117,134,201-203`
-   - `src/subtask.c:109`
-   - `src/demo.c:69-70`
-   - `src/ui.c:181`
-   - `src/fileselect.c:398,410-411,800`
-3. Update BGCNT init at `src/common.c:647-653` to OR in
+   - `engine/src/debug.c:29-30`
+   - `engine/src/cutscene.c:263`
+   - `engine/src/gameUtils.c:972-975`
+   - `engine/src/common.c:628`
+   - `engine/src/menu/figurineMenu.c:121-122,577-578,648-650`
+   - `engine/src/staffroll.c:117,134,201-203`
+   - `engine/src/subtask.c:109`
+   - `engine/src/demo.c:69-70`
+   - `engine/src/ui.c:181`
+   - `engine/src/fileselect.c:398,410-411,800`
+3. Update BGCNT init at `engine/src/common.c:647-653` to OR in
    `BGCNT_TXT512x256` for each widened layer.
 
 ### Step B: Scroll-mode widening
@@ -244,7 +244,7 @@ Either:
 
 ### Step D: UI offset audit
 
-`src/ui.c`, `src/message.c`, `src/fileselect.c` use ~30 hardcoded
+`engine/src/ui.c`, `engine/src/message.c`, `engine/src/fileselect.c` use ~30 hardcoded
 offsets like `&gBG0Buffer[0x219]`. If BG0 stays at 32-tile width,
 none of these need to change. If BG0 widens too (to support widescreen
 HUDs), every offset needs to be re-derived for the new stride.
@@ -318,8 +318,8 @@ adjacent buffer or `gMapBottom`.
 The per-VBlank DMA routine now takes a `void* right_half` argument
 (PC_PORT only).  When `BGCNT size_flag == 1` (TXT512x256), it issues
 a second 0x800-byte DMA from `right_half` to VRAM base+0x800.
-Callers in `src/interrupts.c::UpdateDisplayControls` and
-`src/gameUtils.c::RestoreGameTask` pass the appropriate
+Callers in `engine/src/interrupts.c::UpdateDisplayControls` and
+`engine/src/gameUtils.c::RestoreGameTask` pass the appropriate
 `gBG[012]BufferRight` (or NULL for BG3).
 
 ### ❌ Step B-2 attempt 2 — VRAM dead-end (reverted)
@@ -333,7 +333,7 @@ blocks so the right-half DMA (`base + 0x800`) doesn't collide with
 another BG's screen base.
 
 **Why it failed**: in Hyrule Town,
-`src/manager/hyruleTownTileSetManager.c` loads tileset chardata
+`engine/src/manager/hyruleTownTileSetManager.c` loads tileset chardata
 to `BG_SCREEN_ADDR(16/18/20)` (blocks 16-21, in the cb2 region),
 each load 0x1000 bytes (= 2 blocks).  These chardata blocks ARE
 referenced by BG1: BG1 cb1 = blocks 8-15, but BG1 tile indices in
@@ -456,7 +456,7 @@ Per the original design above.
 
 Re-did Option A from scratch — direct `gMapData{Bottom,Top}Special` reads in
 `render_text_bg_line` for `x >= MODE1_GBA_BG_CLIP_X` (no separate shadow buffer),
-camera centering + right-clamp keyed to the view width (`src/scroll.c`), sprite
+camera centering + right-clamp keyed to the view width (`engine/src/scroll.c`), sprite
 visibility widened (`CheckOnScreen` / `CheckRectOnScreen` / `RenderSpritePieces`),
 non-gameplay **stretch** in `port_ppu.cpp`, OAM viewport = `MODE1_GBA_WIDTH`.
 Verified at 384: gameplay BG fills the full width, seamless at the col-240 split,
@@ -469,7 +469,7 @@ edges. No clean global fix; it is per-entity (several enemies/objects use hardco
 `scroll_x + 0x108`-style bounds, e.g. gyorgChild/gyorgMale/bombPeahat).
 
 **NEW finding (not previously documented): overworld room transitions hardcode a 240px
-scroll distance.** `src/scroll.c::Scroll2Sub2` scrolls horizontal room crossings until
+scroll distance.** `engine/src/scroll.c::Scroll2Sub2` scrolls horizontal room crossings until
 `unk_18 == 0x3c` (60 steps × 4px = 240 = native width). With a wider camera the
 destination camera position is one *view* width away, so the transition under-scrolls by
 `W-240` and leaves a **permanent black band** on the leading edge after entry
@@ -493,7 +493,7 @@ culling foundation (`port/port_widescreen.h`, parametric `CheckOnScreen` /
 
 **Root-caused the prior shadow misalignment.** The 97efcdd18 template indexed the
 shadow as if `BGHOFS` carried the full camera scroll. It does NOT: the engine
-(`src/scroll.c::UpdateScreenShake`) sets `BGHOFS = (scroll_x-origin_x) & 0xF` and
+(`engine/src/scroll.c::UpdateScreenShake`) sets `BGHOFS = (scroll_x-origin_x) & 0xF` and
 `BGVOFS = ((scroll_y-origin_y) & 0xF) + 8` — i.e. ONLY the sub-16px offset. Coarse
 scroll is done by re-filling the 32-tile buffer aligned to 16px blocks
 (`ram_sub_080B197C_c`: `col16 = xdiff>>4`, sub-tile stride **128 u16**, buffer cell
@@ -522,7 +522,7 @@ Correct shadow population (`port/port_linked_stubs.c::Port_WidescreenShadow_Popu
 
 **Still outstanding for a finished feature (unchanged from prior analysis):**
 - Camera centering + right-clamp (reveal is currently right-side only; player not
-  centered). `src/scroll.c`.
+  centered). `engine/src/scroll.c`.
 - `RenderSpritePieces` (`port/port_draw.c`) still clips sprite pieces at x>=240 and
   masks OAM X to 9 bits — sprites don't yet render in the reveal. Needs the
   EXTENDED_OAM-style wide-X path + the per-entity parking pass (flicker).
@@ -532,7 +532,7 @@ Correct shadow population (`port/port_linked_stubs.c::Port_WidescreenShadow_Popu
 ### 2026-06-01 (cont.) — camera centering, sprite reveal, and the chardata wall
 
 Landed (all gated `#if MODE1_GBA_WIDTH > 240`, native 240 re-verified byte-identical):
-- **Camera centering** (`src/scroll.c::sub_080809D4`, `sub_08080974`): the hardcoded
+- **Camera centering** (`engine/src/scroll.c::sub_080809D4`, `sub_08080974`): the hardcoded
   `120` (240/2) player-centering offset + room clamp are now parametric on
   `MODE1_GBA_WIDTH`. Clamp rewritten as `scroll_x = clamp(target - W/2, origin,
   max(origin, origin + width - W))` — reduces EXACTLY to the GBA-original at 240
@@ -565,9 +565,9 @@ on it. Per-entity parking pass (flicker) and `Scroll2Sub2` (transition) still op
 Confirmed *why* the chardata isn't resident: TMC streams BG tile graphics by camera
 region via per-area **tileset managers**, because GBA BG char VRAM can't hold a whole
 area's tileset at once:
-- `src/manager/hyruleTownTileSetManager.c` — `*_UpdateLoadGfxGroups` swaps gfx groups
+- `engine/src/manager/hyruleTownTileSetManager.c` — `*_UpdateLoadGfxGroups` swaps gfx groups
   by the camera's town quadrant.
-- `src/manager/minishVillageTileSetManager.c` — explicit `{ROM src, 0x0600x000 VRAM
+- `engine/src/manager/minishVillageTileSetManager.c` — explicit `{ROM src, 0x0600x000 VRAM
   char slot}` tables, reloaded as you cross region boundaries.
 
 Implications for universal BG widescreen:

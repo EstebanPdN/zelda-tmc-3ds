@@ -1,9 +1,9 @@
 # GBA Accuracy Audit — PC Port (2026-06-15)
 
 Goal: make `tmc_pc` behaviorally identical to the GBA game. Method: multi-agent
-workflow comparing handwritten GBA ASM ground truth (`asm/src/*.s`, `asm/lib/*.s`)
+workflow comparing handwritten GBA ASM ground truth (`engine/asm/src/*.s`, `engine/asm/lib/*.s`)
 against the PC C/C++ reimplementations (`port/*.c`, `port/*.cpp`, `#ifdef PC_PORT`
-paths in `src/`). Each candidate divergence was checked by two adversarial verifiers
+paths in `engine/src/`). Each candidate divergence was checked by two adversarial verifiers
 (a behavioral-equivalence skeptic and a hardware-necessity skeptic).
 
 ## ⚠️ Coverage caveat — this run is PARTIAL
@@ -72,7 +72,7 @@ These touch only `port/` (PC_PORT) — the GBA ROM target is unaffected.
   Built clean (USA, multi_region) and boot-verified headless (~1200 frames, exit 137 =
   full run, no crash/`ENT-GUARD`). Uncommitted. Root cause confirmed via the
   `UnlinkEntity` trace below.
-- **asmRef:** `asm/src/intr.s:742-747` · **cRef:** `port/port_draw.c:258-285`
+- **asmRef:** `engine/asm/src/intr.s:742-747` · **cRef:** `port/port_draw.c:258-285`
 - **GBA:** after the entity update returns, reloads `r0 = gUpdateContext.current_entity`
   and computes `next = current_entity->next` (`ldr r4,[r0,#4]` at `_080B2230`) —
   **recomputed after the update, from `current_entity`**.
@@ -90,7 +90,7 @@ These touch only `port/` (PC_PORT) — the GBA ROM target is unaffected.
   the list correctly (that is *why* the GBA reads `next` late).
 
 ### 2. `gUpdateContext`/`gEnemyTarget` not cleared per entity — HIGH (UNVERIFIED)
-- **asmRef:** `asm/src/intr.s` (`mov r0,#0; str r0,[r7]` per `next_entity` iteration)
+- **asmRef:** `engine/asm/src/intr.s` (`mov r0,#0; str r0,[r7]` per `next_entity` iteration)
   · **cRef:** `port/port_draw.c:258-285`
 - **GBA:** zeroes a context pointer (`[r7]`, finder identified as `gEnemyTarget`) at
   the top of **every** entity iteration, before the update runs.
@@ -102,14 +102,14 @@ These touch only `port/` (PC_PORT) — the GBA ROM target is unaffected.
   adversarially confirmed. **Re-verify first, then fix.**
 
 ### 3. Tall-grass overlay frame uses fractional position byte — low (visual)
-- **asmRef:** `asm/src/intr.s:~1397` · **cRef:** `port/port_draw.c:927-929`
+- **asmRef:** `engine/asm/src/intr.s:~1397` · **cRef:** `port/port_draw.c:927-929`
 - **GBA:** selects the grass-rustle frame from the **integer** position byte
   (`x.HALF.HI` / byte 0x2e). **Port:** reads byte 0x2d (`x.HALF.LO`, the Q16.16
   *fractional* part) → wrong frame pattern.
 - **Fix:** `u8 xb=(u8)entity->x.HALF.HI; u8 yb=(u8)entity->y.HALF.HI; frame=(u8)((xb^yb)&6u);`
 
 ### 4. Water/shallow-water "wading" overlay table stride & size wrong — low (visual)
-- **asmRef:** `asm/src/intr.s:1397-1399` (32-entry byte-offset table; `linker.ld:209-210`
+- **asmRef:** `engine/asm/src/intr.s:1397-1399` (32-entry byte-offset table; `config/gba/linker.ld:209-210`
   confirms `0x80` = 32×4 bytes) · **cRef:** `port/port_draw.c:49,1006,1073`
 - **GBA:** indexes a **32-pointer** table by byte offset `(shoeState&0x30) + 2*frame`.
   **Port:** uses a 16-entry array with the wrong stride → the water case never renders.
@@ -123,7 +123,7 @@ full-precision libm `cos/sin` over all 65536 angles, truncates toward zero, and 
 zero scale → 1; the GBA BIOS uses a 256-step Q1.14 sin LUT (`idx=(θ>>8)&0xFF`),
 `asr #14` (floor), and no zero-scale guard.
 - **cRef:** `port/port_bios.c:1024-1057` (guard at `1038-1039`). Reaches real callers
-  (e.g. `octorokBoss` via `SetAffineInfo`, `src/code_0805EC04.c:48`), so rotated affine
+  (e.g. `octorokBoss` via `SetAffineInfo`, `engine/src/code_0805EC04.c:48`), so rotated affine
   sprites land on slightly different pixels than console. No state/RNG/save impact.
 - **Fix:** add `static const s16 sBiosSinLut[256]` (Q1.14, `round(sin(i·2π/256)·0x4000)`);
   per entry `idx=(θ>>8)&0xFF; cos=LUT[(idx+0x40)&0xFF]; sin=LUT[idx];
@@ -138,7 +138,7 @@ zero scale → 1; the GBA BIOS uses a 256-step Q1.14 sin LUT (`idx=(θ>>8)&0xFF`
   callers pass `alpha=0`, so output is bit-identical today. Latent only — would matter
   if a rotated BG2 affine is ever used. Optional hardening, not a bug.
 - **Fade brightness index is clamped** in C but read unbounded in ASM
-  (`src/fade.c:62-63` vs `intr.s:664-668`). Only reachable brightness values are 0–2;
+  (`engine/src/fade.c:62-63` vs `intr.s:664-668`). Only reachable brightness values are 0–2;
   identical outputs in practice. Clamp is safe.
 
 ## Dismissed (false positives)
@@ -164,7 +164,7 @@ zero scale → 1; the GBA BIOS uses a 256-step Q1.14 sin LUT (`idx=(θ>>8)&0xFF`
 
 **Interrupt dispatch & frame timing — ✅ CLEARED (necessary Tier-3, no fixable gap).**
 The game enables only `VBLANK | VCOUNT | GAMEPAK` (`interrupts.c:48`). Handler table
-(`data/const/interrupts.s`): VBLANK→`VBlankIntr`, VCOUNT (scanline 80)→`HBlankIntr`. Crucially
+(`engine/data/const/interrupts.s`): VBLANK→`VBlankIntr`, VCOUNT (scanline 80)→`HBlankIntr`. Crucially
 `HBlankIntr` is NOT a visual split — it's `REG_DISPSTAT` re-arm + `m4aSoundMain()`, i.e. the
 **audio mix tick**. So: VBlank DMA/OAM/scroll is handled on PC (`PerformVBlankDMA` PC_PORT
 branch — and the GBA's redundant double-copy is correctly dropped); the scanline-80 audio tick
@@ -215,7 +215,7 @@ path.
 
 
 **Save / checksum / flags — ✅ CLEARED.** `CalculateChecksum` (`checksum += *data ^ size`),
-the flag get/set functions (`flags.c`), and the save addresses/sizes are shared `src/`
+the flag get/set functions (`flags.c`), and the save addresses/sizes are shared `engine/src/`
 code with no PC_PORT guard → identical to GBA. `CheckBits` is bit-exact (verified above).
 The one divergence — `ParseSaveFileStatus` PC branch `checksum2 == (u16)(-checksum1)` vs GBA
 `checksum1 + checksum2 == 0x10000` — is the correct #89 fix: the GBA form spuriously rejects
@@ -226,7 +226,7 @@ unguarded) already used the correct `(-temp>>0x10)` form. The native save writer
 **RNG / `Random()` — ✅ CLEARED, fully GBA-accurate, no fix.**
 `Port_Rng_Advance` = `(state*3 >> 13) | (state*3 << 19)` = `ROR(state*3,13)`,
 `Port_Rng_Output` = `state>>1` — bit-exact to the ASM (`code_08000E44.s:18`:
-`lsls/adds` ×3, `rors #13`, `lsrs #1`). Seed `gRand = 0x1234567` (`src/main.c:83`) is
+`lsls/adds` ×3, `rors #13`, `lsrs #1`). Seed `gRand = 0x1234567` (`engine/src/main.c:83`) is
 **unguarded** → shared by GBA and PC at the same boot point; nothing re-seeds divergently;
 `rng_golden_test` passes. Conclusion: the desync risk was never the RNG algorithm — it was
 *consumption order*, which finding #1 fixed.

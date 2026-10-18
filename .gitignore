@@ -1,5 +1,5 @@
 # build artifacts
-src/*.s
+engine/src/*.s
 compile_commands.json
 build/*
 !build/USA/
@@ -28,9 +28,9 @@ cmake-build-*
 *.map
 *.pcm
 *.log
-sound/**/*.bin
-sound/songs/midi/*.s
-translations/*.bin
+engine/sound/**/*.bin
+engine/sound/songs/midi/*.s
+engine/translations/*.bin
 
 # doxygen
 docs/doxygen/html/
@@ -103,7 +103,7 @@ types_*.taghl
 *.zip
 *.bundle
 !scripts/dev/calcrom.pl
-!sound/programmable_wave_samples/*.pcm
+!engine/sound/programmable_wave_samples/*.pcm
 _Deparsed_XSubs.pm
 *.sna
 __pycache__
@@ -192,3 +192,6 @@ keystore.properties
 !scripts/dev/format.py
 !scripts/dev/check.py
 !scripts/dev/run-tests.py
+
+# Maintained repository organization check.
+!scripts/check-repository.py

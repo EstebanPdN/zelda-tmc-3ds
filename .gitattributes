@@ -24,7 +24,7 @@ android/gradlew text eol=lf
 
 *.h linguist-language=C
 *.inc linguist-language=Assembly
-data/** linguist-language=data
+engine/data/** linguist-language=data
 tools/** linguist-vendored
 
 # Preserve the exact upstream unified-diff context and recorded patch hashes.

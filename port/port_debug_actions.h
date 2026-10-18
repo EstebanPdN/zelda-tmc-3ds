@@ -34,7 +34,7 @@ int Port_DebugQuery_PlayerXY(unsigned short* x, unsigned short* y);
 
 /* Noclip / walk-through-walls debug toggle. SetNoclip flips it; Query reads it;
  * NoclipEnabled is the engine-facing predicate (returns 0 under Console-Parity)
- * consumed by the src/movement.c collision hook. In-memory only. */
+ * consumed by the engine/src/movement.c collision hook. In-memory only. */
 void Port_DebugAction_SetNoclip(int on);
 int Port_DebugQuery_Noclip(void);
 int Port_Debug_NoclipEnabled(void);

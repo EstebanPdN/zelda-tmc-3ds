@@ -8,7 +8,7 @@ lower body hidden by a waterline that rises feet→head, slowly.
 ## Why the obvious approaches don't work
 
 - **No "head overlay" sprite.** `Object70` (swamp = type 0 / frame 0xb, created at
-  `SurfaceAction_Swamp`, `src/player.c`) has def `gfx=133, spriteIndex=167`; sprite 167
+  `SurfaceAction_Swamp`, `engine/src/player.c`) has def `gfx=133, spriteIndex=167`; sprite 167
   frame 0xb is 12 pieces that all resolve to blank OBJ tile 133. It draws nothing — on
   GBA too. Its only effect is to set Link's body priority. (See memory
   `project_swamp_head_overlay_myth`.)

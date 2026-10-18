@@ -7,7 +7,7 @@
  * icons and digit fonts, and the pause menu's equip cursor and A/B button
  * bubbles. Zero baked pixels: everything is rebuilt from the same ROM
  * tables the game itself loads (gGfxGroups / gPaletteGroups / the text
- * border data), via the Port_* accessors at the end of src/common.c.
+ * border data), via the Port_* accessors at the end of engine/src/common.c.
  *
  * Threading/caching contract: everything is built lazily, ONCE, on the
  * first Port_SecondScreenTheme_Ready() call that finds the ROM tables
@@ -37,7 +37,7 @@ typedef struct {
 
 enum {
     /* HUD heart tiles (8x8): quarter-heart granularity, exactly the five
-     * states DrawHearts (src/ui.c) can put in the tilemap. */
+     * states DrawHearts (engine/src/ui.c) can put in the tilemap. */
     SST_HEART_EMPTY,
     SST_HEART_Q1,
     SST_HEART_Q2,

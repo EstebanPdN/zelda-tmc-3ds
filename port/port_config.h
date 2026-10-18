@@ -6,7 +6,7 @@
  * and selected at load time based on the game code at ROM offset 0xAC.
  *
  * JP NOTE: the JP path is wired but its offset values are ROM-derived and
- * cannot be produced without a JP baserom (BZMJ, matching tmc_jp.sha1) and a
+ * cannot be produced without a JP baserom (BZMJ, matching config/roms/tmc_jp.sha1) and a
  * JP build. kRomOffsets_JP below is a placeholder until then — see
  * docs/JP_PORT_ENABLEMENT.md. A JP build also requires the generated
  * port_offset_JP.h, so it will not compile until that file exists.

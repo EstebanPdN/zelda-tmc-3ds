@@ -239,7 +239,7 @@ Each phase ends with a parity check and a smoke build; no phase ships a stub.
 **Modified**
 - `port/port_ppu.cpp` — call CPU sequential pass, then dispatch GPU raster with
   fallback; lazy readback wiring.
-- `port/ppu/src/mode1.c` / `include/cpu/mode1.h` — expose the sequential
+- `port/ppu/src/mode1.c` / `engine/include/cpu/mode1.h` — expose the sequential
   pass outputs (IO snapshots, per-line dispcnt, affine refs) so the host can run
   "prepare-only" without the parallel render. A new
   `virtuappu_mode1_prepare_frame(...)` that does the sequential pass and returns

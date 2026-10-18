@@ -46,7 +46,7 @@ class DenoisePipeline {
 
     /* Load the compute SPIR-V from `shaderDir/denoise.comp.spv` and
      * create the descriptor layout, pipeline, and three descriptor
-     * sets (one per pass with different src/dst image bindings). */
+     * sets (one per pass with different engine/src/dst image bindings). */
     void createPipeline(const std::string& shaderDir);
 
     /* Record the three a-trous passes into cmd.  Caller is responsible
@@ -63,7 +63,7 @@ class DenoisePipeline {
     VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
     VkPipeline mPipeline = VK_NULL_HANDLE;
     VkDescriptorPool mDescriptorPool = VK_NULL_HANDLE;
-    /* Three sets — one per pass.  Each binds different src/dst pairs
+    /* Three sets — one per pass.  Each binds different engine/src/dst pairs
      * so we don't have to rebind / vkUpdateDescriptorSets between
      * dispatches inside the same cmd. */
     VkDescriptorSet mSets[3]{};

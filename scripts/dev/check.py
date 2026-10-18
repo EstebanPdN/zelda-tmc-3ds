@@ -24,7 +24,7 @@ def main():
         path = pathlib.PurePosixPath(name)
         if path.name in PRIVATE or path.suffix.lower() in {'.gba', '.sav', '.ppu1', '.dmp', '.dump'}:
             errors.append(f'private/runtime file in public tree: {name}')
-        if path.parts[0] in {'src', 'include', 'port', 'platform', 'tests'} and path.suffix in {'.c', '.h', '.cpp', '.hpp'}:
+        if path.parts[0] in {'engine', 'port', 'platform', 'tests'} and path.suffix in {'.c', '.h', '.cpp', '.hpp'}:
             if RETIRED.search((ROOT / name).read_text()):
                 errors.append(f'retired presentation policy reference: {name}')
     for name in CURRENT_DOCS:

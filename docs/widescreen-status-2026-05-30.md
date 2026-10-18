@@ -39,10 +39,10 @@ reverted; the file is back to its original repro-only content. Run headless with
 - **Compile-time viewport** — `port/port_widescreen.h` (new): `PORT_WIDESCREEN_VIEW_WIDTH`
   = `MODE1_GBA_WIDTH`, native 240/160 constants, half-extents. `xmake.lua` adds the
   `widescreen_width` option and the `MODE1_GBA_WIDTH=` define.
-- **Camera** — `src/scroll.c`: `GetMaxScrollXForViewport` / `GetCenteredScrollXForViewport`
+- **Camera** — `engine/src/scroll.c`: `GetMaxScrollXForViewport` / `GetCenteredScrollXForViewport`
   decouple the follow-camera centering and right-clamp from the hardcoded 0x78/0xf0
   (used in `Scroll1`, `sub_08080974`, `sub_080809D4`). Link is centered in the wide view.
-- **Overworld room transition distance** — `src/scroll.c` `Scroll2Sub2`: horizontal
+- **Overworld room transition distance** — `engine/src/scroll.c` `Scroll2Sub2`: horizontal
   transitions now scroll `ROOM_VIEWPORT_WIDTH / 4` steps instead of `0x3c` (240px).
   This is what fixes the Lon Lon Ranch / room-entry **permanent black band**.
 - **BG extension** — `libs/ViruaPPU` (applied via `port/patches/viruappu-widescreen.patch`):
@@ -106,14 +106,14 @@ reverted; the file is back to its original repro-only content. Run headless with
 These were the widescreen edits, now backed out of the working tree:
 - `port/port_widescreen.h` (new) — viewport constants.
 - `xmake.lua` — `widescreen_width` wired to `-DMODE1_GBA_WIDTH`.
-- `src/scroll.c` — camera centering/clamp + horizontal transition distance.
+- `engine/src/scroll.c` — camera centering/clamp + horizontal transition distance.
 - `port/port_ppu.cpp` — per-frame BG-source bind, mirror structs, non-gameplay stretch.
 - `port/port_draw.c` — `CheckOnScreen` + `RenderSpritePieces` clip widths.
 - `port/port_linked_stubs.c` — `CheckRectOnScreen` width.
 - `port/patches/viruappu-widescreen.patch` — added the BG-source hooks + OAM viewport
   on top of the existing parallel-render patch (regenerated; clean-applied on a fresh
   submodule worktree).
-- `libs/ViruaPPU` (`src/mode1.c`, `include/cpu/mode1.h`) — produced by that patch.
+- `libs/ViruaPPU` (`engine/src/mode1.c`, `engine/include/cpu/mode1.h`) — produced by that patch.
 - `README.md` — a "Native widescreen builds" section.
 
 Only this doc remains. The macOS SDL_GPU/Metal effort was untouched

@@ -8,8 +8,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY = (ROOT / "port/port_script_funcs.c").read_text(encoding="utf-8")
-WORLD_EVENT = (ROOT / "src/worldEvent/worldEvent17.c").read_text(encoding="utf-8")
-FINAL_SCRIPT = (ROOT / "data/scripts/kinstoneFusion/script_Goron2Kinstone6.inc").read_text(encoding="utf-8")
+WORLD_EVENT = (ROOT / "engine/src/worldEvent/worldEvent17.c").read_text(encoding="utf-8")
+FINAL_SCRIPT = (ROOT / "tests/reference/scripts/kinstoneFusion/script_Goron2Kinstone6.inc").read_text(encoding="utf-8")
 
 EXPECTED = {
     "sub_08054EB8": ("0x08054EB9", "0x08054A39"),

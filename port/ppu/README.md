@@ -28,11 +28,11 @@ output by `tools/ppu_parity_check.sh` (see `tools/ppu_golden_hashes.txt`).
 
 ## What's here
 
-- `src/virtuappu.c` — dispatcher (`virtuappu_render_frame` switches on mode).
-- `src/mode1.c` — the load-bearing renderer: 4 text BGs (GBA mode 0), the
+- `engine/src/virtuappu.c` — dispatcher (`virtuappu_render_frame` switches on mode).
+- `engine/src/mode1.c` — the load-bearing renderer: 4 text BGs (GBA mode 0), the
   affine BG2 path (GBA modes 1/2, formerly `mode2.c`), OBJ, windows,
   blending, mosaic; per-scanline IO snapshot + OpenMP render.
-- `include/` — public API (`virtuappu.h`, `ppu_memory.h`) + internal headers.
+- `engine/include/` — public API (`virtuappu.h`, `ppu_memory.h`) + internal headers.
 
 (`mode0.c`, `mode2.c`, `mode7.c` were removed: mode2 was unified into
 `mode1.c`; mode0 was a black stub and mode7 a misnamed Game Boy DMG
@@ -40,4 +40,4 @@ renderer, both dead on the TMC path.)
 
 The port bridges to this via `port/port_ppu.cpp`; consumers also include
 `port/port_draw.c`, `port/port_hdma.c`, `port/port_linked_stubs.c`,
-`src/scroll.c`, and the parity tools.
+`engine/src/scroll.c`, and the parity tools.

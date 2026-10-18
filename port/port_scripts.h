@@ -16,7 +16,7 @@
 #include "port_rom.h"
 
 /* Known GBA ROM addresses of script data (USA version).
- * These are the addresses of script labels in data/scripts.s. */
+ * These are the addresses of script labels in engine/data/scripts.s. */
 #define GBA_script_PlayerIntro 0x08009B30
 #define GBA_script_PlayerWakeAfterRest 0x08009E58
 #define GBA_script_PlayerWakingUpAtSimons 0x08011C50

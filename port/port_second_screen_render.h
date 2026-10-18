@@ -27,7 +27,7 @@ extern "C" {
 #endif
 
 /* Draws a single item icon (native 16x16px, sprite 322 — see
- * src/menu/pauseMenu.c's GetSpriteAnimation322) at (x,y), scaled up by
+ * engine/src/menu/pauseMenu.c's GetSpriteAnimation322) at (x,y), scaled up by
  * `scale` (each source pixel becomes a scale x scale block — nearest-
  * neighbor, matching the GBA's own blocky look rather than smoothing it),
  * into `pixels`, a `stride`-pixels-per-row RGBA8888 buffer of size

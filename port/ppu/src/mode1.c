@@ -29,7 +29,7 @@ typedef struct Mode1TilemapEntry {
 } Mode1TilemapEntry;
 
 /* Widescreen Option A — port-side shadow tilemap pointers (declared in
- * include/cpu/mode1.h, populated by the PC port). NULL => no widescreen
+ * engine/include/cpu/mode1.h, populated by the PC port). NULL => no widescreen
  * reveal for that BG; render_text_bg_line then clips at MODE1_GBA_BG_CLIP_X
  * and the composite force-blacks past it. */
 uint16_t* virtuappu_mode1_ws_shadow[MODE1_GBA_BG_COUNT] = { NULL, NULL, NULL, NULL };
@@ -1646,7 +1646,7 @@ void virtuappu_mode1_composite_line(int line, uint32_t bg_layers[MODE1_GBA_BG_CO
     /* GBA: WINxV with top > bottom is an inverted/wrapped vertical span,
      * active for (line >= top || line < bottom) — mirrors the horizontal
      * winX_h_wrap handling. Previously the window went fully inactive on
-     * inversion, blanking the digging-cave iris spotlight (src/scroll.c
+     * inversion, blanking the digging-cave iris spotlight (engine/src/scroll.c
      * Scroll5Sub2/Sub5) on small-iris frames where an inverted WINxV is packed. */
     win0_v_wrap = win0_top > win0_bottom;
     win0_v_active =

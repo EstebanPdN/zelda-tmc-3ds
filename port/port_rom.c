@@ -753,7 +753,7 @@ RomRegion Port_DetectRomRegion(const u8* romData, u32 romSize) {
      * A MULTI_REGION binary detects the ROM at runtime, but it is still
      * COMPILED against one region's baseline: the -DUSA/-DEU/-DJP define picked
      * by --game_version, and with it build/<version>/assets/{map,gfx}_offsets.h
-     * plus every `#ifdef EU` in src/ that has not yet been converted to the
+     * plus every `#ifdef EU` in engine/src/ that has not yet been converted to the
      * runtime REGION_IS_* form. Divergent compiled blob offsets are translated
      * at the known call sites (Port_Remap{Map,Gfx}Offset), but the unconverted
      * preprocessor sites are not — those silently take the baseline region's
@@ -798,7 +798,7 @@ RomRegion Port_DetectRomRegion(const u8* romData, u32 romSize) {
 #define SPRITE_ANIM_322_COUNT 128
 
 extern u32 gFrameObjLists[];
-/* gUnk_08133368 now const — provided by src/data/objPalettes.c */
+/* gUnk_08133368 now const — provided by engine/src/data/objPalettes.c */
 extern SpritePtr gSpritePtrs[];
 extern u32 gFixedTypeGfxData[];
 extern u16* gMoreSpritePtrs[MORE_SPRITE_PTRS_COUNT];
@@ -842,7 +842,7 @@ extern void* gAreaRoomMaps[];
 extern void* gAreaTable[];
 extern void* gAreaTileSets[];
 extern void* gAreaTiles[];
-/* gExitLists now const — provided by src/data/transitions.c */
+/* gExitLists now const — provided by engine/src/data/transitions.c */
 
 /*
  * Shadow arrays for second-level ROM pointer resolution.
@@ -1665,7 +1665,7 @@ void Port_LoadRom(const char* path) {
         }
     }
 
-    /* OBJ palette offset table — now compile-time const src/data/objPalettes.c */
+    /* OBJ palette offset table — now compile-time const engine/src/data/objPalettes.c */
 
     memset(gFixedTypeGfxData, 0, PORT_FIXED_TYPE_GFX_CAPACITY_ENTRIES * sizeof(u32));
     if (R->fixedTypeGfxCount <= PORT_FIXED_TYPE_GFX_CAPACITY_ENTRIES &&
@@ -1865,7 +1865,7 @@ void Port_LoadRom(const char* path) {
             gAreaRoomMaps[i] = Port_UnpackRomDataPtr(&gRomData[R->areaRoomMaps], i);
             gAreaTable[i] = Port_UnpackRomDataPtr(&gRomData[R->areaTable], i);
             gAreaTiles[i] = Port_UnpackRomDataPtr(&gRomData[R->areaTiles], i);
-            /* gExitLists — now compile-time const from src/data/transitions.c, no ROM loading needed */
+            /* gExitLists — now compile-time const from engine/src/data/transitions.c, no ROM loading needed */
         }
 
         /* Second pass: resolve sub-arrays of 32-bit GBA pointers.

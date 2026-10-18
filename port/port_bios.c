@@ -70,7 +70,7 @@ static int sFrameNum = 0;
  * game loop; SoftReset() longjmp()s back to re-run AgbMain's init (which
  * RegisterRamResets everything except EWRAM, preserving save data) — the
  * native equivalent of the GBA BIOS soft reset back to the title. Shared
- * with src/main.c (extern there). */
+ * with engine/src/main.c (extern there). */
 jmp_buf gPortSoftResetJmp;
 int gPortSoftResetArmed = 0;
 
@@ -165,7 +165,7 @@ static void Port_UpdateInput(void) {
     /* Soft-slots (X / Y / L2 / R2): when one is held with an item
      * assigned, force GBA B_BUTTON pressed so the engine spawns the
      * soft-slot's item via the regular B-dispatch path. The override of
-     * which item to spawn lives in src/playerUtils.c via
+     * which item to spawn lives in engine/src/playerUtils.c via
      * Port_SoftSlots_GetEffectiveBItem(); the save data is untouched. */
     Port_SoftSlots_Update();
     Port_RollAttackMacro_Tick(&keyinput);

@@ -4,7 +4,7 @@
 /*
  * Soft item slots — extra equip buttons (X / Y / L2 / R2) for the PC port.
  *
- * The GBA only had A and B, so item dispatch in src/playerUtils.c reads
+ * The GBA only had A and B, so item dispatch in engine/src/playerUtils.c reads
  * gSave.stats.equipped[SLOT_A/B] each frame. With a PC controller (or
  * keyboard) we want quick-access to ~four items without pause-menu juggling.
  *
@@ -34,7 +34,7 @@ void Port_SoftSlots_Update(void);
 bool Port_SoftSlots_IsBHeld(void);
 
 /* Returns the soft-slot's item if a slot is active, else `saved`. Used by
- * src/playerUtils.c at the B-dispatch site to override the effective
+ * engine/src/playerUtils.c at the B-dispatch site to override the effective
  * equipped[SLOT_B] without touching gSave. */
 uint8_t Port_SoftSlots_GetEffectiveBItem(uint8_t saved);
 

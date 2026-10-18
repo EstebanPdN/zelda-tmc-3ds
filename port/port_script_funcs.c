@@ -439,7 +439,7 @@ extern void sub_0807FBD4();
 #if !defined(EU) || defined(PC_PORT)
 extern void sub_0807FBFC();
 #endif
-/* sub_0807FC24 is USA/demo-only in the decomp (src/script.c) — absent in EU
+/* sub_0807FC24 is USA/demo-only in the decomp (engine/src/script.c) — absent in EU
  * and JP, where the equivalent lives at a different, unnamed address. */
 #if defined(USA) || defined(DEMO_USA) || defined(DEMO_JP) || defined(PC_PORT)
 extern void sub_0807FC24();

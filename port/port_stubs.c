@@ -11,7 +11,7 @@
 
 /*
  * Script command reading functions.
- * Original GBA assembly in asm/src/script.s reads 16-bit aligned data
+ * Original GBA assembly in engine/asm/src/script.s reads 16-bit aligned data
  * from the script instruction pointer.
  *
  * Script instructions are packed as halfwords (u16):
@@ -88,7 +88,7 @@ u32 GetNextScriptCommandWordAfterCommandMetadata(u16* ptr) {
 
 /*
  * Subtask function pointer tables.
- * Originally in data/const/subtask.s as .4byte arrays.
+ * Originally in engine/data/const/subtask.s as .4byte arrays.
  */
 
 extern void Subtask_FadeIn(void);

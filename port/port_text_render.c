@@ -1,4 +1,4 @@
-/* C reimplementation of text rendering routines from asm/src/code_08001A7C.s */
+/* C reimplementation of text rendering routines from engine/asm/src/code_08001A7C.s */
 
 #include "global.h"
 #include "port_rom.h"

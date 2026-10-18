@@ -12,40 +12,40 @@ project(tmc_3ds VERSION "${TMC_3DS_PROJECT_VERSION}" LANGUAGES C CXX)
 set(TMC_ROOT "${CMAKE_CURRENT_LIST_DIR}/../..")
 
 file(GLOB TMC_ACTOR_SOURCES CONFIGURE_DEPENDS
-    "${TMC_ROOT}/src/playerItem/*.c"
-    "${TMC_ROOT}/src/enemy/*.c"
-    "${TMC_ROOT}/src/npc/*.c"
-    "${TMC_ROOT}/src/object/*.c"
-    "${TMC_ROOT}/src/projectile/*.c"
-    "${TMC_ROOT}/src/manager/*.c"
-    "${TMC_ROOT}/src/item/*.c"
-    "${TMC_ROOT}/src/subtask/*.c"
-    "${TMC_ROOT}/src/menu/*.c"
-    "${TMC_ROOT}/src/worldEvent/*.c"
+    "${TMC_ROOT}/engine/src/playerItem/*.c"
+    "${TMC_ROOT}/engine/src/enemy/*.c"
+    "${TMC_ROOT}/engine/src/npc/*.c"
+    "${TMC_ROOT}/engine/src/object/*.c"
+    "${TMC_ROOT}/engine/src/projectile/*.c"
+    "${TMC_ROOT}/engine/src/manager/*.c"
+    "${TMC_ROOT}/engine/src/item/*.c"
+    "${TMC_ROOT}/engine/src/subtask/*.c"
+    "${TMC_ROOT}/engine/src/menu/*.c"
+    "${TMC_ROOT}/engine/src/worldEvent/*.c"
 )
 
 file(GLOB AGBPLAY_SOURCES CONFIGURE_DEPENDS "${TMC_ROOT}/libs/agbplay_core/*.cpp")
 
 set(TMC_ENGINE_SOURCES
-    src/main.c src/common.c src/interrupts.c src/game.c src/title.c src/fileselect.c
-    src/flags.c src/save.c src/fade.c src/color.c src/vram.c src/screenTileMap.c
-    src/message.c src/text.c src/sound.c
-    src/script.c src/scroll.c src/room.c src/roomInit.c src/entity.c src/physics.c
-    src/collision.c src/movement.c src/affine.c src/sineTable.c src/ui.c
-    src/player.c src/playerUtils.c src/playerHitbox.c src/playerItem.c
-    src/playerItemUtils.c src/playerItemDefinitions.c src/enemy.c src/enemyUtils.c
-    src/npc.c src/npcUtils.c src/npcFunctions.c src/npcDefinitions.c src/object.c
-    src/objectUtils.c src/objectDefinitions.c src/enemyUpdate.c src/projectile.c
-    src/projectileUtils.c src/projectileUpdate.c src/manager.c src/item.c
-    src/itemUtils.c src/itemDefinitions.c src/itemMetaData.c src/subtask.c
-    src/cutscene.c src/backgroundAnimations.c src/beanstalkSubtask.c
-    src/enterPortalSubtask.c src/gameOverTask.c src/gameUtils.c src/gameData.c
-    src/kinstone.c src/droptables.c src/demo.c src/debug.c src/flagDebug.c
-    src/staffroll.c src/data/figurineMenuData.c src/data/hitbox.c
-    src/data/areaMetadata.c src/data/caveBorderMapData.c src/data/data_080046A4.c
-    src/data/mapActTileToSurfaceType.c src/data/objPalettes.c
-    src/data/screenTransitions.c src/data/transitions.c src/code_08049CD4.c
-    src/code_08049DF4.c src/code_0805EC04.c
+    engine/src/main.c engine/src/common.c engine/src/interrupts.c engine/src/game.c engine/src/title.c engine/src/fileselect.c
+    engine/src/flags.c engine/src/save.c engine/src/fade.c engine/src/color.c engine/src/vram.c engine/src/screenTileMap.c
+    engine/src/message.c engine/src/text.c engine/src/sound.c
+    engine/src/script.c engine/src/scroll.c engine/src/room.c engine/src/roomInit.c engine/src/entity.c engine/src/physics.c
+    engine/src/collision.c engine/src/movement.c engine/src/affine.c engine/src/sineTable.c engine/src/ui.c
+    engine/src/player.c engine/src/playerUtils.c engine/src/playerHitbox.c engine/src/playerItem.c
+    engine/src/playerItemUtils.c engine/src/playerItemDefinitions.c engine/src/enemy.c engine/src/enemyUtils.c
+    engine/src/npc.c engine/src/npcUtils.c engine/src/npcFunctions.c engine/src/npcDefinitions.c engine/src/object.c
+    engine/src/objectUtils.c engine/src/objectDefinitions.c engine/src/enemyUpdate.c engine/src/projectile.c
+    engine/src/projectileUtils.c engine/src/projectileUpdate.c engine/src/manager.c engine/src/item.c
+    engine/src/itemUtils.c engine/src/itemDefinitions.c engine/src/itemMetaData.c engine/src/subtask.c
+    engine/src/cutscene.c engine/src/backgroundAnimations.c engine/src/beanstalkSubtask.c
+    engine/src/enterPortalSubtask.c engine/src/gameOverTask.c engine/src/gameUtils.c engine/src/gameData.c
+    engine/src/kinstone.c engine/src/droptables.c engine/src/demo.c engine/src/debug.c engine/src/flagDebug.c
+    engine/src/staffroll.c engine/src/data/figurineMenuData.c engine/src/data/hitbox.c
+    engine/src/data/areaMetadata.c engine/src/data/caveBorderMapData.c engine/src/data/data_080046A4.c
+    engine/src/data/mapActTileToSurfaceType.c engine/src/data/objPalettes.c
+    engine/src/data/screenTransitions.c engine/src/data/transitions.c engine/src/code_08049CD4.c
+    engine/src/code_08049DF4.c engine/src/code_0805EC04.c
 )
 list(TRANSFORM TMC_ENGINE_SOURCES PREPEND "${TMC_ROOT}/")
 
@@ -109,7 +109,7 @@ add_executable(tmc-3ds
 )
 
 target_include_directories(tmc-3ds PRIVATE
-    "${TMC_ROOT}" "${TMC_ROOT}/include" "${TMC_ROOT}/port"
+    "${TMC_ROOT}" "${TMC_ROOT}/engine/include" "${TMC_ROOT}/port"
     "${TMC_ROOT}/port/ppu/include" "${TMC_ROOT}/libs/agbplay_core"
     "${TMC_ROOT}/build/USA" "${CMAKE_CURRENT_LIST_DIR}/source"
 )

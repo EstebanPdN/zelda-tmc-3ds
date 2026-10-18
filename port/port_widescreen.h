@@ -17,11 +17,11 @@
  *   The two reference GBA ports that actually ship widescreen both fix
  *   this the same way — by keying every cull/camera bound off one
  *   display-width constant instead of a literal 240:
- *     - SAT-R/sa2:      include/gba/defines.h (DISPLAY_WIDTH) +
- *                       include/game/shared/stage/camera.h (IS_OUT_OF_RANGE,
+ *     - SAT-R/sa2:      engine/include/gba/defines.h (DISPLAY_WIDTH) +
+ *                       engine/include/game/shared/stage/camera.h (IS_OUT_OF_RANGE,
  *                       IS_OUT_OF_DISPLAY_RANGE, CAM_BOUND_X).
- *     - pret/pokeemerald: src/event_object_movement.c cull at
- *                       `x >= DISPLAY_WIDTH + 16`; src/sprite.c parks
+ *     - pret/pokeemerald: engine/src/event_object_movement.c cull at
+ *                       `x >= DISPLAY_WIDTH + 16`; engine/src/sprite.c parks
  *                       off-screen sprites at `DISPLAY_WIDTH + 64`.
  *
  * PORT_VIEW_WIDTH is that constant for this port. It tracks

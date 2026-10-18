@@ -12,6 +12,9 @@ GENERATED = {
     'port/port_rom_tables.c', 'port/flag_remap_generated.c', 'port/flag_remap_generated.h',
     'port/generated_sounds_embed.cpp',
 }
+# This retained regression input uses the engine's assembly script language,
+# not C/C++; keep its original producer syntax and indentation.
+NON_C_FIXTURES = {'tests/reference/scripts/kinstoneFusion/script_Goron2Kinstone6.inc'}
 SUFFIXES = {'.c', '.h', '.cpp', '.hpp', '.inc'}
 
 
@@ -23,8 +26,8 @@ def source_files():
     ).decode().split('\0')
     for name in sorted(set(tracked + untracked)):
         path = pathlib.PurePosixPath(name)
-        if (path.parts and path.parts[0] in {'src', 'include', 'port', 'platform', 'tests'}
-                and name not in GENERATED and not name.startswith('port/SDL3/')
+        if (path.parts and path.parts[0] in {'engine', 'port', 'platform', 'tests'}
+                and name not in GENERATED and name not in NON_C_FIXTURES and not name.startswith('port/SDL3/')
                 and path.suffix in SUFFIXES and (ROOT / name).is_file()):
             yield name
 

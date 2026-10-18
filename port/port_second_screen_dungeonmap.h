@@ -4,7 +4,7 @@
 /*
  * Authentic dungeon-map rendering for the second screen: the same room
  * shapes, floor structure and reveal rules the game's own map screen
- * (src/subtask/subtaskLocalMapHint.c) shows, decoded at runtime from
+ * (engine/src/subtask/subtaskLocalMapHint.c) shows, decoded at runtime from
  * ROM/asset data — no baked pixels, same policy as the item icons.
  *
  * Reveal rules mirror the real map so the second screen never cheats:

@@ -35,11 +35,11 @@
  * overlay pieces keep their exact in-game offsets relative to that.
  */
 
-/* src/affine.c — frame OBJ piece list for (sprite, frame); PC path is
+/* engine/src/affine.c — frame OBJ piece list for (sprite, frame); PC path is
  * bounds-checked and returns NULL when out of range. */
 extern void* sub_080AD8F0(u32 sprite, u32 frame);
 
-/* Mirrors src/menu/pauseMenu.c's GetSpriteAnimation322 (static there, so not
+/* Mirrors engine/src/menu/pauseMenu.c's GetSpriteAnimation322 (static there, so not
  * directly callable) — gSpriteAnimations_322 is a plain linked global. */
 extern Frame* gSpriteAnimations_322[];
 #define SPRITE_ANIM_322_COUNT 128

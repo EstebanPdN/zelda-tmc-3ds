@@ -110,7 +110,7 @@ const char* Port_TTS_GetBackendName(void);
  * names, descriptions, popup labels) that's drawn via ShowTextBox
  * directly — bypassing the MessageMain dialog pipeline that already
  * has its own per-page TTS hook. URGENT + dedupe under the hood.
- * Implementation lives in src/message.c (needs Token / GetCharacter). */
+ * Implementation lives in engine/src/message.c (needs Token / GetCharacter). */
 void Port_TTS_SpeakTextIndex(unsigned int textIndex);
 
 #ifdef __cplusplus

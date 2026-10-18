@@ -7,13 +7,13 @@ tables (see "Remaining gaps").*
 
 The Minish Cap speedrun scene runs the **Japanese** version (RNG manipulations are
 version-exclusive and were authored for JP). The decomp supports JP at the source
-level (`#ifdef JP` throughout `src/`); this port now wires JP through the build and
+level (`#ifdef JP` throughout `engine/src/`); this port now wires JP through the build and
 runtime, and supplies the JP ROM data-table offsets.
 
 ## Build & run a JP port
 
 1. **Provide a legal JP baserom** (`BZMJ`, SHA-1 `6c5404a1effb17f481f352181d0f1c61a2765c5d`,
-   see `tmc_jp.sha1`) as `baserom_jp.gba` in the repo root. (Gitignored — never committed.)
+   see `config/roms/tmc_jp.sha1`) as `baserom_jp.gba` in the repo root. (Gitignored — never committed.)
 2. **Build:** `python build.py --jp` (or `xmake f --game_version=JP -y && xmake build -y tmc_pc`).
 3. **Run:** point the binary at the JP ROM. It auto-detects `JP (BZMJ)` and selects the
    JP offset table. Verified boot log:
@@ -33,7 +33,7 @@ runtime, and supplies the JP ROM data-table offsets.
 - `JP`/`JAPANESE` in `pc_versions` — `xmake.lua`; `--jp` + JP version entry — `build.py`
 - JP-only symbol guards so the JP port links (`sub_0807FC24`, `sub_08088658` are
   USA-only in the decomp) — `port/port_script_funcs.c`
-- `-I port` on the decomp ROM build's preprocess so committed `src/` port-includes
+- `-I port` on the decomp ROM build's preprocess so committed `engine/src/` port-includes
   resolve (header-resolution only; no PC code enters the ROM build) — `xmake.lua`
 
 ## How `kRomOffsets_JP` was derived (content-anchoring)

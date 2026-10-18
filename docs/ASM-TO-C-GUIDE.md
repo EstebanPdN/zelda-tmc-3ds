@@ -8,19 +8,19 @@ This document explains the architecture, translation strategy, and alignment req
 
 The codebase maintains a dual-target architecture configured in `xmake.lua`:
 
-1.  **GBA ROM Target (`tmc`):** Compiles decompiled C source files (`src/`) and falls back to original GBA assembly files (`asm/**/*.s` and `data/**/*.s`) for non-decompiled or non-matching functions.
-2.  **PC Port Target (`tmc_pc`):** Compiles *only* the C/C++ source code (`src/` and `port/`). It completely excludes the GBA assembler. All functions originally implemented in GBA assembly are substituted by C/C++ equivalents compiled directly into the binary.
+1.  **GBA ROM Target (`tmc`):** Compiles decompiled C source files (`engine/src/`) and falls back to original GBA assembly files (`engine/asm/**/*.s` and `engine/data/**/*.s`) for non-decompiled or non-matching functions.
+2.  **PC Port Target (`tmc_pc`):** Compiles *only* the C/C++ source code (`engine/src/` and `port/`). It completely excludes the GBA assembler. All functions originally implemented in GBA assembly are substituted by C/C++ equivalents compiled directly into the binary.
 
 ### Translation Directory Mapping
 
 | GBA ASM Path | PC Port C/C++ Equivalent | Purpose |
 |---|---|---|
-| `asm/src/crt0.s` | `port/port_main.c` | Startup, SDL3 initialization, and task entry into `AgbMain()`. |
-| `asm/src/intr.s` | `port/port_bios.c` / `port_ppu.cpp` | Interrupt handling, VBlank synchronization, and rendering presentation. |
-| `asm/src/player.s` | `src/player.c` / `port/port_linked_stubs.c` | Player movement, actions, and state transitions. |
-| `asm/src/code_*.s` | `port/port_gameplay_stubs.c` / `port_stubs.c` | System utilities, scripting wrappers, and memory management. |
-| `asm/lib/m4a_asm.s` | `port/port_m4a_backend.cpp` / `libs/agbplay_core` | Audio driver execution and sequencer parsing (re-implemented in C++). |
-| `asm/src/stack_check.s` | *Excluded* | Not required for the native PC runtime. |
+| `engine/asm/src/crt0.s` | `port/port_main.c` | Startup, SDL3 initialization, and task entry into `AgbMain()`. |
+| `engine/asm/src/intr.s` | `port/port_bios.c` / `port_ppu.cpp` | Interrupt handling, VBlank synchronization, and rendering presentation. |
+| `engine/asm/src/player.s` | `engine/src/player.c` / `port/port_linked_stubs.c` | Player movement, actions, and state transitions. |
+| `engine/asm/src/code_*.s` | `port/port_gameplay_stubs.c` / `port_stubs.c` | System utilities, scripting wrappers, and memory management. |
+| `engine/asm/lib/m4a_asm.s` | `port/port_m4a_backend.cpp` / `libs/agbplay_core` | Audio driver execution and sequencer parsing (re-implemented in C++). |
+| `engine/asm/src/stack_check.s` | *Excluded* | Not required for the native PC runtime. |
 
 ---
 
@@ -64,7 +64,7 @@ This creates a 4-byte misalignment, causing the PC code to read/write wrong offs
 ### The Alignment Fix Pattern
 To align the fields, conditional compiler padding (`#ifdef PC_PORT`) must be added to the structures, shifting the custom fields to match the PC-widened layout.
 
-Example alignment from `src/enemy/keaton.c`:
+Example alignment from `engine/src/enemy/keaton.c`:
 ```c
 typedef struct {
     /*0x00*/ Entity base;
@@ -110,7 +110,7 @@ Instead of emulating these low-level hardware structures, the PC port uses a beh
 
 During translation, several latent GBA-only compiler assumptions and bugs were corrected to ensure stability on PC:
 
-### Save File Checksum Corruption Fix (`src/save.c`)
+### Save File Checksum Corruption Fix (`engine/src/save.c`)
 *   **The Bug:** The GBA checksum status check added `checksum1` (normal) and `checksum2` (two's complement negation). If `checksum1` happened to be exactly `0`, both checksums were `0`, and the sum was `0` instead of `0x10000` — rendering the save file unreadable.
 *   **The PC Fix:** 
     ```c

@@ -588,7 +588,7 @@ static void Port_WidescreenParallaxShadows(void) {
     }
 }
 
-/* Called per-VBlank from src/interrupts.c::UpdateDisplayControls. */
+/* Called per-VBlank from engine/src/interrupts.c::UpdateDisplayControls. */
 void Port_Widescreen_UpdateShadows(void) {
     if (gMain.task != TASK_GAME || (gRoomControls.scrollAction != 2 && gRoomControls.scrollAction != 0))
         sWsScroll.valid = 0;
@@ -644,7 +644,7 @@ void Port_Widescreen_UpdateShadows(void) {
 
     /* Publish the live textbox rect so the PPU can center it (BG0 composes
      * the box for a 240-px canvas). The engine frame (DispMessageFrame /
-     * DeleteWindow, src/message.c) spans (W+2) x (H+2) BG0 tiles STARTING at
+     * DeleteWindow, engine/src/message.c) spans (W+2) x (H+2) BG0 tiles STARTING at
      * tile (textWindowPosX, textWindowPosY) — border tiles are drawn inward
      * from that corner, not around it. Publishing a rect short of the real
      * frame left the right border outside the shifted copy (overdrawn by the

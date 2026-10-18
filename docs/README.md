@@ -35,5 +35,5 @@ They are retained for engineering context and regression history.
 
 ## Generated API documentation
 
-Doxygen and m.css configuration lives in [doxygen/](doxygen/). Run the tooling
+Doxygen and m.css configuration lives in [doxygen/](doxygen). Run the tooling
 from the repository root so its relative input and output paths remain stable.

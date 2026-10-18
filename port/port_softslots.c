@@ -1,7 +1,7 @@
 /*
  * port_softslots.c — Extra item-equip buttons (X / Y / L2 / R2).
  *
- * Engine dispatch path (src/playerUtils.c:UpdateActiveItems) reads
+ * Engine dispatch path (engine/src/playerUtils.c:UpdateActiveItems) reads
  *   gSave.stats.equipped[SLOT_B] and INPUT_USE_ITEM2 each frame.
  * To add four extra equip buttons without touching the save format we:
  *   1. Each frame, scan the four soft-slot inputs. The most recently
@@ -9,7 +9,7 @@
  *   2. While a slot is active, port_bios.c forces B_BUTTON pressed in the
  *      GBA KEYINPUT register so the engine produces an INPUT_USE_ITEM2
  *      bit on its abstract input.
- *   3. Two functions in src/playerUtils.c (the B-dispatch site and the
+ *   3. Two functions in engine/src/playerUtils.c (the B-dispatch site and the
  *      held-item active check) consult Port_SoftSlots_GetEffectiveBItem /
  *      Port_SoftSlots_IsBHeld to override the effective equipped[SLOT_B]
  *      ONLY at those points. The save data is never mutated.
@@ -39,12 +39,12 @@
 
 /* Engine-side queries used by the assignment UI. Declared as plain externs
  * so this TU doesn't drag in the full game headers (and the type collisions
- * that come with them). The numeric ITEM_* values match include/item.h —
+ * that come with them). The numeric ITEM_* values match engine/include/item.h —
  * see comments next to the table below. */
 extern unsigned int GetInventoryValue(unsigned int item);
 
 /* Mirror of the relevant prefix of ItemMetaData. We only need menuSlot and
- * the existence of the entry; the real struct (include/itemMetaData.h) has
+ * the existence of the entry; the real struct (engine/include/itemMetaData.h) has
  * eight u8 fields starting with menuSlot. */
 struct PortSoftSlotItemMeta {
     unsigned char menuSlot;
@@ -165,7 +165,7 @@ void Port_SoftSlots_Load(void) {
 /* ---- Assignment UI helpers (cycling through owned items) -------------- */
 
 /* Equippable items in cycle order. Mirrors the ITEM_* enum values from
- * include/item.h that have a menu slot — i.e. the things the pause menu
+ * engine/include/item.h that have a menu slot — i.e. the things the pause menu
  * lets the player put on A or B. ITEM_LANTERN_OFF is preferred over
  * ITEM_LANTERN_ON because that's the cold-start id; the engine swaps to
  * _ON at runtime. ITEM_BOMBS / _BOW / _BOOMERANG / _SHIELD / _LANTERN
@@ -175,7 +175,7 @@ static const struct {
     uint8_t id;
     const char* name;
 } kEquippable[] = {
-    /* values mirror include/item.h enum positions 1..0x21 */
+    /* values mirror engine/include/item.h enum positions 1..0x21 */
     { 1, "Sword (Smith)" },    /* ITEM_SMITH_SWORD     */
     { 2, "Sword (Green)" },    /* ITEM_GREEN_SWORD     */
     { 3, "Sword (Red)" },      /* ITEM_RED_SWORD       */

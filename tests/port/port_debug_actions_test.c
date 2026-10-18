@@ -34,8 +34,8 @@ Area gArea;
 /* Capacity tables (4 tiers each, indexed by walletType/bombBagType/quiverType
  * 0..3): realistic caps so the stat-clamp assertions exercise real bounds. */
 const Wallet gWalletSizes[] = { { 100, 0 }, { 300, 0 }, { 500, 0 }, { 999, 0 } };
-const u8 gBombBagSizes[] = { 10, 30, 50, 99 }; /* mirrors src/itemUtils.c */
-const u8 gQuiverSizes[] = { 30, 50, 70, 99 };  /* mirrors src/itemUtils.c */
+const u8 gBombBagSizes[] = { 10, 30, 50, 99 }; /* mirrors engine/src/itemUtils.c */
+const u8 gQuiverSizes[] = { 30, 50, 70, 99 };  /* mirrors engine/src/itemUtils.c */
 
 /* ---- symbols pulled in only by the warp/teleport/enumeration functions the
  *      test never calls; zero-init definitions + no-op stubs satisfy the link. */

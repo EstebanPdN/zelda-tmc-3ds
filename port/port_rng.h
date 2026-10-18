@@ -6,7 +6,7 @@
 /*
  * Single source of truth for the Minish Cap gameplay PRNG (ARM asm @ 0x08000E50):
  *   state = ROR(state * 3, 13);  return state >> 1;
- * seeded with PORT_RNG_SEED at boot (src/main.c). Both the live Random()
+ * seeded with PORT_RNG_SEED at boot (engine/src/main.c). Both the live Random()
  * (port_linked_stubs.c) and the golden-vector regression test use these so the
  * algorithm cannot silently drift. Gameplay depends on bit-exact results.
  */

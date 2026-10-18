@@ -72,7 +72,7 @@ u8 gUnk_02000030[0x10]; /* EWRAM marker, 16 bytes gap */
 struct_02000040 gUnk_02000040;
 void* gUnk_020000B0 = NULL; /* Entity* pointer (8 bytes on 64-bit) */
 struct_gUnk_020000C0 gUnk_020000C0[0x30];
-/* gUnk_02001A3C aliases gPaletteList[15] in src/color.c. */
+/* gUnk_02001A3C aliases gPaletteList[15] in engine/src/color.c. */
 u8 gUnk_02006F00[0x4000] __attribute__((aligned(4)));                    /* BG tilemap buffer (16 KB) */
 u16 gUnk_0200B640;                                                       /* scroll state scalar */
 u16 gUnk_02017830[0x138] __attribute__((aligned(4)));                    /* palette rotation buffer (624 bytes) */
@@ -190,7 +190,7 @@ u8 gInteractableObjects[0x300]
 
 Palette gPaletteList[0x10];
 
-// Hitbox data is now provided by src/data/hitbox.c (properly initialized)
+// Hitbox data is now provided by engine/src/data/hitbox.c (properly initialized)
 
 // NPC data
 NPCStruct gNPCData[NPC_DATA_CAPACITY];
@@ -217,7 +217,7 @@ void (*const gUnk_0810B77C[])(Entity*) = {
 };
 
 /* ---------- Pause menu / subtask function pointer tables ---------- */
-/* From data/const/subtask.s — .4byte tables referencing C functions. */
+/* From engine/data/const/subtask.s — .4byte tables referencing C functions. */
 
 /* PauseMenu_Screen_10 dispatch (pauseMenu.c) */
 extern void sub_080A59AC(void);
@@ -318,7 +318,7 @@ TileEntity gSmallChests[8];
 SpecialTileEntry gTilesForSpecialTiles[MAX_SPECIAL_TILES];
 
 // Collision
-// gUnk_03003C70 now defined in src/collision.c
+// gUnk_03003C70 now defined in engine/src/collision.c
 
 // IWRAM scratch
 u8 gUnk_03000420[0x800] __attribute__((aligned(4)));
@@ -869,7 +869,7 @@ u32 GetNextFunction(Entity* this) {
      * is gone. Re-introducing the dispatch lets GenericConfused tick
      * confusedTime down and call EnemyDetachFX at the end of stun, which
      * orphans the FX so its next tick deletes it. Empirically all FX_STARS
-     * spawners under src/enemy use EnemyCreateFX (stored in
+     * spawners under engine/src/enemy use EnemyCreateFX (stored in
      * entity->child), so the existing detach path covers them. */
     if (gustJarState & 4)
         return 5;
@@ -1050,7 +1050,7 @@ void UpdateSpriteForCollisionLayer(Entity* entity) {
     }
 }
 
-// Area / room data — now provided by src/data/areaMetadata.c
+// Area / room data — now provided by engine/src/data/areaMetadata.c
 // const AreaHeader gAreaMetadata[256]; // removed: real data in areaMetadata.c
 /**
  * GravityUpdate — port of ARM thumb routine at 0x08003FC4.
@@ -1714,22 +1714,22 @@ extern void Subtask_FastTravel_4(void);
 void (*const Subtask_FastTravel_Functions[])(void) = {
     Subtask_FastTravel_0, Subtask_FastTravel_1, Subtask_FastTravel_2, Subtask_FastTravel_3, Subtask_FastTravel_4,
 };
-/* Subtask_MapHint_Functions — the matching usage in src/subtask/subtaskMapHint.c
+/* Subtask_MapHint_Functions — the matching usage in engine/src/subtask/subtaskMapHint.c
  * defines a *static local* array of the same name with proper native
  * function pointers, so this global is dead code. Kept only because
  * stubs_autogen.c still mentions the symbol; once stubs_autogen is
  * regenerated the entire `void* []` line below can go away. */
 void* Subtask_MapHint_Functions[16];
 
-// Exit lists / transitions — now provided by src/data/transitions.c
+// Exit lists / transitions — now provided by engine/src/data/transitions.c
 // gExitLists and gExitList_RoyalValley_ForestMaze removed
 
 // Various game data
 u32 gFixedTypeGfxData[528];
 _Static_assert(ARRAY_COUNT(gFixedTypeGfxData) == PORT_FIXED_TYPE_GFX_CAPACITY_ENTRIES,
                "fixed-gfx staging capacity must match the runtime bounds");
-// gCaveBorderMapData — now provided by src/data/caveBorderMapData.c
-// gOverworldLocations — now provided by src/data/areaMetadata.c
+// gCaveBorderMapData — now provided by engine/src/data/caveBorderMapData.c
+// gOverworldLocations — now provided by engine/src/data/areaMetadata.c
 u16* gMoreSpritePtrs[16];
 u8 gExtraFrameOffsets[4352];
 u8 gShakeOffsets[256];
@@ -1738,7 +1738,7 @@ u16 gDungeonNames[64];
  * resolved from ROM after Port_LoadRom). The 512-byte stub here used to
  * SEGV the figurine viewer (#57): every fig->pal / fig->gfx was NULL. */
 void* gLilypadRails[32];
-// gMapActTileToSurfaceType — now provided by src/data/mapActTileToSurfaceType.c
+// gMapActTileToSurfaceType — now provided by engine/src/data/mapActTileToSurfaceType.c
 /* gPalette_549 is the start of a 26-palette contiguous block in the GBA
  * `gfxAndPalettes` blob. Mt Crenel's weather-change manager reads
  * `gPalette_549 + 0xD0` (i.e., 13 palettes past the start) as `palette2`
@@ -1750,14 +1750,14 @@ void* gLilypadRails[32];
  * from gGlobalGfxAndPalettes after ROM load. */
 u16 gPalette_549[0x1A0];
 u32* gTranslations[16];
-// gWallMasterScreenTransitions — now provided by src/data/screenTransitions.c
+// gWallMasterScreenTransitions — now provided by engine/src/data/screenTransitions.c
 u16* gZeldaFollowerText[8];
 Frame* gSpriteAnimations_322[128];
 u32 gSpriteAnimations_GhostBrothers[64];
 DiggingCaveEntranceTransition gDiggingCaveEntranceTransition;
 u8 RupeeKeyDigits[16];
 
-// Player macros — now provided by src/data/data_080046A4.c
+// Player macros — now provided by engine/src/data/data_080046A4.c
 
 // Entity data (ROM data — all zero-init stubs).
 // On Linux the LTO type gate (pc_lto_type_check) compares these against the

@@ -12,18 +12,18 @@
  *
  *   window chrome   gUnk_081092AC[0] border shapes + gUnk_081094CE color
  *                   LUT + gUnk_0810926C fill patterns — the exact pipeline
- *                   sub_0805F918 (src/text.c) runs to build the message
+ *                   sub_0805F918 (engine/src/text.c) runs to build the message
  *                   window's 7 tiles (fill all seven with the fill_type's
  *                   nibble pattern, then write the border columns through
  *                   the LUT), replayed into private RGBA buffers. Tile
  *                   arrangement comes from DispMessageFrame
- *                   (src/message.c) — corner + edge tiles, flips
+ *                   (engine/src/message.c) — corner + edge tiles, flips
  *                   mirroring. border_type 0 / fill_type 0 is the plain
  *                   in-game dialog (MsgOpen passes message.unk3/bgColor,
  *                   both 0 by default): black interior (bank 15 color 15),
  *                   silver/white rounded double border.
  *   hearts/rupee/   gfx group 16 (the HUD tile load InitUI performs to BG0
- *   key icons       char base 3, src/ui.c) via Port_ResolveGfxGroupVram;
+ *   key icons       char base 3, engine/src/ui.c) via Port_ResolveGfxGroupVram;
  *                   tile ids from DrawHearts/DrawRupees/DrawKeys. Heart
  *                   row truth is gUnk_080C8F2C's tilemap entries: tile
  *                   0x15 = full, 0x11 = empty, 0x12..0x14 the quarter
@@ -65,13 +65,13 @@
  *                   group 90, 86, then the gameplay 23/16.
  */
 
-/* src/common.c (appended accessors — ROM-const reads only). */
+/* engine/src/common.c (appended accessors — ROM-const reads only). */
 extern const u8* Port_GetRawPaletteGroupData(u32 group, u32* outNumColors);
 extern const u8* Port_GetRawPaletteGroupBankData(u32 group, u32 destPaletteNum, u32* outNumColors);
 extern const u8* Port_GetRawPaletteGroupEntryData(u32 group, u32 entryIdx, u32* outNumColors, u32* outDestPaletteNum);
 extern const u8* Port_ResolveGfxGroupVram(u32 group, u32 vramAddr, u32* outAvail);
 
-/* src/affine.c — frame OBJ piece list for (sprite, frame); PC path is
+/* engine/src/affine.c — frame OBJ piece list for (sprite, frame); PC path is
  * bounds-checked and returns NULL when out of range. */
 extern void* sub_080AD8F0(u32 sprite, u32 frame);
 
@@ -79,7 +79,7 @@ extern void* sub_080AD8F0(u32 sprite, u32 frame);
 extern void UnpackTextNibbles(void* src_ptr, u8* dest);
 
 /* ROM-const text/border tables, resolved from the loaded ROM at boot
- * (port_rom.c). Same externs src/text.c uses. */
+ * (port_rom.c). Same externs engine/src/text.c uses. */
 extern void* gUnk_081092AC[]; /* border shape data per border_type */
 extern u8 gUnk_081094CE[];    /* color LUTs, 0xC0 bytes per fill_type */
 extern u32 gUnk_0810926C[];   /* window fill patterns, u32 each */
@@ -94,7 +94,7 @@ extern void* gUnk_08109248[]; /* message font glyph banks (bank 0 = latin) */
 extern const void* gGfxGroups[];
 extern const u8* gGlobalGfxAndPalettes;
 
-/* HUD digit gfx blob (data_const_stubs.c / ROM) — same symbol src/ui.c
+/* HUD digit gfx blob (data_const_stubs.c / ROM) — same symbol engine/src/ui.c
  * reads at runtime for every region. */
 extern const u8 gUnk_085C4620[];
 
@@ -106,7 +106,7 @@ extern const u8 gUnk_085C4620[];
 /*
  * Pause ITEM screen (the light theme's ground truth). PauseMenuScreen_1
  * selects gUnk_08128AD8[0] = { paletteGroup 182, gfxGroup 90, dispcnt,
- * bg1Control 0x1C05, bg2Control 0x1D03 } (src/data/figurineMenuData.c,
+ * bg1Control 0x1C05, bg2Control 0x1D03 } (engine/src/data/figurineMenuData.c,
  * applied by sub_080A4DB8); sub_080A4D34 loads the shared pause chrome
  * first (gfx group 86, BG3 control 0x1E0B) plus palette group 181 over
  * the gameplay groups 11/12. That makes the screen:
@@ -154,7 +154,7 @@ static const u8 kPauseObjGfxGroups[] = { 90u, 86u, 23u, 16u };
 static const u8 kQuestObjGfxGroups[] = { 91u, 86u, 23u, 16u };
 
 /* HUD tile ids (BG0 char base 3) — from DrawHearts / DrawRupees /
- * DrawKeys in src/ui.c and gWalletSizes in src/itemUtils.c. The heart
+ * DrawKeys in engine/src/ui.c and gWalletSizes in engine/src/itemUtils.c. The heart
  * series runs empty -> full: 0x11 empty, 0x12..0x14 quarter fills
  * ((health & 3) + 0x11), 0x15 full (gUnk_080C8F2C's DMA'd entries). */
 #define TILE_HEART_EMPTY 0x11
@@ -261,7 +261,7 @@ static uint32_t sColors[SSC_COUNT];
 static int sBackdropStyle = SS_BACKDROP_PARCHMENT;
 
 /* Window chrome: 6 border tiles in sub_0805F918's strip order plus the
- * solid fill tile — index meanings per src/message.c's tile enum. */
+ * solid fill tile — index meanings per engine/src/message.c's tile enum. */
 enum {
     CHROME_CORNER,
     CHROME_H_CORNER,
@@ -829,7 +829,7 @@ static uint32_t ModeColor(const uint32_t* img, int32_t x0, int32_t y0, int32_t x
 }
 
 /* Text color LUT for (fill_type, charColor) — GetTextColorTablePtr's
- * head/tail split (src/text.c): logical offsets below 160 read the
+ * head/tail split (engine/src/text.c): logical offsets below 160 read the
  * gUnk_0810942E head, the rest the gUnk_081094CE tail. 32 bytes: even
  * columns [0..15] (low nibble), odd columns [16..31] (pre-shifted). */
 static const u8* TextLutPtr(u32 fillType, u32 charColor) {
@@ -1948,7 +1948,7 @@ static void GlyphMetrics(const u8* glyph, int32_t* outStart, int32_t* outWidth) 
     *outWidth = i - j;
 }
 
-/* The USA/EU script is plain ASCII in bank 0 (charmap.txt); anything the
+/* The USA/EU script is plain ASCII in bank 0 (config/gba/charmap.txt); anything the
  * panel never uses falls back to '?' so a stray string cannot index out
  * of the 256-glyph bank. */
 static const u8* GlyphData(char c) {

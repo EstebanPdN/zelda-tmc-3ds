@@ -38,7 +38,7 @@ extern "C" void kmp_set_blocktime(int msec);
  * would pull in player.h, which uses `this` as a C parameter name and
  * doesn't compile as C++. Treat the symbol as opaque bytes and read the
  * task field at known offset 2 (interruptFlag, sleepStatus, task —
- * include/main.h). C linkage matches the engine's Main gMain. */
+ * engine/include/main.h). C linkage matches the engine's Main gMain. */
 extern "C" uint8_t gMain[]; // fix for MSVC (UWP PORT)
 /* Phase-timer hooks (defined in port_bios.c, C linkage). */
 extern "C" int Port_Profile_Enabled(void);

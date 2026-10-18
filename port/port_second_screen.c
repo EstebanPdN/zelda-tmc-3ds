@@ -96,7 +96,7 @@ extern double Port_PPU_3DS_AverageFps(void);
 #define COL_ELEM_WIND RGB(0xC8, 0xD0, 0xD8)
 
 /* Item ids used for icon/ammo special cases — transcribed from
- * include/item_ids.h (kept local so this file stays engine-header-free). */
+ * engine/include/item_ids.h (kept local so this file stays engine-header-free). */
 #define ITEMID_BOMBS 0x07
 #define ITEMID_REMOTE_BOMBS 0x08
 #define ITEMID_BOW 0x09
@@ -116,7 +116,7 @@ extern double Port_PPU_3DS_AverageFps(void);
 #define ITEMID_KINSTONE_BAG 0x67
 
 /* Dungeon names + top-floor numbers for the plaque labels, transcribed
- * from gDungeonLayouts / gDungeonFloorMetadatas (src/common.c): display
+ * from gDungeonLayouts / gDungeonFloorMetadatas (engine/src/common.c): display
  * row i (topmost first) is floor highest-2-i, positive = "<n>F", else
  * "B<1-n>" — e.g. Deepwood {3 floors, highest 3} = 1F, B1, B2. */
 static const char* const kDungeonNames[7] = {
@@ -1204,7 +1204,7 @@ static void PaintOverworld(const SSurf* s, const SecondScreenSnapshot* snap, Tar
      * shows — right above the map art, below the crest pins and the player
      * marker. Kinstone fusions deliberately do NOT belong here: the game
      * puts those on the enlarged region map, and so does PaintRegion. Both
-     * worldmap calls degrade to 0 while their data/sprite isn't decodable,
+     * worldmap calls degrade to 0 while their engine/data/sprite isn't decodable,
      * and a marker simply skips that frame. */
     {
         SecondScreenMapMarker hints[16];
@@ -2572,7 +2572,7 @@ static void DrawItemRing(const SSurf* s, const SecondScreenSnapshot* snap, Targe
 /* ------------------------------------------------------------------ */
 
 /* The words the HUD's own prompt art spells, by ActionRButton value
- * (include/player.h). Only the lettering stand-in: once the theme can
+ * (engine/include/player.h). Only the lettering stand-in: once the theme can
  * stamp the real label frames this table stops being reached. */
 static const char* const kRActionWords[] = {
     NULL, "CANCEL", "DROP", "THROW", "READ", "CHECK", "OPEN", "SPEAK", "GRAB", "LIFT", "GROW", "SHRINK", "ROLL",
@@ -3391,7 +3391,7 @@ void Port_SecondScreen_OnTap(int x, int y, int longPress) {
                     Port_Config_SetShowFps(!Port_Config_GetShowFps());
                     break;
                 case SS_SET_HOLD_ADVANCE:
-                    /* src/message.c polls the flag at every advance. */
+                    /* engine/src/message.c polls the flag at every advance. */
                     Port_Config_SetHoldToAdvanceText(!Port_Config_GetHoldToAdvanceText());
                     break;
                 case SS_SET_RANDOMIZER:

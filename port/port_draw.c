@@ -153,7 +153,7 @@ extern UpdateContext gUpdateContext;
 
 /* Per-entity enemy-target cache. arm_UpdateEntities zeroes this before every
  * entity update (the `mov r0,#0; str r0,[r7]` where r7 = &gEnemyTarget, per the
- * gUnk_080026A4 parameter block, asm/src/code_08001A7C.s:863-873). The cache
+ * gUnk_080026A4 parameter block, engine/asm/src/code_08001A7C.s:863-873). The cache
  * (sub_08049DF4) returns it when non-NULL, so without the per-entity reset a
  * permissive enemy's target leaks into a stricter one (e.g. an enemy that should
  * only target a minish Link). */
@@ -232,7 +232,7 @@ void ram_UpdateEntities(u32 mode) {
              * Anything else is a stale pointer (v1 quicksave fallout
              * or list corruption); bail out before the deref instead
              * of SIGSEGVing. Reuses Port_IsValidEntityAddr from
-             * src/entity.c which already encodes the full valid
+             * engine/src/entity.c which already encodes the full valid
              * region set — checking only gEntities (as an earlier
              * version of this guard did) rejects gPlayerEntity and
              * makes Link invisible. */
@@ -279,14 +279,14 @@ void ram_UpdateEntities(u32 mode) {
                 sEntityUpdateJmpBufValid = 0;
             }
 
-            /* GBA arm_UpdateEntities (asm/src/intr.s:742-746) reloads
+            /* GBA arm_UpdateEntities (engine/asm/src/intr.s:742-746) reloads
              * current_entity AFTER the update and computes the successor as
              * current_entity->next — it does NOT snapshot entity->next before
              * the update (the earlier port did, which diverges from console).
              * Reading the successor late matters in two ways:
              *   - self-delete: UnlinkEntity sets current_entity = ent->prev and
              *     relinks prev->next = ent->next, so current_entity->next is the
-             *     correct successor (src/entity.c:927-963);
+             *     correct successor (engine/src/entity.c:927-963);
              *   - an entity that deletes its OWN successor during its update: the
              *     late read skips the now-unlinked node, whereas a pre-captured
              *     `next` walks into the freed/recycled entity.
@@ -961,7 +961,7 @@ static void ProcessEntityForDraw(Entity* entity) {
                 /* Tall grass — position-derived "random" frame so neighbouring
                  * patches don't all wave in sync. Read the INTEGER pixel-position
                  * bytes x.HALF.HI ^ y.HALF.HI (entity[0x2e] ^ entity[0x32],
-                 * asm/src/intr.s:1390). The previous code read the FRACTIONAL
+                 * engine/asm/src/intr.s:1390). The previous code read the FRACTIONAL
                  * bytes (x.HALF.LO>>8 = entity[0x2d]), so the frame jittered with
                  * sub-pixel motion instead of being stable per tile. */
                 u8 xb = (u8)entity->x.HALF.HI;
@@ -969,7 +969,7 @@ static void ProcessEntityForDraw(Entity* entity) {
                 frame = (u8)((xb ^ yb) & 6u);
             }
             /* ldr table[(ss&0x30) + (frame<<1)] is a byte offset into a
-             * 32-pointer table (asm/src/intr.s:1392-1395); pointer index is
+             * 32-pointer table (engine/asm/src/intr.s:1392-1395); pointer index is
              * that >>2. Water frames (32..38) map to indices 16..31 — the old
              * 16-entry table with (row>>2 + frame<<1) put them out of range, so
              * the water overlay never drew. */

@@ -198,6 +198,9 @@ https://github.com/EstebanPdN/zelda-tmc-3ds/releases/latest
 
 ## Documentation
 
+- [Repository map and maintenance conventions](docs/REPOSITORY.md)
+
+
 - [Architecture and repository map](docs/ARCHITECTURE.md)
 - [Build, formatting and verification](docs/DEVELOPMENT.md)
 - [Regression test ownership](tests/README.md)

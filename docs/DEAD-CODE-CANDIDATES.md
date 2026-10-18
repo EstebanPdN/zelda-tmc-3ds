@@ -20,12 +20,12 @@ human confirmation before removal.
 
 ## Needs decomp / gameplay review before removal
 
-- `src/fade.c:157` — `static void sub_08050024(void)`
+- `engine/src/fade.c:157` — `static void sub_08050024(void)`
   - Compiler warning: `defined but not used`
   - Shared engine code. Removing it may be correct, but this belongs to the
     decomp-side review flow, not blind port cleanup.
 
-- `src/manager/hyruleTownTileSetManager.c:42` — `gHyruleTownTileSetManager_festivalRegions1`
+- `engine/src/manager/hyruleTownTileSetManager.c:42` — `gHyruleTownTileSetManager_festivalRegions1`
   - Compiler warning: `defined but not used`
   - Shared gameplay/asset selection code. Review against the original ROM /
     upstream decomp before removing.

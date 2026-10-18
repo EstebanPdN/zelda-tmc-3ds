@@ -83,7 +83,7 @@ std::size_t WorkerCount();
  * while the pretty-printer runs concurrently.
  *
  * Submit() takes the JSON by value (callers can std::move into it) and
- * the indent (typically 4 for assets_src/, 0 for assets/). Wait() blocks
+ * the indent (typically 4 for assets_src/, 0 for engine/assets/). Wait() blocks
  * until every pending task has finished — call it before
  * WriteBuildStateFile so the build state observes the final on-disk shape.
  *
@@ -95,7 +95,7 @@ class BackgroundWriter {
     static BackgroundWriter& Instance();
 
     /* Submit a pretty-printed JSON dump + write. indent>0 = pretty
-     * (assets_src/), indent==0 = compact (assets/). The path's parent
+     * (assets_src/), indent==0 = compact (engine/assets/). The path's parent
      * directory is ensured via EnsureDir on the task. */
     void Submit(std::filesystem::path output_path, nlohmann::json json, int indent);
 

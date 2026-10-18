@@ -1,0 +1,37 @@
+{
+  "root_entries": [
+    ".clang-format",
+    ".gitattributes",
+    ".github",
+    ".gitignore",
+    "COPYRIGHT.md",
+    "LICENSE",
+    "Makefile",
+    "README.md",
+    "THIRD-PARTY-LICENSES.md",
+    "build",
+    "config",
+    "docs",
+    "engine",
+    "libs",
+    "platform",
+    "port",
+    "scripts",
+    "tests",
+    "tools",
+    "xmake.lua"
+  ],
+  "current_documents": [
+    "README.md",
+    "docs/REPOSITORY.md",
+    "docs/CONTRIBUTING.md"
+  ],
+  "required_paths": [
+    "README.md",
+    "docs/REPOSITORY.md",
+    "scripts/check-repository.py",
+    "Makefile",
+    "xmake.lua",
+    "platform/3ds/build.sh"
+  ]
+}

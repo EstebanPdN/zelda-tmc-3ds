@@ -30,8 +30,8 @@
 #include "ui.h"
 #include "port_runtime_config.h"
 
-/* The HUD's per-language button-label frame offsets (data/const/ui.s),
- * declared exactly as src/ui.c declares them. */
+/* The HUD's per-language button-label frame offsets (engine/data/const/ui.s),
+ * declared exactly as engine/src/ui.c declares them. */
 extern const u8 gUnk_080C9044[];
 
 /* gItemMetaData menu slot the quest screen treats as "a carried quest
@@ -124,7 +124,7 @@ void Port_SecondScreenState_Publish(void) {
 
         /* Area identity + per-dungeon save state, gated exactly like the
          * engine gates it: dungeonKeys/dungeonItems are only meaningful
-         * where AreaHasKeys() holds (src/gameUtils.c reads them through
+         * where AreaHasKeys() holds (engine/src/gameUtils.c reads them through
          * gArea.dungeon_idx under that same check). */
         if (!keepMapContext) {
             next.areaFlags = gArea.areaMetadata;
@@ -153,7 +153,7 @@ void Port_SecondScreenState_Publish(void) {
         }
 
         /* QUEST STATUS screen values, read exactly where sub_080A5594
-         * (src/menu/pauseMenu.c) reads them when it fills that screen's
+         * (engine/src/menu/pauseMenu.c) reads them when it fills that screen's
          * sixteen slots. Plain gSave and GetInventoryValue reads, no
          * different in cost or safety from the ones above. */
         next.heartPieces = gSave.stats.heartPieces;
@@ -213,8 +213,8 @@ void Port_SecondScreenState_Publish(void) {
         memcpy(next.fusionUnmarked, gSave.kinstones.fusionUnmarked, sizeof(next.fusionUnmarked));
 
         /* Map hints, resolved the way both map screens resolve them:
-         * `gSave.map_hints & sub_080A6F40()` (src/menu/pauseMenu.c
-         * sub_080A6438, src/menu/pauseMenuScreen6.c sub_080A68D4). The
+         * `gSave.map_hints & sub_080A6F40()` (engine/src/menu/pauseMenu.c
+         * sub_080A6438, engine/src/menu/pauseMenuScreen6.c sub_080A68D4). The
          * second operand walks gUnk_08128F38's (type, arg) pairs and clears
          * a hint's bit once sub_0807CB24 says its errand is done — local
          * flags and inventory, i.e. exactly the live save state the
@@ -227,7 +227,7 @@ void Port_SecondScreenState_Publish(void) {
         next.mapHints = (uint16_t)(gSave.map_hints & sub_080A6F40());
 
         /* Contextual R prompt, resolved exactly like TextUIElement's
-         * type2 == 9 branch (src/ui.c): the player-state action wins, else
+         * type2 == 9 branch (engine/src/ui.c): the player-state action wins, else
          * the area's portal mode names the shrink/grow prompt, else the
          * interactable under Link. The frame id the HUD would actually
          * stamp is that value plus the language's label-block offset —
@@ -256,7 +256,7 @@ void Port_SecondScreenState_Publish(void) {
         }
 
         /* Mirror of the pause menu's item-screen fill loop
-         * (src/menu/pauseMenu.c: PauseMenu_ItemMenu_Init): every owned
+         * (engine/src/menu/pauseMenu.c: PauseMenu_ItemMenu_Init): every owned
          * activatable item lands in its ItemMetaData menu slot; later item
          * ids overwrite earlier ones in the same slot, exactly like the
          * real menu. */
