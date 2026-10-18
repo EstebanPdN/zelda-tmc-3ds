@@ -1,6 +1,34 @@
-# The Minish Cap 3DS
+<h1 align="center">The Minish Cap 3DS</h1>
 
-<img width="1672" height="941" alt="The Minish Cap 3DS" src="https://github.com/user-attachments/assets/db99e777-12a2-4222-86c3-7c8f14062586" />
+<p align="center">
+  <strong>A small hero. A two-screen adventure.</strong><br>
+  The Minish Cap, adapted for Nintendo 3DS.
+</p>
+
+<p align="center">
+  <a href="#download-and-installation">Download</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#documentation">Documentation</a> ·
+  <a href="docs/CONTRIBUTING.md">Contribute</a> ·
+  <a href="#community-and-bug-reports">Community</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/EstebanPdN/zelda-tmc-3ds/releases/tag/v2.1"><img src="docs/badges/version.svg" alt="Stable release: v2.1" height="22"></a>
+  <a href="#download-and-installation"><img src="docs/badges/platform.svg" alt="Nintendo 3DS" height="22"></a>
+  <a href="https://github.com/EstebanPdN/zelda-tmc-3ds/releases/tag/v2.2-E1"><img src="docs/badges/experimental.svg" alt="Experimental: v2.2-E1" height="22"></a>
+  <a href="#updates"><img src="docs/badges/updater.svg" alt="Updates: built in" height="22"></a>
+  <a href="THIRD-PARTY-LICENSES.md"><img src="docs/badges/license.svg" alt="Component-specific licenses" height="22"></a>
+</p>
+
+<p align="center">
+  <img width="1200" alt="The Minish Cap 3DS" src="https://github.com/user-attachments/assets/db99e777-12a2-4222-86c3-7c8f14062586" />
+</p>
+
+<p align="center">
+  <a href="https://estebanpdn.github.io/"><img src="docs/images/website.svg" alt="Visit Esteban’s Forge" width="142" height="46"></a>
+  <a href="https://discord.gg/BjbzfRYpV"><img src="docs/images/discord-official.svg" alt="Join our Discord community" width="166" height="46"></a>
+</p>
 
 Nintendo 3DS dual-screen port of *The Legend of Zelda: The Minish Cap*, based on the open-source Minish Cap decompilation, Project Picori, and the dual-screen Android port.
 
@@ -14,13 +42,20 @@ This project is based on open-source work from:
 
 No ROM or extracted Nintendo game assets are distributed with this project. You must provide your own legally obtained compatible Game Boy Advance ROM.
 
-## Community
-
-Join my Discord for updates, support, bug reports, testing builds, suggestions, and other Nintendo 3DS homebrew projects:
-
-https://discord.gg/zy8BqH5ss
-
 ## Features
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><strong>Explore a smaller world</strong><br>Native Minish Cap gameplay with USA and European ROM support and regional backports.</td>
+    <td width="50%" valign="top"><strong>Made for two screens</strong><br>Wide top-screen gameplay with maps, quest status, touch items and settings below.</td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><strong>Choose your presentation</strong><br>Wide, Original and Stretch modes; Blur, Bilinear and Pixel Perfect styles.</td>
+    <td width="50%" valign="top"><strong>Keep it current</strong><br>Stable / Pre-release updates, persistent settings, native audio and diagnostic checkpoints.</td>
+  </tr>
+</table>
+
+### Feature details
 
 * Native Nintendo 3DS port with full dual-screen support.
 * Supports both USA and European ROMs with automatic region detection.
@@ -47,7 +82,16 @@ The port automatically selects a performance profile for the detected console.
 
 The bottom-screen worker avoids redundant static redraws while keeping touch input sampled on every engine tick.
 
-## Installation
+<a id="installation"></a>
+
+## Download and installation
+
+<p>
+  <a href="https://github.com/EstebanPdN/zelda-tmc-3ds/releases/download/v2.1/tmc-3ds-v2.1.cia"><img src="docs/images/download-cia.svg" alt="Download The Minish Cap 3DS CIA" width="210" height="46"></a>
+  <a href="https://github.com/EstebanPdN/zelda-tmc-3ds/releases/download/v2.1/tmc-3ds-v2.1.3dsx"><img src="docs/images/download-3dsx.svg" alt="Download Homebrew Launcher 3DSX" width="210" height="46"></a>
+</p>
+
+**Stable: [v2.1](https://github.com/EstebanPdN/zelda-tmc-3ds/releases/tag/v2.1).** Experimental: [v2.2-E1](https://github.com/EstebanPdN/zelda-tmc-3ds/releases/tag/v2.2-E1).
 
 **Experimental v2.2-E1** fixes normal saves being rejected when previous
 versions left empty legacy metadata beside them. Install it over the existing
@@ -157,6 +201,16 @@ Latest release:
 
 https://github.com/EstebanPdN/zelda-tmc-3ds/releases/latest
 
+## Documentation
+
+| Guide | Purpose |
+| --- | --- |
+| [3DS guide](platform/3ds/README.md) | Platform controls, setup and diagnostics. |
+| [Documentation index](docs/README.md) | Engine, regional and development documentation. |
+| [European gameplay backports](docs/eu-backport.md) | Native regional changes and compatibility. |
+| [Contributing](docs/CONTRIBUTING.md) | Development guidance. |
+| [Updates](#updates) | Channels, verification and installation recovery. |
+
 ## Building
 
 Requirements:
@@ -211,3 +265,20 @@ Nintendo owns *The Legend of Zelda*, *The Minish Cap*, and all associated game c
 This is an unofficial fan-made project and is not affiliated with or endorsed by Nintendo.
 
 No ROM, extracted Nintendo game assets, save data, or firmware is distributed with this project.
+
+## Community and bug reports
+
+[Join the project Discord](https://discord.gg/BjbzfRYpV) for updates, testing,
+suggestions and support. Use [GitHub issues](https://github.com/EstebanPdN/zelda-tmc-3ds/issues)
+for reproducible reports, including your version, console model and steps to
+reproduce the problem. Review diagnostic captures before sharing them.
+
+---
+
+<p align="center">
+  <a href="https://estebanpdn.github.io/">Esteban’s Forge</a> ·
+  <a href="https://discord.gg/BjbzfRYpV">Discord</a> ·
+  <a href="#documentation">Documentation</a> ·
+  <a href="THIRD-PARTY-LICENSES.md">License and notices</a><br>
+  <sub>An independent fan project. Game names and content belong to their respective owners.</sub>
+</p>
