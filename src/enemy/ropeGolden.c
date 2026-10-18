@@ -26,8 +26,7 @@ typedef struct {
     /*0x7a*/ u8 unk_7a;
 } RopeGoldenEntity;
 
-PORT_STATIC_ASSERT_OFFSET(RopeGoldenEntity, unk_78, 0x78, 0xA4,
-                          "RopeGoldenEntity unk_78 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(RopeGoldenEntity, unk_78, 0x78, 0xA4, "RopeGoldenEntity unk_78 offset incorrect");
 
 void RopeGolden_OnTick(RopeGoldenEntity* this);
 void RopeGolden_OnCollision(RopeGoldenEntity* this);
@@ -129,9 +128,9 @@ void sub_08038304(RopeGoldenEntity* this) {
     if (!ProcessMovement0(super)) {
         if (this->unk_78 == super->direction) {
             if (REGION_IS_EU) {
-            super->subtimer = 30;
+                super->subtimer = 30;
             } else {
-            super->subtimer = 90;
+                super->subtimer = 90;
             }
             sub_080383AC(this);
         } else {

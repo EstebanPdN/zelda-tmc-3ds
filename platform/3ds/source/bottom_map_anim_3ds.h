@@ -48,8 +48,7 @@ uint32_t BottomMapAnim_Signature(uint32_t tick, int isDungeon, int32_t width, in
 /* Whether a cadence-due MAP paint at `tick` must actually run, given that the
  * last scheduled paint used `paintedTick`. Engine-state changes are handled
  * separately by the caller's snapshot comparison; this covers animation only. */
-int BottomMapAnim_NeedsPaint(uint32_t tick, uint32_t paintedTick, int isDungeon, int32_t width,
-                             int32_t height);
+int BottomMapAnim_NeedsPaint(uint32_t tick, uint32_t paintedTick, int isDungeon, int32_t width, int32_t height);
 
 #ifdef __cplusplus
 }

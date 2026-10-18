@@ -190,8 +190,8 @@ static inline u32 Port_ReadU32(const void* data) {
 /* Resolve one packed data pointer from an explicitly selected ROM table. The
  * buffer form makes regional provenance and all bounds independently testable
  * without embedding retail bytes in a regression fixture. */
-static inline const u8* Port_ResolvePackedRomDataPtrFromRom(const u8* romData, u32 romSize, u32 tableOffset,
-                                                           u32 index, u32 minimumTargetBytes) {
+static inline const u8* Port_ResolvePackedRomDataPtrFromRom(const u8* romData, u32 romSize, u32 tableOffset, u32 index,
+                                                            u32 minimumTargetBytes) {
     u32 entryOffset;
     u32 gbaAddress;
     u32 dataOffset;
@@ -232,7 +232,7 @@ static inline const u8* Port_ResolveFuserDataFromRom(const u8* romData, u32 romS
  * regional offset or missing terminator now returns no fuser instead of walking
  * arbitrary ROM/host memory. Packed result: textId in bits 32..47, fuserId low. */
 static inline u64 Port_FindEntityFuserDataFromRom(const u8* romData, u32 romSize, u32 tableOffset, u8 id, u8 type,
-                                                 u8 type2) {
+                                                  u8 type2) {
     static const u32 masks[4] = {
         0x00FFFFFFu, /* id + type + type2 */
         0x00FFFF00u, /* id + type */
@@ -253,16 +253,21 @@ static inline u64 Port_FindEntityFuserDataFromRom(const u8* romData, u32 romSize
         u32 maskIndex;
         u32 fuserId;
 
-        if (record > (UINT32_MAX - tableOffset) / PORT_FUSER_ENTITY_RECORD_SIZE) return 0;
+        if (record > (UINT32_MAX - tableOffset) / PORT_FUSER_ENTITY_RECORD_SIZE)
+            return 0;
         entryOffset = tableOffset + record * PORT_FUSER_ENTITY_RECORD_SIZE;
-        if (entryOffset > romSize || PORT_FUSER_ENTITY_RECORD_SIZE > romSize - entryOffset) return 0;
+        if (entryOffset > romSize || PORT_FUSER_ENTITY_RECORD_SIZE > romSize - entryOffset)
+            return 0;
         entry = romData + entryOffset;
-        if (entry[0] == 0) return 0;
+        if (entry[0] == 0)
+            return 0;
         entryKey = ((u32)entry[0] << 16) | ((u32)entry[1] << 8) | entry[2];
         maskIndex = ((entry[1] == 0xFF) ? 2u : 0u) | ((entry[2] == 0xFF) ? 1u : 0u);
-        if ((key & masks[maskIndex]) != (entryKey & masks[maskIndex])) continue;
+        if ((key & masks[maskIndex]) != (entryKey & masks[maskIndex]))
+            continue;
         fuserId = entry[3];
-        if (fuserId >= PORT_FUSER_TABLE_COUNT) return 0;
+        if (fuserId >= PORT_FUSER_TABLE_COUNT)
+            return 0;
         return ((u64)((u32)entry[4] | ((u32)entry[5] << 8)) << 32) | fuserId;
     }
     return 0;
@@ -275,18 +280,23 @@ static inline int Port_IsFuserSaveStateValid(const u8* fuserData, u32 progress, 
     u32 listLength;
     int offerValid;
 
-    if (fuserData == NULL) return 0;
+    if (fuserData == NULL)
+        return 0;
     for (listLength = 0; listLength <= PORT_FUSER_FUSION_MAX_OFFERS; ++listLength) {
-        if (fuserData[5u + listLength] == 0) break;
+        if (fuserData[5u + listLength] == 0)
+            break;
     }
-    if (listLength > PORT_FUSER_FUSION_MAX_OFFERS || progress > listLength) return 0;
+    if (listLength > PORT_FUSER_FUSION_MAX_OFFERS || progress > listLength)
+        return 0;
 
-    offerValid = offer == 0 || (offer >= 1 && offer <= 100) || offer == 0xF1 || offer == 0xF2 || offer == 0xF3 ||
-                 offer == 0xFF;
-    if (!offerValid) return 0;
+    offerValid =
+        offer == 0 || (offer >= 1 && offer <= 100) || offer == 0xF1 || offer == 0xF2 || offer == 0xF3 || offer == 0xFF;
+    if (!offerValid)
+        return 0;
     /* JUST_FUSED advances once before inspecting the list. At the terminator
      * that would step beyond the validated record. */
-    if (offer == 0xF2 && progress == listLength) return 0;
+    if (offer == 0xF2 && progress == listLength)
+        return 0;
     return 1;
 }
 
@@ -303,58 +313,64 @@ static inline int Port_IsFuserSaveStateValid(const u8* fuserData, u32 progress, 
  * Special state values remain untouched; some scripts deliberately use them
  * and the normal retail state machine can advance them safely. */
 static inline int Port_IsFuserSaveStateSemanticallyValid(const u8* fuserData, u32 progress, u32 offer,
-                                                         const u8* fusedBits, u32 fusedBytes,
-                                                         const u8* sharedOffers, u32 sharedOfferCount) {
+                                                         const u8* fusedBits, u32 fusedBytes, const u8* sharedOffers,
+                                                         u32 sharedOfferCount) {
     u32 cursorOffer;
     u32 i;
 
-    if (!Port_IsFuserSaveStateValid(fuserData, progress, offer)) return 0;
+    if (!Port_IsFuserSaveStateValid(fuserData, progress, offer))
+        return 0;
 
     /* Fresh save: every fuser starts at cursor zero with no selected offer. */
-    if (offer == 0u) return progress == 0u;
+    if (offer == 0u)
+        return progress == 0u;
 
     /* Preserve retail/script sentinels conservatively.  The structural check
      * has already rejected JUST_FUSED at the terminator. */
-    if (offer == 0xF1u || offer == 0xF2u || offer == 0xF3u || offer == 0xFFu) return 1;
+    if (offer == 0xF1u || offer == 0xF2u || offer == 0xF3u || offer == 0xFFu)
+        return 1;
 
     /* The only remaining structurally valid values are concrete fusion ids. */
     cursorOffer = fuserData[5u + progress];
-    if (cursorOffer == 0u) return 0;
+    if (cursorOffer == 0u)
+        return 0;
     if (fusedBits == NULL || offer / 8u >= fusedBytes || ((fusedBits[offer / 8u] >> (offer % 8u)) & 1u) != 0u) {
         return 0;
     }
-    if (cursorOffer != 0xFFu) return offer == cursorOffer;
+    if (cursorOffer != 0xFFu)
+        return offer == cursorOffer;
 
-    if (sharedOffers == NULL) return 0;
+    if (sharedOffers == NULL)
+        return 0;
     for (i = 0; i < sharedOfferCount; ++i) {
-        if (sharedOffers[i] == offer) return 1;
+        if (sharedOffers[i] == offer)
+            return 1;
     }
     return 0;
 }
 
-#define PORT_FUSER_E1_EU_TABLE_DISPLACEMENT \
-    ((PORT_FUSER_FUSION_PTRS_EU - PORT_FUSER_FUSION_PTRS_USA) / sizeof(u32))
+#define PORT_FUSER_E1_EU_TABLE_DISPLACEMENT ((PORT_FUSER_FUSION_PTRS_EU - PORT_FUSER_FUSION_PTRS_USA) / sizeof(u32))
 
 /* Automatic mutation is intentionally narrower than semantic validation.
  * Only an EU vanilla state which is impossible against the corrected table
  * but valid against E1's exactly-42-entries-early table has enough provenance
  * to repair without guessing. USA, JP, nonstandard profiles, the non-displaced EU ids,
  * malformed cursors, and every other mismatch fail closed at the caller. */
-static inline int Port_ShouldRepairE1EuFuserSaveState(
-    int activeRegionIsEu, int nonstandardProfile, u32 fuserId, const u8* correctedFuserData,
-    const u8* e1FuserData, u32 progress, u32 offer, const u8* fusedBits, u32 fusedBytes,
-    const u8* sharedOffers, u32 sharedOfferCount) {
+static inline int Port_ShouldRepairE1EuFuserSaveState(int activeRegionIsEu, int nonstandardProfile, u32 fuserId,
+                                                      const u8* correctedFuserData, const u8* e1FuserData, u32 progress,
+                                                      u32 offer, const u8* fusedBits, u32 fusedBytes,
+                                                      const u8* sharedOffers, u32 sharedOfferCount) {
     if (!activeRegionIsEu || nonstandardProfile || fuserId < PORT_FUSER_E1_EU_TABLE_DISPLACEMENT ||
         fuserId >= PORT_FUSER_TABLE_COUNT || e1FuserData == NULL ||
         !Port_IsFuserSaveStateValid(correctedFuserData, progress, offer)) {
         return 0;
     }
-    if (Port_IsFuserSaveStateSemanticallyValid(correctedFuserData, progress, offer, fusedBits, fusedBytes,
-                                               sharedOffers, sharedOfferCount)) {
+    if (Port_IsFuserSaveStateSemanticallyValid(correctedFuserData, progress, offer, fusedBits, fusedBytes, sharedOffers,
+                                               sharedOfferCount)) {
         return 0;
     }
-    return Port_IsFuserSaveStateSemanticallyValid(e1FuserData, progress, offer, fusedBits, fusedBytes,
-                                                  sharedOffers, sharedOfferCount);
+    return Port_IsFuserSaveStateSemanticallyValid(e1FuserData, progress, offer, fusedBits, fusedBytes, sharedOffers,
+                                                  sharedOfferCount);
 }
 
 static inline const u8* Port_ResolveFusionTextDataFromRom(const u8* romData, u32 romSize, u32 tableOffset,
@@ -371,8 +387,7 @@ static inline const u8* Port_ResolvePairedFusionTextDataFromRom(const u8* romDat
 /* Resolve one entry of the ROM's packed collision-mask pointer table. Each
  * target is a 16-row u16 bitmap. This helper is deliberately buffer-based so
  * region selection can be regression-tested without a retail ROM. */
-static inline const u16* Port_ResolveCollisionShapeFromRom(const u8* romData, u32 romSize, u32 tableOffset,
-                                                           u32 index) {
+static inline const u16* Port_ResolveCollisionShapeFromRom(const u8* romData, u32 romSize, u32 tableOffset, u32 index) {
     u32 entryBytes;
     u32 gbaAddress;
     u32 dataOffset;

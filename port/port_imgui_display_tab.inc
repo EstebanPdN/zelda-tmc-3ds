@@ -2,26 +2,30 @@
  * per-tab UI code stays in smaller, navigable chunks. This file is
  * included into the same translation unit and intentionally relies on
  * the surrounding ImGui/Port_* declarations already visible there. */
-extern "C" { typedef void (*PortStepCycle)(int); }
+extern "C" {
+typedef void (*PortStepCycle)(int);
+}
 typedef const char* (*PortStepValue)(char* buf, size_t cap);
 
 /* One Display-tab settings row: label, then a <value> stepper flanked by
  * < / > buttons. getValue() is read *between* the buttons so a click's new
  * value shows the same frame, matching the hand-written rows. */
-static void StepperRow(const char* label, const char* id,
-                       PortStepValue getValue, PortStepCycle onCycle) {
+static void StepperRow(const char* label, const char* id, PortStepValue getValue, PortStepCycle onCycle) {
     char tag[24];
     ImGui::TableNextRow();
-    ImGui::TableSetColumnIndex(0); ImGui::Text("%s", label);
+    ImGui::TableSetColumnIndex(0);
+    ImGui::Text("%s", label);
     ImGui::TableSetColumnIndex(1);
     std::snprintf(tag, sizeof(tag), "<##%s", id);
-    if (ImGui::Button(tag)) onCycle(-1);
+    if (ImGui::Button(tag))
+        onCycle(-1);
     ImGui::SameLine();
     char buf[24];
     ImGui::Text("%s", getValue(buf, sizeof(buf)));
     ImGui::SameLine();
     std::snprintf(tag, sizeof(tag), ">##%s", id);
-    if (ImGui::Button(tag)) onCycle(+1);
+    if (ImGui::Button(tag))
+        onCycle(+1);
 }
 
 static void DrawRibbonDisplayTab(void) {
@@ -33,36 +37,43 @@ static void DrawRibbonDisplayTab(void) {
 
         // Window scale - value captured before the buttons (read-before).
         ImGui::TableNextRow();
-        ImGui::TableSetColumnIndex(0); ImGui::Text("Window scale");
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Window scale");
         ImGui::TableSetColumnIndex(1);
         int scale = (int)Port_PPU_WindowScale();
-        if (ImGui::Button("<##scale")) Port_PPU_CycleWindowScale(-1);
-        ImGui::SameLine(); ImGui::Text("%dx", scale); ImGui::SameLine();
-        if (ImGui::Button(">##scale")) Port_PPU_CycleWindowScale(+1);
+        if (ImGui::Button("<##scale"))
+            Port_PPU_CycleWindowScale(-1);
+        ImGui::SameLine();
+        ImGui::Text("%dx", scale);
+        ImGui::SameLine();
+        if (ImGui::Button(">##scale"))
+            Port_PPU_CycleWindowScale(+1);
 
-        StepperRow("Filter", "filter",
-                   [](char*, size_t) { return Port_PPU_PresentationModeName(); },
-                   Port_PPU_CyclePresentationMode);
+        StepperRow(
+            "Filter", "filter", [](char*, size_t) { return Port_PPU_PresentationModeName(); },
+            Port_PPU_CyclePresentationMode);
 
-        StepperRow("Target FPS", "fps",
-                   [](char* b, size_t n) -> const char* {
-                       unsigned fps = Port_Config_TargetFps();
-                       if (fps == 0) return "uncapped";
-                       std::snprintf(b, n, "%u", fps);
-                       return b;
-                   },
-                   Port_Config_CycleTargetFps);
-        HelpTooltip(
-            "How often frames are presented to the display. With 'Decouple game "
-            "speed' on (default) this only changes display smoothness - the game "
-            "always runs at normal speed, and 'uncapped' acts as a persistent "
-            "fast-forward. With it off, this paces the engine directly, so 120 "
-            "runs the game at 2x speed.");
+        StepperRow(
+            "Target FPS", "fps",
+            [](char* b, size_t n) -> const char* {
+                unsigned fps = Port_Config_TargetFps();
+                if (fps == 0)
+                    return "uncapped";
+                std::snprintf(b, n, "%u", fps);
+                return b;
+            },
+            Port_Config_CycleTargetFps);
+        HelpTooltip("How often frames are presented to the display. With 'Decouple game "
+                    "speed' on (default) this only changes display smoothness - the game "
+                    "always runs at normal speed, and 'uncapped' acts as a persistent "
+                    "fast-forward. With it off, this paces the engine directly, so 120 "
+                    "runs the game at 2x speed.");
 
         /* Decoupled pacing: game logic on a fixed tick grid, presents on the
          * Target FPS grid (port_bios.c). Off = legacy coupled loop. */
         ImGui::TableNextRow();
-        ImGui::TableSetColumnIndex(0); ImGui::Text("Decouple game speed");
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Decouple game speed");
         ImGui::TableSetColumnIndex(1);
         {
             bool dec = Port_Config_GetDecoupleRender();
@@ -70,15 +81,15 @@ static void DrawRibbonDisplayTab(void) {
                 Port_Config_SetDecoupleRender(dec);
             }
         }
-        HelpTooltip(
-            "Runs game logic at a fixed 60 Hz (or the exact GBA rate in "
-            "Console-Parity mode) no matter what Target FPS or VSync do. "
-            "Fast-forward gets faster too: the engine skips rendering the "
-            "frames it doesn't show.");
+        HelpTooltip("Runs game logic at a fixed 60 Hz (or the exact GBA rate in "
+                    "Console-Parity mode) no matter what Target FPS or VSync do. "
+                    "Fast-forward gets faster too: the engine skips rendering the "
+                    "frames it doesn't show.");
 
         /* On-screen FPS/TPS counter (DrawFpsOverlay, port_imgui_menu.cpp). */
         ImGui::TableNextRow();
-        ImGui::TableSetColumnIndex(0); ImGui::Text("Show FPS counter");
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Show FPS counter");
         ImGui::TableSetColumnIndex(1);
         {
             bool sf = Port_Config_GetShowFps();
@@ -86,40 +97,43 @@ static void DrawRibbonDisplayTab(void) {
                 Port_Config_SetShowFps(sf);
             }
         }
-        HelpTooltip(
-            "Top-right overlay. FPS = frames shown per second (render rate); "
-            "TPS = game logic ticks per second. With decoupling on, TPS "
-            "staying at 60 while FPS follows your Target FPS is the split "
-            "working. TPS turns red when the game runs off-speed "
-            "(fast-forward, or the machine can't keep up).");
+        HelpTooltip("Top-right overlay. FPS = frames shown per second (render rate); "
+                    "TPS = game logic ticks per second. With decoupling on, TPS "
+                    "staying at 60 while FPS follows your Target FPS is the split "
+                    "working. TPS turns red when the game runs off-speed "
+                    "(fast-forward, or the machine can't keep up).");
 
-        StepperRow("Internal scale", "iscale",
-                   [](char* b, size_t n) -> const char* {
-                       std::snprintf(b, n, "%ux", (unsigned)Port_Config_InternalScale());
-                       return b;
-                   },
-                   Port_Config_CycleInternalScale);
-        HelpTooltip(
-            "Renders the GBA frame at this integer multiple internally before "
-            "the final upscale. It only changes sampling quality when a shader "
-            "or the widescreen path resamples the image - with the default "
-            "nearest-neighbour 2D output it has no visible effect. Leave at 1x "
-            "unless a shader you're using benefits from supersampling.");
+        StepperRow(
+            "Internal scale", "iscale",
+            [](char* b, size_t n) -> const char* {
+                std::snprintf(b, n, "%ux", (unsigned)Port_Config_InternalScale());
+                return b;
+            },
+            Port_Config_CycleInternalScale);
+        HelpTooltip("Renders the GBA frame at this integer multiple internally before "
+                    "the final upscale. It only changes sampling quality when a shader "
+                    "or the widescreen path resamples the image - with the default "
+                    "nearest-neighbour 2D output it has no visible effect. Leave at 1x "
+                    "unless a shader you're using benefits from supersampling.");
 
-        StepperRow("Aspect ratio", "aspect",
-                   [](char*, size_t) { return Port_Config_AspectModeName(Port_Config_AspectMode()); },
-                   Port_Config_CycleAspectMode);
+        StepperRow(
+            "Aspect ratio", "aspect",
+            [](char*, size_t) { return Port_Config_AspectModeName(Port_Config_AspectMode()); },
+            Port_Config_CycleAspectMode);
 
-        StepperRow("Renderer", "renderer",
-                   [](char*, size_t) { return Port_Config_RenderBackendName(Port_Config_RenderBackend()); },
-                   Port_Config_CycleRenderBackend);
-        ImGui::SameLine(); ImGui::TextDisabled("(restart)");
+        StepperRow(
+            "Renderer", "renderer",
+            [](char*, size_t) { return Port_Config_RenderBackendName(Port_Config_RenderBackend()); },
+            Port_Config_CycleRenderBackend);
+        ImGui::SameLine();
+        ImGui::TextDisabled("(restart)");
 
         /* GPU PPU rasterizer toggle (docs/gpu-rasterizer-design.md). Only
          * meaningful on the SDL_GPU backend; the CPU rasterizer is the
          * automatic fallback. Shown greyed-out otherwise. */
         ImGui::TableNextRow();
-        ImGui::TableSetColumnIndex(0); ImGui::Text("GPU rasterizer");
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("GPU rasterizer");
         ImGui::TableSetColumnIndex(1);
         {
             bool raster = Port_Config_GetGpuRaster();
@@ -137,7 +151,8 @@ static void DrawRibbonDisplayTab(void) {
          * only relevant when the SDL_GPU (Vulkan) backend is NOT active. */
         if (!gpuActive) {
             ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0); ImGui::Text("GLES raster (exp.)");
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("GLES raster (exp.)");
             ImGui::TableSetColumnIndex(1);
             bool gles = Port_Config_GetGpuRasterGles();
             if (ImGui::Checkbox("##gpu_raster_gles", &gles)) {
@@ -147,13 +162,11 @@ static void DrawRibbonDisplayTab(void) {
             ImGui::TextDisabled("(often slower than CPU)");
         }
 
-        StepperRow("Background", "bgfill",
-                   [](char*, size_t) { return Port_Config_BgFillName(Port_Config_BgFill()); },
-                   Port_Config_CycleBgFill);
+        StepperRow(
+            "Background", "bgfill", [](char*, size_t) { return Port_Config_BgFillName(Port_Config_BgFill()); },
+            Port_Config_CycleBgFill);
 
-        StepperRow("CRT filter", "crt",
-                   [](char*, size_t) { return Port_PPU_FilterName(); },
-                   Port_PPU_CycleFilter);
+        StepperRow("CRT filter", "crt", [](char*, size_t) { return Port_PPU_FilterName(); }, Port_PPU_CycleFilter);
 
         ImGui::EndTable();
     }
@@ -179,9 +192,7 @@ static void DrawRibbonDisplayTab(void) {
         ImGui::PopItemWidth();
         ImGui::SameLine();
         ImVec4 sw = ImVec4(rgb[0] / 255.0f, rgb[1] / 255.0f, rgb[2] / 255.0f, 1.0f);
-        ImGui::ColorButton("##bgcol_preview", sw,
-                           ImGuiColorEditFlags_NoPicker |
-                           ImGuiColorEditFlags_NoTooltip,
+        ImGui::ColorButton("##bgcol_preview", sw, ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoTooltip,
                            ImVec2(22, 22));
         ImGui::Unindent(150.0f);
         if (changed) {
@@ -196,8 +207,8 @@ static void DrawRibbonDisplayTab(void) {
         ImGui::Unindent(150.0f);
     } else {
         static std::vector<std::string> sPresetPaths;
-        static std::string              sActivePreset;
-        static bool                     sScannedOnce = false;
+        static std::string sActivePreset;
+        static bool sScannedOnce = false;
 
         auto refresh = [&] {
             sPresetPaths.clear();
@@ -214,7 +225,8 @@ static void DrawRibbonDisplayTab(void) {
             roots.emplace_back(".");
             for (const auto& root : roots) {
                 std::error_code dec;
-                if (!std::filesystem::is_directory(root, dec)) continue;
+                if (!std::filesystem::is_directory(root, dec))
+                    continue;
                 /* skip_permission_denied + the non-throwing increment(ec)
                  * overload: the range-for/`operator++` form throws
                  * filesystem_error mid-recursion on an unreadable entry,
@@ -230,8 +242,7 @@ static void DrawRibbonDisplayTab(void) {
                 }
             }
             std::sort(sPresetPaths.begin(), sPresetPaths.end());
-            sPresetPaths.erase(std::unique(sPresetPaths.begin(), sPresetPaths.end()),
-                               sPresetPaths.end());
+            sPresetPaths.erase(std::unique(sPresetPaths.begin(), sPresetPaths.end()), sPresetPaths.end());
         };
         if (!sScannedOnce) {
             refresh();
@@ -239,21 +250,24 @@ static void DrawRibbonDisplayTab(void) {
              * list shows it selected and "active: ..." renders. */
             if (sActivePreset.empty() && Port_GlslpRuntime_IsActive()) {
                 const char* sp = Port_Config_GetShaderPreset();
-                if (sp && sp[0]) sActivePreset = sp;
+                if (sp && sp[0])
+                    sActivePreset = sp;
             }
             sScannedOnce = true;
         }
 
         ImGui::Indent(150.0f);
-        ImGui::TextUnformatted("Shader preset"); ImGui::SameLine();
+        ImGui::TextUnformatted("Shader preset");
+        ImGui::SameLine();
         if (ImGui::Button("Off##preset")) {
             Port_GlslpRuntime_Unload();
             sActivePreset.clear();
-            Port_Config_SetShaderPreset("");                  /* persist (#146) */
+            Port_Config_SetShaderPreset(""); /* persist (#146) */
             Port_DebugMenu_ToastFromExternal("Shader preset off");
         }
         ImGui::SameLine();
-        if (ImGui::Button("Rescan##preset")) refresh();
+        if (ImGui::Button("Rescan##preset"))
+            refresh();
         ImGui::SameLine();
         ImGui::TextDisabled("(%zu found)", sPresetPaths.size());
 
@@ -263,18 +277,18 @@ static void DrawRibbonDisplayTab(void) {
         }
 
         if (!sPresetPaths.empty()) {
-            if (ImGui::BeginListBox("##preset_list",
-                    ImVec2(ImGui::GetContentRegionAvail().x - 4.0f, ImGui::GetTextLineHeightWithSpacing() * 3.5f))) {
+            if (ImGui::BeginListBox("##preset_list", ImVec2(ImGui::GetContentRegionAvail().x - 4.0f,
+                                                            ImGui::GetTextLineHeightWithSpacing() * 3.5f))) {
                 for (size_t i = 0; i < sPresetPaths.size(); ++i) {
-                    bool selected = (sPresetPaths[i] == sActivePreset)
-                                    && Port_GlslpRuntime_IsActive();
+                    bool selected = (sPresetPaths[i] == sActivePreset) && Port_GlslpRuntime_IsActive();
                     std::string label = std::filesystem::path(sPresetPaths[i]).filename().string();
-                    label += "    "; label += sPresetPaths[i];
+                    label += "    ";
+                    label += sPresetPaths[i];
                     if (ImGui::Selectable(label.c_str(), selected)) {
                         if (selected) {
                             Port_GlslpRuntime_Unload();
                             sActivePreset.clear();
-                            Port_Config_SetShaderPreset("");          /* persist (#146) */
+                            Port_Config_SetShaderPreset(""); /* persist (#146) */
                             Port_DebugMenu_ToastFromExternal("Shader preset off");
                         } else if (Port_GlslpRuntime_Load(sPresetPaths[i].c_str())) {
                             sActivePreset = sPresetPaths[i];
@@ -308,62 +322,59 @@ static void DrawRibbonDisplayTab(void) {
     bool fs = Port_PPU_IsFullscreen();
     if (ImGui::Checkbox("Fullscreen", &fs)) {
         Port_PPU_ToggleFullscreen();
-        Port_Config_SetFullscreen(Port_PPU_IsFullscreen());   /* persist (#146) */
+        Port_Config_SetFullscreen(Port_PPU_IsFullscreen()); /* persist (#146) */
     }
     ImGui::SameLine();
 
     bool hideCur = Port_Config_GetFullscreenHideCursor();
     if (ImGui::Checkbox("Hide cursor in fullscreen", &hideCur)) {
-        Port_Config_SetFullscreenHideCursor(hideCur);         /* persist */
-        Port_PPU_ApplyCursorVisibility();                     /* live, if already fullscreen */
+        Port_Config_SetFullscreenHideCursor(hideCur); /* persist */
+        Port_PPU_ApplyCursorVisibility();             /* live, if already fullscreen */
     }
     ImGui::SameLine();
 
     bool vsync = Port_PPU_VSyncEnabled();
     if (ImGui::Checkbox("VSync", &vsync)) {
         Port_PPU_SetVSync(vsync);
-        Port_Config_SetVSync(vsync);                          /* persist (#146) */
+        Port_Config_SetVSync(vsync); /* persist (#146) */
     }
     ImGui::SameLine();
 
     bool drp = Port_DiscordRpc_IsEnabled();
     if (ImGui::Checkbox("Discord RPC", &drp)) {
         Port_DiscordRpc_SetEnabled(drp);
-        Port_Config_SetDiscordRpc(drp);                       /* persist (#146) */
+        Port_Config_SetDiscordRpc(drp); /* persist (#146) */
     }
-    HelpTooltip(
-        "Publishes your current area and heart/rupee count to Discord as a "
-        "Rich Presence status.\n\n"
-        "Requires a Discord application ID compiled into the build "
-        "(discord_app_id.txt, not shipped by default), so it stays inactive in "
-        "release builds that ship without one. Also currently a no-op on "
-        "Windows (the named-pipe IPC client is not yet implemented).");
+    HelpTooltip("Publishes your current area and heart/rupee count to Discord as a "
+                "Rich Presence status.\n\n"
+                "Requires a Discord application ID compiled into the build "
+                "(discord_app_id.txt, not shipped by default), so it stays inactive in "
+                "release builds that ship without one. Also currently a no-op on "
+                "Windows (the named-pipe IPC client is not yet implemented).");
 
     bool colourCorrect = Port_PPU_ColorCorrectionEnabled();
     if (ImGui::Checkbox("GBA colour correction", &colourCorrect)) {
-        Port_PPU_SetColorCorrection(colourCorrect);           /* live */
-        Port_Config_SetColorCorrection(colourCorrect);        /* persist */
+        Port_PPU_SetColorCorrection(colourCorrect);    /* live */
+        Port_Config_SetColorCorrection(colourCorrect); /* persist */
     }
-    HelpTooltip(
-        "Remaps the raw 15-bit palette through the GBA's dim, high-gamma "
-        "reflective-LCD response so colours match the handheld instead of "
-        "looking over-bright on a modern sRGB display. Default on.");
+    HelpTooltip("Remaps the raw 15-bit palette through the GBA's dim, high-gamma "
+                "reflective-LCD response so colours match the handheld instead of "
+                "looking over-bright on a modern sRGB display. Default on.");
 
     bool lcdPersist = Port_Config_GetLcdPersistence();
     if (ImGui::Checkbox("LCD persistence", &lcdPersist)) {
-        Port_Config_SetLcdPersistence(lcdPersist);            /* persist */
+        Port_Config_SetLcdPersistence(lcdPersist); /* persist */
         Port_PPU_SetPersistence(lcdPersist, Port_Config_GetLcdPersistenceRho());
     }
-    HelpTooltip(
-        "Reproduces the slow pixel response (ghosting) of the GBA LCD by "
-        "blending each frame into the previous one. Some flicker/dither "
-        "transparency effects were designed around it. Default off.");
+    HelpTooltip("Reproduces the slow pixel response (ghosting) of the GBA LCD by "
+                "blending each frame into the previous one. Some flicker/dither "
+                "transparency effects were designed around it. Default off.");
     if (lcdPersist) {
         float rho = Port_Config_GetLcdPersistenceRho();
         ImGui::SetNextItemWidth(160.0f);
         if (ImGui::SliderFloat("Persistence strength", &rho, 0.0f, 0.95f, "%.2f")) {
-            Port_Config_SetLcdPersistenceRho(rho);            /* persist */
-            Port_PPU_SetPersistence(true, rho);               /* live */
+            Port_Config_SetLcdPersistenceRho(rho); /* persist */
+            Port_PPU_SetPersistence(true, rho);    /* live */
         }
     }
 
@@ -371,8 +382,7 @@ static void DrawRibbonDisplayTab(void) {
     if (ImGui::Checkbox("Hold to advance text", &holdAdv)) {
         Port_Config_SetHoldToAdvanceText(holdAdv);
     }
-    HelpTooltip(
-        "When on, holding an advance button (A / B / R / D-pad) keeps text "
-        "pages turning instead of needing a fresh press each page. Default off "
-        "preserves GBA-accurate timing for timed cutscenes.");
+    HelpTooltip("When on, holding an advance button (A / B / R / D-pad) keeps text "
+                "pages turning instead of needing a fresh press each page. Default off "
+                "preserves GBA-accurate timing for timed cutscenes.");
 }

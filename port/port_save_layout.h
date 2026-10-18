@@ -43,20 +43,27 @@ static inline int Port_SaveLayoutScore(const u8* bytes, size_t flagsOffset) {
     const unsigned lv4 = Port_SaveLayoutFlag(bytes, flagsOffset, LV4_CLEAR);
     const unsigned lv5 = Port_SaveLayoutFlag(bytes, flagsOffset, LV5_CLEAR);
     const int storyRank = Port_SaveLayoutStoryRank(bytes, flagsOffset);
-    const bool advancedInventory =
-        Port_SaveLayoutInventory(bytes, ITEM_PEGASUS_BOOTS) != 0 ||
-        Port_SaveLayoutInventory(bytes, ITEM_SKILL_DASH_ATTACK) != 0 ||
-        Port_SaveLayoutInventory(bytes, ITEM_FOURSWORD) != 0;
+    const bool advancedInventory = Port_SaveLayoutInventory(bytes, ITEM_PEGASUS_BOOTS) != 0 ||
+                                   Port_SaveLayoutInventory(bytes, ITEM_SKILL_DASH_ATTACK) != 0 ||
+                                   Port_SaveLayoutInventory(bytes, ITEM_FOURSWORD) != 0;
     int score = storyRank * 3;
 
-    if (progress >= 2) score += lv1 ? 4 : -4;
-    if (progress >= 5) score += lv3 ? 3 : -3;
-    if (progress >= 6) score += lv4 ? 3 : -3;
-    if (progress >= 8) score += lv5 ? 3 : -3;
-    if (lv3 && !lv1) score -= 2;
-    if (lv4 && !lv3) score -= 2;
-    if (lv5 && !lv4) score -= 2;
-    if (advancedInventory) score += storyRank >= 2 ? 3 : -3;
+    if (progress >= 2)
+        score += lv1 ? 4 : -4;
+    if (progress >= 5)
+        score += lv3 ? 3 : -3;
+    if (progress >= 6)
+        score += lv4 ? 3 : -3;
+    if (progress >= 8)
+        score += lv5 ? 3 : -3;
+    if (lv3 && !lv1)
+        score -= 2;
+    if (lv4 && !lv3)
+        score -= 2;
+    if (lv5 && !lv4)
+        score -= 2;
+    if (advancedInventory)
+        score += storyRank >= 2 ? 3 : -3;
     return score;
 }
 
@@ -67,18 +74,24 @@ static inline bool Port_SaveLayoutIsCoherent(const u8* bytes, size_t flagsOffset
     const unsigned lv4 = Port_SaveLayoutFlag(bytes, flagsOffset, LV4_CLEAR);
     const unsigned lv5 = Port_SaveLayoutFlag(bytes, flagsOffset, LV5_CLEAR);
     const int storyRank = Port_SaveLayoutStoryRank(bytes, flagsOffset);
-    const bool advancedInventory =
-        Port_SaveLayoutInventory(bytes, ITEM_PEGASUS_BOOTS) != 0 ||
-        Port_SaveLayoutInventory(bytes, ITEM_SKILL_DASH_ATTACK) != 0 ||
-        Port_SaveLayoutInventory(bytes, ITEM_FOURSWORD) != 0;
+    const bool advancedInventory = Port_SaveLayoutInventory(bytes, ITEM_PEGASUS_BOOTS) != 0 ||
+                                   Port_SaveLayoutInventory(bytes, ITEM_SKILL_DASH_ATTACK) != 0 ||
+                                   Port_SaveLayoutInventory(bytes, ITEM_FOURSWORD) != 0;
 
-    if (storyRank < 0) return false;
-    if (progress >= 2 && !lv1) return false;
-    if (progress >= 5 && !lv3) return false;
-    if (progress >= 6 && !lv4) return false;
-    if (progress >= 8 && !lv5) return false;
-    if ((lv3 && !lv1) || (lv4 && !lv3) || (lv5 && !lv4)) return false;
-    if (advancedInventory && storyRank < 2) return false;
+    if (storyRank < 0)
+        return false;
+    if (progress >= 2 && !lv1)
+        return false;
+    if (progress >= 5 && !lv3)
+        return false;
+    if (progress >= 6 && !lv4)
+        return false;
+    if (progress >= 8 && !lv5)
+        return false;
+    if ((lv3 && !lv1) || (lv4 && !lv3) || (lv5 && !lv4))
+        return false;
+    if (advancedInventory && storyRank < 2)
+        return false;
     return true;
 }
 
@@ -110,15 +123,13 @@ static inline bool Port_SaveLayoutLooksLegacyWithPolicy(const SaveFile* save, bo
     const int canonicalScore = Port_SaveLayoutScore(bytes, canonicalFlags);
     const int legacyScore = Port_SaveLayoutScore(bytes, legacyFlags);
     const bool knownVanillaLv1Collision =
-        allowVanillaLv1Collision &&
-        Port_SaveLayoutIsKnownVanillaLv1Collision(bytes, canonicalFlags, legacyFlags);
+        allowVanillaLv1Collision && Port_SaveLayoutIsKnownVanillaLv1Collision(bytes, canonicalFlags, legacyFlags);
 
     /* Fail closed on the inherently ambiguous early-v1.0 case: a zero byte at
      * 0x25B is indistinguishable from canonical padding without version
      * metadata. Likewise, never reinterpret a coherent canonical record except
      * for the tightly scoped, vanilla-only LV1/MACHI_SET_1 collision above. */
-    if (bytes[legacyFlags] == 0 ||
-        (Port_SaveLayoutIsCoherent(bytes, canonicalFlags) && !knownVanillaLv1Collision) ||
+    if (bytes[legacyFlags] == 0 || (Port_SaveLayoutIsCoherent(bytes, canonicalFlags) && !knownVanillaLv1Collision) ||
         !Port_SaveLayoutIsCoherent(bytes, legacyFlags)) {
         return false;
     }

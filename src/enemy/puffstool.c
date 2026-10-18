@@ -39,10 +39,8 @@ typedef struct {
     /*0x86*/ u16 tilePos;
 } PuffstoolEntity;
 
-PORT_STATIC_ASSERT_OFFSET(PuffstoolEntity, unk_78, 0x78, 0xA4,
-                          "PuffstoolEntity unk_78 offset incorrect");
-PORT_STATIC_ASSERT_OFFSET(PuffstoolEntity, unk_80, 0x80, 0xB0,
-                          "PuffstoolEntity unk_80 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(PuffstoolEntity, unk_78, 0x78, 0xA4, "PuffstoolEntity unk_78 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(PuffstoolEntity, unk_80, 0x80, 0xB0, "PuffstoolEntity unk_80 offset incorrect");
 
 extern u8 gMapTileTypeToCollisionData[];
 

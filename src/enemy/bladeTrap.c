@@ -19,8 +19,7 @@ typedef struct {
     /*0x74*/ u16 unk_74;
 } BladeTrapEntity;
 
-PORT_STATIC_ASSERT_OFFSET(BladeTrapEntity, unk_74, 0x74, 0xA0,
-                          "BladeTrapEntity unk_74 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(BladeTrapEntity, unk_74, 0x74, 0xA0, "BladeTrapEntity unk_74 offset incorrect");
 
 #define DIR_NOT_MOVING_CHECK 0x80
 

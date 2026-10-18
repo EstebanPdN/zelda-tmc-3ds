@@ -2,7 +2,6 @@
 
 #include "port_ppu_gpu_3ds_model.h"
 
-
 typedef struct PortPpuGpu3DSStats {
     uint64_t attemptedFrames, renderedFrames, fallbackFrames, disabledFrames;
     uint64_t tileHits, tileDecodes, atlasFlushBytes, atlasFlushCalls;
@@ -51,8 +50,7 @@ void PortPpuGpu3DS_WriteFrameCapture(const char* directory);
 unsigned long long PortPpuGpu3DS_EmptyDrawsSkipped(void);
 void PortPpuGpu3DS_RequestParityCheck(void);
 bool PortPpuGpu3DS_ParityRequested(void);
-void PortPpuGpu3DS_CaptureParityReference(const uint32_t* pixels, unsigned pitch,
-                                          unsigned width, unsigned height);
+void PortPpuGpu3DS_CaptureParityReference(const uint32_t* pixels, unsigned pitch, unsigned width, unsigned height);
 bool PortPpuGpu3DS_QueueParityCopy(void);
 void PortPpuGpu3DS_CancelParityCheck(void);
 void PortPpuGpu3DS_DeferParityCheck(void);

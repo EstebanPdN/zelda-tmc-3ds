@@ -14,7 +14,7 @@
 
 typedef struct {
     /*0x00*/ Entity base;
-    /*0x68*/ #if defined(PC_PORT) && (__SIZEOF_POINTER__ == 8)
+/*0x68*/ #if defined (PC_PORT) && (__SIZEOF_POINTER__ == 8)
     u8 unk_68[0x10 + 4];
 #else
     u8 unk_68[0x10];
@@ -25,8 +25,7 @@ typedef struct {
     /*0x7c*/ u16 unk_7c;
 } GhiniEntity;
 
-PORT_STATIC_ASSERT_OFFSET(GhiniEntity, unk_78, 0x78, 0xa4,
-                          "GhiniEntity unk_78 offset (Enemy::child +4 pad)");
+PORT_STATIC_ASSERT_OFFSET(GhiniEntity, unk_78, 0x78, 0xa4, "GhiniEntity unk_78 offset (Enemy::child +4 pad)");
 
 extern void (*const Ghini_Functions[])(GhiniEntity*);
 extern void (*const Ghini_Actions[])(GhiniEntity*);

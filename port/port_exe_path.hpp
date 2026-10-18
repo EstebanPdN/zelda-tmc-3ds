@@ -19,6 +19,6 @@
 
 namespace port {
 std::optional<std::filesystem::path> ExecutableDir();
-}  // namespace port
+} // namespace port
 
-#endif  // PORT_EXE_PATH_HPP
+#endif // PORT_EXE_PATH_HPP

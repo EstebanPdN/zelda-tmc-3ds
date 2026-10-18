@@ -2,7 +2,7 @@
  *
  * This deliberately stays separate from the broad native fast-path fuzzer so
  * it can be compiled against historical E1 and E2 mode1.c revisions without
- * involving the in-progress Full View renderer. It checks the two independent
+ * involving presentation scaling. It checks the two independent
  * hardware rules involved in the report:
  *
  *   1. BG/OBJ: lower numeric priority wins; OBJ wins an equal-priority tie.
@@ -35,8 +35,7 @@ static int ExpectPixel(const char* label, unsigned x, uint32_t expected) {
     if (actual == expected) {
         return 1;
     }
-    fprintf(stderr, "mode1_draw_order_profile_test: %s x=%u got=%08x expected=%08x\n",
-            label, x, actual, expected);
+    fprintf(stderr, "mode1_draw_order_profile_test: %s x=%u got=%08x expected=%08x\n", label, x, actual, expected);
     return 0;
 }
 
@@ -58,8 +57,7 @@ static int CheckCanopyProfile(void) {
     uint8_t bgPriority[MODE1_GBA_BG_COUNT][MODE1_GBA_WIDTH];
     uint32_t obj[MODE1_GBA_WIDTH];
     uint8_t objPriority[MODE1_GBA_WIDTH];
-    const uint16_t dispcnt = MODE1_DISP_BG0_ON | MODE1_DISP_BG1_ON |
-                             MODE1_DISP_BG2_ON | MODE1_DISP_BG3_ON |
+    const uint16_t dispcnt = MODE1_DISP_BG0_ON | MODE1_DISP_BG1_ON | MODE1_DISP_BG2_ON | MODE1_DISP_BG3_ON |
                              MODE1_DISP_OBJ_ON | MODE1_DISP_OBJ_1D;
 
     memset(bg, 0, sizeof(bg));
@@ -157,8 +155,7 @@ static int CheckOamIndexPrecedence(PPUMemory* ppu) {
     sOam[6] = (uint16_t)(1u | (0u << 10u));
     virtuappu_mode1_render_frame(ppu);
     if (virtuappu_frame_buffer[Y * MODE1_GBA_WIDTH + X] != lowIndexColor) {
-        fprintf(stderr,
-                "mode1_draw_order_profile_test: higher OAM index incorrectly replaced lower index\n");
+        fprintf(stderr, "mode1_draw_order_profile_test: higher OAM index incorrectly replaced lower index\n");
         return 0;
     }
 

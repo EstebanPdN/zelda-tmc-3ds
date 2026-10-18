@@ -283,8 +283,7 @@ void InitSaveHeader(void) {
          * but the loaded ROM's region is only known at runtime. Region-specific
          * language-gated gfx (title, name-entry, file-select) must use the active
          * ROM's save-header slots: JP=0, USA=1, EU=2..6. */
-        || !RegionSaveLanguageValid(gSaveHeader->language) ||
-        (gSaveHeader->invalid))
+        || !RegionSaveLanguageValid(gSaveHeader->language) || (gSaveHeader->invalid))
         return FALSE;
 
     return TRUE;

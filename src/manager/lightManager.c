@@ -32,9 +32,8 @@ void LightManager_Main(LightManager* this) {
     static u8 sLogged = 0;
     if (!sLogged) {
         sLogged = 1;
-        fprintf(stderr,
-                "[LIGHT] manager active area=%u room=%u lightType=%u\n",
-                gRoomControls.area, gRoomControls.room, gArea.lightType);
+        fprintf(stderr, "[LIGHT] manager active area=%u room=%u lightType=%u\n", gRoomControls.area, gRoomControls.room,
+                gArea.lightType);
     }
 #endif
 
@@ -138,9 +137,8 @@ void UpdateLightAlpha() {
 
 void sub_0805BB00(s32 lightLevel, s32 param_2) {
 #ifdef PC_PORT
-    fprintf(stderr,
-            "[LIGHT] setup area=%u room=%u lightLevel=%d mode=%d prevType=%u\n",
-            gRoomControls.area, gRoomControls.room, lightLevel, param_2, gArea.lightType);
+    fprintf(stderr, "[LIGHT] setup area=%u room=%u lightLevel=%d mode=%d prevType=%u\n", gRoomControls.area,
+            gRoomControls.room, lightLevel, param_2, gArea.lightType);
 #endif
     if (gArea.lightType == 0) {
         Manager* pManager = GetEmptyManager();

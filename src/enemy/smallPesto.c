@@ -20,8 +20,7 @@ typedef struct {
     /*0x80*/ u16 unk_80;
 } SmallPestoEntity;
 
-PORT_STATIC_ASSERT_OFFSET(SmallPestoEntity, unk_80, 0x80, 0xB0,
-                          "SmallPestoEntity unk_80 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(SmallPestoEntity, unk_80, 0x80, 0xB0, "SmallPestoEntity unk_80 offset incorrect");
 
 void sub_080317F8(SmallPestoEntity* this);
 void SmallPesto_OnTick(SmallPestoEntity* this);

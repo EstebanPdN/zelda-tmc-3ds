@@ -4456,9 +4456,7 @@ void InitializeCamera() {
      * exactly where the follow camera (and the script equality wait) rests.
      * targetX is room-relative here; origin is added below, so convert to
      * absolute for the helper and strip the origin from its result. */
-    {
-        roomControls->scroll_x = Port_Widescreen_CameraRestX(targetX + roomControls->origin_x) - roomControls->origin_x;
-    }
+    { roomControls->scroll_x = Port_Widescreen_CameraRestX(targetX + roomControls->origin_x) - roomControls->origin_x; }
 #else
     if (targetX < 0x78) {
         roomControls->scroll_x = 0;
@@ -4473,8 +4471,7 @@ void InitializeCamera() {
     roomControls->scroll_x += roomControls->origin_x;
 
 #if MODE1_GBA_WIDTH > 240
-    roomControls->scroll_y = Port_Widescreen_CameraRestY(targetY + roomControls->origin_y) -
-                             roomControls->origin_y;
+    roomControls->scroll_y = Port_Widescreen_CameraRestY(targetY + roomControls->origin_y) - roomControls->origin_y;
 #else
     if (targetY < 0x50) {
         roomControls->scroll_y = 0;

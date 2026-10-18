@@ -1,8 +1,6 @@
 #ifndef ITEM_IDS_H
 #define ITEM_IDS_H
 
-
-
 typedef enum {
     ITEM_NONE,
     ITEM_SMITH_SWORD,

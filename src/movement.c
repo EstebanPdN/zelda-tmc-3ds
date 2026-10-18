@@ -10,7 +10,7 @@
 #include "transitions.h"
 
 #ifdef PC_PORT
-#include "player.h"  /* gPlayerEntity for the debug noclip hook */
+#include "player.h" /* gPlayerEntity for the debug noclip hook */
 extern int Port_Debug_NoclipEnabled(void);
 #endif
 
@@ -1661,7 +1661,7 @@ void CalculateEntityTileCollisions(Entity* this, u32 direction, u32 collisionTyp
     hitboxUnkY = hb->unk2[3];
 
     direction -= 8;
-    if (((direction)&0xf) != 0) {
+    if (((direction) & 0xf) != 0) {
         if (direction < 0x10) {
             temp = yMin + hitboxUnkY;
             colResult |= IsTileCollision(collisionData, xMin, temp, collisionType);

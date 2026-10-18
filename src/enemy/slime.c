@@ -21,8 +21,7 @@ typedef struct {
     /*0x84*/ u8 unk_84;
 } SlimeEntity;
 
-PORT_STATIC_ASSERT_OFFSET(SlimeEntity, unk_84, 0x84, 0xB4,
-                          "SlimeEntity unk_84 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(SlimeEntity, unk_84, 0x84, 0xB4, "SlimeEntity unk_84 offset incorrect");
 
 typedef struct {
     s8 h, v;

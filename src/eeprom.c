@@ -250,4 +250,3 @@ u16 EEPROMWrite0_8k_Check(u16 address, const u16* data) {
 }
 
 const char thing[0x1c] = "\xff\xff\xff\xff";
-

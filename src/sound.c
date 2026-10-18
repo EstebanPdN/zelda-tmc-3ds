@@ -8,8 +8,8 @@
 #include "port_m4a_backend.h"
 #endif
 
-#define IS_BGM(song) ((song)-1 <= NUM_BGM - 1)
-#define IS_SFX(song) ((song)-1 > NUM_BGM - 1)
+#define IS_BGM(song) ((song) - 1 <= NUM_BGM - 1)
+#define IS_SFX(song) ((song) - 1 > NUM_BGM - 1)
 
 static s32 fade(s32 target, s32 current);
 static void doPlaySound(u32 sound);
@@ -24,8 +24,8 @@ static void InitVolume(void);
  * while the jingle plays. The PC backend renders all players independently,
  * so we duck explicitly via the existing volumeBgmTarget fade and restore
  * once the SFX player finishes (#22). */
-static u8  sBgmDuckActive;
-static u8  sBgmDuckPlayer;
+static u8 sBgmDuckActive;
+static u8 sBgmDuckPlayer;
 static u16 sBgmDuckTimer; /* frames since duck activation; safety timeout */
 
 /* The item-get jingle (#117 heart-piece, #22 Jabber Nut, etc.) often finishes
@@ -57,7 +57,7 @@ void InitSoundPlayingInfo(void) {
     gSoundPlayingInfo.volumeSfx = 0x100;
     gSoundPlayingInfo.unk_04 = 0x100;
     if (!REGION_IS_EU) {
-    m4aMPlayAllStop();
+        m4aMPlayAllStop();
     }
 }
 
@@ -88,7 +88,8 @@ void SoundReq(u32 sound) {
      * without breaking the rest of the audio engine. */
     {
         extern bool Port_AudioMute_ShouldSuppress(unsigned int soundReq);
-        if (Port_AudioMute_ShouldSuppress((unsigned)sound)) return;
+        if (Port_AudioMute_ShouldSuppress((unsigned)sound))
+            return;
     }
 #endif
     ptr = &gSoundPlayingInfo;
@@ -199,8 +200,7 @@ void AudioMain(void) {
 #ifdef PC_PORT
     if (sBgmDuckActive) {
         sBgmDuckTimer++;
-        if (!Port_M4A_Backend_IsPlayerActive(sBgmDuckPlayer) ||
-            sBgmDuckTimer >= BGM_DUCK_TIMEOUT_FRAMES) {
+        if (!Port_M4A_Backend_IsPlayerActive(sBgmDuckPlayer) || sBgmDuckTimer >= BGM_DUCK_TIMEOUT_FRAMES) {
             sBgmDuckActive = 0;
             sBgmDuckTimer = 0;
             ptr->volumeBgmTarget = 0x100;
@@ -224,7 +224,8 @@ void AudioMain(void) {
         if (ptr->volumeBgmTarget != ptr->volumeBgm) {
             fadeValue = fade(ptr->volumeBgmTarget, ptr->volumeBgm);
             if (fadeValue == 0) {
-                if (ptr->stopBgm && ptr->volumeBgmTarget == 0
+                if (ptr->stopBgm &&
+                    ptr->volumeBgmTarget == 0
 #ifdef PC_PORT
                     /* The BGM duck (#22) drives volumeBgmTarget to 0 to lower —
                      * not stop — the BGM. Never let a duck-driven fade-to-0

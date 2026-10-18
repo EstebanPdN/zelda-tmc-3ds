@@ -23,7 +23,6 @@
 #include <stdio.h>
 #include <string.h>
 
-
 static int AnimRangeHasBytes(const void* ptr, size_t count) {
     uintptr_t start = (uintptr_t)gRomData;
     uintptr_t end = start + (uintptr_t)gRomSize;
@@ -47,7 +46,6 @@ static int AnimRangeHasBytes(const void* ptr, size_t count) {
     }
     return Port_IsValidHostPtr(ptr);
 }
-
 
 /* ------------------------------------------------------------------ */
 /* sub_080042D0 — Update GFX slot with new frame tile data             */
@@ -101,8 +99,7 @@ static void FrameZero(Entity* entity) {
     if (!p)
         return; /* Safety: no animation data */
     if (!AnimRangeHasBytes(p, 4)) {
-        fprintf(stderr,
-                "FrameZero: sprite=%u anim=%u action=%u subAction=%u animPtr=%p outside/overruns ROM\n",
+        fprintf(stderr, "FrameZero: sprite=%u anim=%u action=%u subAction=%u animPtr=%p outside/overruns ROM\n",
                 entity->spriteIndex, entity->animIndex, entity->action, entity->subAction, (void*)p);
         return;
     }
@@ -238,10 +235,8 @@ void UpdateAnimationSingleFrame(Entity* entity) {
             u8 fd0 = entity->frameDuration, fi0 = entity->frameIndex, ai0 = entity->animIndex;
             const void* ap0 = entity->animPtr;
             UpdateAnimationVariableFrames(entity, 1);
-            fprintf(stderr,
-                    "[fselanim] sprite=%u anim=%u fi:%u->%u dur:%u->%u animPtr=%p%s\n",
-                    entity->spriteIndex, ai0, fi0, entity->frameIndex, fd0,
-                    entity->frameDuration, ap0,
+            fprintf(stderr, "[fselanim] sprite=%u anim=%u fi:%u->%u dur:%u->%u animPtr=%p%s\n", entity->spriteIndex,
+                    ai0, fi0, entity->frameIndex, fd0, entity->frameDuration, ap0,
                     (ap0 != entity->animPtr) ? " (animPtr-moved)" : "");
             u8 fi = entity->frameIndex;
             u8 lfi = entity->lastFrameIndex;

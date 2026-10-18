@@ -96,9 +96,9 @@ void CameraTarget_Init(Entity* this) {
         LoadSwapGFX(this, 1, 1);
         this->spriteVramOffset -= 0x10;
         if (REGION_IS_EU) {
-        sub_080ADDD8(1, 0x10277e0);
+            sub_080ADDD8(1, 0x10277e0);
         } else {
-        sub_080ADDD8(1, 0x1027820);
+            sub_080ADDD8(1, 0x1027820);
         }
         sub_080838DC(this);
     }
@@ -156,19 +156,19 @@ void CameraTarget_Action2(Entity* this) {
                     gKinstoneWorldEvents_sel = gKinstoneWorldEvents_jp;
 #endif
                 ptr = gKinstoneWorldEvents_sel + bVar2;
-            bVar1 = ptr->bubbleIcon;
-            bVar3 = bVar1 & 1;
-            this->palette.b.b0 = bVar3;
-            {
-                const s32* gUnk_0811F744_sel = gUnk_0811F744;
+                bVar1 = ptr->bubbleIcon;
+                bVar3 = bVar1 & 1;
+                this->palette.b.b0 = bVar3;
+                {
+                    const s32* gUnk_0811F744_sel = gUnk_0811F744;
 #ifdef MULTI_REGION
-                if (REGION_IS_EU)
-                    gUnk_0811F744_sel = gUnk_0811F744_eu;
+                    if (REGION_IS_EU)
+                        gUnk_0811F744_sel = gUnk_0811F744_eu;
 #endif
-                temp = gUnk_0811F744_sel[bVar1] < 0;
-                temp2 = (gUnk_0811F744_sel[bVar1] & 0xffffff) | temp;
-                sub_080ADDD8(0, temp2 | 0x1000000);
-            }
+                    temp = gUnk_0811F744_sel[bVar1] < 0;
+                    temp2 = (gUnk_0811F744_sel[bVar1] & 0xffffff) | temp;
+                    sub_080ADDD8(0, temp2 | 0x1000000);
+                }
             }
         }
         GetNextFrame(this);

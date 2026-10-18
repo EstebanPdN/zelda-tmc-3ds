@@ -23,8 +23,7 @@ typedef struct {
     /*0x83*/ u8 unk_83;
 } MulldozerEntity;
 
-PORT_STATIC_ASSERT_OFFSET(MulldozerEntity, unk_80, 0x80, 0xB0,
-                          "MulldozerEntity unk_80 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(MulldozerEntity, unk_80, 0x80, 0xB0, "MulldozerEntity unk_80 offset incorrect");
 
 extern void (*const Mulldozer_Functions[])(MulldozerEntity*);
 extern void (*const Mulldozer_Actions[])(MulldozerEntity*);

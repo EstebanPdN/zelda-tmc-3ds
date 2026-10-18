@@ -42,9 +42,15 @@ class PakArchive {
      * and lives as long as this archive. */
     std::optional<std::span<const uint8_t>> Lookup(std::string_view relativePath) const;
 
-    bool IsOpen() const noexcept { return base_ != nullptr; }
-    std::size_t EntryCount() const noexcept { return entry_count_; }
-    const std::filesystem::path& Path() const noexcept { return path_; }
+    bool IsOpen() const noexcept {
+        return base_ != nullptr;
+    }
+    std::size_t EntryCount() const noexcept {
+        return entry_count_;
+    }
+    const std::filesystem::path& Path() const noexcept {
+        return path_;
+    }
 
   private:
     void Close();
@@ -54,18 +60,18 @@ class PakArchive {
     std::filesystem::path path_;
     /* Platform-specific mapping handles. */
 #ifdef _WIN32
-    void* file_handle_{nullptr};   // HANDLE
-    void* mapping_handle_{nullptr}; // HANDLE
+    void* file_handle_{ nullptr };    // HANDLE
+    void* mapping_handle_{ nullptr }; // HANDLE
 #else
-    int fd_{-1};
+    int fd_{ -1 };
 #endif
-    const uint8_t* base_{nullptr};
-    std::size_t size_{0};
+    const uint8_t* base_{ nullptr };
+    std::size_t size_{ 0 };
 
     /* Cached header values for hot lookup. */
-    uint32_t entry_count_{0};
-    uint32_t name_table_offset_{0};
-    uint32_t entry_offset_{0};
+    uint32_t entry_count_{ 0 };
+    uint32_t name_table_offset_{ 0 };
+    uint32_t entry_offset_{ 0 };
 };
 
 /* Convenience holder: open a directory worth of pak files (one per
@@ -78,7 +84,9 @@ class PakSet {
     std::size_t Mount(const std::filesystem::path& assetsRoot);
 
     /* Returns true if at least one archive has been mounted. */
-    bool Empty() const noexcept { return archives_.empty(); }
+    bool Empty() const noexcept {
+        return archives_.empty();
+    }
 
     /* Sum of EntryCount across all archives. */
     std::size_t TotalEntries() const noexcept;
@@ -87,7 +95,9 @@ class PakSet {
 
     void Clear();
 
-    const std::vector<std::unique_ptr<PakArchive>>& Archives() const noexcept { return archives_; }
+    const std::vector<std::unique_ptr<PakArchive>>& Archives() const noexcept {
+        return archives_;
+    }
 
   private:
     std::vector<std::unique_ptr<PakArchive>> archives_;

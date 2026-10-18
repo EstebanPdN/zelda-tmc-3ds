@@ -69,9 +69,9 @@ static uint32_t Rgb555ToRgba8888(uint16_t c) {
 
 /* Draws one OBJ piece (1D-mapped consecutive tiles, like the game's
  * DISPCNT bit 6 mode) scaled into the destination buffer. */
-static void DrawPiece(uint32_t* pixels, int32_t bufWidth, int32_t bufHeight, int32_t stride, int32_t boxX,
-                      int32_t boxY, int32_t scale, const uint8_t* tiles, const uint16_t* pal16, int32_t pw,
-                      int32_t ph, int hflip, int vflip) {
+static void DrawPiece(uint32_t* pixels, int32_t bufWidth, int32_t bufHeight, int32_t stride, int32_t boxX, int32_t boxY,
+                      int32_t scale, const uint8_t* tiles, const uint16_t* pal16, int32_t pw, int32_t ph, int hflip,
+                      int vflip) {
     int32_t wTiles = pw / 8;
     for (int32_t ty = 0; ty < ph / 8; ty++) {
         for (int32_t tx = 0; tx < wTiles; tx++) {
@@ -115,14 +115,14 @@ static void DrawPiece(uint32_t* pixels, int32_t bufWidth, int32_t bufHeight, int
 }
 
 void Port_SecondScreenRender_DrawItemIcon(uint32_t* pixels, int32_t bufWidth, int32_t bufHeight, int32_t stride,
-                                           int32_t x, int32_t y, int32_t scale, uint8_t itemId) {
+                                          int32_t x, int32_t y, int32_t scale, uint8_t itemId) {
     Port_SecondScreenRender_DrawItemIconBank(pixels, bufWidth, bufHeight, stride, x, y, scale, itemId,
                                              ITEM_SCREEN_CMD_PAL_BANK);
 }
 
-void Port_SecondScreenRender_DrawItemIconBank(uint32_t* pixels, int32_t bufWidth, int32_t bufHeight,
-                                              int32_t stride, int32_t x, int32_t y, int32_t scale,
-                                              uint8_t itemId, uint32_t cmdPalBank) {
+void Port_SecondScreenRender_DrawItemIconBank(uint32_t* pixels, int32_t bufWidth, int32_t bufHeight, int32_t stride,
+                                              int32_t x, int32_t y, int32_t scale, uint8_t itemId,
+                                              uint32_t cmdPalBank) {
     const u16 itemSpriteIndex = Port_RemapSpriteIndex(ITEM_SPRITE);
     if (scale < 1) {
         scale = 1;

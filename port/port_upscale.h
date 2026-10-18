@@ -16,14 +16,11 @@
 extern "C" {
 #endif
 
-void Port_Upscale_xBRZ_2x_Pitch(const uint32_t* src, int srcW, int srcH,
-                                int srcPitchPixels, uint32_t* dst);
-void Port_Upscale_xBRZ_4x_Pitch(const uint32_t* src, int srcW, int srcH,
-                                int srcPitchPixels,
-                                uint32_t* scratch2x, uint32_t* dst);
+void Port_Upscale_xBRZ_2x_Pitch(const uint32_t* src, int srcW, int srcH, int srcPitchPixels, uint32_t* dst);
+void Port_Upscale_xBRZ_4x_Pitch(const uint32_t* src, int srcW, int srcH, int srcPitchPixels, uint32_t* scratch2x,
+                                uint32_t* dst);
 void Port_Upscale_xBRZ_2x(const uint32_t* src, int srcW, int srcH, uint32_t* dst);
-void Port_Upscale_xBRZ_4x(const uint32_t* src, int srcW, int srcH,
-                          uint32_t* scratch2x, uint32_t* dst);
+void Port_Upscale_xBRZ_4x(const uint32_t* src, int srcW, int srcH, uint32_t* scratch2x, uint32_t* dst);
 
 #ifdef __cplusplus
 }

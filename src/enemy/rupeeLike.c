@@ -33,8 +33,7 @@ typedef struct {
     /*0x84*/ u8 unk_84;
 } RupeeLikeEntity;
 
-PORT_STATIC_ASSERT_OFFSET(RupeeLikeEntity, unk_80, 0x80, 0xB0,
-                          "RupeeLikeEntity unk_80 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(RupeeLikeEntity, unk_80, 0x80, 0xB0, "RupeeLikeEntity unk_80 offset incorrect");
 
 extern void sub_080293DC(RupeeLikeEntity* this);
 extern void sub_080296D8(RupeeLikeEntity* this);
@@ -257,7 +256,8 @@ void sub_08029660(RupeeLikeEntity* this) {
 
 void sub_08029688(RupeeLikeEntity* this) {
 #ifdef PC_PORT
-    if (super->parent == NULL) return; /* #136 family */
+    if (super->parent == NULL)
+        return; /* #136 family */
 #endif
     if (super->parent->next == NULL) {
         DeleteEntity(super);
@@ -329,9 +329,9 @@ void sub_080297F0(RupeeLikeEntity* this) {
     super->hitType = 0x8e;
     UnloadGFXSlots(super);
     if (REGION_IS_EU) {
-    super->spriteIndex = 0x142;
+        super->spriteIndex = 0x142;
     } else {
-    super->spriteIndex = 0x143;
+        super->spriteIndex = 0x143;
     }
     temp = gUnk_080CCC47[super->type];
     super->palette.b.b0 = temp;

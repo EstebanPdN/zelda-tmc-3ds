@@ -57,7 +57,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>   /* getenv() inside the platform connect path */
+#include <stdlib.h> /* getenv() inside the platform connect path */
 #include <string.h>
 #include <time.h>
 
@@ -67,29 +67,29 @@
 #include <unistd.h>
 #include <fcntl.h>
 #define HAS_UNIX_IPC 1
-#define HAS_WIN_IPC  0
+#define HAS_WIN_IPC 0
 #elif defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <process.h>  /* _getpid */
+#include <process.h> /* _getpid */
 #define HAS_UNIX_IPC 0
-#define HAS_WIN_IPC  1
+#define HAS_WIN_IPC 1
 #else
 #define HAS_UNIX_IPC 0
-#define HAS_WIN_IPC  0
+#define HAS_WIN_IPC 0
 #endif
 
 #define HAS_IPC (HAS_UNIX_IPC || HAS_WIN_IPC)
 
-#define DISCORD_RPC_OPCODE_HANDSHAKE   0
-#define DISCORD_RPC_OPCODE_FRAME       1
-#define DISCORD_RPC_OPCODE_CLOSE       2
+#define DISCORD_RPC_OPCODE_HANDSHAKE 0
+#define DISCORD_RPC_OPCODE_FRAME 1
+#define DISCORD_RPC_OPCODE_CLOSE 2
 
 /* Discord application ID is *not* hard-coded — see the security-model
  * note in the file header. Provide it at runtime via TMC_DISCORD_APP_ID
  * or Rich Presence stays a no-op. */
 
-#define UPDATE_THROTTLE_MS 15000U   /* Discord rate-limit window */
+#define UPDATE_THROTTLE_MS 15000U /* Discord rate-limit window */
 
 /* Connection handle stored as intptr_t so the same field carries either
  * a Unix file descriptor or a Windows HANDLE without an extra union.
@@ -99,13 +99,13 @@
 #define INVALID_DISCORD_HANDLE ((intptr_t)-1)
 
 static struct {
-    bool   enabled;
-    bool   connected;
+    bool enabled;
+    bool connected;
     intptr_t handle;
     uint64_t last_send_ms;
     /* Last reported state — we suppress identical re-sends inside the
      * throttle window. */
-    char    last_payload[512];
+    char last_payload[512];
     uint64_t pid;
     /* Unix epoch (seconds) anchoring Discord's "elapsed" counter. Set
      * the first time the user turns Rich Presence on, so the counter
@@ -117,13 +117,8 @@ static struct {
      * TMC_DISCORD_APP_ID is set, so the default-on state is harmless
      * for users without Discord; users who do want it off can flip the
      * F8 toggle. */
-    .enabled = true,
-    .connected = false,
-    .handle = INVALID_DISCORD_HANDLE,
-    .last_send_ms = 0,
-    .last_payload = {0},
-    .pid = 0,
-    .epoch_start_seconds = 0,
+    .enabled = true,       .connected = false, .handle = INVALID_DISCORD_HANDLE, .last_send_ms = 0,
+    .last_payload = { 0 }, .pid = 0,           .epoch_start_seconds = 0,
 };
 
 #if HAS_UNIX_IPC
@@ -133,23 +128,26 @@ static intptr_t TryConnectUnix(void) {
     roots[1] = getenv("TMPDIR");
 
     for (int r = 0; r < 3; ++r) {
-        if (!roots[r] || roots[r][0] == '\0') continue;
+        if (!roots[r] || roots[r][0] == '\0')
+            continue;
         for (int n = 0; n < 10; ++n) {
             char path[256];
-            const int written = snprintf(path, sizeof(path),
-                                         "%s/discord-ipc-%d", roots[r], n);
-            if (written <= 0 || written >= (int)sizeof(path)) continue;
+            const int written = snprintf(path, sizeof(path), "%s/discord-ipc-%d", roots[r], n);
+            if (written <= 0 || written >= (int)sizeof(path))
+                continue;
 
             int s = socket(AF_UNIX, SOCK_STREAM, 0);
-            if (s < 0) return INVALID_DISCORD_HANDLE;
-            struct sockaddr_un addr = {0};
+            if (s < 0)
+                return INVALID_DISCORD_HANDLE;
+            struct sockaddr_un addr = { 0 };
             addr.sun_family = AF_UNIX;
             strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
             if (connect(s, (struct sockaddr*)&addr, sizeof(addr)) == 0) {
                 /* Non-blocking so SET_ACTIVITY writes don't stall the
                  * frame loop if Discord's socket is busy. */
                 int flags = fcntl(s, F_GETFL, 0);
-                if (flags >= 0) fcntl(s, F_SETFL, flags | O_NONBLOCK);
+                if (flags >= 0)
+                    fcntl(s, F_SETFL, flags | O_NONBLOCK);
                 return (intptr_t)s;
             }
             close(s);
@@ -167,16 +165,13 @@ static intptr_t TryConnectWindows(void) {
      * miss — try each candidate in turn. */
     for (int n = 0; n < 10; ++n) {
         char path[64];
-        const int written = snprintf(path, sizeof(path),
-                                     "\\\\?\\pipe\\discord-ipc-%d", n);
-        if (written <= 0 || written >= (int)sizeof(path)) continue;
+        const int written = snprintf(path, sizeof(path), "\\\\?\\pipe\\discord-ipc-%d", n);
+        if (written <= 0 || written >= (int)sizeof(path))
+            continue;
 
-        HANDLE h = CreateFileA(path,
-                               GENERIC_READ | GENERIC_WRITE,
-                               0,                /* no sharing */
-                               NULL,             /* default security */
-                               OPEN_EXISTING,
-                               0,                /* no flags */
+        HANDLE h = CreateFileA(path, GENERIC_READ | GENERIC_WRITE, 0, /* no sharing */
+                               NULL,                                  /* default security */
+                               OPEN_EXISTING, 0,                      /* no flags */
                                NULL);
         if (h != INVALID_HANDLE_VALUE) {
             return (intptr_t)h;
@@ -187,7 +182,8 @@ static intptr_t TryConnectWindows(void) {
 #endif
 
 static bool SendFrame(uint32_t opcode, const char* payload, uint32_t len) {
-    if (sState.handle == INVALID_DISCORD_HANDLE) return false;
+    if (sState.handle == INVALID_DISCORD_HANDLE)
+        return false;
 #if HAS_IPC
     uint8_t header[8];
     /* little-endian, matching Discord's documented frame format */
@@ -202,27 +198,34 @@ static bool SendFrame(uint32_t opcode, const char* payload, uint32_t len) {
 #if HAS_UNIX_IPC
     int s = (int)sState.handle;
     /* MSG_NOSIGNAL prevents SIGPIPE when Discord exits mid-send. */
-    if (send(s, header, 8, MSG_NOSIGNAL) != 8) return false;
-    if (len > 0 && send(s, payload, len, MSG_NOSIGNAL) != (ssize_t)len) return false;
+    if (send(s, header, 8, MSG_NOSIGNAL) != 8)
+        return false;
+    if (len > 0 && send(s, payload, len, MSG_NOSIGNAL) != (ssize_t)len)
+        return false;
     return true;
 #elif HAS_WIN_IPC
     HANDLE h = (HANDLE)sState.handle;
     DWORD written = 0;
-    if (!WriteFile(h, header, 8, &written, NULL) || written != 8) return false;
+    if (!WriteFile(h, header, 8, &written, NULL) || written != 8)
+        return false;
     if (len > 0) {
-        if (!WriteFile(h, payload, len, &written, NULL) || written != len) return false;
+        if (!WriteFile(h, payload, len, &written, NULL) || written != len)
+            return false;
     }
     return true;
 #endif
 #else
-    (void)opcode; (void)payload; (void)len;
+    (void)opcode;
+    (void)payload;
+    (void)len;
     return false;
 #endif
 }
 
 static const char* ResolveClientId(void) {
     const char* env = getenv("TMC_DISCORD_APP_ID");
-    if (env && env[0]) return env;
+    if (env && env[0])
+        return env;
 #ifdef TMC_DISCORD_APP_ID_DEFAULT
     /* Compile-time fallback injected by xmake from a gitignored
      * discord_app_id.txt at repo root. Empty in the public-source build;
@@ -241,20 +244,35 @@ static const char* ResolveClientId(void) {
  * pass through (Discord accepts UTF-8). Caller-supplied `cap` is the
  * full buffer size including the NUL terminator. */
 static void JsonEscape(const char* in, char* out, size_t cap) {
-    if (cap == 0) return;
+    if (cap == 0)
+        return;
     size_t w = 0;
     for (size_t r = 0; in && in[r] && w + 2 < cap; ++r) {
         unsigned char c = (unsigned char)in[r];
         const char* esc = NULL;
         char esc_buf[8];
         switch (c) {
-            case '"':  esc = "\\\""; break;
-            case '\\': esc = "\\\\"; break;
-            case '\b': esc = "\\b";  break;
-            case '\f': esc = "\\f";  break;
-            case '\n': esc = "\\n";  break;
-            case '\r': esc = "\\r";  break;
-            case '\t': esc = "\\t";  break;
+            case '"':
+                esc = "\\\"";
+                break;
+            case '\\':
+                esc = "\\\\";
+                break;
+            case '\b':
+                esc = "\\b";
+                break;
+            case '\f':
+                esc = "\\f";
+                break;
+            case '\n':
+                esc = "\\n";
+                break;
+            case '\r':
+                esc = "\\r";
+                break;
+            case '\t':
+                esc = "\\t";
+                break;
             default:
                 if (c < 0x20) {
                     snprintf(esc_buf, sizeof(esc_buf), "\\u%04x", c);
@@ -264,7 +282,8 @@ static void JsonEscape(const char* in, char* out, size_t cap) {
         }
         if (esc) {
             size_t elen = strlen(esc);
-            if (w + elen + 1 >= cap) break;
+            if (w + elen + 1 >= cap)
+                break;
             memcpy(out + w, esc, elen);
             w += elen;
         } else {
@@ -288,7 +307,8 @@ static void CloseDiscordHandle(void) {
 }
 
 static bool EnsureConnected(void) {
-    if (sState.connected) return true;
+    if (sState.connected)
+        return true;
 #if HAS_IPC
     const char* client_id = ResolveClientId();
     if (!client_id) {
@@ -309,11 +329,11 @@ static bool EnsureConnected(void) {
 #elif HAS_WIN_IPC
     sState.handle = TryConnectWindows();
 #endif
-    if (sState.handle == INVALID_DISCORD_HANDLE) return false;
+    if (sState.handle == INVALID_DISCORD_HANDLE)
+        return false;
 
     char handshake[256];
-    int n = snprintf(handshake, sizeof(handshake),
-                     "{\"v\":1,\"client_id\":\"%s\"}", client_id);
+    int n = snprintf(handshake, sizeof(handshake), "{\"v\":1,\"client_id\":\"%s\"}", client_id);
     if (n <= 0 || n >= (int)sizeof(handshake)) {
         CloseDiscordHandle();
         return false;
@@ -346,19 +366,22 @@ void Port_DiscordRpc_SetEnabled(bool on) {
     }
 }
 
-bool Port_DiscordRpc_IsEnabled(void) { return sState.enabled; }
+bool Port_DiscordRpc_IsEnabled(void) {
+    return sState.enabled;
+}
 
-void Port_DiscordRpc_Update(const char* area_name,
-                            int hearts_now, int hearts_max,
-                            int rupees) {
-    if (!sState.enabled) return;
+void Port_DiscordRpc_Update(const char* area_name, int hearts_now, int hearts_max, int rupees) {
+    if (!sState.enabled)
+        return;
     const uint64_t now = SDL_GetTicks();
     if (now < sState.last_send_ms + UPDATE_THROTTLE_MS && sState.last_send_ms != 0) {
         return;
     }
-    if (!EnsureConnected()) return;
+    if (!EnsureConnected())
+        return;
 
-    if (!area_name || !area_name[0]) area_name = "Adventuring";
+    if (!area_name || !area_name[0])
+        area_name = "Adventuring";
 
     /* JSON-escape the area name in case it ever contains chars that
      * would break the payload (quotes, backslashes, control bytes). */
@@ -367,26 +390,23 @@ void Port_DiscordRpc_Update(const char* area_name,
 
     /* state_line is built from integers via snprintf — no escape needed. */
     char state_line[128];
-    snprintf(state_line, sizeof(state_line),
-             "%d/%d hearts · %d rupees",
-             hearts_now, hearts_max, rupees);
+    snprintf(state_line, sizeof(state_line), "%d/%d hearts · %d rupees", hearts_now, hearts_max, rupees);
 
     char activity[768];
     int n = snprintf(activity, sizeof(activity),
-        "{\"cmd\":\"SET_ACTIVITY\",\"nonce\":\"%llu\",\"args\":{"
-            "\"pid\":%llu,"
-            "\"activity\":{"
-                "\"details\":\"%s\","
-                "\"state\":\"%s\","
-                "\"timestamps\":{\"start\":%llu},"
-                "\"assets\":{\"large_image\":\"minishcap\",\"large_text\":\"The Minish Cap\"}"
-            "}"
-        "}}",
-        (unsigned long long)now,
-        (unsigned long long)sState.pid,
-        details, state_line,
-        (unsigned long long)sState.epoch_start_seconds);
-    if (n <= 0 || n >= (int)sizeof(activity)) return;
+                     "{\"cmd\":\"SET_ACTIVITY\",\"nonce\":\"%llu\",\"args\":{"
+                     "\"pid\":%llu,"
+                     "\"activity\":{"
+                     "\"details\":\"%s\","
+                     "\"state\":\"%s\","
+                     "\"timestamps\":{\"start\":%llu},"
+                     "\"assets\":{\"large_image\":\"minishcap\",\"large_text\":\"The Minish Cap\"}"
+                     "}"
+                     "}}",
+                     (unsigned long long)now, (unsigned long long)sState.pid, details, state_line,
+                     (unsigned long long)sState.epoch_start_seconds);
+    if (n <= 0 || n >= (int)sizeof(activity))
+        return;
 
     /* Skip if identical content arrived inside the same minute — keeps
      * Discord's update queue clean. */

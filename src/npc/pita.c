@@ -20,9 +20,7 @@ typedef struct {
 
 void Pita(PitaEntity* this) {
     static const Hitbox gUnk_0810C428 = {
-        0,
-        2,
-        { 0, 0, 0, 0 },
+        0,  2, { 0, 0, 0, 0 },
 #if EU && !defined(MULTI_REGION)
         6,
 #else
@@ -32,11 +30,7 @@ void Pita(PitaEntity* this) {
     };
 #ifdef MULTI_REGION
     static const Hitbox gUnk_0810C428_eu = {
-        0,
-        2,
-        { 0, 0, 0, 0 },
-        6,
-        18,
+        0, 2, { 0, 0, 0, 0 }, 6, 18,
     };
 #endif
     if (super->action == 0) {

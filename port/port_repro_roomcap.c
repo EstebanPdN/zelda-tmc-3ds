@@ -201,8 +201,8 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
         const char* fixture = getenv("TMC_ROOMCAP_SAVEFILE");
         if (fixture && *fixture) {
             FILE* f = fopen(fixture, "rb");
-            if (!f || fread(sv, 1, sizeof(*sv), f) != sizeof(*sv) || fgetc(f) != EOF ||
-                sv->invalid || !sv->initialized) {
+            if (!f || fread(sv, 1, sizeof(*sv), f) != sizeof(*sv) || fgetc(f) != EOF || sv->invalid ||
+                !sv->initialized) {
                 fputs("[roomcap] invalid SaveFile fixture\n", stderr);
                 _Exit(4);
             }
@@ -218,7 +218,7 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
         /* Exercise normal migration backups against the imported profile,
          * never an unrelated on-disk save. Use an isolated working directory. */
         if (fixture && *fixture) {
-            extern u32 WriteSaveFile(u32 index, SaveFile* saveFile);
+            extern u32 WriteSaveFile(u32 index, SaveFile * saveFile);
             if (!WriteSaveFile(0, sv)) {
                 fputs("[roomcap] could not persist fixture\n", stderr);
                 _Exit(4);
@@ -267,30 +267,33 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
         static int visitedGoronRoom;
         const char* stageEnv = getenv("TMC_ROOMCAP_GORON_STAGE");
         const unsigned stage = stageEnv ? (unsigned)strtoul(stageEnv, NULL, 0) : 0;
-        if (stage >= 1 && stage <= 6 && warp_done && !started &&
-            (int)frame >= cap_frame - settle + 120) {
-            const KinstoneWorldEvent* fusions = REGION_IS_EU ?
-                gKinstoneWorldEvents_eu : gKinstoneWorldEvents;
+        if (stage >= 1 && stage <= 6 && warp_done && !started && (int)frame >= cap_frame - settle + 120) {
+            const KinstoneWorldEvent* fusions = REGION_IS_EU ? gKinstoneWorldEvents_eu : gKinstoneWorldEvents;
             for (unsigned id = 1; id <= 100; ++id) {
-                if (fusions[id].subtask != SUBTASK_WORLDEVENT) continue;
+                if (fusions[id].subtask != SUBTASK_WORLDEVENT)
+                    continue;
                 const WorldEvent* event = &GetWorldEvents()[fusions[id].worldEventId];
                 if ((event->type == 17 || event->type == 18) && event->entity_idx < stage)
                     gSave.kinstones.fusedKinstones[id / 8] |= 1u << (id % 8);
             }
             for (unsigned id = 1; id <= 100; ++id) {
-                if (fusions[id].subtask != SUBTASK_WORLDEVENT) continue;
+                if (fusions[id].subtask != SUBTASK_WORLDEVENT)
+                    continue;
                 const WorldEvent* event = &GetWorldEvents()[fusions[id].worldEventId];
                 if ((event->type == 17 || event->type == 18) && event->entity_idx == stage - 1) {
                     gFuseInfo.kinstoneId = id;
                     MenuFadeIn(SUBTASK_WORLDEVENT, fusions[id].worldEventId);
                     started = frame;
                     cap_frame = frame + settle;
-                    fprintf(stderr, "[roomcap-goron] stage=%u fusion=%u event=%u started=%u\n",
-                            stage, id, fusions[id].worldEventId, frame);
+                    fprintf(stderr, "[roomcap-goron] stage=%u fusion=%u event=%u started=%u\n", stage, id,
+                            fusions[id].worldEventId, frame);
                     break;
                 }
             }
-            if (!started) { fputs("[roomcap-goron] no event found\n", stderr); _Exit(4); }
+            if (!started) {
+                fputs("[roomcap-goron] no event found\n", stderr);
+                _Exit(4);
+            }
         }
         if (stage && started && (frame - started) % 40 < 2) {
             extern void Port_Config_TestForceEdge(int input);
@@ -310,22 +313,24 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
             cap_frame = (int)frame;
         if (stage && started && (int)frame == cap_frame) {
             fprintf(stderr, "[roomcap-goron] end next=%u task=%u area=%u room=%u menu=%u/%u sync=%04x\n",
-                    gUI.nextToLoad, gMain.task, gRoomControls.area, gRoomControls.room,
-                    gMenu.menuType, gMenu.overlayType, gActiveScriptInfo.syncFlags);
-            fprintf(stderr, "[roomcap-goron] message=%u render=%u flagff=%u\n",
-                    gMessage.state, gTextRender.renderStatus, CheckRoomFlag(0xff));
+                    gUI.nextToLoad, gMain.task, gRoomControls.area, gRoomControls.room, gMenu.menuType,
+                    gMenu.overlayType, gActiveScriptInfo.syncFlags);
+            fprintf(stderr, "[roomcap-goron] message=%u render=%u flagff=%u\n", gMessage.state,
+                    gTextRender.renderStatus, CheckRoomFlag(0xff));
             for (unsigned i = 0; i < MAX_ENTITIES; ++i) {
                 Entity* ent = &gEntities[i].base;
                 if (ent->next && ent->kind == NPC && ent->id == GORON) {
                     const ScriptExecutionContext* ctx = gEntities[i].scriptContext;
-                    fprintf(stderr, "[roomcap-goron] npc%u action=%u anim=%u xy=%d,%d script=%lx wait=%u cond=%u\n",
-                            i, ent->action, ent->animIndex, ent->x.HALF.HI, ent->y.HALF.HI,
+                    fprintf(stderr, "[roomcap-goron] npc%u action=%u anim=%u xy=%d,%d script=%lx wait=%u cond=%u\n", i,
+                            ent->action, ent->animIndex, ent->x.HALF.HI, ent->y.HALF.HI,
                             ctx ? (unsigned long)((uintptr_t)ctx->scriptInstructionPointer - (uintptr_t)gRomData) : 0,
                             ctx ? ctx->wait : 0, ctx ? ctx->condition : 0);
                 }
             }
-            if (gUI.nextToLoad != 0 || gRoomControls.area != a || gRoomControls.room != r)
-                { fputs("[roomcap-goron] scene did not return\n", stderr); _Exit(5); }
+            if (gUI.nextToLoad != 0 || gRoomControls.area != a || gRoomControls.room != r) {
+                fputs("[roomcap-goron] scene did not return\n", stderr);
+                _Exit(5);
+            }
         }
     }
 
@@ -615,18 +620,17 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
                 }
                 return;
             }
-            if (fstage == 0 && gRoomControls.area == AREA_FESTIVAL_TOWN &&
-                gArea.pCurrentRoomInfo != NULL && gArea.pCurrentRoomInfo->exits != NULL) {
+            if (fstage == 0 && gRoomControls.area == AREA_FESTIVAL_TOWN && gArea.pCurrentRoomInfo != NULL &&
+                gArea.pCurrentRoomInfo->exits != NULL) {
                 const Transition* exit = gArea.pCurrentRoomInfo->exits;
                 gPlayerEntity.base.x.HALF.HI = gRoomControls.origin_x + gRoomControls.width / 2;
                 gPlayerEntity.base.y.HALF.HI = gRoomControls.origin_y + gRoomControls.height - 8;
                 memset(&staleCameraTarget, 0, sizeof(staleCameraTarget));
                 gRoomControls.camera_target = &staleCameraTarget;
-                fprintf(stderr,
-                        "[festival-exit] source origin=(%u,%u) player=(%d,%d) camera=(%d,%d) end=(0x%x,0x%x)\n",
+                fprintf(stderr, "[festival-exit] source origin=(%u,%u) player=(%d,%d) camera=(%d,%d) end=(0x%x,0x%x)\n",
                         gRoomControls.origin_x, gRoomControls.origin_y, gPlayerEntity.base.x.HALF.HI,
-                        gPlayerEntity.base.y.HALF.HI, staleCameraTarget.x.HALF.HI,
-                        staleCameraTarget.y.HALF.HI, exit->endX, exit->endY);
+                        gPlayerEntity.base.y.HALF.HI, staleCameraTarget.x.HALF.HI, staleCameraTarget.y.HALF.HI,
+                        exit->endX, exit->endY);
                 DoExitTransition(exit);
                 fstage = 1;
                 fdeadline = frame + 600;
@@ -640,8 +644,7 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
             if (fstage == 2 && frame >= fdeadline) {
                 int relativeX = gPlayerEntity.base.x.HALF.HI - gRoomControls.origin_x;
                 int pass = relativeX == 0x1f8;
-                fprintf(stderr,
-                        "[festival-exit] %s destination origin=(%u,%u) player=(%d,%d) relativeX=0x%x\n",
+                fprintf(stderr, "[festival-exit] %s destination origin=(%u,%u) player=(%d,%d) relativeX=0x%x\n",
                         pass ? "PASS" : "FAIL", gRoomControls.origin_x, gRoomControls.origin_y,
                         gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI, relativeX);
                 fflush(stderr);
@@ -689,8 +692,8 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
 
     /* Drive the room's own cutscene rather than injecting a replacement
      * message. This allows boss transformations to run through normally. */
-    if (warp_done && getenv("TMC_ROOMCAP_DIALOGUE_ADVANCE") &&
-        (gMessage.state & MESSAGE_ACTIVE) && gTextRender.renderStatus != 5 && frame % 40 < 2) {
+    if (warp_done && getenv("TMC_ROOMCAP_DIALOGUE_ADVANCE") && (gMessage.state & MESSAGE_ACTIVE) &&
+        gTextRender.renderStatus != 5 && frame % 40 < 2) {
         extern void Port_Config_TestForceEdge(int input);
         Port_Config_TestForceEdge(0 /* PORT_INPUT_A */);
     }
@@ -728,25 +731,23 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
         }
         if (getenv("TMC_ROOMCAP_TRACE_ENTITIES")) {
             fprintf(stderr, "[roomcap-save] bank=%x bottles=%u,%u,%u,%u contents=%02x,%02x,%02x,%02x\n",
-                    gArea.localFlagOffset,
-                    GetInventoryValue(0x1c), GetInventoryValue(0x1d),
-                    GetInventoryValue(0x1e), GetInventoryValue(0x1f),
-                    gSave.stats.bottles[0], gSave.stats.bottles[1],
-                    gSave.stats.bottles[2], gSave.stats.bottles[3]);
+                    gArea.localFlagOffset, GetInventoryValue(0x1c), GetInventoryValue(0x1d), GetInventoryValue(0x1e),
+                    GetInventoryValue(0x1f), gSave.stats.bottles[0], gSave.stats.bottles[1], gSave.stats.bottles[2],
+                    gSave.stats.bottles[3]);
             const TileEntity* te = GetCurrentRoomProperty(3);
             for (unsigned i = 0; te && i < 256 && te[i].type; ++i)
-                fprintf(stderr, "[roomcap-tile] type=%u flag=%02x item=%02x subtype=%02x value=%u\n",
-                        te[i].type, te[i].localFlag, te[i]._2, te[i]._3, CheckLocalFlag(te[i].localFlag));
+                fprintf(stderr, "[roomcap-tile] type=%u flag=%02x item=%02x subtype=%02x value=%u\n", te[i].type,
+                        te[i].localFlag, te[i]._2, te[i]._3, CheckLocalFlag(te[i].localFlag));
             for (unsigned i = 0; i < MAX_ENTITIES; ++i) {
                 Entity* e = &gEntities[i].base;
                 if (!e->next)
                     continue;
                 unsigned slot = e->spriteAnimation[0];
-                fprintf(stderr, "[roomcap-entity] pool=%u kind=%u id=%u type=%u type2=%u action=%u "
+                fprintf(stderr,
+                        "[roomcap-entity] pool=%u kind=%u id=%u type=%u type2=%u action=%u "
                         "sprite=%u anim=%u frame=%u draw=%u pos=%d,%d,%d slot=%u vram=%u\n",
-                        i, e->kind, e->id, e->type, e->type2, e->action, e->spriteIndex,
-                        e->animIndex, e->frameIndex, e->spriteSettings.draw,
-                        e->x.HALF.HI, e->y.HALF.HI, e->z.HALF.HI, slot, e->spriteVramOffset);
+                        i, e->kind, e->id, e->type, e->type2, e->action, e->spriteIndex, e->animIndex, e->frameIndex,
+                        e->spriteSettings.draw, e->x.HALF.HI, e->y.HALF.HI, e->z.HALF.HI, slot, e->spriteVramOffset);
             }
         }
         /* TMC_ROOMCAP_SAVE: write a quicksave (state_quick.bin) at the warped

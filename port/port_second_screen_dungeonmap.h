@@ -41,10 +41,9 @@ int Port_SecondScreenDungeonMap_GetInfo(uint8_t dungeonIdx, uint8_t area, uint8_
  * drawn only on the player's own floor; `tick` drives its blink. Returns 1
  * if authentic art was drawn, 0 for callers to fall back to the schematic
  * renderer. */
-int Port_SecondScreenDungeonMap_Draw(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                     int32_t dstX, int32_t dstY, int32_t dstW, int32_t dstH,
-                                     uint8_t dungeonIdx, int32_t floor, uint8_t area, uint8_t room,
-                                     uint64_t visitedMask, uint8_t dungeonItemBits,
+int Port_SecondScreenDungeonMap_Draw(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t dstX,
+                                     int32_t dstY, int32_t dstW, int32_t dstH, uint8_t dungeonIdx, int32_t floor,
+                                     uint8_t area, uint8_t room, uint64_t visitedMask, uint8_t dungeonItemBits,
                                      int32_t playerAreaX, int32_t playerAreaY, uint32_t tick);
 
 #ifdef __cplusplus

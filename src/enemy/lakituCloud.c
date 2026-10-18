@@ -27,8 +27,7 @@ typedef struct {
     /*0x7a*/ u16 unk_7a;
 } LakituCloudEntity;
 
-PORT_STATIC_ASSERT_OFFSET(LakituCloudEntity, unk_74, 0x74, 0xA0,
-                          "LakituCloudEntity unk_74 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(LakituCloudEntity, unk_74, 0x74, 0xA0, "LakituCloudEntity unk_74 offset incorrect");
 
 extern void (*const LakituCloud_Functions[6])(LakituCloudEntity*);
 extern void (*const gUnk_080D0430[3])(LakituCloudEntity*);

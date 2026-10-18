@@ -27,12 +27,12 @@ extern "C" {
 
 typedef enum {
     PORT_FILTER_NONE = 0,
-    PORT_FILTER_CRT_WARM_COMPOSITE,  /* Sonkun warm composite aperture grill */
-    PORT_FILTER_LCD_GRID,             /* GBA-style LCD pixel grid */
-    PORT_FILTER_CRT_WARM_RF,          /* Sonkun warm RF aperture grill */
-    PORT_FILTER_SCANLINES,            /* libretro scanline.glsl equivalent — alternating dim rows */
-    PORT_FILTER_HANDHELD,             /* libretro handheld-grid equivalent — tight LCD cells + cool tint */
-    PORT_FILTER_VIGNETTE,             /* libretro vignette equivalent — corner darkening */
+    PORT_FILTER_CRT_WARM_COMPOSITE, /* Sonkun warm composite aperture grill */
+    PORT_FILTER_LCD_GRID,           /* GBA-style LCD pixel grid */
+    PORT_FILTER_CRT_WARM_RF,        /* Sonkun warm RF aperture grill */
+    PORT_FILTER_SCANLINES,          /* libretro scanline.glsl equivalent — alternating dim rows */
+    PORT_FILTER_HANDHELD,           /* libretro handheld-grid equivalent — tight LCD cells + cool tint */
+    PORT_FILTER_VIGNETTE,           /* libretro vignette equivalent — corner darkening */
     PORT_FILTER_COUNT
 } PortFilterType;
 
@@ -41,8 +41,7 @@ const char* Port_Filter_Name(PortFilterType type);
 /* Apply the filter in place over the framebuffer (ABGR8888 little-
  * endian: byte 0=R, 1=G, 2=B, 3=A). Width must equal stride; rows are
  * contiguous. No-op when filter == PORT_FILTER_NONE. */
-void Port_Filter_Apply(uint32_t* fb, int width, int height, int internal_scale,
-                       PortFilterType filter);
+void Port_Filter_Apply(uint32_t* fb, int width, int height, int internal_scale, PortFilterType filter);
 
 #ifdef __cplusplus
 }

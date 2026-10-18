@@ -37,8 +37,8 @@
  */
 
 #define TMC_REGION_USA 0
-#define TMC_REGION_EU  1
-#define TMC_REGION_JP  2
+#define TMC_REGION_EU 1
+#define TMC_REGION_JP 2
 
 #if defined(PC_PORT) && defined(MULTI_REGION)
 
@@ -53,23 +53,23 @@ extern int gActiveRegion;
 #endif
 
 #define REGION_IS_USA (gActiveRegion == TMC_REGION_USA)
-#define REGION_IS_EU  (gActiveRegion == TMC_REGION_EU)
-#define REGION_IS_JP  (gActiveRegion == TMC_REGION_JP)
+#define REGION_IS_EU (gActiveRegion == TMC_REGION_EU)
+#define REGION_IS_JP (gActiveRegion == TMC_REGION_JP)
 
 #else /* compile-time constant — preserves byte-matching */
 
 #if defined(EU)
 #define REGION_IS_USA 0
-#define REGION_IS_EU  1
-#define REGION_IS_JP  0
+#define REGION_IS_EU 1
+#define REGION_IS_JP 0
 #elif defined(JP)
 #define REGION_IS_USA 0
-#define REGION_IS_EU  0
-#define REGION_IS_JP  1
+#define REGION_IS_EU 0
+#define REGION_IS_JP 1
 #else /* USA / DEMO_USA / default */
 #define REGION_IS_USA 1
-#define REGION_IS_EU  0
-#define REGION_IS_JP  0
+#define REGION_IS_EU 0
+#define REGION_IS_JP 0
 #endif
 
 #endif
@@ -90,8 +90,10 @@ extern int gActiveRegion;
  */
 #ifdef PC_PORT
 static inline const char* RegionAssetSubdir(void) {
-    if (REGION_IS_EU) return "eu";
-    if (REGION_IS_JP) return "jp";
+    if (REGION_IS_EU)
+        return "eu";
+    if (REGION_IS_JP)
+        return "jp";
     return "usa";
 }
 #endif

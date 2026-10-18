@@ -19,8 +19,7 @@ uint32_t virtuappu_frame_buffer[VIRTUAPPU_FRAME_BUFFER_SIZE];
 uint8_t virtuappu_vram[VIRTUAPPU_VRAM_SIZE];
 PPUMemory virtuappu_registers;
 
-void virtuappu_reset(void)
-{
+void virtuappu_reset(void) {
     memset(virtuappu_frame_buffer, 0, sizeof(virtuappu_frame_buffer));
     memset(virtuappu_vram, 0, sizeof(virtuappu_vram));
     memset(&virtuappu_registers, 0, sizeof(virtuappu_registers));
@@ -33,29 +32,25 @@ void virtuappu_reset(void)
  * (BG2 drawn affine vs tiled). The Minish Cap only ever uses GBA modes 0 and 1.
  * The former VPPU mode 0 (a black-fill stub) and mode 7 (a misnamed Game Boy
  * DMG renderer) were dead on this path and have been removed. */
-void virtuappu_render_frame(void)
-{
+void virtuappu_render_frame(void) {
     switch (virtuappu_registers.mode) {
-    case 1:
-    case 2:
-        virtuappu_mode1_render_frame(&virtuappu_registers);
-        break;
-    default:
-        break;
+        case 1:
+        case 2:
+            virtuappu_mode1_render_frame(&virtuappu_registers);
+            break;
+        default:
+            break;
     }
 }
 
-uint32_t *virtuappu_get_frame_buffer(void)
-{
+uint32_t* virtuappu_get_frame_buffer(void) {
     return virtuappu_frame_buffer;
 }
 
-uint8_t *virtuappu_get_vram(void)
-{
+uint8_t* virtuappu_get_vram(void) {
     return virtuappu_vram;
 }
 
-PPUMemory *virtuappu_get_registers(void)
-{
+PPUMemory* virtuappu_get_registers(void) {
     return &virtuappu_registers;
 }

@@ -38,8 +38,7 @@ typedef struct {
     u16 unk_84;
 } TorchTrapEntity;
 
-PORT_STATIC_ASSERT_OFFSET(TorchTrapEntity, tilePos, 0x74, 0xA0,
-                          "TorchTrapEntity tilePos offset (Enemy::child +4 pad)");
+PORT_STATIC_ASSERT_OFFSET(TorchTrapEntity, tilePos, 0x74, 0xA0, "TorchTrapEntity tilePos offset (Enemy::child +4 pad)");
 
 void (*const gTorchTrapActions[])(TorchTrapEntity*);
 const u16 gTorchTrapTimerLengths[];

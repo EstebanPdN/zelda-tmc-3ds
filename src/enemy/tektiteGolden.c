@@ -21,8 +21,7 @@ typedef struct {
     /*0x80*/ u8 unk_80;
 } TektiteGoldenEntity;
 
-PORT_STATIC_ASSERT_OFFSET(TektiteGoldenEntity, unk_80, 0x80, 0xB0,
-                          "TektiteGoldenEntity unk_80 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(TektiteGoldenEntity, unk_80, 0x80, 0xB0, "TektiteGoldenEntity unk_80 offset incorrect");
 
 void sub_08038168(TektiteGoldenEntity*);
 void TektiteGolden_OnTick(TektiteGoldenEntity*);

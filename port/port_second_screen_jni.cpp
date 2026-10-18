@@ -10,8 +10,10 @@
 
 #include "port_second_screen.h"
 
-extern "C" JNIEXPORT void JNICALL Java_dev_picori_tmc_SecondScreenView_nativeSurfaceCreated(
-    JNIEnv* env, jobject /*thiz*/, jobject surface, jint width, jint height) {
+extern "C" JNIEXPORT void JNICALL Java_dev_picori_tmc_SecondScreenView_nativeSurfaceCreated(JNIEnv* env,
+                                                                                            jobject /*thiz*/,
+                                                                                            jobject surface, jint width,
+                                                                                            jint height) {
     ANativeWindow* window = ANativeWindow_fromSurface(env, surface);
     /* Port_SecondScreen_OnSurfaceReady takes ownership of this one
      * reference (releases it internally when replaced/lost) — don't
@@ -19,13 +21,13 @@ extern "C" JNIEXPORT void JNICALL Java_dev_picori_tmc_SecondScreenView_nativeSur
     Port_SecondScreen_OnSurfaceReady(window, width, height);
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_dev_picori_tmc_SecondScreenView_nativeSurfaceDestroyed(JNIEnv* /*env*/, jobject /*thiz*/) {
+extern "C" JNIEXPORT void JNICALL Java_dev_picori_tmc_SecondScreenView_nativeSurfaceDestroyed(JNIEnv* /*env*/,
+                                                                                              jobject /*thiz*/) {
     Port_SecondScreen_OnSurfaceLost();
 }
 
-extern "C" JNIEXPORT void JNICALL Java_dev_picori_tmc_SecondScreenView_nativeTap(
-    JNIEnv* /*env*/, jobject /*thiz*/, jint x, jint y, jboolean longPress) {
+extern "C" JNIEXPORT void JNICALL Java_dev_picori_tmc_SecondScreenView_nativeTap(JNIEnv* /*env*/, jobject /*thiz*/,
+                                                                                 jint x, jint y, jboolean longPress) {
     Port_SecondScreen_OnTap(x, y, longPress ? 1 : 0);
 }
 

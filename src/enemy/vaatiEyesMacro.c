@@ -24,8 +24,7 @@ typedef struct {
     /*0x79*/ u8 unk_79;
 } VaatiEyesMacroEntity;
 
-PORT_STATIC_ASSERT_OFFSET(VaatiEyesMacroEntity, unk_78, 0x78, 0xA4,
-                          "VaatiEyesMacroEntity unk_78 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(VaatiEyesMacroEntity, unk_78, 0x78, 0xA4, "VaatiEyesMacroEntity unk_78 offset incorrect");
 
 extern s16 gUnk_080B4488[];
 
@@ -187,7 +186,8 @@ void VaatiEyesMacroFunction0Type1Action0(VaatiEyesMacroEntity* this) {
 
 void VaatiEyesMacroFunction0Type1Action1(VaatiEyesMacroEntity* this) {
 #ifdef PC_PORT
-    if (super->parent == NULL) return; /* #136 family */
+    if (super->parent == NULL)
+        return; /* #136 family */
 #endif
     if (super->parent->next == NULL) {
         COLLISION_OFF(super);
@@ -208,7 +208,8 @@ void VaatiEyesMacroFunction0Type2(VaatiEyesMacroEntity* this) {
     xy* temp;
 
 #ifdef PC_PORT
-    if (super->parent == NULL) return; /* #136 family */
+    if (super->parent == NULL)
+        return; /* #136 family */
 #endif
     if (super->parent->next == NULL) {
         DeleteThisEntity();
@@ -234,7 +235,8 @@ void VaatiEyesMacroFunction0Type2(VaatiEyesMacroEntity* this) {
 
 void VaatiEyesMacroFunction0Type3(VaatiEyesMacroEntity* this) {
 #ifdef PC_PORT
-    if (super->parent == NULL) return; /* #136 family */
+    if (super->parent == NULL)
+        return; /* #136 family */
 #endif
     if (super->parent->next == NULL) {
         DeleteThisEntity();

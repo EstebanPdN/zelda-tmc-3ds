@@ -32,8 +32,7 @@ bool Port_DumpState_WriteFile(const char* path, int region, const SaveFile* save
 bool Port_DumpState_CreateDirectoryAt(const char* root, const char* stamp, char* out, size_t outSize);
 bool Port_DumpState_CreateDirectory(const char* root, char* out, size_t outSize);
 
-PortDumpStateResult Port_DumpState_ReadLatest(const char* dumpsDirectory, int activeRegion,
-                                              PortDumpStateData* out);
+PortDumpStateResult Port_DumpState_ReadLatest(const char* dumpsDirectory, int activeRegion, PortDumpStateData* out);
 const char* Port_DumpState_ResultLabel(PortDumpStateResult result);
 
 #ifdef __cplusplus

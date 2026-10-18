@@ -99,10 +99,8 @@ void MazaalMacro_OnTick(MazaalMacroEntity* this) {
         fprintf(stderr,
                 "[mazaal] MazaalMacro first tick: type=%u action=%u "
                 "subAction=%u parent=%p health=%u field_0x39=0x%02x\n",
-                (unsigned)super->type, (unsigned)super->action,
-                (unsigned)super->subAction, (void*)super->parent,
-                (unsigned)super->health,
-                (unsigned)gRoomTransition.field_0x39);
+                (unsigned)super->type, (unsigned)super->action, (unsigned)super->subAction, (void*)super->parent,
+                (unsigned)super->health, (unsigned)gRoomTransition.field_0x39);
     }
 #endif
     if (super->type != 2) {
@@ -128,10 +126,8 @@ void sub_08034CC4(MazaalMacroEntity* this) {
     fprintf(stderr,
             "[mazaal] sub_08034CC4 entry: type=%u action=%u health=%u "
             "field_0x39=0x%02x gEntCount=%u\n",
-            (unsigned)super->type, (unsigned)super->action,
-            (unsigned)super->health,
-            (unsigned)gRoomTransition.field_0x39,
-            (unsigned)gEntCount);
+            (unsigned)super->type, (unsigned)super->action, (unsigned)super->health,
+            (unsigned)gRoomTransition.field_0x39, (unsigned)gEntCount);
 #endif
 
     if (sub_08035084(this) != 0) {
@@ -196,7 +192,8 @@ void sub_08034E68(MazaalMacroEntity* this) {
     ScriptExecutionContext* scriptExecutionContext;
 
 #ifdef PC_PORT
-    if (super->parent == NULL) return; /* #136 family */
+    if (super->parent == NULL)
+        return; /* #136 family */
 #endif
     if (super->parent->next == NULL) {
         if (super->spriteSettings.draw != 0) {
@@ -217,7 +214,8 @@ void sub_08034E68(MazaalMacroEntity* this) {
 
 void sub_08034EC0(MazaalMacroEntity* this) {
 #ifdef PC_PORT
-    if (super->parent == NULL) return; /* #136 family */
+    if (super->parent == NULL)
+        return; /* #136 family */
 #endif
     if (super->parent->next == NULL) {
         sub_08035120(this);
@@ -261,11 +259,8 @@ void sub_08034F70(MazaalMacroEntity* this) {
         super->type2 = 2;
     }
 #ifdef PC_PORT
-    fprintf(stderr,
-            "[mazaal] sub_08034F70: field_0x39=0x%02x → phase=%u (type2=%u)\n",
-            (unsigned)gRoomTransition.field_0x39,
-            (unsigned)super->type2,
-            (unsigned)super->type2);
+    fprintf(stderr, "[mazaal] sub_08034F70: field_0x39=0x%02x → phase=%u (type2=%u)\n",
+            (unsigned)gRoomTransition.field_0x39, (unsigned)super->type2, (unsigned)super->type2);
 #endif
 }
 
@@ -331,12 +326,10 @@ u32 sub_08035084(MazaalMacroEntity* this) {
         } while (vulnPillar == gRoomTransition.field_0x38 >> 4);
         gRoomTransition.field_0x38 = (gRoomTransition.field_0x38 & 0xf) | (vulnPillar << 4);
 #ifdef PC_PORT
-        fprintf(stderr,
-                "[mazaal] spawn pillars: hp=0x%02x type2(phase)=%u entCount=%u vulnPillar=%u origin=(%d,%d)\n",
+        fprintf(stderr, "[mazaal] spawn pillars: hp=0x%02x type2(phase)=%u entCount=%u vulnPillar=%u origin=(%d,%d)\n",
                 (unsigned)gRoomTransition.field_0x39,
                 (gRoomTransition.field_0x39 >= 0x3d) ? 0 : (gRoomTransition.field_0x39 >= 0x1f ? 1 : 2),
-                (unsigned)gEntCount, (unsigned)vulnPillar,
-                (int)gRoomControls.origin_x, (int)gRoomControls.origin_y);
+                (unsigned)gEntCount, (unsigned)vulnPillar, (int)gRoomControls.origin_x, (int)gRoomControls.origin_y);
 #endif
         for (i = 0, coords = gUnk_080CEECC; i < 6; i++, coords += 2) {
             if (i == vulnPillar) {
@@ -346,8 +339,8 @@ u32 sub_08035084(MazaalMacroEntity* this) {
             }
 #ifdef PC_PORT
             if (entity == NULL) {
-                fprintf(stderr, "[mazaal] pillar %u CreateEnemy returned NULL (entCount=%u)\n",
-                        (unsigned)i, (unsigned)gEntCount);
+                fprintf(stderr, "[mazaal] pillar %u CreateEnemy returned NULL (entCount=%u)\n", (unsigned)i,
+                        (unsigned)gEntCount);
                 continue;
             }
 #endif

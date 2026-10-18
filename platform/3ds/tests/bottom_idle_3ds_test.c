@@ -12,7 +12,8 @@ enum { WIDTH = 320, HEIGHT = 240, STRIDE = 512 };
 int main(int argc, char** argv) {
     static uint32_t frame[STRIDE * HEIGHT];
     const uint32_t paddingSentinel = 0x12345678u;
-    for (unsigned i = 0; i < STRIDE * HEIGHT; ++i) frame[i] = paddingSentinel;
+    for (unsigned i = 0; i < STRIDE * HEIGHT; ++i)
+        frame[i] = paddingSentinel;
 
     BottomIdle3DS_Paint(frame, WIDTH, HEIGHT, STRIDE, 0, true);
 
@@ -29,15 +30,18 @@ int main(int argc, char** argv) {
     assert(frame[115 * STRIDE + 160] != firstPulse);
 
     BottomIdle3DS_Paint(frame, WIDTH, HEIGHT, STRIDE, 0, false);
-    uint32_t steady[STRIDE*HEIGHT]; memcpy(steady,frame,sizeof(frame));
+    uint32_t steady[STRIDE * HEIGHT];
+    memcpy(steady, frame, sizeof(frame));
     BottomIdle3DS_Paint(frame, WIDTH, HEIGHT, STRIDE, 400, false);
-    assert(memcmp(steady,frame,sizeof(frame))==0);
-    unsigned aa=0;
-    for(int y=100;y<140;y++)for(int x=140;x<180;x++) {
-        uint32_t color=frame[y*STRIDE+x];
-        if(color!=RGBA(0,0,0) && color!=RGBA(214,177,87)) ++aa;
-    }
-    assert(aa>20);
+    assert(memcmp(steady, frame, sizeof(frame)) == 0);
+    unsigned aa = 0;
+    for (int y = 100; y < 140; y++)
+        for (int x = 140; x < 180; x++) {
+            uint32_t color = frame[y * STRIDE + x];
+            if (color != RGBA(0, 0, 0) && color != RGBA(214, 177, 87))
+                ++aa;
+        }
+    assert(aa > 20);
     if (argc == 2) {
         FILE* file = fopen(argv[1], "wb");
         assert(file != NULL);

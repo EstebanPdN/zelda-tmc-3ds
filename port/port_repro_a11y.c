@@ -24,21 +24,20 @@
 #include <string.h>
 #include "port_repro.h"
 
-#include "main.h"   /* gMain, TASK_GAME */
-#include "room.h"   /* gRoomControls */
-#include "entity.h" /* GetEmptyEntity, AppendEntityToList, EntityKind */
-#include "player.h" /* gPlayerEntity */
-#include "object.h" /* CHEST_SPAWNER, GROUND_ITEM */
-#include "npc.h"    /* DOG */
-#include "enemy.h"  /* OCTOROK */
+#include "main.h"     /* gMain, TASK_GAME */
+#include "room.h"     /* gRoomControls */
+#include "entity.h"   /* GetEmptyEntity, AppendEntityToList, EntityKind */
+#include "player.h"   /* gPlayerEntity */
+#include "object.h"   /* CHEST_SPAWNER, GROUND_ITEM */
+#include "npc.h"      /* DOG */
+#include "enemy.h"    /* OCTOROK */
 #include "item_ids.h" /* ITEM_RUPEE20 */
 #include "port_a11y_cues.h"
 #include "port_gba_mem.h"
 #include "port_debug_actions.h"
 
-
 #define KEYINPUT_REG 0x130
-#define A_BUTTON     0x0001
+#define A_BUTTON 0x0001
 #define START_BUTTON 0x0008
 
 static void spawn_poi(u8 kind, u8 id, u8 type, int wx, int wy, u32 listIdx) {
@@ -93,12 +92,12 @@ void Port_ReproA11y_Tick(unsigned int frame) {
     if (warp_done && fire_frame && (int)frame >= fire_frame) {
         int px = gPlayerEntity.base.x.HALF.HI;
         int py = gPlayerEntity.base.y.HALF.HI;
-        fprintf(stderr, "[a11y-repro] frame %u: spawn+scan at player (%d,%d) area=0x%02x room=0x%02x\n",
-                frame, px, py, gRoomControls.area, gRoomControls.room);
-        spawn_poi(OBJECT, CHEST_SPAWNER, 0,            px + 48, py,      6); /* east, 3 tiles  */
-        spawn_poi(ENEMY,  OCTOROK,       0,            px,      py - 80, 4); /* north, 5 tiles */
-        spawn_poi(NPC,    DOG,           0,            px - 32, py,      7); /* west, 2 tiles  */
-        spawn_poi(OBJECT, GROUND_ITEM,   ITEM_RUPEE20, px + 16, py + 16, 6); /* SE, ~1 tile    */
+        fprintf(stderr, "[a11y-repro] frame %u: spawn+scan at player (%d,%d) area=0x%02x room=0x%02x\n", frame, px, py,
+                gRoomControls.area, gRoomControls.room);
+        spawn_poi(OBJECT, CHEST_SPAWNER, 0, px + 48, py, 6);               /* east, 3 tiles  */
+        spawn_poi(ENEMY, OCTOROK, 0, px, py - 80, 4);                      /* north, 5 tiles */
+        spawn_poi(NPC, DOG, 0, px - 32, py, 7);                            /* west, 2 tiles  */
+        spawn_poi(OBJECT, GROUND_ITEM, ITEM_RUPEE20, px + 16, py + 16, 6); /* SE, ~1 tile    */
         fflush(stderr);
         Port_A11y_ScanSurroundings();
         fprintf(stderr, "[a11y-repro] PASS - scan survived live entity + exit walk\n");

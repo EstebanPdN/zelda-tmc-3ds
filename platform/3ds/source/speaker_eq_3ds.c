@@ -19,14 +19,16 @@ static bool sHeadphonesKnown;
 static bool sActive;
 
 static bool ShouldFilter(void) {
-    if (!Port_Config_SpeakerEq()) return false;
+    if (!Port_Config_SpeakerEq())
+        return false;
     /* Headphones reproduce the low end the speakers cannot, so correcting for
      * the speakers would just thin them out. */
     return !sHeadphones;
 }
 
 void SpeakerEq3DS_ApplyToChannel(int channel) {
-    if (channel < SPEAKER_EQ_FIRST_CHANNEL || channel > SPEAKER_EQ_LAST_CHANNEL) return;
+    if (channel < SPEAKER_EQ_FIRST_CHANNEL || channel > SPEAKER_EQ_LAST_CHANNEL)
+        return;
     if (!ShouldFilter()) {
         ndspChnIirBiquadSetEnable(channel, false);
         return;
@@ -34,8 +36,10 @@ void SpeakerEq3DS_ApplyToChannel(int channel) {
     float hz = Port_Config_SpeakerEqHz();
     /* A cutoff at or above the band the game actually uses would gut the mix,
      * and one at zero would be a no-op with the filter still enabled. */
-    if (hz < 40.0f) hz = 40.0f;
-    if (hz > 1000.0f) hz = 1000.0f;
+    if (hz < 40.0f)
+        hz = 40.0f;
+    if (hz > 1000.0f)
+        hz = 1000.0f;
     if (!ndspChnIirBiquadSetParamsHighPassFilter(channel, hz, SPEAKER_EQ_Q)) {
         ndspChnIirBiquadSetEnable(channel, false);
         return;
@@ -66,10 +70,13 @@ void SpeakerEq3DS_ApplyAll(void) {
  */
 void SpeakerEq3DS_Poll(void) {
     const bool inserted = osIsHeadsetConnected();
-    if (sHeadphonesKnown && inserted == sHeadphones) return;
+    if (sHeadphonesKnown && inserted == sHeadphones)
+        return;
     sHeadphones = inserted;
     sHeadphonesKnown = true;
     SpeakerEq3DS_ApplyAll();
 }
 
-bool SpeakerEq3DS_Active(void) { return sActive; }
+bool SpeakerEq3DS_Active(void) {
+    return sActive;
+}

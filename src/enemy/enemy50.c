@@ -36,8 +36,7 @@ typedef struct {
     /*0x80*/ u8 unk_80;
 } Enemy50Entity;
 
-PORT_STATIC_ASSERT_OFFSET(Enemy50Entity, unk_6d, 0x6d, 0x99,
-                          "Enemy50Entity unk_6d offset (Enemy::child +4 pad)");
+PORT_STATIC_ASSERT_OFFSET(Enemy50Entity, unk_6d, 0x6d, 0x99, "Enemy50Entity unk_6d offset (Enemy::child +4 pad)");
 
 extern void sub_0803F58C(Enemy50Entity*);
 extern void sub_0803F6EC(Enemy50Entity*);

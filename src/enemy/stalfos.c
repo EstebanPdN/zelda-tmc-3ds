@@ -17,7 +17,7 @@
 
 typedef struct {
     /*0x00*/ Entity base;
-    /*0x68*/ #if defined(PC_PORT) && (__SIZEOF_POINTER__ == 8)
+/*0x68*/ #if defined (PC_PORT) && (__SIZEOF_POINTER__ == 8)
     u8 unk_68[0x10 + 4];
 #else
     u8 unk_68[0x10];
@@ -29,8 +29,7 @@ typedef struct {
     /*0x7d*/ u8 unk_7d;
 } StalfosEntity;
 
-PORT_STATIC_ASSERT_OFFSET(StalfosEntity, unk_78, 0x78, 0xa4,
-                          "StalfosEntity unk_78 offset (Enemy::child +4 pad)");
+PORT_STATIC_ASSERT_OFFSET(StalfosEntity, unk_78, 0x78, 0xa4, "StalfosEntity unk_78 offset (Enemy::child +4 pad)");
 
 extern void (*const Stalfos_Functions[])(StalfosEntity*);
 extern void (*const Stalfos_Actions[])(StalfosEntity*);

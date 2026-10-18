@@ -76,9 +76,9 @@ void Beanstalk_Init(BeanstalkEntity* this) {
     SetEntityPriority(super, 4);
     if (super->type == 7) {
         if (!REGION_IS_EU) {
-        if ((super->flags & ENT_DID_INIT) == 0) {
-            return;
-        }
+            if ((super->flags & ENT_DID_INIT) == 0) {
+                return;
+            }
         }
         if (super->type2 == 0 && super->timer != 0) {
             if (CheckLocalFlag(super->timer) == 0) {

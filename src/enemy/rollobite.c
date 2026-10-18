@@ -24,8 +24,7 @@ typedef struct {
     /*0x85*/ u8 unk_85;
 } RollobiteEntity;
 
-PORT_STATIC_ASSERT_OFFSET(RollobiteEntity, unk_84, 0x84, 0xB4,
-                          "RollobiteEntity unk_84 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(RollobiteEntity, unk_84, 0x84, 0xB4, "RollobiteEntity unk_84 offset incorrect");
 
 extern void (*const Rollobite_Functions[])(RollobiteEntity*);
 extern void (*const gRollobiteActions[])(RollobiteEntity*);

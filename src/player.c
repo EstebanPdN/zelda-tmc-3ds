@@ -310,10 +310,8 @@ bool32 CheckInitPauseMenu(void) {
 #ifdef PC_PORT
         if (gInput.newKeys & START_BUTTON) {
             fprintf(stderr, "[MENU] blocked: fade=%d disabled=%d msgActive=%d health=%d inv=%d ctrl=%d ptimer=%u\n",
-                    gFadeControl.active, gPauseMenuOptions.disabled,
-                    (gMessage.state & MESSAGE_ACTIVE) ? 1 : 0,
-                    gSave.stats.health, gSave.inventory[0],
-                    gPlayerState.controlMode, gPriorityHandler.priority_timer);
+                    gFadeControl.active, gPauseMenuOptions.disabled, (gMessage.state & MESSAGE_ACTIVE) ? 1 : 0,
+                    gSave.stats.health, gSave.inventory[0], gPlayerState.controlMode, gPriorityHandler.priority_timer);
         }
 #endif
         return FALSE;
@@ -335,20 +333,14 @@ bool32 CheckInitPauseMenu(void) {
 void DoPlayerAction(PlayerEntity* this) {
 #ifdef PC_PORT
     {
-        extern void Port_LogPlayerState(unsigned action, unsigned controlMode,
-                                        unsigned stateFlags, unsigned eventPrio,
-                                        unsigned area, unsigned room,
-                                        int x, int y, unsigned heldKeys,
-                                        unsigned knockback, unsigned jumpStatus,
-                                        unsigned swimState, unsigned framestate,
-                                        unsigned attackStatus, unsigned spd);
-        Port_LogPlayerState(super->action, gPlayerState.controlMode,
-                            gPlayerState.flags, gPriorityHandler.event_priority,
-                            gRoomControls.area, gRoomControls.room,
-                            (int)super->x.HALF.HI, (int)super->y.HALF.HI,
-                            gInput.heldKeys,
-                            super->knockbackDuration, gPlayerState.jump_status,
-                            gPlayerState.swim_state, gPlayerState.framestate,
+        extern void Port_LogPlayerState(unsigned action, unsigned controlMode, unsigned stateFlags, unsigned eventPrio,
+                                        unsigned area, unsigned room, int x, int y, unsigned heldKeys,
+                                        unsigned knockback, unsigned jumpStatus, unsigned swimState,
+                                        unsigned framestate, unsigned attackStatus, unsigned spd);
+        Port_LogPlayerState(super->action, gPlayerState.controlMode, gPlayerState.flags,
+                            gPriorityHandler.event_priority, gRoomControls.area, gRoomControls.room,
+                            (int)super->x.HALF.HI, (int)super->y.HALF.HI, gInput.heldKeys, super->knockbackDuration,
+                            gPlayerState.jump_status, gPlayerState.swim_state, gPlayerState.framestate,
                             gPlayerState.attack_status, super->speed);
     }
 #endif
@@ -475,7 +467,10 @@ static void PlayerNormal(PlayerEntity* this) {
     super->hurtType = 0;
     if (CheckQueuedAction()) {
 #ifdef PC_PORT
-        { extern void Port_LogPlayerEarlyReturn(const char* tag); Port_LogPlayerEarlyReturn("CQA-0"); }
+        {
+            extern void Port_LogPlayerEarlyReturn(const char* tag);
+            Port_LogPlayerEarlyReturn("CQA-0");
+        }
 #endif
         return;
     }
@@ -499,7 +494,10 @@ static void PlayerNormal(PlayerEntity* this) {
 
     if (CheckQueuedAction()) {
 #ifdef PC_PORT
-        { extern void Port_LogPlayerEarlyReturn(const char* tag); Port_LogPlayerEarlyReturn("CQA-1"); }
+        {
+            extern void Port_LogPlayerEarlyReturn(const char* tag);
+            Port_LogPlayerEarlyReturn("CQA-1");
+        }
 #endif
         return;
     }
@@ -514,7 +512,10 @@ static void PlayerNormal(PlayerEntity* this) {
                 CheckQueuedAction();
             }
 #ifdef PC_PORT
-            { extern void Port_LogPlayerEarlyReturn(const char* tag); Port_LogPlayerEarlyReturn("sub_080782C0"); }
+            {
+                extern void Port_LogPlayerEarlyReturn(const char* tag);
+                Port_LogPlayerEarlyReturn("sub_080782C0");
+            }
 #endif
             return;
         }
@@ -533,14 +534,20 @@ static void PlayerNormal(PlayerEntity* this) {
                     super->flags &= ~ENT_COLLIDE;
                     sub_080797EC();
 #ifdef PC_PORT
-                    { extern void Port_LogPlayerEarlyReturn(const char* tag); Port_LogPlayerEarlyReturn("col=15"); }
+                    {
+                        extern void Port_LogPlayerEarlyReturn(const char* tag);
+                        Port_LogPlayerEarlyReturn("col=15");
+                    }
 #endif
                     return;
                 case 4:
                     gPlayerState.pushedObject ^= 0x80;
                     sub_080797EC();
 #ifdef PC_PORT
-                    { extern void Port_LogPlayerEarlyReturn(const char* tag); Port_LogPlayerEarlyReturn("col=4"); }
+                    {
+                        extern void Port_LogPlayerEarlyReturn(const char* tag);
+                        Port_LogPlayerEarlyReturn("col=4");
+                    }
 #endif
                     return;
                 case 1:
@@ -548,12 +555,12 @@ static void PlayerNormal(PlayerEntity* this) {
                 case 5 ... 14:
                 default:
 #ifdef PC_PORT
-                    {
-                        extern void Port_LogPlayerEarlyReturn(const char* tag);
-                        char buf[16];
-                        snprintf(buf, sizeof(buf), "col=%d", collisionResult);
-                        Port_LogPlayerEarlyReturn(buf);
-                    }
+                {
+                    extern void Port_LogPlayerEarlyReturn(const char* tag);
+                    char buf[16];
+                    snprintf(buf, sizeof(buf), "col=%d", collisionResult);
+                    Port_LogPlayerEarlyReturn(buf);
+                }
 #endif
                     return;
             }
@@ -564,7 +571,10 @@ static void PlayerNormal(PlayerEntity* this) {
     super->spritePriority.b0 = 4;
     if (sub_0807AC54(super)) {
 #ifdef PC_PORT
-        { extern void Port_LogPlayerEarlyReturn(const char* tag); Port_LogPlayerEarlyReturn("sub_0807AC54"); }
+        {
+            extern void Port_LogPlayerEarlyReturn(const char* tag);
+            Port_LogPlayerEarlyReturn("sub_0807AC54");
+        }
 #endif
         return;
     }
@@ -572,7 +582,10 @@ static void PlayerNormal(PlayerEntity* this) {
 
     if (CheckQueuedAction()) {
 #ifdef PC_PORT
-        { extern void Port_LogPlayerEarlyReturn(const char* tag); Port_LogPlayerEarlyReturn("CQA-2"); }
+        {
+            extern void Port_LogPlayerEarlyReturn(const char* tag);
+            Port_LogPlayerEarlyReturn("CQA-2");
+        }
 #endif
         return;
     }
@@ -580,7 +593,10 @@ static void PlayerNormal(PlayerEntity* this) {
     sub_080792D8();
     if ((gPlayerState.jump_status | gPlayerState.field_0xa) == 0 && (sub_08079550() || sub_08078F74(super))) {
 #ifdef PC_PORT
-        { extern void Port_LogPlayerEarlyReturn(const char* tag); Port_LogPlayerEarlyReturn("9550-or-8F74"); }
+        {
+            extern void Port_LogPlayerEarlyReturn(const char* tag);
+            Port_LogPlayerEarlyReturn("9550-or-8F74");
+        }
 #endif
         return;
     }
@@ -588,7 +604,10 @@ static void PlayerNormal(PlayerEntity* this) {
 
     if (CheckQueuedAction()) {
 #ifdef PC_PORT
-        { extern void Port_LogPlayerEarlyReturn(const char* tag); Port_LogPlayerEarlyReturn("CQA-3"); }
+        {
+            extern void Port_LogPlayerEarlyReturn(const char* tag);
+            Port_LogPlayerEarlyReturn("CQA-3");
+        }
 #endif
         return;
     }
@@ -607,7 +626,10 @@ static void PlayerNormal(PlayerEntity* this) {
         if ((super->frame & 2) == 0 && !gPlayerState.attack_status)
             UpdateAnimationSingleFrame(super);
 #ifdef PC_PORT
-        { extern void Port_LogPlayerEarlyReturn(const char* tag); Port_LogPlayerEarlyReturn("jump-path"); }
+        {
+            extern void Port_LogPlayerEarlyReturn(const char* tag);
+            Port_LogPlayerEarlyReturn("jump-path");
+        }
 #endif
         return;
     }
@@ -626,7 +648,10 @@ static void PlayerNormal(PlayerEntity* this) {
             gPlayerState.framestate = PL_STATE_SWIM;
             PlayerSwimming(super);
 #ifdef PC_PORT
-            { extern void Port_LogPlayerEarlyReturn(const char* tag); Port_LogPlayerEarlyReturn("post-swim"); }
+            {
+                extern void Port_LogPlayerEarlyReturn(const char* tag);
+                Port_LogPlayerEarlyReturn("post-swim");
+            }
 #endif
         } else {
             if ((gPlayerState.flags & PL_CONVEYOR_PUSHED) == 0)
@@ -662,12 +687,10 @@ static void PlayerNormal(PlayerEntity* this) {
         }
 #ifdef PC_PORT
         {
-            extern void Port_LogPlayerMovementGate(unsigned v13, unsigned dir, unsigned psDir,
-                                                   unsigned f7, unsigned fa, unsigned dash,
-                                                   unsigned floor, unsigned swordState);
-            Port_LogPlayerMovementGate(v13, super->direction, gPlayerState.direction,
-                                       gPlayerState.field_0x7, gPlayerState.field_0xa,
-                                       gPlayerState.dash_state, gPlayerState.floor_type,
+            extern void Port_LogPlayerMovementGate(unsigned v13, unsigned dir, unsigned psDir, unsigned f7, unsigned fa,
+                                                   unsigned dash, unsigned floor, unsigned swordState);
+            Port_LogPlayerMovementGate(v13, super->direction, gPlayerState.direction, gPlayerState.field_0x7,
+                                       gPlayerState.field_0xa, gPlayerState.dash_state, gPlayerState.floor_type,
                                        gPlayerState.sword_state);
         }
 #endif
@@ -681,12 +704,18 @@ static void PlayerNormal(PlayerEntity* this) {
         if (gPlayerState.swim_state != 0 && (gRoomTransition.frameCount & 7) == 0)
             CreateWaterTrace(super);
 #ifdef PC_PORT
-        { extern void Port_LogPlayerEarlyReturn(const char* tag); Port_LogPlayerEarlyReturn("knock-nonzero"); }
+        {
+            extern void Port_LogPlayerEarlyReturn(const char* tag);
+            Port_LogPlayerEarlyReturn("knock-nonzero");
+        }
 #endif
         return;
     }
 #ifdef PC_PORT
-    { extern void Port_LogPlayerEarlyReturn(const char* tag); Port_LogPlayerEarlyReturn("pn-end"); }
+    {
+        extern void Port_LogPlayerEarlyReturn(const char* tag);
+        Port_LogPlayerEarlyReturn("pn-end");
+    }
 #endif
 }
 
@@ -3074,7 +3103,8 @@ void sub_08073884(PlayerEntity* this) {
     if (--super->timer == 0) {
         if (gPlayerState.field_0x39 != 0xff) {
             const Transition* exitTransitions = gUnk_0813AD88;
-            if (REGION_IS_EU) exitTransitions = gUnk_0813AD88_eu;
+            if (REGION_IS_EU)
+                exitTransitions = gUnk_0813AD88_eu;
             DoExitTransition(&exitTransitions[gPlayerState.field_0x39]);
         } else
             InitParachuteRoom();

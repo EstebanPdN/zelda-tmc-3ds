@@ -555,43 +555,49 @@ void sub_08053BBC(void) {
      *   MINISTER_POTHO (0x25)— minister-phase
      */
     enum {
-        ACT_NONE              = 0,
-        ACT_PLAY_VAATI_BGM    = 1 << 0,
-        ACT_SOLDIER_SCENE     = 1 << 1,
-        ACT_STOP_BGM          = 1 << 2,
-        ACT_END               = 1 << 3,
+        ACT_NONE = 0,
+        ACT_PLAY_VAATI_BGM = 1 << 0,
+        ACT_SOLDIER_SCENE = 1 << 1,
+        ACT_STOP_BGM = 1 << 2,
+        ACT_END = 1 << 3,
     };
-    static const struct { u32 camNpcId; u32 wakeFlag; u32 ackFlag;
-                          int minFrames; int maxFrames; u8 actions; } kPhase[] = {
+    static const struct {
+        u32 camNpcId;
+        u32 wakeFlag;
+        u32 ackFlag;
+        int minFrames;
+        int maxFrames;
+        u8 actions;
+    } kPhase[] = {
         /* Phase 0: throne intro — King + Zelda visible, fade-in. */
-        { KING_DALTUS,  0x000, 0x000, 60,  90,  ACT_PLAY_VAATI_BGM },
+        { KING_DALTUS, 0x000, 0x000, 60, 90, ACT_PLAY_VAATI_BGM },
         /* Phase 1: pan to Vaati teleporting in. */
-        { VAATI,        0x010, 0x020, 90,  300, ACT_NONE },
+        { VAATI, 0x010, 0x020, 90, 300, ACT_NONE },
         /* Phase 2: pan back to King, King reacts. */
-        { KING_DALTUS,  0x004, 0x008, 90,  300, ACT_NONE },
+        { KING_DALTUS, 0x004, 0x008, 90, 300, ACT_NONE },
         /* Phase 3: pan to Vaati. */
-        { VAATI,        0x010, 0x020, 90,  300, ACT_NONE },
+        { VAATI, 0x010, 0x020, 90, 300, ACT_NONE },
         /* Phase 4 (Vaati 3 — third Vaati wake, camera stays on Vaati). */
-        { VAATI,        0x010, 0x020, 60,  240, ACT_NONE },
+        { VAATI, 0x010, 0x020, 60, 240, ACT_NONE },
         /* Phase 5: pan to King. */
-        { KING_DALTUS,  0x004, 0x008, 90,  300, ACT_NONE },
+        { KING_DALTUS, 0x004, 0x008, 90, 300, ACT_NONE },
         /* Phase 6: pan to Vaati (4th wake — the "I am taking over" beat). */
-        { VAATI,        0x010, 0x020, 90,  300, ACT_NONE },
+        { VAATI, 0x010, 0x020, 90, 300, ACT_NONE },
         /* Phase 7: extra Vaati hold before scene cut. */
-        { VAATI,        0x010, 0x020, 30,  120, ACT_NONE },
+        { VAATI, 0x010, 0x020, 30, 120, ACT_NONE },
         /* Phase 8: scene cut — load soldiers, swap BGM, fade to throne-
          * soldiers shot. Wake first Guard. */
-        { GUARD_1,      0x040, 0x080, 90,  300, ACT_SOLDIER_SCENE },
+        { GUARD_1, 0x040, 0x080, 90, 300, ACT_SOLDIER_SCENE },
         /* Phase 9: wake Minister. */
         { MINISTER_POTHO, 0x001, 0x002, 90, 300, ACT_NONE },
         /* Phase 10: King talks to Minister. */
-        { KING_DALTUS,  0x004, 0x008, 90,  300, ACT_NONE },
+        { KING_DALTUS, 0x004, 0x008, 90, 300, ACT_NONE },
         /* Phase 11: one-way penultimate signal. */
-        { KING_DALTUS,  0x200, 0x000, 30,  60,  ACT_NONE },
+        { KING_DALTUS, 0x200, 0x000, 30, 60, ACT_NONE },
         /* Phase 12: King's final line. */
-        { KING_DALTUS,  0x004, 0x008, 90,  300, ACT_NONE },
+        { KING_DALTUS, 0x004, 0x008, 90, 300, ACT_NONE },
         /* Phase 13: cutscene-over fade + room-flag-set + helper-broadcast. */
-        { KING_DALTUS,  0x400, 0x000, 60,  120, ACT_STOP_BGM | ACT_END },
+        { KING_DALTUS, 0x400, 0x000, 60, 120, ACT_STOP_BGM | ACT_END },
     };
 
     if (sWd && !CheckRoomFlag(0)) {
@@ -607,14 +613,15 @@ void sub_08053BBC(void) {
             u32 setFlag = kPhase[sStep].wakeFlag;
             u32 doneFlag = kPhase[sStep].ackFlag;
             u32 camNpcId = kPhase[sStep].camNpcId;
-            if (setFlag) gActiveScriptInfo.syncFlags |= setFlag;
+            if (setFlag)
+                gActiveScriptInfo.syncFlags |= setFlag;
             sFrameInStep++;
             {
                 static int sLogStep = -1;
                 if (sLogStep != sStep) {
                     sLogStep = sStep;
-                    fprintf(stderr, "[wd] phase=%d cam=0x%X wake=0x%X ack=0x%X act=0x%X\n",
-                        sStep, camNpcId, setFlag, doneFlag, kPhase[sStep].actions);
+                    fprintf(stderr, "[wd] phase=%d cam=0x%X wake=0x%X ack=0x%X act=0x%X\n", sStep, camNpcId, setFlag,
+                            doneFlag, kPhase[sStep].actions);
                     /* Fire one-shot actions at the start of the phase. */
                     u8 actions = kPhase[sStep].actions;
                     if (actions & ACT_PLAY_VAATI_BGM) {
@@ -642,20 +649,20 @@ void sub_08053BBC(void) {
              * orchestrator stalls. */
             if (camNpcId != 0xFFFFFFFFu) {
                 Entity* target = FindEntityByID(NPC, camNpcId, 7);
-                if (target == NULL) target = FindEntityByID(NPC, camNpcId, 5);
+                if (target == NULL)
+                    target = FindEntityByID(NPC, camNpcId, 5);
                 if (sStep >= 2 && target != NULL && gRoomControls.camera_target != target) {
-                    fprintf(stderr, "[wd] camera -> NPC id=0x%X (was %p) tgt=(%d,%d)\n",
-                            camNpcId, (void*)gRoomControls.camera_target,
-                            target->x.HALF.HI, target->y.HALF.HI);
+                    fprintf(stderr, "[wd] camera -> NPC id=0x%X (was %p) tgt=(%d,%d)\n", camNpcId,
+                            (void*)gRoomControls.camera_target, target->x.HALF.HI, target->y.HALF.HI);
                     gRoomControls.camera_target = target;
                 }
             }
             int advance = 0;
             if (sFrameInStep >= kPhase[sStep].maxFrames) {
-                advance = 1;  /* timeout — helper isn't responding */
+                advance = 1; /* timeout — helper isn't responding */
             } else if (sFrameInStep >= kPhase[sStep].minFrames) {
                 if (doneFlag == 0) {
-                    advance = 1;  /* one-way step, advance after minFrames */
+                    advance = 1; /* one-way step, advance after minFrames */
                 } else if ((gActiveScriptInfo.syncFlags & doneFlag) == doneFlag) {
                     gActiveScriptInfo.syncFlags &= ~doneFlag;
                     advance = 1;
@@ -740,8 +747,7 @@ void sub_08053BBC(void) {
             sBgmRestored = 1;
             SoundReq(gArea.bgm);
             if (Port_DebugVerbose)
-                fprintf(stderr, "[wd] restore overworld BGM: SoundReq(gArea.bgm=0x%X)\n",
-                        (unsigned)gArea.bgm);
+                fprintf(stderr, "[wd] restore overworld BGM: SoundReq(gArea.bgm=0x%X)\n", (unsigned)gArea.bgm);
         }
 #endif
     }

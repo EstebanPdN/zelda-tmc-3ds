@@ -44,17 +44,21 @@ static uint32_t RequestTouchRefresh(void) {
 static void IdleBackRect(int width, int height, float* x0, float* y0, float* x1, float* y1) {
     float u = (float)(width < height ? width : height) / 720.0f;
     int32_t ts = (width < height ? width : height) / 240;
-    if (ts < 2) ts = 2;
-    if (ts > 6) ts = 6;
+    if (ts < 2)
+        ts = 2;
+    if (ts > 6)
+        ts = 6;
 
     const float panelX = 10.0f * u;
     const float panelY = 10.0f * u;
     const float inset = 6.0f * (float)ts;
     int32_t headerScale = (int32_t)(2.4f * u);
-    if (headerScale < 1) headerScale = 1;
+    if (headerScale < 1)
+        headerScale = 1;
     const float headerHeight = MENU_TEXT_BOX * headerScale + 24.0f * u;
     float buttonWidth = 154.0f * u;
-    if (buttonWidth < 54.0f) buttonWidth = 54.0f;
+    if (buttonWidth < 54.0f)
+        buttonWidth = 54.0f;
 
     *x0 = panelX + inset + 4.0f * u;
     *y0 = panelY + inset;
@@ -81,7 +85,8 @@ static void ResetIdleOnlyState(void) {
     sUi.settingsPage = SS_SETTINGS_ROOT;
     sUi.loadConfirmActive = 0;
     sUi.unavailableNoticeActive = 0;
-    if (sIdleOwnsSettingsTab) sUi.tab = SS_TAB_MAP;
+    if (sIdleOwnsSettingsTab)
+        sUi.tab = SS_TAB_MAP;
     UI_UNLOCK();
     sLastFix.valid = 0;
     sCam.valid = 0;
@@ -103,8 +108,9 @@ static void PaintIntroCinema(uint32_t* pixels, int width, int height, int stride
 }
 
 uint32_t Port_SecondScreen_3DS_PaintInto(uint32_t* pixels, int width, int height, int strideInPixels,
-                                        const SecondScreenSnapshot* snap, uint32_t tick) {
-    if (!pixels || !snap || width <= 0 || height <= 0 || strideInPixels < width) return 0;
+                                         const SecondScreenSnapshot* snap, uint32_t tick) {
+    if (!pixels || !snap || width <= 0 || height <= 0 || strideInPixels < width)
+        return 0;
 
     const uint32_t refreshRequest = BeginRefresh();
     const bool settingsOpen = __atomic_load_n(&sIdleSettingsOpen, __ATOMIC_ACQUIRE) != 0;
@@ -116,8 +122,10 @@ uint32_t Port_SecondScreen_3DS_PaintInto(uint32_t* pixels, int width, int height
     }
 
     if (snap->inGame) {
-        if (settingsOpen) __atomic_store_n(&sIdleSettingsOpen, 0, __ATOMIC_RELEASE);
-        if (sIdleOwnsSettingsTab) ResetIdleOnlyState();
+        if (settingsOpen)
+            __atomic_store_n(&sIdleSettingsOpen, 0, __ATOMIC_RELEASE);
+        if (sIdleOwnsSettingsTab)
+            ResetIdleOnlyState();
         Port_SecondScreen_PaintInto(pixels, width, height, strideInPixels, snap, tick);
         FinishRefresh(refreshRequest);
         return refreshRequest;
@@ -136,7 +144,8 @@ uint32_t Port_SecondScreen_3DS_PaintInto(uint32_t* pixels, int width, int height
     /* The existing Settings painter only needs the inGame gate to become
      * visible; its values come from persistent port configuration, not from
      * gameplay coordinates. A zeroed title snapshot is therefore safe. */
-    if (!sIdleOwnsSettingsTab) ResetIdleOnlyState();
+    if (!sIdleOwnsSettingsTab)
+        ResetIdleOnlyState();
     SecondScreenSnapshot settingsSnapshot = *snap;
     settingsSnapshot.inGame = 1;
     UI_LOCK();
@@ -156,8 +165,10 @@ uint32_t Port_SecondScreen_3DS_PaintInto(uint32_t* pixels, int width, int height
         SSurf surface = { pixels, width, height, strideInPixels };
         float u = (float)(width < height ? width : height) / 720.0f;
         int32_t ts = (width < height ? width : height) / 240;
-        if (ts < 2) ts = 2;
-        if (ts > 6) ts = 6;
+        if (ts < 2)
+            ts = 2;
+        if (ts > 6)
+            ts = 6;
         DrawIdleBack(&surface, u, ts);
     }
     __atomic_store_n(&sIdleBackVisible, showIdleBack ? 1 : 0, __ATOMIC_RELEASE);
@@ -188,7 +199,8 @@ void Port_SecondScreen_3DS_GetFrameStats(BottomFrameState3DSStats* out) {
 void Port_SecondScreen_3DS_OnTap(int x, int y, int longPress) {
     SecondScreenSnapshot currentSnapshot;
     Port_SecondScreenState_Read(&currentSnapshot);
-    if (currentSnapshot.introCinema) return;
+    if (currentSnapshot.introCinema)
+        return;
     /* Painting publishes the compositor's new hit boxes before its texture
      * can be submitted or shown.  Dispatch only when those hit boxes belong
      * to the confirmed visible generation and task; otherwise fail closed
@@ -214,8 +226,7 @@ void Port_SecondScreen_3DS_OnTap(int x, int y, int longPress) {
         return;
     }
 
-    if (__atomic_load_n(&sIdleBackVisible, __ATOMIC_ACQUIRE) &&
-        IsIdleBackTap(x, y, 320, 240)) {
+    if (__atomic_load_n(&sIdleBackVisible, __ATOMIC_ACQUIRE) && IsIdleBackTap(x, y, 320, 240)) {
         __atomic_store_n(&sIdleSettingsOpen, 0, __ATOMIC_RELEASE);
         RequestTouchRefresh();
         return;
@@ -229,10 +240,10 @@ int Port_SecondScreen_3DS_NeedsRefresh(void) {
     return BottomFrameState3DS_NeedsPaint(&sFrameState);
 }
 
-int Port_SecondScreen_3DS_NeedsPeriodicRefresh(const SecondScreenSnapshot* snap, uint32_t tick,
-                                               uint32_t paintedTick, int32_t width,
-                                               int32_t height) {
-    if (!snap || snap->introCinema) return 0;
+int Port_SecondScreen_3DS_NeedsPeriodicRefresh(const SecondScreenSnapshot* snap, uint32_t tick, uint32_t paintedTick,
+                                               int32_t width, int32_t height) {
+    if (!snap || snap->introCinema)
+        return 0;
 
     const bool idleSettings = __atomic_load_n(&sIdleSettingsOpen, __ATOMIC_ACQUIRE) != 0;
     if (!snap->inGame && !idleSettings) {
@@ -267,8 +278,7 @@ int Port_SecondScreen_3DS_NeedsPeriodicRefresh(const SecondScreenSnapshot* snap,
         if (cameraMoving || regionState == SS_REGION_BRACKET || floorPreview != SS_NO_FLOOR) {
             return 1;
         }
-        if (BottomMapAnim_NeedsPaint(tick, paintedTick,
-                                     (snap->areaFlags & SECOND_SCREEN_AR_IS_DUNGEON) != 0, width,
+        if (BottomMapAnim_NeedsPaint(tick, paintedTick, (snap->areaFlags & SECOND_SCREEN_AR_IS_DUNGEON) != 0, width,
                                      height)) {
             return 1;
         }
@@ -282,13 +292,13 @@ int Port_SecondScreen_3DS_NeedsPeriodicRefresh(const SecondScreenSnapshot* snap,
         /* Quest status and its two detail lists have no selection cursor. */
         return 0;
     }
-    if (settingsPage == SS_SETTINGS_UPDATE) return 1;
+    if (settingsPage == SS_SETTINGS_UPDATE)
+        return 1;
     if (settingsPage == SS_SETTINGS_OVERLAY) {
         /* Live diagnostics deliberately retain their slower refresh rate. */
         return 1;
     }
-    if (settingsPage == SS_SETTINGS_DEVELOPER &&
-        (int32_t)(dumpFlashUntil - lastTick) > 0) {
+    if (settingsPage == SS_SETTINGS_DEVELOPER && (int32_t)(dumpFlashUntil - lastTick) > 0) {
         /* Keep painting until the post-dump DONE indicator expires. */
         return 1;
     }
@@ -296,17 +306,20 @@ int Port_SecondScreen_3DS_NeedsPeriodicRefresh(const SecondScreenSnapshot* snap,
 }
 
 int Port_SecondScreen_3DS_SnapshotChangeNeedsRefresh(const SecondScreenSnapshot* previous,
-                                                     const SecondScreenSnapshot* current,
-                                                     int previousValid) {
-    if (!previous || !current || !previousValid) return 1;
-    if (previous->inGame != current->inGame || previous->introCinema != current->introCinema) return 1;
-    if (memcmp(previous, current, sizeof(*current)) == 0) return 0;
+                                                     const SecondScreenSnapshot* current, int previousValid) {
+    if (!previous || !current || !previousValid)
+        return 1;
+    if (previous->inGame != current->inGame || previous->introCinema != current->introCinema)
+        return 1;
+    if (memcmp(previous, current, sizeof(*current)) == 0)
+        return 0;
 
     /* Gameplay snapshots continue changing while a settings sheet covers the
      * entire panel, but none of those engine fields are drawn there.  Config
      * mutations originate in the tap handler and request an immediate paint;
      * the overlay and dump indicator are handled by NeedsPeriodicRefresh. */
-    if (!current->inGame) return 0;
+    if (!current->inGame)
+        return 0;
     int tab;
     UI_LOCK();
     tab = sUi.tab;

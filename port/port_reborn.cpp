@@ -8,7 +8,7 @@
  */
 
 #include "port_reborn.h"
-#include "port_runtime_config.h"  /* persist feature toggles (issue #146) */
+#include "port_runtime_config.h" /* persist feature toggles (issue #146) */
 
 namespace {
 
@@ -120,9 +120,9 @@ extern "C" bool Port_Reborn_ConsumeJustResumed(void) {
     return v;
 }
 
-
 extern "C" bool Port_Reborn_IsEnabled(RebornFeature f) {
-    if ((unsigned)f >= REBORN_FEAT_COUNT) return false;
+    if ((unsigned)f >= REBORN_FEAT_COUNT)
+        return false;
     return sFeatures[f].enabled;
 }
 
@@ -130,7 +130,8 @@ extern "C" bool Port_Reborn_IsEnabled(RebornFeature f) {
 extern "C" unsigned Port_Reborn_GetMask(void) {
     unsigned m = 0;
     for (unsigned i = 0; i < REBORN_FEAT_COUNT; i++)
-        if (sFeatures[i].enabled) m |= (1u << i);
+        if (sFeatures[i].enabled)
+            m |= (1u << i);
     return m;
 }
 
@@ -140,18 +141,21 @@ extern "C" void Port_Reborn_ApplyMask(unsigned mask) {
 }
 
 extern "C" void Port_Reborn_SetEnabled(RebornFeature f, bool on) {
-    if ((unsigned)f >= REBORN_FEAT_COUNT) return;
+    if ((unsigned)f >= REBORN_FEAT_COUNT)
+        return;
     sFeatures[f].enabled = on;
     /* Persist the full feature set so the toggle survives restart. */
     Port_Config_SetRebornMask(Port_Reborn_GetMask());
 }
 
 extern "C" const char* Port_Reborn_FeatureLabel(RebornFeature f) {
-    if ((unsigned)f >= REBORN_FEAT_COUNT) return "";
+    if ((unsigned)f >= REBORN_FEAT_COUNT)
+        return "";
     return sFeatures[f].label;
 }
 
 extern "C" const char* Port_Reborn_FeatureDescription(RebornFeature f) {
-    if ((unsigned)f >= REBORN_FEAT_COUNT) return "";
+    if ((unsigned)f >= REBORN_FEAT_COUNT)
+        return "";
     return sFeatures[f].description;
 }

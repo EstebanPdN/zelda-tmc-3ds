@@ -103,10 +103,14 @@ static unsigned long long sVoicesRateDeclined;
 static float sMasterLevel = 1.0f;
 
 void NdspPsg_Init(void) {
-    if (sReady || !Port_Config_AudioDsp()) return;
+    if (sReady || !Port_Config_AudioDsp())
+        return;
     for (int duty = 0; duty < 4; ++duty) {
         sTables[duty] = (int16_t*)linearAlloc(PSG_TABLE_SAMPLES * sizeof(int16_t));
-        if (!sTables[duty]) { NdspPsg_Shutdown(); return; }
+        if (!sTables[duty]) {
+            NdspPsg_Shutdown();
+            return;
+        }
         for (int i = 0; i < PSG_TABLE_SAMPLES; ++i) {
             const float v = kDuty[duty][i % PSG_PERIOD_SAMPLES];
             sTables[duty][i] = (int16_t)(v * 32767.0f);
@@ -115,7 +119,10 @@ void NdspPsg_Init(void) {
     }
     for (int i = 0; i < PSG_CHANNEL_COUNT; ++i) {
         sWaveTable[i] = (int16_t*)linearAlloc(PSG_WAVE_SAMPLES * sizeof(int16_t));
-        if (!sWaveTable[i]) { NdspPsg_Shutdown(); return; }
+        if (!sWaveTable[i]) {
+            NdspPsg_Shutdown();
+            return;
+        }
     }
     memset(sWave, 0, sizeof(sWave));
     memset(sChannelBusy, 0, sizeof(sChannelBusy));
@@ -125,14 +132,18 @@ void NdspPsg_Init(void) {
 /* Builds (once) the noise table for a decimation level and returns it. Level 0
  * is the raw LFSR. */
 static const int16_t* noise_table(bool shortPeriod, int level, int* samplesOut) {
-    if (level < 0 || level >= PSG_NOISE_DECIM_LEVELS) return NULL;
+    if (level < 0 || level >= PSG_NOISE_DECIM_LEVELS)
+        return NULL;
     const int count = shortPeriod ? PSG_NOISE_SHORT : PSG_NOISE_LONG;
-    if (samplesOut) *samplesOut = count;
+    if (samplesOut)
+        *samplesOut = count;
     int16_t** slot = shortPeriod ? &sNoiseShort[level] : &sNoiseLong[level];
-    if (*slot) return *slot;
+    if (*slot)
+        return *slot;
 
     int16_t* out = (int16_t*)linearAlloc((size_t)count * sizeof(int16_t));
-    if (!out) return NULL;
+    if (!out)
+        return NULL;
     const int stride = 1 << level;
     uint16_t state = 0x4000u;
     for (int i = 0; i < count; ++i) {
@@ -152,18 +163,31 @@ static const int16_t* noise_table(bool shortPeriod, int level, int* samplesOut) 
 
 void NdspPsg_Shutdown(void) {
     for (int i = 0; i < PSG_CHANNEL_COUNT; ++i) {
-        if (sChannelBusy[i]) ndspChnWaveBufClear(PSG_FIRST_CHANNEL + i);
+        if (sChannelBusy[i])
+            ndspChnWaveBufClear(PSG_FIRST_CHANNEL + i);
         sChannelBusy[i] = false;
     }
     for (int duty = 0; duty < 4; ++duty) {
-        if (sTables[duty]) { linearFree(sTables[duty]); sTables[duty] = NULL; }
+        if (sTables[duty]) {
+            linearFree(sTables[duty]);
+            sTables[duty] = NULL;
+        }
     }
     for (int i = 0; i < PSG_CHANNEL_COUNT; ++i) {
-        if (sWaveTable[i]) { linearFree(sWaveTable[i]); sWaveTable[i] = NULL; }
+        if (sWaveTable[i]) {
+            linearFree(sWaveTable[i]);
+            sWaveTable[i] = NULL;
+        }
     }
     for (int i = 0; i < PSG_NOISE_DECIM_LEVELS; ++i) {
-        if (sNoiseLong[i]) { linearFree(sNoiseLong[i]); sNoiseLong[i] = NULL; }
-        if (sNoiseShort[i]) { linearFree(sNoiseShort[i]); sNoiseShort[i] = NULL; }
+        if (sNoiseLong[i]) {
+            linearFree(sNoiseLong[i]);
+            sNoiseLong[i] = NULL;
+        }
+        if (sNoiseShort[i]) {
+            linearFree(sNoiseShort[i]);
+            sNoiseShort[i] = NULL;
+        }
     }
     sReady = false;
 }
@@ -173,22 +197,34 @@ void NdspPsg_Shutdown(void) {
  * noise at L100-103), and ReverbEffect only captures what is already in the
  * track buffer. PSG output is therefore dry in the software path as well, so
  * offloading it to the DSP costs no reverb tail. */
-bool NdspPsg_Available(void) { return sReady; }
+bool NdspPsg_Available(void) {
+    return sReady;
+}
 
-unsigned long long NdspPsg_VoicesOffloaded(void) { return sVoicesOffloaded; }
-unsigned long long NdspPsg_VoicesRateDeclined(void) { return sVoicesRateDeclined; }
-int NdspPsg_CurrentReverbLevel(void) { return sReverbLevel; }
+unsigned long long NdspPsg_VoicesOffloaded(void) {
+    return sVoicesOffloaded;
+}
+unsigned long long NdspPsg_VoicesRateDeclined(void) {
+    return sVoicesRateDeclined;
+}
+int NdspPsg_CurrentReverbLevel(void) {
+    return sReverbLevel;
+}
 
-void NdspPsg_SetReverbLevel(int level) { sReverbLevel = level; /* reported only */ }
+void NdspPsg_SetReverbLevel(int level) {
+    sReverbLevel = level; /* reported only */
+}
 
 void NdspPsg_SetMasterLevel(float level) {
     sMasterLevel = level < 0.0f ? 0.0f : level;
 }
 
 void NdspPsg_SetPaused(bool paused) {
-    if (!sReady) return;
+    if (!sReady)
+        return;
     for (int i = 0; i < PSG_CHANNEL_COUNT; ++i) {
-        if (sChannelBusy[i]) ndspChnSetPaused(PSG_FIRST_CHANNEL + i, paused);
+        if (sChannelBusy[i])
+            ndspChnSetPaused(PSG_FIRST_CHANNEL + i, paused);
     }
 }
 
@@ -197,15 +233,22 @@ static bool psg_decline(int* slot);
 static void psg_configure(int slot, const int16_t* data, int samples);
 static void psg_set(int slot, float rateHz, float volumeLeft, float volumeRight);
 
-bool NdspPsg_PlaySquare(int* slot, float fetchRateHz, int dutyIndex,
-                        float volumeLeft, float volumeRight) {
-    if (!slot) return false;
-    if (!NdspPsg_Available()) return psg_decline(slot);
-    if (dutyIndex < 0 || dutyIndex > 3) return psg_decline(slot);
-    if (fetchRateHz <= 1.0f) return psg_decline(slot);
-    if (fetchRateHz > PSG_MAX_RATE) { ++sVoicesRateDeclined; return psg_decline(slot); }
+bool NdspPsg_PlaySquare(int* slot, float fetchRateHz, int dutyIndex, float volumeLeft, float volumeRight) {
+    if (!slot)
+        return false;
+    if (!NdspPsg_Available())
+        return psg_decline(slot);
+    if (dutyIndex < 0 || dutyIndex > 3)
+        return psg_decline(slot);
+    if (fetchRateHz <= 1.0f)
+        return psg_decline(slot);
+    if (fetchRateHz > PSG_MAX_RATE) {
+        ++sVoicesRateDeclined;
+        return psg_decline(slot);
+    }
 
-    if (!psg_claim(slot)) return false;
+    if (!psg_claim(slot))
+        return false;
     if (sSlotData[*slot] != sTables[dutyIndex])
         psg_configure(*slot, sTables[dutyIndex], PSG_TABLE_SAMPLES);
     psg_set(*slot, fetchRateHz, volumeLeft, volumeRight);
@@ -220,16 +263,22 @@ bool NdspPsg_PlaySquare(int* slot, float fetchRateHz, int dutyIndex,
  * while still holding one made the voice play in hardware and software at the
  * same time -- e.g. vibrato pushing the rate past the ceiling mid-note. */
 static bool psg_decline(int* slot) {
-    if (slot && *slot >= 0) NdspPsg_Stop(slot);
+    if (slot && *slot >= 0)
+        NdspPsg_Stop(slot);
     return false;
 }
 
 static bool psg_claim(int* slot) {
-    if (*slot >= 0) return true;
+    if (*slot >= 0)
+        return true;
     for (int i = 0; i < PSG_CHANNEL_COUNT; ++i) {
-        if (!sChannelBusy[i]) { *slot = i; break; }
+        if (!sChannelBusy[i]) {
+            *slot = i;
+            break;
+        }
     }
-    if (*slot < 0) return false;  /* all four in use: stay in software */
+    if (*slot < 0)
+        return false; /* all four in use: stay in software */
     sChannelBusy[*slot] = true;
     sSlotData[*slot] = NULL;
     sWaveSource[*slot] = NULL;
@@ -238,14 +287,14 @@ static bool psg_claim(int* slot) {
 }
 
 static void psg_configure(int slot, const int16_t* data, int samples) {
-    if (!data || samples <= 0) return;
+    if (!data || samples <= 0)
+        return;
     const int chn = PSG_FIRST_CHANNEL + slot;
     ndspChnWaveBufClear(chn);
     ndspChnReset(chn);
     /* Same reasoning as the PCM offload: match channel 0's LINEAR so hardware
      * and software voices in one mix share a resampling character. */
-    ndspChnSetInterp(chn, Port_Config_AudioDspInterpLinear() ? NDSP_INTERP_LINEAR
-                                                            : NDSP_INTERP_NONE);
+    ndspChnSetInterp(chn, Port_Config_AudioDspInterpLinear() ? NDSP_INTERP_LINEAR : NDSP_INTERP_NONE);
     ndspChnSetFormat(chn, NDSP_FORMAT_MONO_PCM16);
     /* ndspChnReset above cleared the channel's IIR config; without this the
      * filter would silently apply to only part of the mix. */
@@ -259,8 +308,7 @@ static void psg_configure(int slot, const int16_t* data, int samples) {
     sSlotData[slot] = data;
 }
 
-static void psg_set(int slot, float rateHz, float volumeLeft,
-                    float volumeRight) {
+static void psg_set(int slot, float rateHz, float volumeLeft, float volumeRight) {
     const int chn = PSG_FIRST_CHANNEL + slot;
     ndspChnSetRate(chn, rateHz);
     float mix[12];
@@ -270,14 +318,20 @@ static void psg_set(int slot, float rateHz, float volumeLeft,
     ndspChnSetMix(chn, mix);
 }
 
-bool NdspPsg_PlayWave(int* slot, float fetchRateHz, const unsigned char* wave16,
-                      float volumeLeft, float volumeRight) {
-    if (!slot) return false;
-    if (!NdspPsg_Available() || !wave16) return psg_decline(slot);
-    if (fetchRateHz <= 1.0f) return psg_decline(slot);
-    if (fetchRateHz > PSG_MAX_RATE) { ++sVoicesRateDeclined; return psg_decline(slot); }
+bool NdspPsg_PlayWave(int* slot, float fetchRateHz, const unsigned char* wave16, float volumeLeft, float volumeRight) {
+    if (!slot)
+        return false;
+    if (!NdspPsg_Available() || !wave16)
+        return psg_decline(slot);
+    if (fetchRateHz <= 1.0f)
+        return psg_decline(slot);
+    if (fetchRateHz > PSG_MAX_RATE) {
+        ++sVoicesRateDeclined;
+        return psg_decline(slot);
+    }
 
-    if (!psg_claim(slot)) return false;
+    if (!psg_claim(slot))
+        return false;
     if (sWaveSource[*slot] != wave16) {
         /* Wave RAM is sixteen bytes of paired 4-bit samples, high nibble
          * first, and the game rewrites it between notes -- so the table is
@@ -296,11 +350,13 @@ bool NdspPsg_PlayWave(int* slot, float fetchRateHz, const unsigned char* wave16,
     return true;
 }
 
-bool NdspPsg_PlayNoise(int* slot, float lfsrClockHz, bool shortPeriod,
-                       float volumeLeft, float volumeRight) {
-    if (!slot) return false;
-    if (!NdspPsg_Available()) return psg_decline(slot);
-    if (lfsrClockHz <= 1.0f) return psg_decline(slot);
+bool NdspPsg_PlayNoise(int* slot, float lfsrClockHz, bool shortPeriod, float volumeLeft, float volumeRight) {
+    if (!slot)
+        return false;
+    if (!NdspPsg_Available())
+        return psg_decline(slot);
+    if (lfsrClockHz <= 1.0f)
+        return psg_decline(slot);
 
     /* Pick the coarsest decimation that brings the clock under the ceiling.
      * One LFSR step per table sample at level 0; 1 << level steps above that. */
@@ -310,13 +366,20 @@ bool NdspPsg_PlayNoise(int* slot, float lfsrClockHz, bool shortPeriod,
         ++level;
         rate = lfsrClockHz / (float)(1 << level);
     }
-    if (rate > PSG_MAX_RATE) { ++sVoicesRateDeclined; return psg_decline(slot); }
+    if (rate > PSG_MAX_RATE) {
+        ++sVoicesRateDeclined;
+        return psg_decline(slot);
+    }
 
     int samples = 0;
     const int16_t* data = noise_table(shortPeriod, level, &samples);
-    if (!data) { ++sVoicesRateDeclined; return psg_decline(slot); }
+    if (!data) {
+        ++sVoicesRateDeclined;
+        return psg_decline(slot);
+    }
 
-    if (!psg_claim(slot)) return false;
+    if (!psg_claim(slot))
+        return false;
     if (sSlotData[*slot] != data)
         psg_configure(*slot, data, samples);
     psg_set(*slot, rate, volumeLeft, volumeRight);
@@ -324,7 +387,8 @@ bool NdspPsg_PlayNoise(int* slot, float lfsrClockHz, bool shortPeriod,
 }
 
 void NdspPsg_Stop(int* slot) {
-    if (!sReady || !slot || *slot < 0) return;
+    if (!sReady || !slot || *slot < 0)
+        return;
     ndspChnWaveBufClear(PSG_FIRST_CHANNEL + *slot);
     sChannelBusy[*slot] = false;
     sWaveSource[*slot] = NULL;

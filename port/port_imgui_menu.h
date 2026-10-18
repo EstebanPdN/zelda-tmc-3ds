@@ -22,16 +22,12 @@ bool Port_ImGui_QuitConfirmed(void);
 void Port_ImGui_RequestQuitModal(void);
 
 bool Port_ImGui_Render(void);
-bool Port_ImGui_RenderPrelaunch(bool romPresent,
-                                const char* version,
-                                const char* romName,
-                                bool* outPlay,
+bool Port_ImGui_RenderPrelaunch(bool romPresent, const char* version, const char* romName, bool* outPlay,
                                 bool* outChangeRom);
 
 #ifdef TMC_GPU_RENDERER
 void Port_ImGui_PrepareDrawDataGpu(SDL_GPUCommandBuffer* cmd);
-void Port_ImGui_RenderDrawDataGpu(SDL_GPUCommandBuffer* cmd,
-                                  SDL_GPURenderPass* renderPass);
+void Port_ImGui_RenderDrawDataGpu(SDL_GPUCommandBuffer* cmd, SDL_GPURenderPass* renderPass);
 #endif
 
 #ifdef __cplusplus

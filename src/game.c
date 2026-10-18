@@ -158,12 +158,6 @@ static void GameTask_Main(void) {
         0,
         GameMain_Subtask,
     };
-#ifdef PC_PORT
-    /* Reconcile a config/task/transition change before this tick produces
-     * any world or UI geometry. UpdateScroll repeats the check after entity
-     * logic for transitions that begin during the tick. */
-    (void)Port_Widescreen_PrepareGameplayCamera();
-#endif
     sStates[gMain.substate]();
 }
 
@@ -228,8 +222,8 @@ static void GameMain_ChangeRoom(void) {
         bool32 fire_hint = (gArea.unk28.textBaseIndex != 0xff);
         extern bool Port_Reborn_IsEnabled(int feat);
         extern bool Port_Reborn_ConsumeJustResumed(void);
-        if (fire_hint && Port_Reborn_IsEnabled(3 /*REBORN_FEAT_NO_EZLO_ON_RESUME*/)
-            && Port_Reborn_ConsumeJustResumed()) {
+        if (fire_hint && Port_Reborn_IsEnabled(3 /*REBORN_FEAT_NO_EZLO_ON_RESUME*/) &&
+            Port_Reborn_ConsumeJustResumed()) {
             gArea.unk28.textBaseIndex = 0xff;
             fire_hint = false;
         }
@@ -282,8 +276,8 @@ static void GameMain_ChangeRoom(void) {
 
 #ifdef PC_PORT
 extern bool Port_Reborn_IsEnabled(int feat);
-#define _REBORN_LR_BOOTS         1
-#define _REBORN_LSELECT_OCARINA  2
+#define _REBORN_LR_BOOTS 1
+#define _REBORN_LSELECT_OCARINA 2
 
 /* Reborn-parity (ported from Minish Cap Reborn, GPL-3.0):
  * in-game equip shortcuts. Press R while holding L → equip Pegasus
@@ -293,13 +287,20 @@ extern bool Port_Reborn_IsEnabled(int feat);
  * trigger mid-cutscene or while dying. Each shortcut runtime-togglable
  * via F8 → Reborn tab. */
 static void Port_ApplyEquipShortcut(u32 trigger_key, u32 itemId) {
-    if (!(gInput.heldKeys & L_BUTTON)) return;
-    if (!(gInput.newKeys & trigger_key)) return;
-    if (gFadeControl.active) return;
-    if (gMessage.state & MESSAGE_ACTIVE) return;
-    if (gSave.stats.health == 0) return;
-    if (gPlayerState.controlMode != 0) return;
-    if (GetInventoryValue(itemId) == 0) return;
+    if (!(gInput.heldKeys & L_BUTTON))
+        return;
+    if (!(gInput.newKeys & trigger_key))
+        return;
+    if (gFadeControl.active)
+        return;
+    if (gMessage.state & MESSAGE_ACTIVE)
+        return;
+    if (gSave.stats.health == 0)
+        return;
+    if (gPlayerState.controlMode != 0)
+        return;
+    if (GetInventoryValue(itemId) == 0)
+        return;
     ForceEquipItem(itemId, EQUIP_SLOT_A);
 }
 #endif
@@ -339,13 +340,6 @@ static void GameMain_Update(void) {
     DrawUI();
     UpdateManagers();
 #ifdef PC_PORT
-    /* Managers can enable a native window/message after UpdateScroll. If
-     * that changes Full View's target, rebuild the map/HUD geometry before
-     * emitting OAM so the fallback frame is internally coherent. */
-    if (Port_Widescreen_PrepareGameplayCamera()) {
-        UpdateScrollVram();
-        Port_UI_PrepareGameplayGeometry();
-    }
     DrawUIElementsGameplay();
 #else
     DrawUIElements();

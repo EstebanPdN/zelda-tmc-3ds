@@ -18,7 +18,6 @@
 #include <mach-o/dyld.h>
 #endif
 
-
 namespace {
 
 std::filesystem::path ExecutableDirectory() {
@@ -35,17 +34,19 @@ std::vector<std::string> SplitCsv(const std::string& s) {
     std::string cur;
     for (char c : s) {
         if (c == ',') {
-            if (!cur.empty()) out.push_back(cur);
+            if (!cur.empty())
+                out.push_back(cur);
             cur.clear();
         } else if (c != ' ' && c != '\t') {
             cur.push_back(c);
         }
     }
-    if (!cur.empty()) out.push_back(cur);
+    if (!cur.empty())
+        out.push_back(cur);
     return out;
 }
 
-}  // namespace
+} // namespace
 
 extern "C" void Port_Mods_Init(void) {
     const std::filesystem::path exeDir = ExecutableDirectory();
@@ -57,7 +58,8 @@ extern "C" void Port_Mods_Init(void) {
             return;
         }
         std::filesystem::path canonical = std::filesystem::weakly_canonical(root, ec);
-        if (ec) canonical = root;
+        if (ec)
+            canonical = root;
         if (std::find(modsRoots.begin(), modsRoots.end(), canonical) == modsRoots.end()) {
             modsRoots.push_back(std::move(canonical));
         }

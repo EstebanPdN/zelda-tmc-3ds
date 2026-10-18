@@ -19,7 +19,6 @@
 #include "physics.h"
 #include "map.h"
 
-
 typedef struct {
     /*0x00*/ Entity base;
     /*0x68*/ u16 originalX;

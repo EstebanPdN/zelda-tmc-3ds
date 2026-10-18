@@ -25,8 +25,7 @@ typedef struct {
     /*0x79*/ u8 unk_79;
 } HelmasaurEntity;
 
-PORT_STATIC_ASSERT_OFFSET(HelmasaurEntity, unk_78, 0x78, 0xA4,
-                          "HelmasaurEntity unk_78 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(HelmasaurEntity, unk_78, 0x78, 0xA4, "HelmasaurEntity unk_78 offset incorrect");
 
 extern u32 sub_0804A024(Entity*, u32, u32);
 

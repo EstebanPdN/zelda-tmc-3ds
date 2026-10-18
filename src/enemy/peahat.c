@@ -38,8 +38,7 @@ typedef struct {
     /*0x83*/ u8 flyTimer;
 } PeahatEntity;
 
-PORT_STATIC_ASSERT_OFFSET(PeahatEntity, directionDelta, 0x80, 0xB0,
-                          "PeahatEntity directionDelta offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(PeahatEntity, directionDelta, 0x80, 0xB0, "PeahatEntity directionDelta offset incorrect");
 
 enum PeahatActions {
     PeahatActionInitialize,

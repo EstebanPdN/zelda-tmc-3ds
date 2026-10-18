@@ -9,19 +9,43 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-bool Port_Reborn_IsEnabled(RebornFeature feature) { (void)feature; return false; }
-void Port_Reborn_SetEnabled(RebornFeature feature, bool enabled) { (void)feature; (void)enabled; }
-unsigned Port_Reborn_GetMask(void) { return 0; }
-void Port_Reborn_ApplyMask(unsigned mask) { (void)mask; }
-void Port_Reborn_NotifyJustResumed(void) {}
-bool Port_Reborn_ConsumeJustResumed(void) { return false; }
+bool Port_Reborn_IsEnabled(RebornFeature feature) {
+    (void)feature;
+    return false;
+}
+void Port_Reborn_SetEnabled(RebornFeature feature, bool enabled) {
+    (void)feature;
+    (void)enabled;
+}
+unsigned Port_Reborn_GetMask(void) {
+    return 0;
+}
+void Port_Reborn_ApplyMask(unsigned mask) {
+    (void)mask;
+}
+void Port_Reborn_NotifyJustResumed(void) {
+}
+bool Port_Reborn_ConsumeJustResumed(void) {
+    return false;
+}
 
-void Port_TTS_Speak(const char* text, const PortTtsOptions* options) { (void)text; (void)options; }
-void Port_TTS_Stop(void) {}
-bool Port_TTS_GetEnabled(void) { return false; }
+void Port_TTS_Speak(const char* text, const PortTtsOptions* options) {
+    (void)text;
+    (void)options;
+}
+void Port_TTS_Stop(void) {
+}
+bool Port_TTS_GetEnabled(void) {
+    return false;
+}
 
-bool Port_AudioMute_ShouldSuppress(unsigned int soundRequest) { (void)soundRequest; return false; }
-int Port_Debug_NoclipEnabled(void) { return 0; }
+bool Port_AudioMute_ShouldSuppress(unsigned int soundRequest) {
+    (void)soundRequest;
+    return false;
+}
+int Port_Debug_NoclipEnabled(void) {
+    return 0;
+}
 
 static uint64_t sNextAutosaveMs;
 
@@ -29,7 +53,9 @@ extern u32 WriteSaveFile(u32 index, SaveFile* saveFile);
 extern bool Port_Config_AutosaveEnabled(void);
 extern u32 Port_Config_AutosaveIntervalMs(void);
 
-int Port_QuickSave_AutoEnabled(void) { return Port_Config_AutosaveEnabled() ? 1 : 0; }
+int Port_QuickSave_AutoEnabled(void) {
+    return Port_Config_AutosaveEnabled() ? 1 : 0;
+}
 void Port_QuickSave_SetAutoEnabled(int enabled) {
     sNextAutosaveMs = enabled ? Platform3DS_Milliseconds() + Port_Config_AutosaveIntervalMs() : 0;
 }
@@ -55,7 +81,8 @@ void Port_QuickSave_AutoTick(void) {
         sNextAutosaveMs = now + Port_Config_AutosaveIntervalMs();
         return;
     }
-    if ((int64_t)(now - sNextAutosaveMs) < 0) return;
+    if ((int64_t)(now - sNextAutosaveMs) < 0)
+        return;
 
     UpdateGlobalProgress();
     if (WriteSaveFile(gSaveHeader->saveFileId, &gSave) != 0) {

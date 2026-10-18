@@ -43,7 +43,7 @@
 namespace tmc_vkrt {
 
 class RayTracingPipeline {
-public:
+  public:
     RayTracingPipeline(Engine& eng, RenderLayerManager& layers);
     ~RayTracingPipeline();
 
@@ -63,9 +63,8 @@ public:
      * Pass VK_NULL_HANDLE for emissive / normal to use a 1×1 fallback
      * (the path tracer treats absent emissive as zero radiance and
      * absent normal map as the geometric normal). */
-    void setAtlas(VkImageView diffuseView, VkSampler atlasSampler,
-                  VkImageView emissiveView = VK_NULL_HANDLE,
-                  VkImageView normalView   = VK_NULL_HANDLE);
+    void setAtlas(VkImageView diffuseView, VkSampler atlasSampler, VkImageView emissiveView = VK_NULL_HANDLE,
+                  VkImageView normalView = VK_NULL_HANDLE);
 
     /* Build BLAS from the layer manager's current vertex/index
      * buffers, then build/refit TLAS over it. Records all commands
@@ -82,8 +81,7 @@ public:
      * built at least once. `time` is the wall-clock seconds the
      * rgen/rchit use to animate the moving point lights — pass
      * 0 to disable animation. */
-    void dispatchRays(VkCommandBuffer cmd, uint32_t width, uint32_t height,
-                      uint32_t frameIndex, float time);
+    void dispatchRays(VkCommandBuffer cmd, uint32_t width, uint32_t height, uint32_t frameIndex, float time);
 
     /* GPU side per-frame point lights (extracted from the OAM-only
      * sprite plane by the consumer).  Each entry is 8 floats:
@@ -100,7 +98,7 @@ public:
     static constexpr uint32_t kMaxLights = 32;
     void updateLights(VkCommandBuffer cmd, const Light* lights, uint32_t count);
 
-private:
+  private:
     /* SPIR-V loader. Throws Error if the file is missing or malformed. */
     std::vector<char> loadSpv(const std::string& path);
 
@@ -118,73 +116,73 @@ private:
     void buildTLAS(VkCommandBuffer cmd);
 
     /* Owned state */
-    Engine&              mEngine;
-    RenderLayerManager&  mLayers;
+    Engine& mEngine;
+    RenderLayerManager& mLayers;
 
     VkDescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
-    VkDescriptorPool      mDescriptorPool      = VK_NULL_HANDLE;
-    VkDescriptorSet       mDescriptorSet       = VK_NULL_HANDLE;
-    VkPipelineLayout      mPipelineLayout      = VK_NULL_HANDLE;
-    VkPipeline            mPipeline            = VK_NULL_HANDLE;
+    VkDescriptorPool mDescriptorPool = VK_NULL_HANDLE;
+    VkDescriptorSet mDescriptorSet = VK_NULL_HANDLE;
+    VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
+    VkPipeline mPipeline = VK_NULL_HANDLE;
 
     /* SBT — one buffer with three named regions inside. The strided
      * device address regions get computed in createShaderBindingTable
      * and reused by dispatchRays. */
-    VkBuffer       mSbtBuffer = VK_NULL_HANDLE;
+    VkBuffer mSbtBuffer = VK_NULL_HANDLE;
     VkDeviceMemory mSbtMemory = VK_NULL_HANDLE;
     VkStridedDeviceAddressRegionKHR mRgenRegion{};
     VkStridedDeviceAddressRegionKHR mMissRegion{};
     VkStridedDeviceAddressRegionKHR mHitRegion{};
-    VkStridedDeviceAddressRegionKHR mCallRegion{};  /* unused, kept for symmetry */
+    VkStridedDeviceAddressRegionKHR mCallRegion{}; /* unused, kept for symmetry */
 
     /* Acceleration structures */
     VkAccelerationStructureKHR mBlas = VK_NULL_HANDLE;
-    VkBuffer       mBlasBuffer = VK_NULL_HANDLE;
+    VkBuffer mBlasBuffer = VK_NULL_HANDLE;
     VkDeviceMemory mBlasMemory = VK_NULL_HANDLE;
     VkAccelerationStructureKHR mTlas = VK_NULL_HANDLE;
-    VkBuffer       mTlasBuffer = VK_NULL_HANDLE;
+    VkBuffer mTlasBuffer = VK_NULL_HANDLE;
     VkDeviceMemory mTlasMemory = VK_NULL_HANDLE;
 
     /* Scratch buffer for AS builds — reused across BLAS and TLAS;
      * sized to the max requirement. */
-    VkBuffer       mScratchBuffer = VK_NULL_HANDLE;
+    VkBuffer mScratchBuffer = VK_NULL_HANDLE;
     VkDeviceMemory mScratchMemory = VK_NULL_HANDLE;
-    VkDeviceSize   mScratchSize   = 0;
+    VkDeviceSize mScratchSize = 0;
 
     /* TLAS instance buffer — host-visible because vkCmdBuildAccelerationStructures
      * reads it through a device address; we update its contents each
      * frame with the current per-instance transform. */
-    VkBuffer       mInstancesBuffer = VK_NULL_HANDLE;
+    VkBuffer mInstancesBuffer = VK_NULL_HANDLE;
     VkDeviceMemory mInstancesMemory = VK_NULL_HANDLE;
 
     /* Point-light storage buffer (binding 9). Capacity = kMaxLights;
      * the active count is sent in the push constants each dispatch. */
-    VkBuffer        mLightsBuffer        = VK_NULL_HANDLE;
-    VkDeviceMemory  mLightsMemory        = VK_NULL_HANDLE;
-    VkBuffer        mLightsStaging       = VK_NULL_HANDLE;
-    VkDeviceMemory  mLightsStagingMem    = VK_NULL_HANDLE;
-    void*           mLightsStagingMap    = nullptr;
-    uint32_t        mLightCount          = 0;
+    VkBuffer mLightsBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory mLightsMemory = VK_NULL_HANDLE;
+    VkBuffer mLightsStaging = VK_NULL_HANDLE;
+    VkDeviceMemory mLightsStagingMem = VK_NULL_HANDLE;
+    void* mLightsStagingMap = nullptr;
+    uint32_t mLightCount = 0;
     void createLightsBuffer();
 
     /* Atlas bindings (set externally via setAtlas) */
-    VkImageView mAtlasView      = VK_NULL_HANDLE;
-    VkSampler   mAtlasSampler   = VK_NULL_HANDLE;
-    VkImageView mEmissiveView   = VK_NULL_HANDLE;
-    VkImageView mNormalView     = VK_NULL_HANDLE;
-    bool        mAtlasBound     = false;
+    VkImageView mAtlasView = VK_NULL_HANDLE;
+    VkSampler mAtlasSampler = VK_NULL_HANDLE;
+    VkImageView mEmissiveView = VK_NULL_HANDLE;
+    VkImageView mNormalView = VK_NULL_HANDLE;
+    bool mAtlasBound = false;
 
     /* Dynamic-loader pointers — these RT entry points aren't in the
      * core dispatch table because they come from KHR extensions. We
      * fetch them via vkGetDeviceProcAddr at pipeline-create time. */
-    PFN_vkCreateAccelerationStructureKHR              pfnCreateAS              = nullptr;
-    PFN_vkDestroyAccelerationStructureKHR             pfnDestroyAS             = nullptr;
-    PFN_vkGetAccelerationStructureBuildSizesKHR       pfnGetBuildSizes         = nullptr;
-    PFN_vkCmdBuildAccelerationStructuresKHR           pfnCmdBuildAS            = nullptr;
-    PFN_vkGetAccelerationStructureDeviceAddressKHR    pfnGetASDeviceAddress    = nullptr;
-    PFN_vkCreateRayTracingPipelinesKHR                pfnCreateRTPipelines     = nullptr;
-    PFN_vkGetRayTracingShaderGroupHandlesKHR          pfnGetShaderGroupHandles = nullptr;
-    PFN_vkCmdTraceRaysKHR                             pfnCmdTraceRays          = nullptr;
+    PFN_vkCreateAccelerationStructureKHR pfnCreateAS = nullptr;
+    PFN_vkDestroyAccelerationStructureKHR pfnDestroyAS = nullptr;
+    PFN_vkGetAccelerationStructureBuildSizesKHR pfnGetBuildSizes = nullptr;
+    PFN_vkCmdBuildAccelerationStructuresKHR pfnCmdBuildAS = nullptr;
+    PFN_vkGetAccelerationStructureDeviceAddressKHR pfnGetASDeviceAddress = nullptr;
+    PFN_vkCreateRayTracingPipelinesKHR pfnCreateRTPipelines = nullptr;
+    PFN_vkGetRayTracingShaderGroupHandlesKHR pfnGetShaderGroupHandles = nullptr;
+    PFN_vkCmdTraceRaysKHR pfnCmdTraceRays = nullptr;
 };
 
-}  /* namespace tmc_vkrt */
+} /* namespace tmc_vkrt */

@@ -39,36 +39,36 @@ void Port_Practice_Tick(void);
 
 /* ---- Timer ----------------------------------------------------------- */
 /* Elapsed frames on the (resettable, stoppable) stopwatch. */
-u64  Port_Practice_ElapsedFrames(void);
+u64 Port_Practice_ElapsedFrames(void);
 bool Port_Practice_TimerRunning(void);
-void Port_Practice_TimerReset(void);   /* zero the stopwatch (keeps running state) */
-void Port_Practice_TimerToggle(void);  /* start <-> stop */
+void Port_Practice_TimerReset(void);  /* zero the stopwatch (keeps running state) */
+void Port_Practice_TimerToggle(void); /* start <-> stop */
 
 /* ---- Splits (manual) ------------------------------------------------- */
 #define PORT_PRACTICE_MAX_SPLITS 64
-void Port_Practice_AddSplit(void);     /* record current elapsed as a split */
-int  Port_Practice_SplitCount(void);
+void Port_Practice_AddSplit(void); /* record current elapsed as a split */
+int Port_Practice_SplitCount(void);
 /* Elapsed frames at split i (0-based). Returns 0 if out of range. */
-u64  Port_Practice_SplitAt(int i);
+u64 Port_Practice_SplitAt(int i);
 void Port_Practice_ClearSplits(void);
 
 /* ---- Input display --------------------------------------------------- */
 /* Current GBA input mask: bit (1u << PORT_INPUT_x) set when that input is
  * held this frame. Only the 10 GBA inputs (PORT_INPUT_A..PORT_INPUT_L) are
  * represented. */
-u16  Port_Practice_CurrentInputMask(void);
+u16 Port_Practice_CurrentInputMask(void);
 /* Rolling history, newest-first. index 0 == most recent sampled frame.
  * Returns 0 (no buttons) past the end of recorded history. */
 #define PORT_PRACTICE_HISTORY 64
-u16  Port_Practice_HistoryAt(int index);
-int  Port_Practice_HistoryCount(void);
+u16 Port_Practice_HistoryAt(int index);
+int Port_Practice_HistoryCount(void);
 
 /* ---- Practice point (dedicated savestate) ---------------------------- */
 /* Capture / restore the practice point. Implemented in port_quicksave.c
  * (reuses the snapshot machinery); declared here for the UI's convenience.
  * Return 1 on success, 0 on failure / empty. */
-int  Port_Practice_SetPoint(void);
-int  Port_Practice_LoadPoint(void);
+int Port_Practice_SetPoint(void);
+int Port_Practice_LoadPoint(void);
 bool Port_Practice_HasPoint(void);
 
 /* ---- Pause / frame-advance ------------------------------------------- */

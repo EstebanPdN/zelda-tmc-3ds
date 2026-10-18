@@ -160,8 +160,8 @@ static int LocalBankNumberForOffset(u32 offset) {
 
 u32 Port_RemapBaselineLocalFlag(u32 offset, u32 ord) {
     int bank;
-    const unsigned char(*remap)[FLAG_REMAP_TABLE_WIDTH];
-    const unsigned char(*valid)[FLAG_REMAP_TABLE_WIDTH];
+    const unsigned char (*remap)[FLAG_REMAP_TABLE_WIDTH];
+    const unsigned char (*valid)[FLAG_REMAP_TABLE_WIDTH];
 
     if (gActiveRegion == TMC_REGION_USA) {
         return ord;

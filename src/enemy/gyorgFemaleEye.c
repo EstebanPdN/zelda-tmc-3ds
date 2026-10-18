@@ -86,19 +86,18 @@ void GyorgFemaleEye_OnCollision(GyorgFemaleEyeEntity* this) {
         parent = (GyorgFemaleEntity*)super->parent;
         if (REGION_IS_EU || ((parent->eyesVulnerable >> super->type) & 1)) {
             parent->eyesHitFrame |= (1 << super->type);
-            if (REGION_IS_EU ||
-                ((super->contactFlags & 0x7F) >= 4 && (super->contactFlags & 0x7F) <= 6) ||
+            if (REGION_IS_EU || ((super->contactFlags & 0x7F) >= 4 && (super->contactFlags & 0x7F) <= 6) ||
                 ((super->contactFlags & 0x7F) >= 8 && (super->contactFlags & 0x7F) <= 13) ||
                 ((super->contactFlags & 0x7F) >= 16 && (super->contactFlags & 0x7F) <= 18) ||
                 ((super->contactFlags & 0x7F) >= 24 && (super->contactFlags & 0x7F) <= 26)) {
-                    (*(((GyorgHeap**)&parent->base.myHeap)))->unk_18[super->type] = super->contactedEntity;
-                    (*(((GyorgHeap**)&parent->base.myHeap)))->reflectFxPos.HALF.x =
-                        (gPlayerEntity.base.x.HALF.HI + super->x.HALF.HI) / 2;
-                    (*(((GyorgHeap**)&parent->base.myHeap)))->reflectFxPos.HALF.y =
-                        (gPlayerEntity.base.y.HALF.HI + super->y.HALF.HI) / 2;
-                    (*(((GyorgHeap**)&parent->base.myHeap)))->unk_3c = (super->knockbackDirection ^= 0x10);
+                (*(((GyorgHeap**)&parent->base.myHeap)))->unk_18[super->type] = super->contactedEntity;
+                (*(((GyorgHeap**)&parent->base.myHeap)))->reflectFxPos.HALF.x =
+                    (gPlayerEntity.base.x.HALF.HI + super->x.HALF.HI) / 2;
+                (*(((GyorgHeap**)&parent->base.myHeap)))->reflectFxPos.HALF.y =
+                    (gPlayerEntity.base.y.HALF.HI + super->y.HALF.HI) / 2;
+                (*(((GyorgHeap**)&parent->base.myHeap)))->unk_3c = (super->knockbackDirection ^= 0x10);
             } else {
-                    ((GyorgHeap*)parent->base.myHeap)->unk_3c = 0xFF;
+                ((GyorgHeap*)parent->base.myHeap)->unk_3c = 0xFF;
             }
         }
     }

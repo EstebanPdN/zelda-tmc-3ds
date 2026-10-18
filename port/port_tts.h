@@ -53,16 +53,16 @@ typedef enum {
  * persisted setting. */
 typedef struct {
     PortTtsPriority priority;
-    float           rate;        /* 0.0..1.0, NaN = use setting */
-    float           pitch;       /* 0.0..1.0, NaN = use setting */
-    float           volume;      /* 0.0..1.0, NaN = use setting */
-    const char*     voice;       /* nullable, backend-specific */
-    const char*     language;    /* nullable, BCP-47 */
+    float rate;           /* 0.0..1.0, NaN = use setting */
+    float pitch;          /* 0.0..1.0, NaN = use setting */
+    float volume;         /* 0.0..1.0, NaN = use setting */
+    const char* voice;    /* nullable, backend-specific */
+    const char* language; /* nullable, BCP-47 */
     /* If true the call returns early when this exact text was spoken
      * within the last few seconds — suppresses chatty focus-tracking
      * announcements. Default true; pass `Speak` directly with false
      * for messages that ARE meant to repeat (countdowns, etc). */
-    bool            dedupe;
+    bool dedupe;
 } PortTtsOptions;
 
 /* Lifecycle. Init reads persisted config and spins up the worker.
@@ -81,24 +81,24 @@ bool Port_TTS_IsSpeaking(void);
 /* High-level helpers — the common case is "say this short label."
  * They build the options struct for you and route to the right
  * priority + dedupe defaults. */
-void Port_TTS_OnFocusChanged(const char* label);  /* dedupe=true, normal */
-void Port_TTS_AnnounceMessage(const char* text);  /* dedupe=true, normal */
-void Port_TTS_AnnounceError(const char* text);    /* dedupe=false, urgent */
+void Port_TTS_OnFocusChanged(const char* label); /* dedupe=true, normal */
+void Port_TTS_AnnounceMessage(const char* text); /* dedupe=true, normal */
+void Port_TTS_AnnounceError(const char* text);   /* dedupe=false, urgent */
 
 /* Settings — getters and setters. Setters persist to config.json on
  * the next save tick (mirrors how other Port_Config setters work). */
-bool        Port_TTS_GetEnabled(void);
-void        Port_TTS_SetEnabled(bool on);
-float       Port_TTS_GetRate(void);
-void        Port_TTS_SetRate(float v);
-float       Port_TTS_GetPitch(void);
-void        Port_TTS_SetPitch(float v);
-float       Port_TTS_GetVolume(void);
-void        Port_TTS_SetVolume(float v);
+bool Port_TTS_GetEnabled(void);
+void Port_TTS_SetEnabled(bool on);
+float Port_TTS_GetRate(void);
+void Port_TTS_SetRate(float v);
+float Port_TTS_GetPitch(void);
+void Port_TTS_SetPitch(float v);
+float Port_TTS_GetVolume(void);
+void Port_TTS_SetVolume(float v);
 const char* Port_TTS_GetVoice(void);
-void        Port_TTS_SetVoice(const char* v);
+void Port_TTS_SetVoice(const char* v);
 const char* Port_TTS_GetLanguage(void);
-void        Port_TTS_SetLanguage(const char* v);
+void Port_TTS_SetLanguage(const char* v);
 
 /* Backend introspection. Returns "spd-say", "espeak-ng", "espeak",
  * "say", "sapi", or NULL if no backend is usable. Lets the F8 menu

@@ -57,8 +57,9 @@ inline constexpr uint32_t kFramesInFlight = 2;
  * Engine::init() outer catch logs the message and returns false so
  * callers don't have to wrap every step in try/catch themselves. */
 class Error : public std::runtime_error {
-public:
-    explicit Error(const std::string& msg) : std::runtime_error(msg) {}
+  public:
+    explicit Error(const std::string& msg) : std::runtime_error(msg) {
+    }
 };
 
 /* Helper that turns a VkResult into an Error when it's not VK_SUCCESS.
@@ -72,14 +73,14 @@ inline void check(VkResult r, const char* where) {
 /* Bundle of per-frame primitives — the Engine maintains kFramesInFlight
  * copies and rotates between them. */
 struct FrameSync {
-    VkSemaphore imageAvailable = VK_NULL_HANDLE;  /* signaled when the swapchain image is ready */
-    VkSemaphore renderFinished = VK_NULL_HANDLE;  /* signaled when the queue completes */
-    VkFence     inFlight       = VK_NULL_HANDLE;  /* CPU-side wait so we don't overwrite this frame's resources */
-    VkCommandBuffer cmd        = VK_NULL_HANDLE;  /* allocated from the primary pool */
+    VkSemaphore imageAvailable = VK_NULL_HANDLE; /* signaled when the swapchain image is ready */
+    VkSemaphore renderFinished = VK_NULL_HANDLE; /* signaled when the queue completes */
+    VkFence inFlight = VK_NULL_HANDLE;           /* CPU-side wait so we don't overwrite this frame's resources */
+    VkCommandBuffer cmd = VK_NULL_HANDLE;        /* allocated from the primary pool */
 };
 
 class Engine {
-public:
+  public:
     Engine() = default;
     ~Engine();
 
@@ -122,30 +123,68 @@ public:
 
     /* Accessors — used by RayTracingPipeline and RenderLayerManager to
      * allocate against the same device + queue. */
-    VkInstance       instance()       const { return mInstance; }
-    VkPhysicalDevice physicalDevice() const { return mPhysicalDevice; }
-    VkDevice         device()         const { return mDevice; }
-    uint32_t         graphicsFamily() const { return mGraphicsFamily; }
-    VkQueue          graphicsQueue()  const { return mGraphicsQueue; }
-    VkCommandPool    commandPool()    const { return mCommandPool; }
-    uint32_t         swapchainWidth() const { return mSwapchainExtent.width; }
-    uint32_t         swapchainHeight()const { return mSwapchainExtent.height; }
-    VkImage          storageImage()   const { return mStorageImage; }
-    VkImageView      storageImageView()const{ return mStorageImageView; }
-    VkImage          accumImage()     const { return mAccumImage; }
-    VkImageView      accumImageView() const { return mAccumImageView; }
+    VkInstance instance() const {
+        return mInstance;
+    }
+    VkPhysicalDevice physicalDevice() const {
+        return mPhysicalDevice;
+    }
+    VkDevice device() const {
+        return mDevice;
+    }
+    uint32_t graphicsFamily() const {
+        return mGraphicsFamily;
+    }
+    VkQueue graphicsQueue() const {
+        return mGraphicsQueue;
+    }
+    VkCommandPool commandPool() const {
+        return mCommandPool;
+    }
+    uint32_t swapchainWidth() const {
+        return mSwapchainExtent.width;
+    }
+    uint32_t swapchainHeight() const {
+        return mSwapchainExtent.height;
+    }
+    VkImage storageImage() const {
+        return mStorageImage;
+    }
+    VkImageView storageImageView() const {
+        return mStorageImageView;
+    }
+    VkImage accumImage() const {
+        return mAccumImage;
+    }
+    VkImageView accumImageView() const {
+        return mAccumImageView;
+    }
 
     /* Slice-7 denoiser guide buffers — populated by the rgen at the
      * primary hit, read by the compute filter's edge-stopping weights. */
-    VkImage     gNormalImage()     const { return mGNormalImage; }
-    VkImageView gNormalImageView() const { return mGNormalImageView; }
-    VkImage     gHitPosImage()     const { return mGHitPosImage; }
-    VkImageView gHitPosImageView() const { return mGHitPosImageView; }
+    VkImage gNormalImage() const {
+        return mGNormalImage;
+    }
+    VkImageView gNormalImageView() const {
+        return mGNormalImageView;
+    }
+    VkImage gHitPosImage() const {
+        return mGHitPosImage;
+    }
+    VkImageView gHitPosImageView() const {
+        return mGHitPosImageView;
+    }
     /* Ping-pong scratch for the multi-pass a-trous filter. */
-    VkImage     denoiseScratchImage()     const { return mDenoiseScratchImage; }
-    VkImageView denoiseScratchImageView() const { return mDenoiseScratchImageView; }
+    VkImage denoiseScratchImage() const {
+        return mDenoiseScratchImage;
+    }
+    VkImageView denoiseScratchImageView() const {
+        return mDenoiseScratchImageView;
+    }
 
-    uint32_t         currentFrameIndex() const { return mCurrentFrame; }
+    uint32_t currentFrameIndex() const {
+        return mCurrentFrame;
+    }
 
     /* Returned by enumeratePhysicalDevice; the ray-tracing pipeline
      * needs these properties to compute SBT alignment. */
@@ -158,9 +197,8 @@ public:
      * acceleration-structure code and the SBT. Returns both handles —
      * caller owns destruction unless they hand them back via
      * retainBuffer(). */
-    void allocateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
-                        VkMemoryPropertyFlags props,
-                        VkBuffer* outBuffer, VkDeviceMemory* outMemory);
+    void allocateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags props, VkBuffer* outBuffer,
+                        VkDeviceMemory* outMemory);
 
     /* Look up a memory-type index matching the requested filter (e.g.
      * the BLAS scratch buffer needs a type that's allowed by the
@@ -170,8 +208,7 @@ public:
 
     /* For one-shot host→device or layout transitions, lambda gets a
      * fresh command buffer it can record into; we submit + wait. */
-    template <class Fn>
-    void oneShot(Fn&& fn) {
+    template <class Fn> void oneShot(Fn&& fn) {
         VkCommandBufferAllocateInfo ai{};
         ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         ai.commandPool = mCommandPool;
@@ -198,7 +235,7 @@ public:
         vkFreeCommandBuffers(mDevice, mCommandPool, 1, &cmd);
     }
 
-private:
+  private:
     /* Step-by-step init helpers. Each throws Error on failure; init()
      * catches and returns false. */
     void createWindow(int width, int height, const char* title);
@@ -214,60 +251,59 @@ private:
 
     /* Helpers for image layout transitions used by storageImage
      * setup and the per-frame blit. */
-    void transitionImageLayout(VkCommandBuffer cmd, VkImage image,
-                               VkImageLayout from, VkImageLayout to,
-                               VkAccessFlags srcAccess, VkAccessFlags dstAccess,
-                               VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage);
+    void transitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageLayout from, VkImageLayout to,
+                               VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage,
+                               VkPipelineStageFlags dstStage);
 
     /* Owned state */
-    SDL_Window*      mWindow = nullptr;
-    VkInstance       mInstance = VK_NULL_HANDLE;
+    SDL_Window* mWindow = nullptr;
+    VkInstance mInstance = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT mDebugMessenger = VK_NULL_HANDLE;
-    VkSurfaceKHR     mSurface = VK_NULL_HANDLE;
+    VkSurfaceKHR mSurface = VK_NULL_HANDLE;
     VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
-    VkDevice         mDevice = VK_NULL_HANDLE;
-    uint32_t         mGraphicsFamily = 0;
-    VkQueue          mGraphicsQueue = VK_NULL_HANDLE;
-    VkCommandPool    mCommandPool = VK_NULL_HANDLE;
+    VkDevice mDevice = VK_NULL_HANDLE;
+    uint32_t mGraphicsFamily = 0;
+    VkQueue mGraphicsQueue = VK_NULL_HANDLE;
+    VkCommandPool mCommandPool = VK_NULL_HANDLE;
 
-    VkSwapchainKHR   mSwapchain = VK_NULL_HANDLE;
+    VkSwapchainKHR mSwapchain = VK_NULL_HANDLE;
     VkSurfaceFormatKHR mSwapchainFormat{};
-    VkExtent2D       mSwapchainExtent{};
-    std::vector<VkImage>     mSwapchainImages;
+    VkExtent2D mSwapchainExtent{};
+    std::vector<VkImage> mSwapchainImages;
     std::vector<VkImageView> mSwapchainViews;
 
     /* Storage image — the ray tracer writes here, then we blit to the
      * swapchain. RGBA8 to match what closest-hit produces. */
-    VkImage          mStorageImage = VK_NULL_HANDLE;
-    VkDeviceMemory   mStorageImageMemory = VK_NULL_HANDLE;
-    VkImageView      mStorageImageView = VK_NULL_HANDLE;
+    VkImage mStorageImage = VK_NULL_HANDLE;
+    VkDeviceMemory mStorageImageMemory = VK_NULL_HANDLE;
+    VkImageView mStorageImageView = VK_NULL_HANDLE;
 
     /* Accumulation image — HDR running mean for path-tracer
      * progressive sampling. rgba32f so emissive radiance >1 doesn't
      * clip; rebuilt alongside the storage image on swapchain
      * resize. Stays in GENERAL layout — the shader does in-place
      * read/write each frame. */
-    VkImage          mAccumImage = VK_NULL_HANDLE;
-    VkDeviceMemory   mAccumImageMemory = VK_NULL_HANDLE;
-    VkImageView      mAccumImageView = VK_NULL_HANDLE;
+    VkImage mAccumImage = VK_NULL_HANDLE;
+    VkDeviceMemory mAccumImageMemory = VK_NULL_HANDLE;
+    VkImageView mAccumImageView = VK_NULL_HANDLE;
 
     /* Slice-7 denoiser auxiliaries — created alongside the accum image
      * because they share its dimensions and lifecycle.  All RGBA32F so
      * the rgen can store unbounded HDR / world-space without loss. */
-    VkImage          mGNormalImage = VK_NULL_HANDLE;
-    VkDeviceMemory   mGNormalImageMemory = VK_NULL_HANDLE;
-    VkImageView      mGNormalImageView = VK_NULL_HANDLE;
-    VkImage          mGHitPosImage = VK_NULL_HANDLE;
-    VkDeviceMemory   mGHitPosImageMemory = VK_NULL_HANDLE;
-    VkImageView      mGHitPosImageView = VK_NULL_HANDLE;
-    VkImage          mDenoiseScratchImage = VK_NULL_HANDLE;
-    VkDeviceMemory   mDenoiseScratchImageMemory = VK_NULL_HANDLE;
-    VkImageView      mDenoiseScratchImageView = VK_NULL_HANDLE;
+    VkImage mGNormalImage = VK_NULL_HANDLE;
+    VkDeviceMemory mGNormalImageMemory = VK_NULL_HANDLE;
+    VkImageView mGNormalImageView = VK_NULL_HANDLE;
+    VkImage mGHitPosImage = VK_NULL_HANDLE;
+    VkDeviceMemory mGHitPosImageMemory = VK_NULL_HANDLE;
+    VkImageView mGHitPosImageView = VK_NULL_HANDLE;
+    VkImage mDenoiseScratchImage = VK_NULL_HANDLE;
+    VkDeviceMemory mDenoiseScratchImageMemory = VK_NULL_HANDLE;
+    VkImageView mDenoiseScratchImageView = VK_NULL_HANDLE;
 
     std::array<FrameSync, kFramesInFlight> mFrames{};
-    uint32_t         mCurrentFrame = 0;
-    uint32_t         mImageIndex = 0;
-    bool             mSwapchainOutOfDate = false;
+    uint32_t mCurrentFrame = 0;
+    uint32_t mImageIndex = 0;
+    bool mSwapchainOutOfDate = false;
 
     /* RT properties — needed by SBT alignment math. */
     VkPhysicalDeviceRayTracingPipelinePropertiesKHR mRtProperties{};
@@ -276,4 +312,4 @@ private:
     std::vector<std::pair<VkBuffer, VkDeviceMemory>> mRetained;
 };
 
-}  /* namespace tmc_vkrt */
+} /* namespace tmc_vkrt */

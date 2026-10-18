@@ -31,7 +31,8 @@ void sub_08035194(Entity* this) {
     /* #91 / #97 pattern: tables have 9 entries; frameIndex may exceed that
      * during animation transitions. Clamp to keep the last valid hitbox. */
     u32 idx = this->frameIndex;
-    if (idx >= 9) idx = 8;
+    if (idx >= 9)
+        idx = 8;
     if (this->type == 0) {
         this->hitbox = (Hitbox*)gUnk_080CEF34[idx];
     } else {

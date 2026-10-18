@@ -51,8 +51,7 @@ const EnemyDefinition gEnemyDefinition_30[];
 const EnemyDefinition gEnemyDefinition_15[];
 const EnemyDefinition gEnemyDefinition_46[];
 
-#define MULTI_FORM(definition_ptr) \
-    { 0xffff, 0, { .definition = definition_ptr }, 0, { 0, 0, 0, 0 }, 0, 0, 0, 0 }
+#define MULTI_FORM(definition_ptr) { 0xffff, 0, { .definition = definition_ptr }, 0, { 0, 0, 0, 0 }, 0, 0, 0, 0 }
 
 #if defined(EU) && !defined(MULTI_REGION)
 const EnemyDefinition gEnemyDefinitions[] = {
@@ -62,13 +61,13 @@ const EnemyDefinition gEnemyDefinitions[] = {
     { 5, 32, { &gHitbox_0 }, SPRITE_PEAHAT, { 1, 1, 1, 1 }, 4, 128, 112, 15 },
     { 8, 42, { &gHitbox_5 }, SPRITE_ROLLOBITE, { 1, 1, 1, 1 }, 255, 256, 34, 143 },
     MULTI_FORM(gEnemyDefinition_5),
-    { 259, 5, { &gHitbox_0 }, 344, { 0, 1, 1, 1 }, 255, 0, 64, 139 },     // TODO sprite index too high
+    { 259, 5, { &gHitbox_0 }, 344, { 0, 1, 1, 1 }, 255, 0, 64, 139 }, // TODO sprite index too high
     MULTI_FORM(gEnemyDefinition_7),
     { 7, 112, { &gHitbox_8 }, SPRITE_KEESE, { 0, 1, 1, 0 }, 2, 256, 32, 15 },
     MULTI_FORM(gEnemyDefinition_9),
     { 16, 30, { &gHitbox_23 }, SPRITE_ROCKCHUCHU, { 1, 1, 1, 0 }, 4, 64, 148, 139 },
     { 17, 35, { &gHitbox_23 }, SPRITE_SPINYCHUCHU, { 1, 1, 1, 0 }, 4, 32, 92, 139 },
-    { 463, 0, { &gHitbox_27 }, 494, { 1, 1, 1, 0 }, 255, 256, 4, 1 },     // TODO sprite index too high
+    { 463, 0, { &gHitbox_27 }, 494, { 1, 1, 1, 0 }, 255, 256, 4, 1 }, // TODO sprite index too high
     MULTI_FORM(gEnemyDefinition_D),
     { 0, 0, { &gHitbox_0 }, SPRITE_0, { 0, 0, 0, 1 }, 255, 256, 0, 139 },
     MULTI_FORM(gEnemyDefinition_F),
@@ -139,7 +138,7 @@ const EnemyDefinition gEnemyDefinitions[] = {
     { 406, 314, { &gHitbox_0 }, SPRITE_GHINI, { 1, 0, 0, 1 }, 9, 256, 36, 143 },
     MULTI_FORM(gEnemyDefinition_51),
     MULTI_FORM(gEnemyDefinition_52),
-    { 423, 0, { &gHitbox_4 }, 490, { 0, 1, 1, 1 }, 255, 256, 110, 4 },    // TODO sprite index too high
+    { 423, 0, { &gHitbox_4 }, 490, { 0, 1, 1, 1 }, 255, 256, 110, 4 }, // TODO sprite index too high
     { 16400, 313, { &gHitbox_6 }, SPRITE_VAATIBALL, { 0, 0, 0, 0 }, 255, 1280, 43, 139 },
     MULTI_FORM(gEnemyDefinition_0),
     MULTI_FORM(gEnemyDefinition_56),
@@ -167,13 +166,13 @@ const EnemyDefinition gEnemyDefinitions[] = {
     { 5, 32, { &gHitbox_0 }, SPRITE_PEAHAT, { 1, 1, 1, 1 }, 4, 128, 112, 15 },
     { 8, 42, { &gHitbox_5 }, SPRITE_ROLLOBITE, { 1, 1, 1, 1 }, 255, 256, 34, 143 },
     MULTI_FORM(gEnemyDefinition_5),
-    { 259, 5, { &gHitbox_0 }, 345, { 0, 1, 1, 1 }, 255, 0, 64, 139 },     // TODO sprite index too high
+    { 259, 5, { &gHitbox_0 }, 345, { 0, 1, 1, 1 }, 255, 0, 64, 139 }, // TODO sprite index too high
     MULTI_FORM(gEnemyDefinition_7),
     { 7, 112, { &gHitbox_8 }, SPRITE_KEESE, { 0, 1, 1, 0 }, 2, 256, 32, 15 },
     MULTI_FORM(gEnemyDefinition_9),
     { 16, 30, { &gHitbox_23 }, SPRITE_ROCKCHUCHU, { 1, 1, 1, 0 }, 4, 64, 148, 139 },
     { 17, 35, { &gHitbox_23 }, SPRITE_SPINYCHUCHU, { 1, 1, 1, 0 }, 4, 32, 92, 139 },
-    { 463, 0, { &gHitbox_27 }, 495, { 1, 1, 1, 0 }, 255, 256, 4, 1 },     // TODO sprite index too high
+    { 463, 0, { &gHitbox_27 }, 495, { 1, 1, 1, 0 }, 255, 256, 4, 1 }, // TODO sprite index too high
     MULTI_FORM(gEnemyDefinition_D),
     { 0, 0, { &gHitbox_0 }, SPRITE_0, { 0, 0, 0, 1 }, 255, 256, 0, 139 },
     MULTI_FORM(gEnemyDefinition_F),
@@ -244,7 +243,7 @@ const EnemyDefinition gEnemyDefinitions[] = {
     { 406, 314, { &gHitbox_0 }, SPRITE_GHINI, { 1, 0, 0, 1 }, 9, 256, 36, 143 },
     MULTI_FORM(gEnemyDefinition_51),
     MULTI_FORM(gEnemyDefinition_52),
-    { 423, 0, { &gHitbox_4 }, 491, { 0, 1, 1, 1 }, 255, 256, 110, 4 },    // TODO sprite index too high
+    { 423, 0, { &gHitbox_4 }, 491, { 0, 1, 1, 1 }, 255, 256, 110, 4 }, // TODO sprite index too high
     { 16400, 313, { &gHitbox_6 }, SPRITE_VAATIBALL, { 0, 0, 0, 0 }, 255, 1280, 43, 139 },
     MULTI_FORM(gEnemyDefinition_0),
     MULTI_FORM(gEnemyDefinition_56),
@@ -278,13 +277,13 @@ const EnemyDefinition gEnemyDefinitions_eu[] = {
     { 5, 32, { &gHitbox_0 }, SPRITE_PEAHAT, { 1, 1, 1, 1 }, 4, 128, 112, 15 },
     { 8, 42, { &gHitbox_5 }, SPRITE_ROLLOBITE, { 1, 1, 1, 1 }, 255, 256, 34, 143 },
     MULTI_FORM(gEnemyDefinition_5),
-    { 259, 5, { &gHitbox_0 }, 344, { 0, 1, 1, 1 }, 255, 0, 64, 139 },     // TODO sprite index too high
+    { 259, 5, { &gHitbox_0 }, 344, { 0, 1, 1, 1 }, 255, 0, 64, 139 }, // TODO sprite index too high
     MULTI_FORM(gEnemyDefinition_7),
     { 7, 112, { &gHitbox_8 }, SPRITE_KEESE, { 0, 1, 1, 0 }, 2, 256, 32, 15 },
     MULTI_FORM(gEnemyDefinition_9),
     { 16, 30, { &gHitbox_23 }, SPRITE_ROCKCHUCHU, { 1, 1, 1, 0 }, 4, 64, 148, 139 },
     { 17, 35, { &gHitbox_23 }, SPRITE_SPINYCHUCHU, { 1, 1, 1, 0 }, 4, 32, 92, 139 },
-    { 463, 0, { &gHitbox_27 }, 494, { 1, 1, 1, 0 }, 255, 256, 4, 1 },     // TODO sprite index too high
+    { 463, 0, { &gHitbox_27 }, 494, { 1, 1, 1, 0 }, 255, 256, 4, 1 }, // TODO sprite index too high
     MULTI_FORM(gEnemyDefinition_D_eu),
     { 0, 0, { &gHitbox_0 }, SPRITE_0, { 0, 0, 0, 1 }, 255, 256, 0, 139 },
     MULTI_FORM(gEnemyDefinition_F),
@@ -355,7 +354,7 @@ const EnemyDefinition gEnemyDefinitions_eu[] = {
     { 406, 314, { &gHitbox_0 }, SPRITE_GHINI, { 1, 0, 0, 1 }, 9, 256, 36, 143 },
     MULTI_FORM(gEnemyDefinition_51),
     MULTI_FORM(gEnemyDefinition_52),
-    { 423, 0, { &gHitbox_4 }, 490, { 0, 1, 1, 1 }, 255, 256, 110, 4 },    // TODO sprite index too high
+    { 423, 0, { &gHitbox_4 }, 490, { 0, 1, 1, 1 }, 255, 256, 110, 4 }, // TODO sprite index too high
     { 16400, 313, { &gHitbox_6 }, SPRITE_VAATIBALL, { 0, 0, 0, 0 }, 255, 1280, 43, 139 },
     MULTI_FORM(gEnemyDefinition_0),
     MULTI_FORM(gEnemyDefinition_56),

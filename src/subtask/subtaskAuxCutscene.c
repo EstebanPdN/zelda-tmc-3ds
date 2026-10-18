@@ -53,10 +53,8 @@ void Subtask_AuxCutscene(void) {
     static u8 sLastMenuType = 0xFF;
     static u8 sLastInner = 0xFF;
     if (sLastMenuType != gMenu.menuType || sLastInner != gMenu.field_0x0) {
-        fprintf(stderr,
-                "[aux-cs] menuType=%u inner=%u overlayType=%u xferTimer=%u uiField3=%u\n",
-                gMenu.menuType, gMenu.field_0x0, gMenu.overlayType,
-                (unsigned)gMenu.transitionTimer, gUI.field_0x3);
+        fprintf(stderr, "[aux-cs] menuType=%u inner=%u overlayType=%u xferTimer=%u uiField3=%u\n", gMenu.menuType,
+                gMenu.field_0x0, gMenu.overlayType, (unsigned)gMenu.transitionTimer, gUI.field_0x3);
         sLastMenuType = gMenu.menuType;
         sLastInner = gMenu.field_0x0;
     }
@@ -100,14 +98,12 @@ static void AuxCutscene_Main(void) {
 #ifdef PC_PORT
     /* A state callback may start a fade before this routine's late
      * UpdateScroll. Reconcile the viewport before Flush/Draw/CopyOAM. */
-    (void)Port_Widescreen_PrepareGameplayCamera();
 #endif
     FlushSprites();
     UpdateEntities();
 #ifdef PC_PORT
     /* Entity scripts may activate native dialogue/window geometry after the
      * state callback. Catch it before DrawEntities/CopyOAM. */
-    (void)Port_Widescreen_PrepareGameplayCamera();
 #endif
     DrawEntities();
     CopyOAM();
@@ -141,10 +137,8 @@ static void AuxCutscene_Exit(void) {
     fprintf(stderr,
             "[aux-cs-exit] flag=0x%X uiField3=%u branch=%s "
             "fade.before active=%u type=0x%X progress=%u sustain=%u\n",
-            flag, gUI.field_0x3,
-            (flag & 0xF0) ? "MenuFadeIn" : "SetFadeInverted",
-            (unsigned)gFadeControl.active, gFadeControl.type,
-            gFadeControl.progress, gFadeControl.sustain);
+            flag, gUI.field_0x3, (flag & 0xF0) ? "MenuFadeIn" : "SetFadeInverted", (unsigned)gFadeControl.active,
+            gFadeControl.type, gFadeControl.progress, gFadeControl.sustain);
 #endif
     if (flag & 0xF0) {
         MenuFadeIn(2, flag >> 4);
@@ -157,8 +151,7 @@ static void AuxCutscene_Exit(void) {
     fprintf(stderr,
             "[aux-cs-exit] fade.after  active=%u type=0x%X progress=%u sustain=%u "
             "nextToLoad=%u\n",
-            (unsigned)gFadeControl.active, gFadeControl.type,
-            gFadeControl.progress, gFadeControl.sustain,
+            (unsigned)gFadeControl.active, gFadeControl.type, gFadeControl.progress, gFadeControl.sustain,
             (unsigned)gUI.nextToLoad);
 #endif
 }

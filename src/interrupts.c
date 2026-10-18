@@ -111,7 +111,6 @@ void UpdateDisplayControls(void) {
          * generation copied above; the renderer never observes a torn pair. */
         virtuappu_mode1_commit_obj_metadata();
 #endif
-
     }
     sub_08016CA8(&gScreen.bg0);
     sub_08016CA8(&gScreen.bg1);

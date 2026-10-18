@@ -17,7 +17,7 @@ static void Port_SaveSetBit(u8* bits, u32 bit) {
 }
 
 static void Port_SaveClearBit(u8* bits, u32 bit) {
-    bits[bit >> 3] &= (u8)~(1u << (bit & 7));
+    bits[bit >> 3] &= (u8) ~(1u << (bit & 7));
 }
 
 static u32 Port_SaveInventoryValue(const SaveFile* save, u32 item) {

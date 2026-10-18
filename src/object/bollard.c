@@ -26,14 +26,10 @@ typedef struct {
 } BollardEntity;
 
 PORT_STATIC_ASSERT_SIZE(BollardEntity, 0x88, 0xB0, "BollardEntity size incorrect");
-PORT_STATIC_ASSERT_OFFSET(BollardEntity, tilePos, 0x70, 0x98,
-                        "BollardEntity tilePos offset incorrect");
-PORT_STATIC_ASSERT_OFFSET(BollardEntity, tileIndex, 0x72, 0x9A,
-                        "BollardEntity tileIndex offset incorrect");
-PORT_STATIC_ASSERT_OFFSET(BollardEntity, collisionData, 0x74, 0x9C,
-                        "BollardEntity collisionData offset incorrect");
-PORT_STATIC_ASSERT_OFFSET(BollardEntity, flags, 0x86, 0xAE,
-                        "BollardEntity flags offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(BollardEntity, tilePos, 0x70, 0x98, "BollardEntity tilePos offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(BollardEntity, tileIndex, 0x72, 0x9A, "BollardEntity tileIndex offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(BollardEntity, collisionData, 0x74, 0x9C, "BollardEntity collisionData offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(BollardEntity, flags, 0x86, 0xAE, "BollardEntity flags offset incorrect");
 
 #ifdef PC_PORT
 #define BOLLARD_TILEPOS(this) (GE_FIELD(&((this)->base), field_0x70)->HALF_U.LO)

@@ -39,7 +39,7 @@ bool Port_SoftSlots_IsBHeld(void);
 uint8_t Port_SoftSlots_GetEffectiveBItem(uint8_t saved);
 
 uint8_t Port_SoftSlots_GetAssignment(int slot);
-void    Port_SoftSlots_SetAssignment(int slot, uint8_t itemId);
+void Port_SoftSlots_SetAssignment(int slot, uint8_t itemId);
 const char* Port_SoftSlots_SlotName(int slot);
 
 /* Display name for the item currently in `slot` (or "—" when unassigned).

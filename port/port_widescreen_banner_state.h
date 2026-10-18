@@ -17,8 +17,8 @@ typedef struct {
     uint8_t room;
 } PortWidescreenBannerState;
 
-static inline void Port_WidescreenBannerState_Set(PortWidescreenBannerState* state, int active,
-                                                   uint8_t area, uint8_t room) {
+static inline void Port_WidescreenBannerState_Set(PortWidescreenBannerState* state, int active, uint8_t area,
+                                                  uint8_t room) {
     state->active = active != 0;
     state->area = area;
     state->room = room;
@@ -27,8 +27,8 @@ static inline void Port_WidescreenBannerState_Set(PortWidescreenBannerState* sta
 /* A room banner cannot survive a task or room change.  Clearing stale state
  * here makes global entity teardown safe even when it bypasses the manager's
  * ordinary timed cleanup callback. */
-static inline int Port_WidescreenBannerState_IsActive(PortWidescreenBannerState* state, int inGame,
-                                                       uint8_t area, uint8_t room) {
+static inline int Port_WidescreenBannerState_IsActive(PortWidescreenBannerState* state, int inGame, uint8_t area,
+                                                      uint8_t room) {
     if (!state->active) {
         return 0;
     }

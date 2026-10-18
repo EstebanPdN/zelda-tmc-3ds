@@ -193,9 +193,10 @@ void OctorokBoss_Hit_SubAction1(OctorokBossEntity* this) {
                                                         (((gRoomControls.origin_y + 0x88) << 0x10) - super->y.WORD))) >>
                     3;
             } else {
-                super->direction = ((s32)CalculateDirectionFromOffsets(gRoomControls.origin_x + 0x108 - super->x.HALF.HI,
-                                                                       gRoomControls.origin_y + 0x88 - super->y.HALF.HI)) >>
-                                   3;
+                super->direction =
+                    ((s32)CalculateDirectionFromOffsets(gRoomControls.origin_x + 0x108 - super->x.HALF.HI,
+                                                        gRoomControls.origin_y + 0x88 - super->y.HALF.HI)) >>
+                    3;
             }
             super->speed = 0x100;
             ProcessMovement0(super);

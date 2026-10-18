@@ -230,7 +230,7 @@ void VaatiTransfiguredType0Action0(VaatiTransfiguredEntity* this) {
             {
                 enemy->parent = super;
                 enemy->type2 = i;
-                if ((this->unk_75 >> (i)&1) != 0) {
+                if ((this->unk_75 >> (i) & 1) != 0) {
                     enemy->timer = 1;
                 } else {
                     enemy->timer = 0;
@@ -648,9 +648,9 @@ void VaatiTransfiguredType0Action7(VaatiTransfiguredEntity* this) {
             uVar4 = Random() & 0x3f3f;
             pEVar3->x.HALF.HI += (uVar4 & 0xff) - 0x20;
             pEVar3->y.HALF.HI += ((uVar4 >> 8) & 0xff) - 0x20;
-if (!REGION_IS_EU) {
-            pEVar3->spritePriority.b0 = 2;
-}
+            if (!REGION_IS_EU) {
+                pEVar3->spritePriority.b0 = 2;
+            }
             SoundReq(SFX_16E);
         }
     }

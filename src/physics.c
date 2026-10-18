@@ -394,16 +394,18 @@ bool32 sub_0806FB38(Entity* ent) {
     u32 rv;
     if (GE_FIELD(ent, field_0x7c)->BYTES.byte2 < GE_FIELD(ent, field_0x7c)->BYTES.byte3) {
         GE_FIELD(ent, field_0x7c)->BYTES.byte2++;
-        ent->x.HALF.HI =
-            ((((((s16)GE_FIELD(ent, cutsceneBeh)->HWORD - (s16)GE_FIELD(ent, field_0x80)->HWORD) * GE_FIELD(ent, field_0x7c)->BYTES.byte2) << 8) /
-              GE_FIELD(ent, field_0x7c)->BYTES.byte3) >>
-             8) +
-            GE_FIELD(ent, field_0x80)->HWORD;
-        ent->y.HALF.HI =
-            (((((((s16)GE_FIELD(ent, field_0x86)->HWORD - (s16)GE_FIELD(ent, field_0x82)->HWORD) * GE_FIELD(ent, field_0x7c)->BYTES.byte2) << 8) /
-               GE_FIELD(ent, field_0x7c)->BYTES.byte3) >>
-              8)) +
-            GE_FIELD(ent, field_0x82)->HWORD;
+        ent->x.HALF.HI = ((((((s16)GE_FIELD(ent, cutsceneBeh)->HWORD - (s16)GE_FIELD(ent, field_0x80)->HWORD) *
+                             GE_FIELD(ent, field_0x7c)->BYTES.byte2)
+                            << 8) /
+                           GE_FIELD(ent, field_0x7c)->BYTES.byte3) >>
+                          8) +
+                         GE_FIELD(ent, field_0x80)->HWORD;
+        ent->y.HALF.HI = (((((((s16)GE_FIELD(ent, field_0x86)->HWORD - (s16)GE_FIELD(ent, field_0x82)->HWORD) *
+                              GE_FIELD(ent, field_0x7c)->BYTES.byte2)
+                             << 8) /
+                            GE_FIELD(ent, field_0x7c)->BYTES.byte3) >>
+                           8)) +
+                         GE_FIELD(ent, field_0x82)->HWORD;
         rv = 0;
     } else {
         ent->x.HALF.HI = GE_FIELD(ent, cutsceneBeh)->HWORD;

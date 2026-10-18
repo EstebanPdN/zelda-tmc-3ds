@@ -72,7 +72,8 @@ void NPC4E(Entity* this) {
 void NPC4E_ChangeInteractableHitbox(Entity* this, ScriptExecutionContext* context) {
     const InteractCollisionData* sel = gNpc4ECollisionData;
 #ifdef MULTI_REGION
-    if (REGION_IS_EU) sel = gNpc4ECollisionData_eu;
+    if (REGION_IS_EU)
+        sel = gNpc4ECollisionData_eu;
 #endif
     const InteractCollisionData* data = &sel[context->intVariable];
     SetInteractableObjectCollision(this, 1, data->interactDirections, data);
@@ -178,7 +179,8 @@ void sub_0806DB84(Entity* this, ScriptExecutionContext* context) {
     if (ent != NULL) {
         PositionRelative(this, &ent->base, Q_16_16(-8.0), 0);
 #ifdef PC_PORT
-        Port_SetEntityScriptCtx(&ent->base, StartCutscene(&ent->base, PORT_SCRIPT(script_MinishVillageObjectLeftStoneOpening)));
+        Port_SetEntityScriptCtx(&ent->base,
+                                StartCutscene(&ent->base, PORT_SCRIPT(script_MinishVillageObjectLeftStoneOpening)));
 #else
         *(ScriptExecutionContext**)&ent->cutsceneBeh =
             StartCutscene(&ent->base, &script_MinishVillageObjectLeftStoneOpening);
@@ -188,7 +190,8 @@ void sub_0806DB84(Entity* this, ScriptExecutionContext* context) {
     if (ent != NULL) {
         PositionRelative(this, &ent->base, Q_16_16(8.0), 0);
 #ifdef PC_PORT
-        Port_SetEntityScriptCtx(&ent->base, StartCutscene(&ent->base, PORT_SCRIPT(script_MinishVillageObjectRightStoneOpening)));
+        Port_SetEntityScriptCtx(&ent->base,
+                                StartCutscene(&ent->base, PORT_SCRIPT(script_MinishVillageObjectRightStoneOpening)));
 #else
         *(ScriptExecutionContext**)&ent->cutsceneBeh =
             StartCutscene(&ent->base, &script_MinishVillageObjectRightStoneOpening);
@@ -292,8 +295,7 @@ const InteractCollisionData gNpc4ECollisionData[] = { //
 const InteractCollisionData gNpc4ECollisionData[] = { //
     { 0, 0, 8, 8, 0x0E, 0, 0, 0 },   { 0, 0, 26, 8, 0x0E, 0, 0, 0 },  { 0, 0, 16, 4, 0x0E, 0, 0, 0 },
     { 0, 0, 10, 10, 0x00, 0, 0, 0 }, { 0, 0, 10, 10, 0x00, 0, 0, 0 }, { 0, 0, 6, 4, 0x0E, 0, 0, 0 },
-    { 0, 8, 16, 4, 0x0E, 0, 0, 0 },  { 0, -8, 24, 8, 0x0E, 0, 0, 0 },
-    { 0, 0, 88, 8, 0x0E, 0, 0, 0 }
+    { 0, 8, 16, 4, 0x0E, 0, 0, 0 },  { 0, -8, 24, 8, 0x0E, 0, 0, 0 }, { 0, 0, 88, 8, 0x0E, 0, 0, 0 }
 };
 #endif
 #ifdef MULTI_REGION

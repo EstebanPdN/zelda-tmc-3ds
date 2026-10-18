@@ -203,7 +203,8 @@ static void Port_ReserveGbaAddressSpace(void);
 #if defined(__GNUC__)
 __attribute__((constructor(101)))
 #endif
-static void Port_ReserveGbaAddressSpaceEarly(void) {
+static void
+Port_ReserveGbaAddressSpaceEarly(void) {
     Port_ReserveGbaAddressSpace();
 }
 
@@ -564,8 +565,8 @@ int main(int argc, char* argv[]) {
 #ifdef __ANDROID__
         window_flags |= SDL_WINDOW_FULLSCREEN;
 #endif
-        if (!SDL_CreateWindowAndRenderer(window_title, window_base_width * window_scale, MODE1_GBA_HEIGHT * window_scale,
-                                         window_flags, &window, &prerenderer)) {
+        if (!SDL_CreateWindowAndRenderer(window_title, window_base_width * window_scale,
+                                         MODE1_GBA_HEIGHT * window_scale, window_flags, &window, &prerenderer)) {
             fprintf(stderr, "SDL_CreateWindowAndRenderer Error: %s\n", SDL_GetError());
             SDL_Quit();
             return 1;

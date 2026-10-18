@@ -26,8 +26,7 @@ typedef struct {
     /*0x83*/ u8 unk_83;
 } BobombEntity;
 
-PORT_STATIC_ASSERT_OFFSET(BobombEntity, unk_80, 0x80, 0xB0,
-                          "BobombEntity unk_80 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(BobombEntity, unk_80, 0x80, 0xB0, "BobombEntity unk_80 offset incorrect");
 
 void sub_0802CB68(BobombEntity* this);
 void sub_0802CBC4(BobombEntity* this);

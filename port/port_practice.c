@@ -19,9 +19,9 @@ u64 gPracticeFrame = 0;
  * clamped to >= 0. sBaseFrame is host-only (not snapshotted), so a savestate
  * load that rewinds gPracticeFrame below sBaseFrame is re-synced to zero
  * rather than underflowing. */
-static u64  sBaseFrame   = 0;
-static u64  sStopFrame   = 0;
-static bool sRunning     = true;
+static u64 sBaseFrame = 0;
+static u64 sStopFrame = 0;
+static bool sRunning = true;
 
 static u64 ElapsedFor(u64 frame) {
     if (frame < sBaseFrame) {
@@ -39,7 +39,9 @@ u64 Port_Practice_ElapsedFrames(void) {
     return ElapsedFor(sRunning ? gPracticeFrame : sStopFrame);
 }
 
-bool Port_Practice_TimerRunning(void) { return sRunning; }
+bool Port_Practice_TimerRunning(void) {
+    return sRunning;
+}
 
 void Port_Practice_TimerReset(void) {
     sBaseFrame = gPracticeFrame;
@@ -67,24 +69,30 @@ static u64 sSplits[PORT_PRACTICE_MAX_SPLITS];
 static int sSplitCount = 0;
 
 void Port_Practice_AddSplit(void) {
-    if (sSplitCount >= PORT_PRACTICE_MAX_SPLITS) return;
+    if (sSplitCount >= PORT_PRACTICE_MAX_SPLITS)
+        return;
     sSplits[sSplitCount++] = Port_Practice_ElapsedFrames();
 }
 
-int Port_Practice_SplitCount(void) { return sSplitCount; }
+int Port_Practice_SplitCount(void) {
+    return sSplitCount;
+}
 
 u64 Port_Practice_SplitAt(int i) {
-    if (i < 0 || i >= sSplitCount) return 0;
+    if (i < 0 || i >= sSplitCount)
+        return 0;
     return sSplits[i];
 }
 
-void Port_Practice_ClearSplits(void) { sSplitCount = 0; }
+void Port_Practice_ClearSplits(void) {
+    sSplitCount = 0;
+}
 
 /* ---- Input display --------------------------------------------------- */
 
 /* Rolling history ring buffer of input masks, one sample per Tick. */
 static u16 sHistory[PORT_PRACTICE_HISTORY];
-static int sHistHead  = 0;   /* index where the next sample will be written */
+static int sHistHead = 0; /* index where the next sample will be written */
 static int sHistCount = 0;
 static u16 sCurrentMask = 0;
 
@@ -99,16 +107,22 @@ static u16 SampleInputMask(void) {
     return mask;
 }
 
-u16 Port_Practice_CurrentInputMask(void) { return sCurrentMask; }
+u16 Port_Practice_CurrentInputMask(void) {
+    return sCurrentMask;
+}
 
-int Port_Practice_HistoryCount(void) { return sHistCount; }
+int Port_Practice_HistoryCount(void) {
+    return sHistCount;
+}
 
 u16 Port_Practice_HistoryAt(int index) {
-    if (index < 0 || index >= sHistCount) return 0;
+    if (index < 0 || index >= sHistCount)
+        return 0;
     /* Newest-first: index 0 is the most recently written sample. */
     int pos = (sHistHead - 1 - index);
     pos %= PORT_PRACTICE_HISTORY;
-    if (pos < 0) pos += PORT_PRACTICE_HISTORY;
+    if (pos < 0)
+        pos += PORT_PRACTICE_HISTORY;
     return sHistory[pos];
 }
 
@@ -118,26 +132,38 @@ int Port_QuickSave_SavePractice(void);
 int Port_QuickSave_LoadPractice(void);
 int Port_QuickSave_HasPractice(void);
 
-int  Port_Practice_SetPoint(void)  { return Port_QuickSave_SavePractice(); }
-int  Port_Practice_LoadPoint(void) { return Port_QuickSave_LoadPractice(); }
-bool Port_Practice_HasPoint(void)  { return Port_QuickSave_HasPractice() != 0; }
+int Port_Practice_SetPoint(void) {
+    return Port_QuickSave_SavePractice();
+}
+int Port_Practice_LoadPoint(void) {
+    return Port_QuickSave_LoadPractice();
+}
+bool Port_Practice_HasPoint(void) {
+    return Port_QuickSave_HasPractice() != 0;
+}
 
 /* ---- Pause / frame-advance ------------------------------------------- */
 
 static bool sPaused = false;
 static bool sStepRequested = false;
 
-bool Port_Practice_IsPaused(void) { return sPaused; }
+bool Port_Practice_IsPaused(void) {
+    return sPaused;
+}
 
 void Port_Practice_SetPaused(bool paused) {
     sPaused = paused;
-    if (!paused) sStepRequested = false;
+    if (!paused)
+        sStepRequested = false;
 }
 
-void Port_Practice_TogglePause(void) { Port_Practice_SetPaused(!sPaused); }
+void Port_Practice_TogglePause(void) {
+    Port_Practice_SetPaused(!sPaused);
+}
 
 void Port_Practice_RequestStep(void) {
-    if (sPaused) sStepRequested = true;
+    if (sPaused)
+        sStepRequested = true;
 }
 
 bool Port_Practice_ConsumeStep(void) {
@@ -156,5 +182,6 @@ void Port_Practice_Tick(void) {
     sCurrentMask = SampleInputMask();
     sHistory[sHistHead] = sCurrentMask;
     sHistHead = (sHistHead + 1) % PORT_PRACTICE_HISTORY;
-    if (sHistCount < PORT_PRACTICE_HISTORY) sHistCount++;
+    if (sHistCount < PORT_PRACTICE_HISTORY)
+        sHistCount++;
 }

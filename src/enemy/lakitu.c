@@ -25,8 +25,7 @@ typedef struct {
     /*0x79*/ u8 unk_79;
 } LakituEntity;
 
-PORT_STATIC_ASSERT_OFFSET(LakituEntity, unk_74, 0x74, 0xA0,
-                          "LakituEntity unk_74 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(LakituEntity, unk_74, 0x74, 0xA0, "LakituEntity unk_74 offset incorrect");
 
 extern void (*const LakituActionFuncs[])(LakituEntity*);
 

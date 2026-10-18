@@ -121,8 +121,7 @@ const u32 gUnk_08133368[] = {
     offset_gPalette_40 | 1 << 0x18,   offset_gPalette_41 | 1 << 0x18,   offset_gPalette_83 | 1 << 0x18,
     offset_gPalette_119 | 1 << 0x18,  offset_gPalette_120 | 1 << 0x18,  offset_gPalette_121 | 1 << 0x18,
     offset_gPalette_81 | 1 << 0x18,   offset_gPalette_84 | 1 << 0x18,   offset_gPalette_88 | 1 << 0x18,
-    offset_gPalette_230 | 1 << 0x18,
-    offset_gPalette_2259 | 1 << 0x18, offset_gPalette_2260 | 1 << 0x18,
+    offset_gPalette_230 | 1 << 0x18,  offset_gPalette_2259 | 1 << 0x18, offset_gPalette_2260 | 1 << 0x18,
     offset_gPalette_10 | 1 << 0x18,   offset_gPalette_112 | 1 << 0x18,  offset_gPalette_122 | 1 << 0x18,
     offset_gPalette_13 | 1 << 0x18,
 };
@@ -250,8 +249,7 @@ const u32 gUnk_08133368_eu[] = {
     offset_gPalette_40 | 1 << 0x18,   offset_gPalette_41 | 1 << 0x18,   offset_gPalette_83 | 1 << 0x18,
     offset_gPalette_119 | 1 << 0x18,  offset_gPalette_120 | 1 << 0x18,  offset_gPalette_121 | 1 << 0x18,
     offset_gPalette_81 | 1 << 0x18,   offset_gPalette_84 | 1 << 0x18,   offset_gPalette_88 | 1 << 0x18,
-    offset_gPalette_230 | 1 << 0x18,
-    offset_gPalette_2257 | 1 << 0x18, offset_gPalette_2258 | 1 << 0x18,
+    offset_gPalette_230 | 1 << 0x18,  offset_gPalette_2257 | 1 << 0x18, offset_gPalette_2258 | 1 << 0x18,
     offset_gPalette_10 | 1 << 0x18,   offset_gPalette_112 | 1 << 0x18,  offset_gPalette_122 | 1 << 0x18,
     offset_gPalette_13 | 1 << 0x18,
 };

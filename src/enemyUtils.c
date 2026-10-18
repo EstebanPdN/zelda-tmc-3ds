@@ -27,8 +27,7 @@ static int Port_IsEntityInPool(const Entity* ptr) {
     const u8* p = (const u8*)ptr;
     if (p >= (const u8*)&gPlayerEntity && p < (const u8*)(&gPlayerEntity + 1))
         return 1;
-    if (p >= (const u8*)gAuxPlayerEntities &&
-        p < (const u8*)(gAuxPlayerEntities + MAX_AUX_PLAYER_ENTITIES))
+    if (p >= (const u8*)gAuxPlayerEntities && p < (const u8*)(gAuxPlayerEntities + MAX_AUX_PLAYER_ENTITIES))
         return 1;
     if (p >= (const u8*)gEntities && p < (const u8*)(gEntities + MAX_ENTITIES))
         return 1;
@@ -83,7 +82,8 @@ void EnemyCopyParams(Entity* src, Entity* dest) {
 const EnemyDefinition* GetEnemyDefinition(Entity* entity) {
     const EnemyDefinition* table = gEnemyDefinitions;
 #ifdef MULTI_REGION
-    if (REGION_IS_EU) table = gEnemyDefinitions_eu;
+    if (REGION_IS_EU)
+        table = gEnemyDefinitions_eu;
 #endif
     const EnemyDefinition* definition = &table[entity->id];
     if (definition->gfx == 0xffff) {
@@ -114,10 +114,8 @@ bool32 EnemyInit(Enemy* this) {
          * separate eye enemy also needs conversion (USA 297 -> EU 296);
          * EU 297 is the large effect used by the body's type-4 child. */
         if (super->id == SPEAR_MOBLIN || super->id == BOW_MOBLIN || super->id == VAATI_TRANSFIGURED ||
-            super->id == VAATI_TRANSFIGURED_EYE ||
-            super->id == GYORG_CHILD ||
-            super->id == GYORG_FEMALE_EYE || super->id == GYORG_MALE_EYE ||
-            super->id == GYORG_FEMALE_MOUTH) {
+            super->id == VAATI_TRANSFIGURED_EYE || super->id == GYORG_CHILD || super->id == GYORG_FEMALE_EYE ||
+            super->id == GYORG_MALE_EYE || super->id == GYORG_FEMALE_MOUTH) {
             super->spriteIndex = Port_RemapSpriteIndex(super->spriteIndex);
         }
 #endif

@@ -23,15 +23,16 @@ static inline size_t PpuGpu3DS_CommandWordsRequired(const PpuGpu3DSCommandBuffer
      * the depth prepass; object-window batches are drawn only once. */
     for (size_t i = 1; i < commands->batchCount; ++i) {
         const PpuGpu3DSBatch* batch = &commands->batches[i];
-        if (batch->indexCount == 0) continue;
+        if (batch->indexCount == 0)
+            continue;
         const size_t draws = batch->layer == PPU_GPU3DS_OBJ && !batch->objWindow ? 2u : 1u;
-        if (words > SIZE_MAX - draws * PPU_GPU3DS_WORDS_PER_DRAW) return SIZE_MAX;
+        if (words > SIZE_MAX - draws * PPU_GPU3DS_WORDS_PER_DRAW)
+            return SIZE_MAX;
         words += draws * PPU_GPU3DS_WORDS_PER_DRAW;
     }
     return words;
 }
 
-static inline bool PpuGpu3DS_CommandBudgetFits(size_t required, bool hasBuffer,
-                                               size_t capacity, size_t used) {
+static inline bool PpuGpu3DS_CommandBudgetFits(size_t required, bool hasBuffer, size_t capacity, size_t used) {
     return hasBuffer && used <= capacity && required <= capacity - used;
 }

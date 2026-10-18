@@ -5,6 +5,10 @@ the source tree, build entry points, licensing, and the public project README.
 
 ## Start here
 
+- [3DS architecture and source ownership](ARCHITECTURE.md)
+- [Current development and verification guide](DEVELOPMENT.md)
+- [Regression test map](../tests/README.md)
+
 - [Build instructions](INSTALL.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Decompilation onboarding](DECOMP-ONBOARDING.md)

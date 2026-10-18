@@ -41,23 +41,22 @@ static inline uint32_t Port_SecondScreenWorldMap_RevealedMask(uint32_t windcrest
 }
 
 static inline int Port_SecondScreenWorldMap_IsRegionRevealed(uint32_t windcrests, int32_t region) {
-    return region >= 0 && region < 17 &&
-           ((Port_SecondScreenWorldMap_RevealedMask(windcrests) >> region) & 1u) != 0;
+    return region >= 0 && region < 17 && ((Port_SecondScreenWorldMap_RevealedMask(windcrests) >> region) & 1u) != 0;
 }
 
 /* Draws the exact gray cover frames pause-menu screen 4 stamps over every
  * unrevealed region (sub_080A6498), transformed with the already-drawn map.
  * Returns how many region frames were drawn. */
-int Port_SecondScreenWorldMap_DrawUnrevealedRegions(
-    uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, uint32_t windcrests, float ox,
-    float oy, float scale, int32_t clipX0, int32_t clipY0, int32_t clipX1, int32_t clipY1);
+int Port_SecondScreenWorldMap_DrawUnrevealedRegions(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
+                                                    uint32_t windcrests, float ox, float oy, float scale,
+                                                    int32_t clipX0, int32_t clipY0, int32_t clipX1, int32_t clipY1);
 
 /* Maps an area + area-local player position (pixels) to world-map image
  * pixel coordinates. Returns 1 on success, 0 when the area has no world-map
  * location (interiors, dungeons) — callers keep the last successful fix,
  * zelda3-android's frozen-doorway-marker behavior. */
-int Port_SecondScreenWorldMap_LocatePlayer(uint8_t area, int32_t areaX, int32_t areaY,
-                                           int32_t* outMapX, int32_t* outMapY);
+int Port_SecondScreenWorldMap_LocatePlayer(uint8_t area, int32_t areaX, int32_t areaY, int32_t* outMapX,
+                                           int32_t* outMapY);
 
 /* World-map pixel position of a windcrest warp point (WindcrestID bit
  * index, matching gSave.windcrests' upper-byte flags — the caller decides
@@ -90,8 +89,7 @@ typedef struct {
  * from the game thread as SecondScreenSnapshot.mapHints (the predicate reads
  * local flags and inventory, which this ROM-only module cannot see). Pass 0
  * and nothing is drawn. Returns 0 while map/table data isn't ready. */
-int32_t Port_SecondScreenWorldMap_GetMapHints(uint32_t hintMask, SecondScreenMapMarker* out,
-                                              int32_t maxMarkers);
+int32_t Port_SecondScreenWorldMap_GetMapHints(uint32_t hintMask, SecondScreenMapMarker* out, int32_t maxMarkers);
 
 /* The markers belonging INSIDE one enlarged region (pause screen 6,
  * sub_080A68D4), in that drawn region's own pixel space (0..dstW, 0..dstH as
@@ -115,11 +113,9 @@ int32_t Port_SecondScreenWorldMap_GetMapHints(uint32_t hintMask, SecondScreenMap
  * state isn't in these two arrays, so a fusion reward claimed since the
  * last pause keeps its marker until the game's own retire pass next runs.
  * Stale info the player already had, never an unearned reveal. */
-int32_t Port_SecondScreenWorldMap_GetRegionMarkers(int32_t region, uint32_t hintMask,
-                                                   const uint8_t* fusedKinstones,
-                                                   const uint8_t* fusionUnmarked, int32_t dstW,
-                                                   int32_t dstH, SecondScreenMapMarker* out,
-                                                   int32_t maxMarkers);
+int32_t Port_SecondScreenWorldMap_GetRegionMarkers(int32_t region, uint32_t hintMask, const uint8_t* fusedKinstones,
+                                                   const uint8_t* fusionUnmarked, int32_t dstW, int32_t dstH,
+                                                   SecondScreenMapMarker* out, int32_t maxMarkers);
 
 /* Draws one marker glyph (decoded from ROM, the exact 16x16 DrawDirect frame
  * the map screen stamps) at (x, y) top-left, nearest-neighbor scaled: the
@@ -132,9 +128,8 @@ int32_t Port_SecondScreenWorldMap_GetRegionMarkers(int32_t region, uint32_t hint
  * stamp. Returns 1 if drawn, 0 while that glyph isn't decodable yet —
  * callers simply skip the marker that frame rather than substituting some
  * other glyph. */
-int Port_SecondScreenWorldMap_DrawMarker(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                         int32_t x, int32_t y, int32_t scale, uint32_t frame,
-                                         int32_t region, uint32_t outline);
+int Port_SecondScreenWorldMap_DrawMarker(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x,
+                                         int32_t y, int32_t scale, uint32_t frame, int32_t region, uint32_t outline);
 
 /* The map screen's own zoom grid: the game's map lets the player put the
  * cursor on a tile and open that tile's enlarged regional map. Resolves a
@@ -142,9 +137,8 @@ int Port_SecondScreenWorldMap_DrawMarker(uint32_t* pixels, int32_t bufW, int32_t
  * hand DrawRegion, and (x0,y0)-(x1,y1) is the tile's rect in world-map
  * pixels so callers can outline it like the game's cursor brackets.
  * Returns 1 on a real tile, 0 off-grid or while data isn't ready. */
-int Port_SecondScreenWorldMap_GetRegionAt(int32_t mapX, int32_t mapY, int32_t* outRegion,
-                                          int32_t* outX0, int32_t* outY0, int32_t* outX1,
-                                          int32_t* outY1);
+int Port_SecondScreenWorldMap_GetRegionAt(int32_t mapX, int32_t mapY, int32_t* outRegion, int32_t* outX0,
+                                          int32_t* outY0, int32_t* outX1, int32_t* outY1);
 
 /* Draws one region's enlarged map — the same artwork the game shows after
  * zooming into a tile — fitted into the destination rect, nearest-neighbor.
@@ -155,17 +149,16 @@ int Port_SecondScreenWorldMap_GetRegionAt(int32_t mapX, int32_t mapY, int32_t* o
  * region has no drawable art. */
 int Port_SecondScreenWorldMap_GetRegionSize(int32_t region, int32_t* outW, int32_t* outH);
 
-int Port_SecondScreenWorldMap_DrawRegion(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                         int32_t dstX, int32_t dstY, int32_t dstW, int32_t dstH,
-                                         int32_t region);
+int Port_SecondScreenWorldMap_DrawRegion(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t dstX,
+                                         int32_t dstY, int32_t dstW, int32_t dstH, int32_t region);
 
 /* Where the player marker sits inside a region's enlarged map, in that
  * drawn region's own pixel space (0..w, 0..h as passed to DrawRegion).
  * Returns 1 when the player is inside this region and the position is
  * known, 0 otherwise — callers just omit the marker then. `area`, `areaX`
  * and `areaY` are the same values LocatePlayer takes. */
-int Port_SecondScreenWorldMap_LocateInRegion(int32_t region, uint8_t area, int32_t areaX, int32_t areaY,
-                                             int32_t dstW, int32_t dstH, int32_t* outX, int32_t* outY);
+int Port_SecondScreenWorldMap_LocateInRegion(int32_t region, uint8_t area, int32_t areaX, int32_t areaY, int32_t dstW,
+                                             int32_t dstH, int32_t* outX, int32_t* outY);
 
 #ifdef __cplusplus
 }

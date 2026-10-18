@@ -57,4 +57,4 @@ std::optional<std::filesystem::path> ExecutableDir() {
 #endif
 }
 
-}  // namespace port
+} // namespace port

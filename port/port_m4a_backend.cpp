@@ -633,7 +633,7 @@ static void PublishActivePlayerMaskLocked(void) {
 
 /* Portable: the 3DS supplies the system tick, other platforms fall back to
  * the steady clock. Only the ratio of mix time to total audio time matters. */
-static std::atomic<uint64_t> sMixTicks{0};
+static std::atomic<uint64_t> sMixTicks{ 0 };
 
 #if defined(__3DS__)
 /* Declared rather than including <3ds.h>, whose u32/s32 collide with the port's
@@ -646,8 +646,8 @@ extern "C" uint64_t Port_M4A_Backend_TickNow(void) {
     return (uint64_t)svcGetSystemTick();
 #else
     return (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(
-                   std::chrono::steady_clock::now().time_since_epoch())
-            .count();
+               std::chrono::steady_clock::now().time_since_epoch())
+        .count();
 #endif
 }
 
@@ -668,8 +668,7 @@ static void RenderChunkLocked(void) {
     if (!sState.vsyncEnabled || !HasActivePlaybackLocked()) {
         /* Only the bail-out paths need to zero the buffer now; PortM4A_Mixdown
          * writes every frame it is asked for. */
-        std::fill(sState.pendingSamples.begin(), sState.pendingSamples.end(),
-                  static_cast<int16_t>(0));
+        std::fill(sState.pendingSamples.begin(), sState.pendingSamples.end(), static_cast<int16_t>(0));
         return;
     }
 
@@ -730,7 +729,7 @@ static void RenderChunkLocked(void) {
         };
 
 #ifdef TMC_3DS
-        for (const MP2KTrack *track : sState.ctx->mixer.GetActiveTracks()) {
+        for (const MP2KTrack* track : sState.ctx->mixer.GetActiveTracks()) {
             if (track->playerIdx < kPlayerCount && track->trackIdx < kMaxTracks)
                 mixTrack(track->playerIdx, track->trackIdx, *track);
         }
@@ -745,9 +744,8 @@ static void RenderChunkLocked(void) {
         }
 #endif
 
-        PortM4A_Mixdown(sState.mixTracks.data(), sState.mixTracks.size(), sampleCount,
-                        sState.masterVolume, sState.mixAccL.data(), sState.mixAccR.data(),
-                        sState.pendingSamples.data());
+        PortM4A_Mixdown(sState.mixTracks.data(), sState.mixTracks.size(), sampleCount, sState.masterVolume,
+                        sState.mixAccL.data(), sState.mixAccR.data(), sState.pendingSamples.data());
     } catch (const std::exception& e) {
         AudioGuardWarn("RenderChunkLocked", e.what());
         std::fill(sState.pendingSamples.begin(), sState.pendingSamples.end(), static_cast<int16_t>(0));

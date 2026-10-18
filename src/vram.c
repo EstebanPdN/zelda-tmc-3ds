@@ -257,8 +257,7 @@ bool32 LoadFixedGFX(Entity* entity, u32 gfxIndex) {
 bool32 LoadSwapGFX(Entity* entity, u32 count, u32 slotIndex) {
     u32 status;
 #ifdef PC_PORT
-    if (count == 0 || count > MAX_GFX_SLOTS - 4 ||
-        slotIndex >= MAX_GFX_SLOTS || count > MAX_GFX_SLOTS - slotIndex)
+    if (count == 0 || count > MAX_GFX_SLOTS - 4 || slotIndex >= MAX_GFX_SLOTS || count > MAX_GFX_SLOTS - slotIndex)
         return FALSE;
 #endif
     if ((slotIndex == 0) && (slotIndex = FindFreeGFXSlots(count), slotIndex == 0)) {
@@ -363,7 +362,9 @@ u32 FindFreeGFXSlots(u32 slotCount) {
     continuosFreeSlots = 0;
     index = 4;
     for (index = 4; index < MAX_GFX_SLOTS; index++) {
-        if ((!PORT_GFX_COMPACTION && REGION_IS_EU) ? (gGFXSlots.slots[index].status == GFX_SLOT_UNLOADED) : (gGFXSlots.slots[index].status == GFX_SLOT_FREE || gGFXSlots.slots[index].status == GFX_SLOT_UNLOADED)) {
+        if ((!PORT_GFX_COMPACTION && REGION_IS_EU) ? (gGFXSlots.slots[index].status == GFX_SLOT_UNLOADED)
+                                                   : (gGFXSlots.slots[index].status == GFX_SLOT_FREE ||
+                                                      gGFXSlots.slots[index].status == GFX_SLOT_UNLOADED)) {
             continuosFreeSlots++;
             if (slotCount <= continuosFreeSlots) {
                 return (index - continuosFreeSlots) + 1;
@@ -411,9 +412,9 @@ void sub_080AE218(u32 param1, u32 param2) {
     for (u32 listIndex = 0; listIndex < ARRAY_COUNT(gEntityLists); ++listIndex) {
         LinkedList* list = &gEntityLists[listIndex];
         Entity* ent = list->first;
-        for (u32 visited = 0; ent != NULL && ent != (Entity*)list && visited < 256u;
-             ent = ent->next, ++visited) {
-            if (ent->kind == MANAGER) continue;
+        for (u32 visited = 0; ent != NULL && ent != (Entity*)list && visited < 256u; ent = ent->next, ++visited) {
+            if (ent->kind == MANAGER)
+                continue;
             if (ent->spriteAnimation[2] < ARRAY_COUNT(liveExtra))
                 liveExtra[ent->spriteAnimation[2]] = TRUE;
             if (param1 == ent->spriteAnimation[0])
@@ -442,7 +443,8 @@ void sub_080AE218(u32 param1, u32 param2) {
 
     for (index2 = 0; index2 < ARRAY_COUNT(gUnk_020000C0); index2++) {
 #ifdef PC_PORT
-        if (index2 == 0 || !liveExtra[index2]) continue;
+        if (index2 == 0 || !liveExtra[index2])
+            continue;
 #endif
         for (index1 = 0; index1 < 4; index1++) {
             psVar6 = gUnk_020000C0[index2].unk_00 + index1;

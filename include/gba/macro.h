@@ -87,8 +87,8 @@ static inline void port_DmaFillTransfer(uintptr_t dest_raw, u32 control, u32 val
 
 #define DmaSet(dmaNum, src, dest, control) port_DmaTransfer((const void*)(src), (uintptr_t)(dest), (u32)(control))
 
-#define DMA_FILL(dmaNum, value, dest, size, bit)                                                               \
-    port_DmaFillTransfer((uintptr_t)(dest),                                                                    \
+#define DMA_FILL(dmaNum, value, dest, size, bit)                                                             \
+    port_DmaFillTransfer((uintptr_t)(dest),                                                                  \
                          (0x8000 | 0x0100 | ((bit) == 32 ? 0x0400 : 0)) << 16 | ((u32)(size) / ((bit) / 8)), \
                          (u32)(value))
 
@@ -185,12 +185,12 @@ static inline void port_DmaFillTransfer(uintptr_t dest_raw, u32 control, u32 val
         gba_write32(REG_ADDR_DMA##dmaNum + 8, (vu32)(control)); \
     }
 #else
-#define DmaSet(dmaNum, src, dest, control)                      \
-    {                                                           \
-        vu32* dmaRegs = (vu32*)REG_ADDR_DMA##dmaNum;            \
-        dmaRegs[0] = (vu32)(src);                               \
-        dmaRegs[1] = (vu32)(dest);                              \
-        dmaRegs[2] = (vu32)(control);                           \
+#define DmaSet(dmaNum, src, dest, control)           \
+    {                                                \
+        vu32* dmaRegs = (vu32*)REG_ADDR_DMA##dmaNum; \
+        dmaRegs[0] = (vu32)(src);                    \
+        dmaRegs[1] = (vu32)(dest);                   \
+        dmaRegs[2] = (vu32)(control);                \
     }
 #endif
 
@@ -227,11 +227,11 @@ static inline void port_DmaFillTransfer(uintptr_t dest_raw, u32 control, u32 val
 #define DmaCopy16(dmaNum, src, dest, size) DMA_COPY(dmaNum, src, dest, size, 16)
 #define DmaCopy32(dmaNum, src, dest, size) DMA_COPY(dmaNum, src, dest, size, 32)
 
-#define DmaStop(dmaNum)                                                       \
-    {                                                                         \
-        vu16* control = (vu16*)(REG_ADDR_DMA##dmaNum + 8);                    \
-        *control &= ~(DMA_ENABLE | DMA_START_MASK | DMA_DREQ_ON | DMA_REPEAT);\
-        *control &= ~DMA_ENABLE;                                              \
+#define DmaStop(dmaNum)                                                        \
+    {                                                                          \
+        vu16* control = (vu16*)(REG_ADDR_DMA##dmaNum + 8);                     \
+        *control &= ~(DMA_ENABLE | DMA_START_MASK | DMA_DREQ_ON | DMA_REPEAT); \
+        *control &= ~DMA_ENABLE;                                               \
     }
 
 #define DmaCopyLarge(dmaNum, src, dest, size, block, bit) \
@@ -323,11 +323,11 @@ static inline void port_DmaFillTransfer(uintptr_t dest_raw, u32 control, u32 val
 #define DmaClear16Defvars(dmaNum, dest, size) DmaClearDefvars(dmaNum, dest, size, 16)
 #define DmaClear32Defvars(dmaNum, dest, size) DmaClearDefvars(dmaNum, dest, size, 32)
 
-#define DmaWait(DmaNo)                                           \
-    {                                                            \
-        vu16* control = (vu16*)(REG_ADDR_DMA##DmaNo + 8);        \
-        while (*control & DMA_ENABLE)                            \
-            ;                                                    \
+#define DmaWait(DmaNo)                                    \
+    {                                                     \
+        vu16* control = (vu16*)(REG_ADDR_DMA##DmaNo + 8); \
+        while (*control & DMA_ENABLE)                     \
+            ;                                             \
     }
 
 #define IntrEnable(flags)  \

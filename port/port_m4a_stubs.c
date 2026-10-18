@@ -109,7 +109,6 @@ static void ForEachTrackedPlayer(void (*cb)(MusicPlayerInfo*)) {
     }
 }
 
-
 static void StopPlayer(MusicPlayerInfo* mplayInfo) {
     int playerIndex;
 
@@ -401,7 +400,8 @@ void m4aSongNumContinue(u16 songId) {
 }
 
 void m4aMPlayAllStop(void) {
-    if (Port_DebugVerbose) fprintf(stderr, "[bgm] allstop\n");
+    if (Port_DebugVerbose)
+        fprintf(stderr, "[bgm] allstop\n");
     ForEachTrackedPlayer(StopPlayer);
 }
 

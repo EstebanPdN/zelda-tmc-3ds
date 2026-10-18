@@ -9,7 +9,8 @@
 
 void MazaalObject(Entity* this) {
 #ifdef PC_PORT
-    if (this->parent == NULL) return; /* #136 family */
+    if (this->parent == NULL)
+        return; /* #136 family */
 #endif
     if (this->parent->next == NULL) {
         DeleteThisEntity();

@@ -20,8 +20,7 @@ typedef struct {
     /*0x74*/ u16 unk_74;
 } LeeverEntity;
 
-PORT_STATIC_ASSERT_OFFSET(LeeverEntity, unk_74, 0x74, 0xA0,
-                          "LeeverEntity unk_74 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(LeeverEntity, unk_74, 0x74, 0xA0, "LeeverEntity unk_74 offset incorrect");
 
 bool32 Leever_PlayerInRange(Entity*, s32);
 void Leever_Move(LeeverEntity*);

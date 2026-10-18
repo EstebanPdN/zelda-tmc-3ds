@@ -65,29 +65,34 @@ static void FillBuffer(int index) {
     ++sStats.buffersRendered;
     sStats.renderTicks += elapsed;
     sStats.renderLastTicks = elapsed;
-    if (elapsed > sStats.renderMaxTicks) sStats.renderMaxTicks = elapsed;
-    if (elapsed * SAMPLE_RATE > (uint64_t)SYSCLOCK_ARM11 * BUFFER_FRAMES) ++sStats.renderDeadlineMisses;
+    if (elapsed > sStats.renderMaxTicks)
+        sStats.renderMaxTicks = elapsed;
+    if (elapsed * SAMPLE_RATE > (uint64_t)SYSCLOCK_ARM11 * BUFFER_FRAMES)
+        ++sStats.renderDeadlineMisses;
     LightLock_Unlock(&sStatsLock);
 }
 
 static uint32_t CountDoneBuffers(void) {
     uint32_t done = 0;
     for (int i = 0; i < BUFFER_COUNT; ++i) {
-        if (sWave[i].status == NDSP_WBUF_DONE) ++done;
+        if (sWave[i].status == NDSP_WBUF_DONE)
+            ++done;
     }
     return done;
 }
 
 static int FindDoneBuffer(void) {
     for (int i = 0; i < BUFFER_COUNT; ++i) {
-        if (sWave[i].status == NDSP_WBUF_DONE) return i;
+        if (sWave[i].status == NDSP_WBUF_DONE)
+            return i;
     }
     return -1;
 }
 
 static void AudioFrameFinished(void* data) {
     (void)data;
-    if (CountDoneBuffers() == 0) return;
+    if (CountDoneBuffers() == 0)
+        return;
     __atomic_add_fetch(&sCallbackSignals, 1u, __ATOMIC_RELAXED);
     LightEvent_Signal(&sAudioWake);
 }
@@ -96,7 +101,8 @@ static void AudioThreadMain(void* argument) {
     (void)argument;
     while (__atomic_load_n(&sAudioThreadRunning, __ATOMIC_ACQUIRE)) {
         LightEvent_Wait(&sAudioWake);
-        if (!__atomic_load_n(&sAudioThreadRunning, __ATOMIC_ACQUIRE)) break;
+        if (!__atomic_load_n(&sAudioThreadRunning, __ATOMIC_ACQUIRE))
+            break;
 
         Platform3DS_WatchdogPoll();
         const uint32_t backlogBefore = CountDoneBuffers();
@@ -114,10 +120,14 @@ static void AudioThreadMain(void* argument) {
 
         LightLock_Lock(&sStatsLock);
         ++sStats.workerWakeups;
-        if (refillCount > 1) ++sStats.multiBufferWakeups;
-        if (refillCount > sStats.maxBuffersPerWake) sStats.maxBuffersPerWake = refillCount;
-        if (backlogBefore > sStats.maxDoneBuffersObserved) sStats.maxDoneBuffersObserved = backlogBefore;
-        if (backlogAfter > 0) ++sStats.workerRequeues;
+        if (refillCount > 1)
+            ++sStats.multiBufferWakeups;
+        if (refillCount > sStats.maxBuffersPerWake)
+            sStats.maxBuffersPerWake = refillCount;
+        if (backlogBefore > sStats.maxDoneBuffersObserved)
+            sStats.maxDoneBuffersObserved = backlogBefore;
+        if (backlogAfter > 0)
+            ++sStats.workerRequeues;
         LightLock_Unlock(&sStatsLock);
 
         if (backlogAfter > 0) {
@@ -127,8 +137,10 @@ static void AudioThreadMain(void* argument) {
 }
 
 bool Port_Audio_Init(void) {
-    if (sInitialized) return true;
-    if (ndspInit() != 0) return false;
+    if (sInitialized)
+        return true;
+    if (ndspInit() != 0)
+        return false;
     ndspSetOutputMode(NDSP_OUTPUT_STEREO);
     /* Claims hardware channels 1..4 for CGB voices when audio_dsp=1. */
     NdspPsg_Init();
@@ -145,7 +157,8 @@ bool Port_Audio_Init(void) {
 
     sSamples = (int16_t*)linearAlloc(BUFFER_COUNT * BUFFER_FRAMES * 2 * sizeof(int16_t));
     if (!sSamples || !Port_M4A_Backend_Init(SAMPLE_RATE)) {
-        if (sSamples) linearFree(sSamples);
+        if (sSamples)
+            linearFree(sSamples);
         sSamples = NULL;
         ndspExit();
         return false;
@@ -179,11 +192,13 @@ bool Port_Audio_Init(void) {
     sInitialized = true;
     sPaused = false;
     ndspSetCallback(AudioFrameFinished, NULL);
-    for (int i = 0; i < BUFFER_COUNT; ++i) FillBuffer(i);
+    for (int i = 0; i < BUFFER_COUNT; ++i)
+        FillBuffer(i);
 
     s32 priority = 0x30;
     svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
-    if (priority > 0x18) --priority;
+    if (priority > 0x18)
+        --priority;
     sStats.threadPriority = priority;
     __atomic_store_n(&sAudioThreadRunning, true, __ATOMIC_RELEASE);
     sAudioThread = threadCreate(AudioThreadMain, NULL, AUDIO_THREAD_STACK, priority, audioThreadCore, false);
@@ -194,8 +209,10 @@ bool Port_Audio_Init(void) {
 }
 
 void Port_Audio_3DSPump(void) {
-    if (!sInitialized) return;
-    if (sPaused) return;
+    if (!sInitialized)
+        return;
+    if (sPaused)
+        return;
     /* Headphones can be plugged in mid-session, and the correction must follow. */
     SpeakerEq3DS_Poll();
     const bool playing = ndspChnIsPlaying(0);
@@ -204,12 +221,16 @@ void Port_Audio_3DSPump(void) {
 
     LightLock_Lock(&sStatsLock);
     ++sStats.pumps;
-    if (!playing) ++sStats.underrunObservations;
-    if (callbackMissed) ++sStats.queueRecoveries;
-    if (doneBuffers > sStats.maxDoneBuffersObserved) sStats.maxDoneBuffersObserved = doneBuffers;
+    if (!playing)
+        ++sStats.underrunObservations;
+    if (callbackMissed)
+        ++sStats.queueRecoveries;
+    if (doneBuffers > sStats.maxDoneBuffersObserved)
+        sStats.maxDoneBuffersObserved = doneBuffers;
     LightLock_Unlock(&sStatsLock);
 
-    if (callbackMissed) LightEvent_Signal(&sAudioWake);
+    if (callbackMissed)
+        LightEvent_Signal(&sAudioWake);
 
     if (!sAudioThread) {
         uint32_t refillCount = 0;
@@ -220,14 +241,17 @@ void Port_Audio_3DSPump(void) {
         }
         LightLock_Lock(&sStatsLock);
         sStats.fallbackRenders += refillCount;
-        if (refillCount > 1) ++sStats.multiBufferWakeups;
-        if (refillCount > sStats.maxBuffersPerWake) sStats.maxBuffersPerWake = refillCount;
+        if (refillCount > 1)
+            ++sStats.multiBufferWakeups;
+        if (refillCount > sStats.maxBuffersPerWake)
+            sStats.maxBuffersPerWake = refillCount;
         LightLock_Unlock(&sStatsLock);
     }
 }
 
 void Port_Audio_3DSGetStats(PortAudio3DSStats* stats) {
-    if (!stats) return;
+    if (!stats)
+        return;
     if (!sInitialized) {
         memset(stats, 0, sizeof(*stats));
         return;
@@ -249,16 +273,25 @@ void Port_Audio_3DSGetStats(PortAudio3DSStats* stats) {
     stats->doneBuffers = 0;
     for (int i = 0; i < BUFFER_COUNT; ++i) {
         switch (sWave[i].status) {
-            case NDSP_WBUF_FREE: ++stats->freeBuffers; break;
-            case NDSP_WBUF_QUEUED: ++stats->queuedBuffers; break;
-            case NDSP_WBUF_PLAYING: ++stats->playingBuffers; break;
-            case NDSP_WBUF_DONE: ++stats->doneBuffers; break;
+            case NDSP_WBUF_FREE:
+                ++stats->freeBuffers;
+                break;
+            case NDSP_WBUF_QUEUED:
+                ++stats->queuedBuffers;
+                break;
+            case NDSP_WBUF_PLAYING:
+                ++stats->playingBuffers;
+                break;
+            case NDSP_WBUF_DONE:
+                ++stats->doneBuffers;
+                break;
         }
     }
 }
 
 void Port_Audio_Shutdown(void) {
-    if (!sInitialized) return;
+    if (!sInitialized)
+        return;
     ndspSetCallback(NULL, NULL);
     __atomic_store_n(&sAudioThreadRunning, false, __ATOMIC_RELEASE);
     LightEvent_Signal(&sAudioWake);
@@ -278,25 +311,43 @@ void Port_Audio_Shutdown(void) {
 }
 
 void Port_Audio_3DSSetPaused(bool paused) {
-    if (!sInitialized || sPaused == paused) return;
+    if (!sInitialized || sPaused == paused)
+        return;
     sPaused = paused;
     ndspChnSetPaused(0, paused);
     /* Keep every experimental hardware voice on the same pause boundary as
      * the reference mix, even though E10 disables those split-timeline paths. */
     NdspPsg_SetPaused(paused);
     NdspPcm_SetPaused(paused);
-    if (!paused) LightEvent_Signal(&sAudioWake);
+    if (!paused)
+        LightEvent_Signal(&sAudioWake);
 }
 
-void Port_Audio_Reset(void) { Port_M4A_Backend_Reset(); }
-void Port_Audio_SetGbaAccurate(bool accurate) { Port_M4A_Backend_SetGbaAccurate(accurate); }
-bool Port_Audio_IsGbaAccurate(void) { return Port_M4A_Backend_GetGbaAccurate(); }
-void Port_Audio_SetWidth(float width) { (void)width; }
-float Port_Audio_GetWidth(void) { return 1.0f; }
-void Port_Audio_SetReverbLevel(int level) { Port_M4A_Backend_SetReverbLevel(level); }
-int Port_Audio_GetReverbLevel(void) { return Port_M4A_Backend_GetReverbLevel(); }
+void Port_Audio_Reset(void) {
+    Port_M4A_Backend_Reset();
+}
+void Port_Audio_SetGbaAccurate(bool accurate) {
+    Port_M4A_Backend_SetGbaAccurate(accurate);
+}
+bool Port_Audio_IsGbaAccurate(void) {
+    return Port_M4A_Backend_GetGbaAccurate();
+}
+void Port_Audio_SetWidth(float width) {
+    (void)width;
+}
+float Port_Audio_GetWidth(void) {
+    return 1.0f;
+}
+void Port_Audio_SetReverbLevel(int level) {
+    Port_M4A_Backend_SetReverbLevel(level);
+}
+int Port_Audio_GetReverbLevel(void) {
+    return Port_M4A_Backend_GetReverbLevel();
+}
 void Port_Audio_SetMasterVolume(float volume) {
     sVolume = fmaxf(0.0f, fminf(1.0f, volume));
     Port_M4A_Backend_SetMasterVolume(sVolume);
 }
-float Port_Audio_GetMasterVolume(void) { return sVolume; }
+float Port_Audio_GetMasterVolume(void) {
+    return sVolume;
+}

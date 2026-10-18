@@ -51,14 +51,13 @@ u32 sub_08058244(int i) {
 #if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
     const int viewWidth = Port_Widescreen_GameplayViewWidth();
     const int viewHeight = Port_Widescreen_GameplayViewHeight();
-    tmp = (u32)Port3DSFullViewPolicy_ParallaxOffset(gRoomControls.scroll_y - gRoomControls.origin_y,
-                                                    gRoomControls.height, viewHeight, 0x20);
+    tmp = (u32)Port_Widescreen_ParallaxOffset(gRoomControls.scroll_y - gRoomControls.origin_y, gRoomControls.height,
+                                              viewHeight, 0x20);
     gScreen.bg1.yOffset = gRoomControls.origin_y + tmp;
-    tmp = (u32)Port3DSFullViewPolicy_ParallaxOffset(gRoomControls.scroll_x - gRoomControls.origin_x,
-                                                    gRoomControls.width, viewWidth, gUnk_081081EC[i]);
+    tmp = (u32)Port_Widescreen_ParallaxOffset(gRoomControls.scroll_x - gRoomControls.origin_x, gRoomControls.width,
+                                              viewWidth, gUnk_081081EC[i]);
 #else
-    tmp = ((gRoomControls.scroll_y - gRoomControls.origin_y) * 0x20) /
-          (gRoomControls.height - DISPLAY_HEIGHT);
+    tmp = ((gRoomControls.scroll_y - gRoomControls.origin_y) * 0x20) / (gRoomControls.height - DISPLAY_HEIGHT);
     gScreen.bg1.yOffset = gRoomControls.origin_y + tmp;
     tmp = (((gRoomControls.scroll_x - gRoomControls.origin_x) * gUnk_081081EC[i]) /
            (gRoomControls.width - DISPLAY_WIDTH));

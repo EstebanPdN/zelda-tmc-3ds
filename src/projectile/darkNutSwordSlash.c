@@ -86,8 +86,10 @@ static inline int DarkNut_ClampAnim(int s) {
 void DarkNutSwordSlash_UpdateType0(Entity* this) {
     Entity* parent = this->parent;
     int frame_idx = (int)(parent->frame & 0xf) - 1;
-    if (frame_idx < 0)  frame_idx = 0;
-    if (frame_idx > 5) frame_idx = 5;
+    if (frame_idx < 0)
+        frame_idx = 0;
+    if (frame_idx > 5)
+        frame_idx = 5;
     this->hitbox = (Hitbox*)gUnk_081293E0[DarkNut_ClampAnim((s8)parent->animationState)][frame_idx];
 }
 

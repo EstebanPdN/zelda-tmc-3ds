@@ -1,7 +1,6 @@
 #include "definitions.h"
 
-#define MULTI_FORM(index, unk) \
-    { 0xff, index, unk, 0, 0, 0 }
+#define MULTI_FORM(index, unk) { 0xff, index, unk, 0, 0, 0 }
 
 const SpriteDataC gPlayerItemDefinitions[] = {
     { 0, 0, 16384, 1, SPRITE_0, 0 },              // DeleteEntity

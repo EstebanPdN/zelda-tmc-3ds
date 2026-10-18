@@ -97,8 +97,7 @@ void DelayedEntityLoadManager_Main(DelayedEntityLoadManager* this) {
         if (!CheckRectOnScreen(npcPtr2->x, npcPtr2->y, 0x18, 0x20)) {
             ClearBit(bitfield, index2);
 #ifdef PC_PORT
-        } else if ((npcPtr2->progressBitfield & progressMask) && gEntCount < 0x47 &&
-                   !ReadBit(bitfield, index2)) {
+        } else if ((npcPtr2->progressBitfield & progressMask) && gEntCount < 0x47 && !ReadBit(bitfield, index2)) {
             /* Reserve every resource before publishing the delayed-slot bit.
              * Previously WriteBit ran first in the condition below.  If all
              * 32 script contexts happened to be occupied, the entity was not

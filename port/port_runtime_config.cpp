@@ -307,7 +307,8 @@ const BoolCfg kBoolCfg[] = {
     { "fullscreen_hide_cursor", &sFullscreenHideCursor, true },
 };
 const IntCfg kIntCfg[] = {
-    { "preferred_region", &sPreferredRegion, -1 },      { "preferred_language", &sPreferredLanguage, -1 },
+    { "preferred_region", &sPreferredRegion, -1 },
+    { "preferred_language", &sPreferredLanguage, -1 },
     { "second_screen_backdrop", &sSecondScreenBackdrop, 0 },
 };
 const StrCfg kStrCfg[] = {

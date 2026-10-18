@@ -258,7 +258,7 @@ typedef struct {
     u8 unk13;
     s8 screen2;
     u8 unk15;
-    s8 unk16; // need to be set to 0 
+    s8 unk16; // need to be set to 0
     u8 unk17;
 } PauseMenuOptions;
 

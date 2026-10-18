@@ -136,7 +136,7 @@ typedef struct {
 } MapDataDefinition;
 
 PORT_STATIC_ASSERT_SIZE(MapDataDefinition, 0x0C, 0x18, "MapDataDefinition size drift");
-PORT_STATIC_ASSERT_OFFSET(MapDataDefinition, src,  0x00, 0x00, "MapDataDefinition.src offset");
+PORT_STATIC_ASSERT_OFFSET(MapDataDefinition, src, 0x00, 0x00, "MapDataDefinition.src offset");
 PORT_STATIC_ASSERT_OFFSET(MapDataDefinition, dest, 0x04, 0x08, "MapDataDefinition.dest offset");
 PORT_STATIC_ASSERT_OFFSET(MapDataDefinition, size, 0x08, 0x10, "MapDataDefinition.size offset");
 

@@ -1,7 +1,7 @@
 # Normal Wide streaming corrections
 
 The 3DS normal Wide view renders up to 266×160 pixels and scales them onto
-400×240. It is separate from the Wide + Pixel Perfect Full View experiment.
+400×240. Aspect and filter remain independent selections.
 
 ## Adjacent rooms
 
@@ -19,7 +19,7 @@ horizontal or 40 vertical ticks. Player carry, room selection, collision,
 and transition duration retain their existing behavior.
 
 This path covers adjacent rooms that both support normal Wide. Fixed-width
-scenes, special map formats, repeating fake rooms, and Full View keep their
+scenes, special map formats, repeating fake rooms keep their
 existing paths. No allocation or file I/O occurs during frame rendering.
 Normal reveal columns also follow the actual background screen-shake offset.
 

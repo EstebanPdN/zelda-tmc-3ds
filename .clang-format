@@ -21,3 +21,5 @@ AllowShortFunctionsOnASingleLine: false
 AlignEscapedNewlines: Left
 AlignTrailingComments: true
 SortIncludes: false
+# Preserve tokens: this pass changes presentation, not source expressions.
+BreakStringLiterals: false

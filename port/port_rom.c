@@ -79,7 +79,8 @@ static u8* AllocateRomBuffer(u32 size, int clear) {
      * addresses begin. Keeping the ROM in linear memory gives native ROM
      * pointers a disjoint address range and removes that ambiguity. */
     u8* buffer = (u8*)linearAlloc(size);
-    if (buffer && clear) memset(buffer, 0, size);
+    if (buffer && clear)
+        memset(buffer, 0, size);
     return buffer;
 #else
     return clear ? (u8*)calloc(1, size) : (u8*)malloc(size);
@@ -774,9 +775,7 @@ RomRegion Port_DetectRomRegion(const u8* romData, u32 romSize) {
         const char* baseline = "USA";
         const RomRegion baselineRegion = ROM_REGION_USA;
 #endif
-        const char* detected = gRomRegion == ROM_REGION_EU   ? "EU"
-                               : gRomRegion == ROM_REGION_JP ? "JP"
-                                                             : "USA";
+        const char* detected = gRomRegion == ROM_REGION_EU ? "EU" : gRomRegion == ROM_REGION_JP ? "JP" : "USA";
         if (gRomRegion == baselineRegion) {
             fprintf(stderr, "Region baseline: build=%s rom=%s (matched).\n", baseline, detected);
         } else {

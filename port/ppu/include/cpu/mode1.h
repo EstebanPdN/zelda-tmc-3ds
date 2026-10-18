@@ -68,20 +68,14 @@ enum {
     MODE1_OAM_HALFWORDS = 512
 };
 
-/* Widescreen Option A — port-side shadow tilemap for 32-tile BGs. The E2
- * 266-wide path needs exactly seven packed columns per row: four visible
- * reveal tiles plus three cells of scroll/wrap headroom. Full View starts at
- * x=0 and therefore needs the complete 400px span plus the same headroom.
- *
- * MODE1_WS_SHADOW_COLS is storage capacity for the configured build. Runtime
- * rows use the per-BG cols/stride below, so a 400x240-capable binary keeps the
- * Old/normal-Wide hot footprint at the E2 32*7 cells instead of walking 32*54
- * cells whenever Full View is disabled. */
+/* Packed shadow rows extend the native tilemap into the widescreen reveal.
+ * Wider desktop builds reserve enough columns for their configured capacity. */
 #define MODE1_WS_SHADOW_ROWS 32
 #define MODE1_WS_SHADOW_WIDE_COLS 7
-#define MODE1_WS_SHADOW_FULL_VIEW_COLS ((400 / 8) + 4)
+/* Retain the established storage ABI in wide-capacity builds. Production
+ * normal-Wide shadows still publish packed seven-column rows. */
 #if MODE1_GBA_WIDTH >= 400
-#define MODE1_WS_SHADOW_COLS MODE1_WS_SHADOW_FULL_VIEW_COLS
+#define MODE1_WS_SHADOW_COLS ((400 / 8) + 4)
 #else
 #define MODE1_WS_SHADOW_COLS MODE1_WS_SHADOW_WIDE_COLS
 #endif
@@ -89,8 +83,6 @@ extern uint16_t* virtuappu_mode1_ws_shadow[MODE1_GBA_BG_COUNT];
 extern int virtuappu_mode1_ws_shadow_base_tile[MODE1_GBA_BG_COUNT];
 extern uint8_t virtuappu_mode1_ws_shadow_cols[MODE1_GBA_BG_COUNT];
 extern uint8_t virtuappu_mode1_ws_shadow_stride[MODE1_GBA_BG_COUNT];
-extern int virtuappu_mode1_ws_full_view;
-extern bool virtuappu_mode1_bg3_hdma_native_bounds;
 /* Repeat a known seamless BG3 overlay beyond the native 240px canvas. */
 extern bool virtuappu_mode1_bg3_repeat;
 

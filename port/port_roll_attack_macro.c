@@ -45,11 +45,7 @@ static u8 sAttackStatusBaseline = 0;
 static u32 sFlagsBaseline = 0;
 
 static const uint8_t kSwordPriority[] = {
-    ITEM_FOURSWORD,
-    ITEM_BLUE_SWORD,
-    ITEM_RED_SWORD,
-    ITEM_GREEN_SWORD,
-    ITEM_SMITH_SWORD,
+    ITEM_FOURSWORD, ITEM_BLUE_SWORD, ITEM_RED_SWORD, ITEM_GREEN_SWORD, ITEM_SMITH_SWORD,
 };
 
 static bool RollMacroDebug(void) {
@@ -165,8 +161,7 @@ static bool MacroAttackLanded(void) {
     if (!sBFired) {
         return false;
     }
-    if ((gPlayerState.attack_status & 0xf) != 0 &&
-        gPlayerState.attack_status != sAttackStatusBaseline) {
+    if ((gPlayerState.attack_status & 0xf) != 0 && gPlayerState.attack_status != sAttackStatusBaseline) {
         return true;
     }
     if ((gPlayerState.flags & PL_SWORD_THRUST) && !(sFlagsBaseline & PL_SWORD_THRUST)) {

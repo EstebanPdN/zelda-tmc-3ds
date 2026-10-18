@@ -25,10 +25,8 @@ typedef struct {
     /*0x7b*/ u8 unk_7b;
 } KeatonEntity;
 
-PORT_STATIC_ASSERT_OFFSET(KeatonEntity, unk_74, 0x74, 0xA0,
-                          "KeatonEntity unk_74 offset incorrect");
-PORT_STATIC_ASSERT_OFFSET(KeatonEntity, unk_7b, 0x7b, 0xA7,
-                          "KeatonEntity unk_7b offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(KeatonEntity, unk_74, 0x74, 0xA0, "KeatonEntity unk_74 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(KeatonEntity, unk_7b, 0x7b, 0xA7, "KeatonEntity unk_7b offset incorrect");
 
 void Keaton_OnTick(KeatonEntity*);
 void Keaton_OnCollision(KeatonEntity*);

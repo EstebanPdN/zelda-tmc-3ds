@@ -29,10 +29,8 @@ typedef struct {
     /*0x82*/ u16 unk_82;
 } WispEntity;
 
-PORT_STATIC_ASSERT_OFFSET(WispEntity, unk_7c, 0x7c, 0xA8,
-                          "WispEntity unk_7c offset incorrect");
-PORT_STATIC_ASSERT_OFFSET(WispEntity, unk_80, 0x80, 0xB0,
-                          "WispEntity unk_80 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(WispEntity, unk_7c, 0x7c, 0xA8, "WispEntity unk_7c offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(WispEntity, unk_80, 0x80, 0xB0, "WispEntity unk_80 offset incorrect");
 
 static void sub_08033744(WispEntity* this);
 void Wisp_OnTick(WispEntity* this);

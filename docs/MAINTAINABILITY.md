@@ -1,5 +1,9 @@
 # Maintainability guide (PC port)
 
+For current Nintendo 3DS ownership and commands, start with
+[architecture](ARCHITECTURE.md) and [development](DEVELOPMENT.md).
+The inherited desktop guidance below retains its original platform scope.
+
 Conventions and reasoning for keeping `tmc_pc` easy to change and easy to
 onboard into. Scope is the **PC port** (`port/`, the port-owned parts of
 `src/`); byte-matching the GBA decomp is upstream at zeldaret/tmc and out of

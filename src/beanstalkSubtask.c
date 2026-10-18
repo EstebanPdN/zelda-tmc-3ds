@@ -369,16 +369,16 @@ u32 UpdatePlayerCollision(void) {
     } else {
         direction = gPlayerState.direction;
     }
-    if (((direction & (DIR_NOT_MOVING_CHECK | 0x3)) == 0) && (gPlayerState.field_0xa == 0)
+    if (((direction & (DIR_NOT_MOVING_CHECK | 0x3)) == 0) &&
+        (gPlayerState.field_0xa == 0)
 #ifdef PC_PORT
         /* sub_0807BDB8 uses unsigned room-local coordinates.  If a previous
          * scroll ever leaves Link before the new origin, that subtraction
          * underflows and can select the opposite edge (and then a second,
          * unrelated room).  A point outside the current room cannot be a
          * valid source for another retail adjacent-room transition. */
-        && IsPointInsideRoomBounds(gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI,
-                                   gRoomControls.origin_x, gRoomControls.origin_y, gRoomControls.width,
-                                   gRoomControls.height)
+        && IsPointInsideRoomBounds(gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI, gRoomControls.origin_x,
+                                   gRoomControls.origin_y, gRoomControls.width, gRoomControls.height)
 #endif
     ) {
         index = sub_0807BDB8(&gPlayerEntity.base, direction >> 2);

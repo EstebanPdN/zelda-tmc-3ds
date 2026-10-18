@@ -86,16 +86,24 @@ void PortPpuGpu3DS_Shutdown(void) {
     sPrepared = false;
     sReady = false;
 
-    if (sOutputTarget) C3D_RenderTargetDelete(sOutputTarget);
-    if (sOutputTexture.data) C3D_TexDelete(&sOutputTexture);
-    if (sProgramInitialized) shaderProgramFree(&sProgram);
-    if (sShader) DVLB_Free(sShader);
-    if (sAtlas.data) C3D_TexDelete(&sAtlas);
+    if (sOutputTarget)
+        C3D_RenderTargetDelete(sOutputTarget);
+    if (sOutputTexture.data)
+        C3D_TexDelete(&sOutputTexture);
+    if (sProgramInitialized)
+        shaderProgramFree(&sProgram);
+    if (sShader)
+        DVLB_Free(sShader);
+    if (sAtlas.data)
+        C3D_TexDelete(&sAtlas);
     free(sParityReference);
-    if (sParityReadback) linearFree(sParityReadback);
+    if (sParityReadback)
+        linearFree(sParityReadback);
     free(sBatches);
-    if (sIndices) linearFree(sIndices);
-    if (sVertices) linearFree(sVertices);
+    if (sIndices)
+        linearFree(sIndices);
+    if (sVertices)
+        linearFree(sVertices);
     free(sCache);
 
     sCache = NULL;
@@ -129,30 +137,23 @@ void PortPpuGpu3DS_Shutdown(void) {
 }
 
 bool PortPpuGpu3DS_Init(void) {
-    if (sReady) return true;
+    if (sReady)
+        return true;
 
     memset(&sStats, 0, sizeof(sStats));
     sCache = malloc(sizeof(*sCache));
     sVertices = linearMemAlign(PPU_GPU3DS_MAX_VERTICES * sizeof(*sVertices), 0x80);
     sIndices = linearMemAlign(PPU_GPU3DS_MAX_INDICES * sizeof(*sIndices), 0x80);
     sBatches = malloc(PPU_GPU3DS_MAX_BATCHES * sizeof(*sBatches));
-    sParityReference = malloc(PPU_GPU3DS_OUTPUT_WIDTH * PPU_GPU3DS_OUTPUT_HEIGHT *
-                              sizeof(*sParityReference));
-    sParityReadback = linearMemAlign(PPU_GPU3DS_OUTPUT_WIDTH * PPU_GPU3DS_OUTPUT_HEIGHT *
-                                         sizeof(*sParityReadback),
-                                     0x80);
-    if (!sCache || !sVertices || !sIndices || !sBatches || !sParityReference ||
-        !sParityReadback)
+    sParityReference = malloc(PPU_GPU3DS_OUTPUT_WIDTH * PPU_GPU3DS_OUTPUT_HEIGHT * sizeof(*sParityReference));
+    sParityReadback =
+        linearMemAlign(PPU_GPU3DS_OUTPUT_WIDTH * PPU_GPU3DS_OUTPUT_HEIGHT * sizeof(*sParityReadback), 0x80);
+    if (!sCache || !sVertices || !sIndices || !sBatches || !sParityReference || !sParityReadback)
         goto fail;
-    memset(sParityReference, 0,
-           PPU_GPU3DS_OUTPUT_WIDTH * PPU_GPU3DS_OUTPUT_HEIGHT *
-               sizeof(*sParityReference));
-    memset(sParityReadback, 0,
-           PPU_GPU3DS_OUTPUT_WIDTH * PPU_GPU3DS_OUTPUT_HEIGHT *
-               sizeof(*sParityReadback));
-    Platform3DS_CleanDataCache(
-        sParityReadback, PPU_GPU3DS_OUTPUT_WIDTH * PPU_GPU3DS_OUTPUT_HEIGHT *
-                             sizeof(*sParityReadback));
+    memset(sParityReference, 0, PPU_GPU3DS_OUTPUT_WIDTH * PPU_GPU3DS_OUTPUT_HEIGHT * sizeof(*sParityReference));
+    memset(sParityReadback, 0, PPU_GPU3DS_OUTPUT_WIDTH * PPU_GPU3DS_OUTPUT_HEIGHT * sizeof(*sParityReadback));
+    Platform3DS_CleanDataCache(sParityReadback,
+                               PPU_GPU3DS_OUTPUT_WIDTH * PPU_GPU3DS_OUTPUT_HEIGHT * sizeof(*sParityReadback));
 
     PpuGpu3DS_CacheInit(sCache);
     /* Indices never change, so fill them once and flush them once. */
@@ -172,28 +173,26 @@ bool PortPpuGpu3DS_Init(void) {
             quad[corner].u = 0;
             quad[corner].v = 0;
         }
-        (void)kOrder;  /* the static index pattern already covers this quad */
+        (void)kOrder; /* the static index pattern already covers this quad */
         Platform3DS_CleanDataCache(quad, 4u * sizeof(*quad));
     }
-    PpuGpu3DS_CommandInit(&sCommands, sVertices, PPU_GPU3DS_BUILD_VERTICES, sIndices,
-                          PPU_GPU3DS_BUILD_INDICES, sBatches, PPU_GPU3DS_MAX_BATCHES);
+    PpuGpu3DS_CommandInit(&sCommands, sVertices, PPU_GPU3DS_BUILD_VERTICES, sIndices, PPU_GPU3DS_BUILD_INDICES,
+                          sBatches, PPU_GPU3DS_MAX_BATCHES);
 
-    if (!C3D_TexInit(&sAtlas, PPU_GPU3DS_ATLAS_SIDE, PPU_GPU3DS_ATLAS_SIDE,
-                     GPU_RGBA5551))
+    if (!C3D_TexInit(&sAtlas, PPU_GPU3DS_ATLAS_SIDE, PPU_GPU3DS_ATLAS_SIDE, GPU_RGBA5551))
         goto fail;
     memset(sAtlas.data, 0, sAtlas.size);
     C3D_TexFlush(&sAtlas);
     C3D_TexSetFilter(&sAtlas, GPU_NEAREST, GPU_NEAREST);
     C3D_TexSetWrap(&sAtlas, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
 
-    if (!C3D_TexInitVRAM(&sOutputTexture, PPU_GPU3DS_OUTPUT_WIDTH,
-                         PPU_GPU3DS_OUTPUT_HEIGHT, GPU_RGBA5551))
+    if (!C3D_TexInitVRAM(&sOutputTexture, PPU_GPU3DS_OUTPUT_WIDTH, PPU_GPU3DS_OUTPUT_HEIGHT, GPU_RGBA5551))
         goto fail;
     C3D_TexSetFilter(&sOutputTexture, GPU_NEAREST, GPU_NEAREST);
     C3D_TexSetWrap(&sOutputTexture, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
-    sOutputTarget = C3D_RenderTargetCreateFromTex(&sOutputTexture, GPU_TEXFACE_2D, 0,
-                                                  GPU_RB_DEPTH24_STENCIL8);
-    if (!sOutputTarget) goto fail;
+    sOutputTarget = C3D_RenderTargetCreateFromTex(&sOutputTexture, GPU_TEXFACE_2D, 0, GPU_RB_DEPTH24_STENCIL8);
+    if (!sOutputTarget)
+        goto fail;
     /* Windows and blending are built entirely on the stencil, so without one
      * every gated batch resolves to whatever the bits happen to hold: the
      * screen comes out uniformly clear-coloured or uniformly blended rather
@@ -203,34 +202,33 @@ bool PortPpuGpu3DS_Init(void) {
     {
         const C3D_FrameBuf* fb = &sOutputTarget->frameBuf;
         char line[160];
-        snprintf(line, sizeof(line),
-                 "[tmc3ds] gpu depth buffer %p fmt=%d mask=%d vram free %zu\n",
-                 fb->depthBuf, (int)fb->depthFmt, (int)fb->depthMask,
-                 (size_t)vramSpaceFree());
+        snprintf(line, sizeof(line), "[tmc3ds] gpu depth buffer %p fmt=%d mask=%d vram free %zu\n", fb->depthBuf,
+                 (int)fb->depthFmt, (int)fb->depthMask, (size_t)vramSpaceFree());
         Platform3DS_Debug(line);
-        if (!fb->depthBuf || fb->depthFmt != GPU_RB_DEPTH24_STENCIL8 ||
-            (fb->depthMask & 0x1) == 0) {
+        if (!fb->depthBuf || fb->depthFmt != GPU_RB_DEPTH24_STENCIL8 || (fb->depthMask & 0x1) == 0) {
             Platform3DS_Debug("[tmc3ds] no stencil attachment; PICA200 disabled\n");
             goto fail;
         }
     }
 
-    sShader = DVLB_ParseFile((u32*)ppu_gpu_3ds_shader_shbin,
-                             ppu_gpu_3ds_shader_shbin_size);
-    if (!sShader || sShader->numDVLE == 0) goto fail;
-    if (R_FAILED(shaderProgramInit(&sProgram))) goto fail;
+    sShader = DVLB_ParseFile((u32*)ppu_gpu_3ds_shader_shbin, ppu_gpu_3ds_shader_shbin_size);
+    if (!sShader || sShader->numDVLE == 0)
+        goto fail;
+    if (R_FAILED(shaderProgramInit(&sProgram)))
+        goto fail;
     sProgramInitialized = true;
-    if (R_FAILED(shaderProgramSetVsh(&sProgram, &sShader->DVLE[0]))) goto fail;
-    sOffsetUniform = shaderInstanceGetUniformLocation(sProgram.vertexShader,
-                                                      "uOffset");
-    if (sOffsetUniform < 0) goto fail;
+    if (R_FAILED(shaderProgramSetVsh(&sProgram, &sShader->DVLE[0])))
+        goto fail;
+    sOffsetUniform = shaderInstanceGetUniformLocation(sProgram.vertexShader, "uOffset");
+    if (sOffsetUniform < 0)
+        goto fail;
 
     AttrInfo_Init(&sAttributes);
-    if (AttrInfo_AddLoader(&sAttributes, 0, GPU_FLOAT, 3) < 0 ||
-        AttrInfo_AddLoader(&sAttributes, 1, GPU_SHORT, 2) < 0)
+    if (AttrInfo_AddLoader(&sAttributes, 0, GPU_FLOAT, 3) < 0 || AttrInfo_AddLoader(&sAttributes, 1, GPU_SHORT, 2) < 0)
         goto fail;
     BufInfo_Init(&sBuffers);
-    if (BufInfo_Add(&sBuffers, sVertices, sizeof(*sVertices), 2, 0x10) < 0) goto fail;
+    if (BufInfo_Add(&sBuffers, sVertices, sizeof(*sVertices), 2, 0x10) < 0)
+        goto fail;
 
     sDisabled = false;
     sPrepared = false;
@@ -262,7 +260,8 @@ static bool FinishPreflight(bool ready, uint64_t startTick) {
         sStats.tileHits = sCache->hits;
         sStats.tileDecodes = sCache->decodes;
     }
-    if (!ready) ++sStats.fallbackFrames;
+    if (!ready)
+        ++sStats.fallbackFrames;
     return ready;
 }
 
@@ -270,8 +269,7 @@ bool PortPpuGpu3DS_Preflight(const PpuGpu3DSFrameView* frame) {
     const uint64_t startTick = svcGetSystemTick();
     ++sStats.attemptedFrames;
     sPrepared = false;
-    if (!sReady || sDisabled || !frame || !frame->memory.bg_palette ||
-        !frame->memory.obj_palette)
+    if (!sReady || sDisabled || !frame || !frame->memory.bg_palette || !frame->memory.obj_palette)
         return FinishPreflight(false, startTick);
 
     sCommands.vertexCount = 0;
@@ -279,10 +277,8 @@ bool PortPpuGpu3DS_Preflight(const PpuGpu3DSFrameView* frame) {
     sCommands.batchCount = 0;
     const uint64_t buildStartTick = svcGetSystemTick();
     Platform3DS_SetStage(22);
-    PpuGpu3DS_CacheBeginFrame(sCache, frame->memory.bg_palette,
-                              frame->memory.obj_palette, ++sFrame);
-    if (!PpuGpu3DS_BuildCommands(frame, sCache, (uint16_t*)sAtlas.data,
-                                 &sCommands)) {
+    PpuGpu3DS_CacheBeginFrame(sCache, frame->memory.bg_palette, frame->memory.obj_palette, ++sFrame);
+    if (!PpuGpu3DS_BuildCommands(frame, sCache, (uint16_t*)sAtlas.data, &sCommands)) {
         sStats.buildTicks += svcGetSystemTick() - buildStartTick;
         if (sCommands.failReason < PPU_GPU3DS_BUILD_REASON_COUNT)
             ++sStats.buildFailures[sCommands.failReason];
@@ -303,13 +299,15 @@ bool PortPpuGpu3DS_Preflight(const PpuGpu3DSFrameView* frame) {
         sStats.mapRebuildReason[reason] += sCommands.mapRebuild[reason];
     sStats.mapRefreshes += sCommands.mapRefresh;
     for (unsigned bg = 0; bg < 4u; ++bg) {
-        if ((sCommands.mapLayerMask & (1u << bg)) != 0) ++sStats.mapLayers;
+        if ((sCommands.mapLayerMask & (1u << bg)) != 0)
+            ++sStats.mapLayers;
     }
     /* mapDirtyMask is the subset that had to re-emit quads. Against mapLayers
      * this gives the reuse hit rate, which is what decides whether the
      * per-frame signature walk is earning its cost. */
     for (unsigned bg = 0; bg < 4u; ++bg) {
-        if ((sCommands.mapDirtyMask & (1u << bg)) != 0) ++sStats.mapRebuilds;
+        if ((sCommands.mapDirtyMask & (1u << bg)) != 0)
+            ++sStats.mapRebuilds;
     }
     if (sCommands.mapLargestQuads > sStats.mapLargestQuads)
         sStats.mapLargestQuads = sCommands.mapLargestQuads;
@@ -328,8 +326,7 @@ bool PortPpuGpu3DS_Preflight(const PpuGpu3DSFrameView* frame) {
     sStats.lastCommandWords = (uint32_t)commandWords;
     if (commandWords > sStats.maxCommandWords)
         sStats.maxCommandWords = (uint32_t)commandWords;
-    if (!PpuGpu3DS_CommandBudgetFits(commandWords, gpuCmdBuf != NULL,
-                                    gpuCmdBufSize, gpuCmdBufOffset)) {
+    if (!PpuGpu3DS_CommandBudgetFits(commandWords, gpuCmdBuf != NULL, gpuCmdBufSize, gpuCmdBufOffset)) {
         ++sStats.commandBudgetFallbacks;
         return FinishPreflight(false, startTick);
     }
@@ -346,8 +343,10 @@ bool PortPpuGpu3DS_Preflight(const PpuGpu3DSFrameView* frame) {
         for (unsigned index = 0; index < sCache->dirtyCount; ++index) {
             const unsigned slot = sCache->dirtySlots[index];
             sDirtyBitmap[slot / 32u] |= 1u << (slot % 32u);
-            if (slot < firstSlot) firstSlot = slot;
-            if (slot > lastSlot) lastSlot = slot;
+            if (slot < firstSlot)
+                firstSlot = slot;
+            if (slot > lastSlot)
+                lastSlot = slot;
         }
 
         /* Walk the bitmap into runs, merging any gap smaller than the bytes a
@@ -356,9 +355,9 @@ bool PortPpuGpu3DS_Preflight(const PpuGpu3DSFrameView* frame) {
         unsigned rangeLast[PPU_GPU3DS_ATLAS_FLUSH_RANGES];
         unsigned rangeCount = 0;
         for (unsigned slot = firstSlot; slot <= lastSlot; ++slot) {
-            if ((sDirtyBitmap[slot / 32u] & (1u << (slot % 32u))) == 0) continue;
-            if (rangeCount != 0 &&
-                slot - rangeLast[rangeCount - 1] <= PPU_GPU3DS_ATLAS_FLUSH_GAP) {
+            if ((sDirtyBitmap[slot / 32u] & (1u << (slot % 32u))) == 0)
+                continue;
+            if (rangeCount != 0 && slot - rangeLast[rangeCount - 1] <= PPU_GPU3DS_ATLAS_FLUSH_GAP) {
                 rangeLast[rangeCount - 1] = slot;
                 continue;
             }
@@ -374,13 +373,11 @@ bool PortPpuGpu3DS_Preflight(const PpuGpu3DSFrameView* frame) {
 
         bool flushed = true;
         for (unsigned range = 0; range < rangeCount && flushed; ++range) {
-            const size_t bytes =
-                    ((size_t)rangeLast[range] - rangeFirst[range] + 1u) * 64u *
-                    sizeof(uint16_t);
-            uint16_t* pixels =
-                    (uint16_t*)sAtlas.data + (size_t)rangeFirst[range] * 64u;
+            const size_t bytes = ((size_t)rangeLast[range] - rangeFirst[range] + 1u) * 64u * sizeof(uint16_t);
+            uint16_t* pixels = (uint16_t*)sAtlas.data + (size_t)rangeFirst[range] * 64u;
             flushed = Platform3DS_CleanDataCache(pixels, bytes);
-            if (flushed) sStats.atlasFlushBytes += bytes;
+            if (flushed)
+                sStats.atlasFlushBytes += bytes;
         }
         sStats.atlasFlushCalls += rangeCount;
         if (!flushed) {
@@ -390,7 +387,7 @@ bool PortPpuGpu3DS_Preflight(const PpuGpu3DSFrameView* frame) {
             return FinishPreflight(false, startTick);
         }
         PpuGpu3DS_CacheClearDirty(sCache);
-    Platform3DS_SetStage(23);
+        Platform3DS_SetStage(23);
     }
     /* Same economics as the atlas: one call spanning the rebuilt slices and
      * the per-band geometry beats a call per region. A slice that was kept
@@ -400,19 +397,18 @@ bool PortPpuGpu3DS_Preflight(const PpuGpu3DSFrameView* frame) {
     size_t geometryFirstVertex = sCommands.dynamicFirstVertex;
     size_t geometryFirstIndex = sCommands.dynamicFirstIndex;
     for (unsigned bg = 0; bg < 4u; ++bg) {
-        if ((sCommands.mapDirtyMask & (1u << bg)) == 0) continue;
+        if ((sCommands.mapDirtyMask & (1u << bg)) == 0)
+            continue;
         const size_t sliceVertex = (size_t)bg * PPU_GPU3DS_MAP_SLICE_VERTICES;
         if (sliceVertex < geometryFirstVertex) {
             geometryFirstVertex = sliceVertex;
             geometryFirstIndex = (size_t)bg * PPU_GPU3DS_MAP_SLICE_INDICES;
         }
     }
-    (void)geometryFirstIndex;  /* indices are static; only vertices stream */
+    (void)geometryFirstIndex; /* indices are static; only vertices stream */
     if (sCommands.vertexCount > geometryFirstVertex) {
-        if (!Platform3DS_CleanDataCache(
-                    sVertices + geometryFirstVertex,
-                    (sCommands.vertexCount - geometryFirstVertex) *
-                            sizeof(*sVertices))) {
+        if (!Platform3DS_CleanDataCache(sVertices + geometryFirstVertex,
+                                        (sCommands.vertexCount - geometryFirstVertex) * sizeof(*sVertices))) {
             sCommands.vertexCount = 0;
             sCommands.indexCount = 0;
             sCommands.batchCount = 0;
@@ -439,7 +435,8 @@ static unsigned BatchRegion(const PpuGpu3DSBatch* batch) {
     const unsigned region = batch->color >> PPU_GPU3DS_REGION_SHIFT;
     /* Collapse both object-window regions onto "no window" when nothing
      * writes the bit they test. */
-    if (!sHasObjWindow && region < 2u) return 2u;
+    if (!sHasObjWindow && region < 2u)
+        return 2u;
     return region;
 }
 
@@ -469,7 +466,8 @@ static uint32_t sScissorKeyHigh = 0xffffffffu;
 static void SetScissorCached(u32 left, u32 bottom, u32 right, u32 top) {
     const uint32_t low = ((uint32_t)left << 16u) | (uint32_t)(bottom & 0xffffu);
     const uint32_t high = ((uint32_t)right << 16u) | (uint32_t)(top & 0xffffu);
-    if (low == sScissorKeyLow && high == sScissorKeyHigh) return;
+    if (low == sScissorKeyLow && high == sScissorKeyHigh)
+        return;
     sScissorKeyLow = low;
     sScissorKeyHigh = high;
     C3D_SetScissor(GPU_SCISSOR_NORMAL, left, bottom, right, top);
@@ -480,53 +478,46 @@ static uint32_t TevKey(const PpuGpu3DSBatch* batch) {
 }
 
 static uint32_t BlendKey(const PpuGpu3DSBatch* batch) {
-    return (uint32_t)batch->effect | ((uint32_t)batch->eva << 8u) |
-           ((uint32_t)batch->evb << 16u);
+    return (uint32_t)batch->effect | ((uint32_t)batch->eva << 8u) | ((uint32_t)batch->evb << 16u);
 }
 
 static void ResetTev(const PpuGpu3DSBatch* batch) {
     const uint32_t key = TevKey(batch);
-    if (key == sTevKey) return;
+    if (key == sTevKey)
+        return;
     sTevKey = key;
     for (int stage = 0; stage < 3; ++stage)
         C3D_TexEnvInit(C3D_GetTexEnv(stage));
     C3D_TexEnv* texture = C3D_GetTexEnv(0);
-    C3D_TexEnvSrc(texture, C3D_Both, GPU_TEXTURE0, GPU_TEXTURE0,
-                  GPU_TEXTURE0);
+    C3D_TexEnvSrc(texture, C3D_Both, GPU_TEXTURE0, GPU_TEXTURE0, GPU_TEXTURE0);
     C3D_TexEnvFunc(texture, C3D_Both, GPU_REPLACE);
-    if (batch->effect != PPU_GPU3DS_EFFECT_BRIGHTEN &&
-        batch->effect != PPU_GPU3DS_EFFECT_DARKEN)
+    if (batch->effect != PPU_GPU3DS_EFFECT_BRIGHTEN && batch->effect != PPU_GPU3DS_EFFECT_DARKEN)
         return;
 
     C3D_TexEnv* effect = C3D_GetTexEnv(1);
     const u32 constant =
-            (batch->effect == PPU_GPU3DS_EFFECT_BRIGHTEN ? 0x00ffffffu : 0) |
-            (Coefficient8(batch->evy) << 24u);
+        (batch->effect == PPU_GPU3DS_EFFECT_BRIGHTEN ? 0x00ffffffu : 0) | (Coefficient8(batch->evy) << 24u);
     C3D_TexEnvColor(effect, constant);
-    C3D_TexEnvSrc(effect, C3D_RGB, GPU_CONSTANT, GPU_PREVIOUS,
-                  GPU_CONSTANT);
-    C3D_TexEnvOpRgb(effect, GPU_TEVOP_RGB_SRC_COLOR,
-                    GPU_TEVOP_RGB_SRC_COLOR, GPU_TEVOP_RGB_SRC_ALPHA);
+    C3D_TexEnvSrc(effect, C3D_RGB, GPU_CONSTANT, GPU_PREVIOUS, GPU_CONSTANT);
+    C3D_TexEnvOpRgb(effect, GPU_TEVOP_RGB_SRC_COLOR, GPU_TEVOP_RGB_SRC_COLOR, GPU_TEVOP_RGB_SRC_ALPHA);
     C3D_TexEnvFunc(effect, C3D_RGB, GPU_INTERPOLATE);
-    C3D_TexEnvSrc(effect, C3D_Alpha, GPU_PREVIOUS, GPU_PREVIOUS,
-                  GPU_PREVIOUS);
+    C3D_TexEnvSrc(effect, C3D_Alpha, GPU_PREVIOUS, GPU_PREVIOUS, GPU_PREVIOUS);
     C3D_TexEnvFunc(effect, C3D_Alpha, GPU_REPLACE);
 }
 
 static void ResetBlend(const PpuGpu3DSBatch* batch) {
     const uint32_t key = BlendKey(batch);
-    if (key == sBlendKey) return;
+    if (key == sBlendKey)
+        return;
     sBlendKey = key;
     if (batch->effect == PPU_GPU3DS_EFFECT_ALPHA) {
         const u32 eva = Coefficient8(batch->eva);
         const u32 evb = Coefficient8(batch->evb);
         C3D_BlendingColor(eva | (eva << 8u) | (eva << 16u) | (evb << 24u));
-        C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_CONSTANT_COLOR,
-                       GPU_CONSTANT_ALPHA, GPU_ONE, GPU_ZERO);
+        C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_CONSTANT_COLOR, GPU_CONSTANT_ALPHA, GPU_ONE, GPU_ZERO);
     } else {
         C3D_BlendingColor(0);
-        C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_ONE, GPU_ZERO,
-                       GPU_ONE, GPU_ZERO);
+        C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_ONE, GPU_ZERO, GPU_ONE, GPU_ZERO);
     }
 }
 
@@ -559,23 +550,20 @@ static void SetColorStencil(const PpuGpu3DSBatch* batch) {
     }
     const unsigned region = BatchRegion(batch);
     const bool alphaBranch =
-            batch->effect == PPU_GPU3DS_EFFECT_ALPHA ||
-            (batch->color & PPU_GPU3DS_ALPHA_COMPLEMENT) != 0;
-    const bool oldTarget =
-            batch->effect == PPU_GPU3DS_EFFECT_ALPHA;
+        batch->effect == PPU_GPU3DS_EFFECT_ALPHA || (batch->color & PPU_GPU3DS_ALPHA_COMPLEMENT) != 0;
+    const bool oldTarget = batch->effect == PPU_GPU3DS_EFFECT_ALPHA;
     unsigned mask = region < 2u ? 0x04u : 0;
     unsigned ref = region == 1u ? 0x04u : 0;
     if (alphaBranch) {
         mask |= 0x08u;
-        if (oldTarget) ref |= 0x08u;
+        if (oldTarget)
+            ref |= 0x08u;
         C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP,
-                      oldTarget == (batch->target2 != 0)
-                              ? GPU_STENCIL_KEEP
-                              : GPU_STENCIL_INVERT);
+                      oldTarget == (batch->target2 != 0) ? GPU_STENCIL_KEEP : GPU_STENCIL_INVERT);
     } else {
-        if (batch->target2) ref |= 0x08u;
-        C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP,
-                      GPU_STENCIL_REPLACE);
+        if (batch->target2)
+            ref |= 0x08u;
+        C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP, GPU_STENCIL_REPLACE);
     }
     C3D_StencilTest(true, mask ? GPU_EQUAL : GPU_ALWAYS, ref, mask, 0x08);
 }
@@ -583,7 +571,8 @@ static void SetColorStencil(const PpuGpu3DSBatch* batch) {
 /* The vertex shader adds this to every position; only map-space background
  * batches use a non-zero value. */
 static void SetBatchOffset(float x, float y) {
-    if (sOffsetUniform < 0 || (x == sLastOffsetX && y == sLastOffsetY)) return;
+    if (sOffsetUniform < 0 || (x == sLastOffsetX && y == sLastOffsetY))
+        return;
     C3D_FVUnifSet(GPU_VERTEX_SHADER, sOffsetUniform, x, y, 0.0f, 0.0f);
     sLastOffsetX = x;
     sLastOffsetY = y;
@@ -625,16 +614,14 @@ static void DrawBatch(const PpuGpu3DSBatch* batch) {
              * to ~4e9, and citro3d packs the scissor as top | (bottom << 16),
              * so the box became garbage silently. */
             const unsigned end = (unsigned)batch->firstLine + batch->lineCount;
-            const unsigned clampedEnd =
-                    end > sPreparedHeight ? sPreparedHeight : end;
+            const unsigned clampedEnd = end > sPreparedHeight ? sPreparedHeight : end;
             top = yOffset + sPreparedHeight - clampedEnd;
             bottom = yOffset + sPreparedHeight - batch->firstLine;
             break;
         }
     }
     SetScissorCached(batch->scissorLeft, top, batch->scissorRight, bottom);
-    C3D_DrawElements(GPU_TRIANGLES, (int)batch->indexCount,
-                     C3D_UNSIGNED_SHORT, sIndices + batch->firstIndex);
+    C3D_DrawElements(GPU_TRIANGLES, (int)batch->indexCount, C3D_UNSIGNED_SHORT, sIndices + batch->firstIndex);
 }
 
 static bool FinishDraw(bool rendered, uint64_t startTick) {
@@ -656,20 +643,20 @@ static bool sBatchesLogged;
 static void LogBatchList(void) {
     /* Log the frame parity is about to compare -- that is the frame that comes
      * out wrong, and the title screen that logs first is not it. */
-    if (sBatchesLogged || !sParityReferenceReady) return;
+    if (sBatchesLogged || !sParityReferenceReady)
+        return;
     sBatchesLogged = true;
     char line[224];
-    snprintf(line, sizeof(line), "[tmc3ds] batches=%u viewport=%lu\n",
-             (unsigned)sCommands.batchCount, (unsigned long)sViewportOffset);
+    snprintf(line, sizeof(line), "[tmc3ds] batches=%u viewport=%lu\n", (unsigned)sCommands.batchCount,
+             (unsigned long)sViewportOffset);
     Platform3DS_Debug(line);
     for (size_t i = 0; i < sCommands.batchCount && i < 20u; ++i) {
         const PpuGpu3DSBatch* b = &sCommands.batches[i];
         snprintf(line, sizeof(line),
                  "[tmc3ds]  b%u L%u p%u line=%u+%u idx=%u+%u sc=%u..%u eff=%u "
                  "t2=%u win=%02x col=%04x\n",
-                 (unsigned)i, b->layer, b->priority, b->firstLine, b->lineCount,
-                 b->firstIndex, b->indexCount, b->scissorLeft, b->scissorRight,
-                 b->effect, b->target2, b->windowControl, b->color);
+                 (unsigned)i, b->layer, b->priority, b->firstLine, b->lineCount, b->firstIndex, b->indexCount,
+                 b->scissorLeft, b->scissorRight, b->effect, b->target2, b->windowControl, b->color);
         Platform3DS_Debug(line);
     }
 }
@@ -683,8 +670,7 @@ static void ClearStencilPlane(void) {
     C3D_DepthTest(true, GPU_ALWAYS, (GPU_WRITEMASK)0);
     C3D_StencilTest(true, GPU_ALWAYS, 0, 0xff, 0xff);
     C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP, GPU_STENCIL_REPLACE);
-    C3D_DrawElements(GPU_TRIANGLES, 6, C3D_UNSIGNED_SHORT,
-                     sIndices + PPU_GPU3DS_CLEAR_FIRST_INDEX);
+    C3D_DrawElements(GPU_TRIANGLES, 6, C3D_UNSIGNED_SHORT, sIndices + PPU_GPU3DS_CLEAR_FIRST_INDEX);
 }
 
 bool PortPpuGpu3DS_DrawPrepared(void) {
@@ -695,15 +681,15 @@ bool PortPpuGpu3DS_DrawPrepared(void) {
     sScissorKeyHigh = 0xffffffffu;
     if (!sReady || sDisabled || !sPrepared || sCommands.batchCount == 0)
         return FinishDraw(false, startTick);
-    sViewportOffset = Port_Config_GpuViewportOffset()
-                              ? PPU_GPU3DS_OUTPUT_HEIGHT - sPreparedHeight
-                              : 0u;
+    sViewportOffset = Port_Config_GpuViewportOffset() ? PPU_GPU3DS_OUTPUT_HEIGHT - sPreparedHeight : 0u;
     sHasObjWindow = false;
     for (size_t i = 1; i < sCommands.batchCount; ++i) {
-        if (sCommands.batches[i].objWindow) { sHasObjWindow = true; break; }
+        if (sCommands.batches[i].objWindow) {
+            sHasObjWindow = true;
+            break;
+        }
     }
-    C3D_RenderTargetClear(sOutputTarget, C3D_CLEAR_ALL,
-                          ClearColor(sCommands.batches[0].color), 0);
+    C3D_RenderTargetClear(sOutputTarget, C3D_CLEAR_ALL, ClearColor(sCommands.batches[0].color), 0);
     if (!C3D_FrameDrawOn(sOutputTarget)) {
         sPrepared = false;
         return FinishDraw(false, startTick);
@@ -746,20 +732,21 @@ bool PortPpuGpu3DS_DrawPrepared(void) {
 
     for (size_t i = 1; i < sCommands.batchCount; ++i) {
         const PpuGpu3DSBatch* batch = &sCommands.batches[i];
-        if (!batch->objWindow) continue;
+        if (!batch->objWindow)
+            continue;
         ResetTev(batch);
         ResetBlend(batch);
         C3D_AlphaTest(true, GPU_GREATER, 0);
         C3D_DepthTest(true, GPU_ALWAYS, (GPU_WRITEMASK)0);
         C3D_StencilTest(true, GPU_ALWAYS, 0x04, 0xff, 0x04);
-        C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP,
-                      GPU_STENCIL_REPLACE);
+        C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP, GPU_STENCIL_REPLACE);
         DrawBatch(batch);
     }
 
     for (size_t i = 1; i < sCommands.batchCount; ++i) {
         const PpuGpu3DSBatch* batch = &sCommands.batches[i];
-        if (batch->layer != PPU_GPU3DS_OBJ || batch->objWindow) continue;
+        if (batch->layer != PPU_GPU3DS_OBJ || batch->objWindow)
+            continue;
         ResetTev(batch);
         ResetBlend(batch);
         C3D_AlphaTest(true, GPU_GREATER, 0);
@@ -770,15 +757,15 @@ bool PortPpuGpu3DS_DrawPrepared(void) {
 
     for (size_t i = 1; i < sCommands.batchCount; ++i) {
         const PpuGpu3DSBatch* batch = &sCommands.batches[i];
-        if (batch->objWindow) continue;
+        if (batch->objWindow)
+            continue;
         if (batch->layer == PPU_GPU3DS_BACKDROP) {
             ResetTev(batch);
             ResetBlend(batch);
             C3D_AlphaTest(false, GPU_ALWAYS, 0);
             C3D_DepthTest(true, GPU_ALWAYS, (GPU_WRITEMASK)0);
             C3D_StencilTest(true, GPU_ALWAYS, 0x08, 0, 0x08);
-            C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP,
-                          GPU_STENCIL_REPLACE);
+            C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP, GPU_STENCIL_REPLACE);
             DrawBatch(batch);
             continue;
         }
@@ -796,8 +783,7 @@ bool PortPpuGpu3DS_DrawPrepared(void) {
     for (int stage = 0; stage < 3; ++stage)
         C3D_TexEnvInit(C3D_GetTexEnv(stage));
     C3D_BlendingColor(0);
-    C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_ONE, GPU_ZERO,
-                   GPU_ONE, GPU_ZERO);
+    C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_ONE, GPU_ZERO, GPU_ONE, GPU_ZERO);
     C3D_AlphaTest(false, GPU_ALWAYS, 0);
     C3D_StencilOp(GPU_STENCIL_KEEP, GPU_STENCIL_KEEP, GPU_STENCIL_KEEP);
     C3D_StencilTest(false, GPU_ALWAYS, 0, 0xff, 0);
@@ -818,7 +804,8 @@ bool PortPpuGpu3DS_DrawPrepared(void) {
  * the attribute info bound here describes the packed 16-byte layout, including
  * the int16 UV the shader rescales by 1/PPU_GPU3DS_UV_SCALE. */
 bool PortPpuGpu3DS_BindPresentShader(void) {
-    if (!sReady) return false;
+    if (!sReady)
+        return false;
     C3D_BindProgram(&sProgram);
     C3D_SetAttrInfo(&sAttributes);
     SetBatchOffset(0.0f, 0.0f);
@@ -838,13 +825,9 @@ void PortPpuGpu3DS_Disable(void) {
         snprintf(line, sizeof(line),
                  "[tmc3ds] PICA200 retired: parity %llu/%llu differ=%llu "
                  "structural=%llu first=%lu,%lu offset=%lu\n",
-                 (unsigned long long)sStats.parityChecks,
-                 (unsigned long long)sStats.parityFailures,
-                 (unsigned long long)sStats.differingPixels,
-                 (unsigned long long)sStats.structuralPixels,
-                 (unsigned long)sStats.firstDiffX,
-                 (unsigned long)sStats.firstDiffY,
-                 (unsigned long)sViewportOffset);
+                 (unsigned long long)sStats.parityChecks, (unsigned long long)sStats.parityFailures,
+                 (unsigned long long)sStats.differingPixels, (unsigned long long)sStats.structuralPixels,
+                 (unsigned long)sStats.firstDiffX, (unsigned long)sStats.firstDiffY, (unsigned long)sViewportOffset);
         Platform3DS_Debug(line);
     }
     sDisabled = true;
@@ -861,11 +844,13 @@ bool PortPpuGpu3DS_IsDisabled(void) {
 }
 
 void PortPpuGpu3DS_RecordDisabledFrame(void) {
-    if (sReady && sDisabled) ++sStats.disabledFrames;
+    if (sReady && sDisabled)
+        ++sStats.disabledFrames;
 }
 
 void PortPpuGpu3DS_GetStats(PortPpuGpu3DSStats* stats) {
-    if (!stats) return;
+    if (!stats)
+        return;
     sStats.initialized = sReady;
     sStats.enabled = sReady && !sDisabled;
     sStats.disabled = sDisabled;
@@ -885,7 +870,8 @@ static bool sCaptureRequested;
 static bool sCaptureSubmitted;
 
 void PortPpuGpu3DS_RequestFrameCapture(void) {
-    if (sReady && !sDisabled && !sCaptureSubmitted) sCaptureRequested = true;
+    if (sReady && !sDisabled && !sCaptureSubmitted)
+        sCaptureRequested = true;
 }
 
 bool PortPpuGpu3DS_FrameCaptureRequested(void) {
@@ -893,7 +879,8 @@ bool PortPpuGpu3DS_FrameCaptureRequested(void) {
 }
 
 bool PortPpuGpu3DS_QueueFrameCapture(void) {
-    if (!sCaptureRequested || !sParityReadback) return false;
+    if (!sCaptureRequested || !sParityReadback)
+        return false;
     sCaptureRequested = false;
     if (!PlatformGpu3DS_QueueRgba5551Readback(&sOutputTexture, sParityReadback))
         return false;
@@ -902,19 +889,18 @@ bool PortPpuGpu3DS_QueueFrameCapture(void) {
 }
 
 void PortPpuGpu3DS_WriteFrameCapture(const char* directory) {
-    if (!sCaptureSubmitted || !directory || directory[0] == 0) return;
+    if (!sCaptureSubmitted || !directory || directory[0] == 0)
+        return;
     sCaptureSubmitted = false;
-    if (R_FAILED(GSPGPU_InvalidateDataCache(
-                sParityReadback, PPU_GPU3DS_OUTPUT_WIDTH *
-                                         PPU_GPU3DS_OUTPUT_HEIGHT *
-                                         sizeof(*sParityReadback))))
+    if (R_FAILED(GSPGPU_InvalidateDataCache(sParityReadback, PPU_GPU3DS_OUTPUT_WIDTH * PPU_GPU3DS_OUTPUT_HEIGHT *
+                                                                 sizeof(*sParityReadback))))
         return;
     char path[224];
     snprintf(path, sizeof(path), "%s/gpu-frame.bin", directory);
     FILE* file = fopen(path, "wb");
-    if (!file) return;
-    fwrite(sParityReadback, sizeof(*sParityReadback),
-           PPU_GPU3DS_OUTPUT_WIDTH * PPU_GPU3DS_OUTPUT_HEIGHT, file);
+    if (!file)
+        return;
+    fwrite(sParityReadback, sizeof(*sParityReadback), PPU_GPU3DS_OUTPUT_WIDTH * PPU_GPU3DS_OUTPUT_HEIGHT, file);
     fclose(file);
 }
 
@@ -930,10 +916,9 @@ bool PortPpuGpu3DS_ParityRequested(void) {
     return sParityRequested;
 }
 
-void PortPpuGpu3DS_CaptureParityReference(const uint32_t* pixels, unsigned pitch,
-                                          unsigned width, unsigned height) {
-    if (!sParityRequested || !pixels || pitch < width ||
-        width > PPU_GPU3DS_OUTPUT_WIDTH || height > PPU_GPU3DS_OUTPUT_HEIGHT) {
+void PortPpuGpu3DS_CaptureParityReference(const uint32_t* pixels, unsigned pitch, unsigned width, unsigned height) {
+    if (!sParityRequested || !pixels || pitch < width || width > PPU_GPU3DS_OUTPUT_WIDTH ||
+        height > PPU_GPU3DS_OUTPUT_HEIGHT) {
         sParityRequested = false;
         sParityReferenceReady = false;
         return;
@@ -960,7 +945,8 @@ bool PortPpuGpu3DS_QueueParityCopy(void) {
 }
 
 void PortPpuGpu3DS_DeferParityCheck(void) {
-    if (!sParityRequested) return;
+    if (!sParityRequested)
+        return;
     if (++sParityDeferrals > PPU_GPU3DS_PARITY_MAX_DEFERRALS) {
         PortPpuGpu3DS_CancelParityCheck();
         return;
@@ -990,14 +976,16 @@ static bool ChannelsWithinOneStep(uint16_t reference, uint16_t readback) {
         const int left = (int)((reference >> shifts[channel]) & 0x1fu);
         const int right = (int)((readback >> shifts[channel]) & 0x1fu);
         const int delta = left > right ? left - right : right - left;
-        if (delta > 1) return false;
+        if (delta > 1)
+            return false;
     }
     return (reference & 1u) == (readback & 1u);
 }
 
 static void WriteParitySurfaces(uint64_t differing) {
     const char* directory = Port_PPU_3DS_LastDumpDirectory();
-    if (!directory || directory[0] == 0) return;
+    if (!directory || directory[0] == 0)
+        return;
     static const struct {
         const char* name;
         const uint16_t* pixels;
@@ -1007,31 +995,27 @@ static void WriteParitySurfaces(uint64_t differing) {
     for (unsigned index = 0; index < 2; ++index) {
         snprintf(path, sizeof(path), "%s/%s", directory, surfaces[index].name);
         FILE* file = fopen(path, "wb");
-        if (!file) continue;
-        fwrite(sources[index], sizeof(uint16_t),
-               PPU_GPU3DS_OUTPUT_WIDTH * PPU_GPU3DS_OUTPUT_HEIGHT, file);
+        if (!file)
+            continue;
+        fwrite(sources[index], sizeof(uint16_t), PPU_GPU3DS_OUTPUT_WIDTH * PPU_GPU3DS_OUTPUT_HEIGHT, file);
         fclose(file);
     }
 
     snprintf(path, sizeof(path), "%s/parity-diff.txt", directory);
     FILE* report = fopen(path, "w");
-    if (!report) return;
-    fprintf(report, "differing %llu of %u visible pixels (%ux%u)\n",
-            (unsigned long long)differing, sParityWidth * sParityHeight,
-            sParityWidth, sParityHeight);
+    if (!report)
+        return;
+    fprintf(report, "differing %llu of %u visible pixels (%ux%u)\n", (unsigned long long)differing,
+            sParityWidth * sParityHeight, sParityWidth, sParityHeight);
     unsigned listed = 0;
     for (unsigned y = 0; y < sParityHeight && listed < 256u; ++y) {
-        const uint16_t* reference =
-                sParityReference + (size_t)y * PPU_GPU3DS_OUTPUT_WIDTH;
-        const uint16_t* readback =
-                sParityReadback + (size_t)y * PPU_GPU3DS_OUTPUT_WIDTH;
+        const uint16_t* reference = sParityReference + (size_t)y * PPU_GPU3DS_OUTPUT_WIDTH;
+        const uint16_t* readback = sParityReadback + (size_t)y * PPU_GPU3DS_OUTPUT_WIDTH;
         for (unsigned x = 0; x < sParityWidth && listed < 256u; ++x) {
-            if (reference[x] == readback[x]) continue;
-            fprintf(report, "%u,%u cpu=%04x gpu=%04x %s\n", x, y, reference[x],
-                    readback[x],
-                    ChannelsWithinOneStep(reference[x], readback[x])
-                            ? "one-step"
-                            : "STRUCTURAL");
+            if (reference[x] == readback[x])
+                continue;
+            fprintf(report, "%u,%u cpu=%04x gpu=%04x %s\n", x, y, reference[x], readback[x],
+                    ChannelsWithinOneStep(reference[x], readback[x]) ? "one-step" : "STRUCTURAL");
             ++listed;
         }
     }
@@ -1040,7 +1024,8 @@ static void WriteParitySurfaces(uint64_t differing) {
 
 void PortPpuGpu3DS_FinishParityCheck(void) {
     sParityFinishedThisFrame = false;
-    if (!sParitySubmitted) return;
+    if (!sParitySubmitted)
+        return;
     /* FrameBegin waits for the prior Citro3D queue, including the queued
      * readback, and leaves this frame active for the selected render path. */
     if (!PlatformGpu3DS_BeginCustomTop()) {
@@ -1051,9 +1036,8 @@ void PortPpuGpu3DS_FinishParityCheck(void) {
     sParitySubmitted = false;
     sParityFinishedThisFrame = true;
     ++sStats.parityChecks;
-    if (R_FAILED(GSPGPU_InvalidateDataCache(
-            sParityReadback, PPU_GPU3DS_OUTPUT_WIDTH * PPU_GPU3DS_OUTPUT_HEIGHT *
-                                 sizeof(*sParityReadback)))) {
+    if (R_FAILED(GSPGPU_InvalidateDataCache(sParityReadback, PPU_GPU3DS_OUTPUT_WIDTH * PPU_GPU3DS_OUTPUT_HEIGHT *
+                                                                 sizeof(*sParityReadback)))) {
         ++sStats.parityFailures;
         PortPpuGpu3DS_Disable();
         return;
@@ -1066,28 +1050,30 @@ void PortPpuGpu3DS_FinishParityCheck(void) {
     /* The viewport places scanline y in target row y and the untiled readback
      * keeps that row order, so both buffers index identically. */
     for (unsigned y = 0; y < sParityHeight; ++y) {
-        const uint16_t* reference =
-            sParityReference + (size_t)y * PPU_GPU3DS_OUTPUT_WIDTH;
-        const uint16_t* readback =
-            sParityReadback + (size_t)y * PPU_GPU3DS_OUTPUT_WIDTH;
+        const uint16_t* reference = sParityReference + (size_t)y * PPU_GPU3DS_OUTPUT_WIDTH;
+        const uint16_t* readback = sParityReadback + (size_t)y * PPU_GPU3DS_OUTPUT_WIDTH;
         for (unsigned x = 0; x < sParityWidth; ++x) {
-            if (reference[x] == readback[x]) continue;
+            if (reference[x] == readback[x])
+                continue;
             if (differing == 0) {
                 firstX = x;
                 firstY = y;
             }
             ++differing;
-            if (!ChannelsWithinOneStep(reference[x], readback[x])) ++structural;
+            if (!ChannelsWithinOneStep(reference[x], readback[x]))
+                ++structural;
         }
     }
 
-    if (differing == 0) return;
+    if (differing == 0)
+        return;
     sStats.differingPixels += differing;
     sStats.structuralPixels += structural;
     sStats.firstDiffX = firstX;
     sStats.firstDiffY = firstY;
     WriteParitySurfaces(differing);
-    if (structural == 0) return;
+    if (structural == 0)
+        return;
     /* Only a difference the blender cannot explain retires the GPU path. */
     ++sStats.parityFailures;
     PortPpuGpu3DS_Disable();

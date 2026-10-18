@@ -444,8 +444,7 @@ void sub_0802ACDC(BombPeahatEntity* this, u32 param_2) {
     } else {
         /* Retail targets 32 px from either horizontal edge (32 / 240-32).
          * Preserve that symmetry in a wider gameplay viewport. */
-        x = sub_080045B4(super, gRoomControls.scroll_x + WS_VIEW_W - 0x20,
-                        gRoomControls.scroll_y + 0x60);
+        x = sub_080045B4(super, gRoomControls.scroll_x + WS_VIEW_W - 0x20, gRoomControls.scroll_y + 0x60);
     }
     sub_08004596(super, x);
     super->subtimer = param_2;

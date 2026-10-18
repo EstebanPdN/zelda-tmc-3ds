@@ -17,7 +17,7 @@
 
 typedef struct {
     Entity base;
-    #if defined(PC_PORT) && (__SIZEOF_POINTER__ == 8)
+#if defined(PC_PORT) && (__SIZEOF_POINTER__ == 8)
     u8 filler[0x18 + 4];
 #else
     u8 filler[0x18];
@@ -297,9 +297,9 @@ bool32 LikeLike_StealItem(u32 item) {
 
 void LikeLike_ReturnStolenItem(u32 item) {
     if (REGION_IS_EU) {
-    CreateItemEntity(item, 0, 1);
+        CreateItemEntity(item, 0, 1);
     } else {
-    InitItemGetSequence(item, 0, 1);
+        InitItemGetSequence(item, 0, 1);
     }
     MessageFromTarget(TEXT_INDEX(TEXT_ITEM_GET, 0x79));
 }

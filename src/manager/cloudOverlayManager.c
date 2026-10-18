@@ -81,7 +81,8 @@ void CloudOverlayManager_OnEnterRoom(CloudOverlayManager* this) {
                 u8* vram = (u8*)gba_TryMemPtr(0x6004000);
                 if (vram) {
                     for (u32 i = 0; i < 0x2000; i++)
-                        if (vram[i]) nonzero++;
+                        if (vram[i])
+                            nonzero++;
                 }
                 fprintf(stderr, "[CLOUD] snapshot captured: chardata non-zero=%u/8192, first16=", nonzero);
                 if (vram) {
@@ -93,7 +94,8 @@ void CloudOverlayManager_OnEnterRoom(CloudOverlayManager* this) {
                 u32 tnz = 0;
                 if (tmap) {
                     for (u32 i = 0; i < 0x800; i++)
-                        if (tmap[i]) tnz++;
+                        if (tmap[i])
+                            tnz++;
                 }
                 fprintf(stderr, "[CLOUD] tilemap non-zero=%u/2048\n", tnz);
             }

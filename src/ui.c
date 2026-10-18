@@ -130,8 +130,7 @@ void Port_UI_PrepareGameplayGeometry(void) {
                 element->x = anchor->x;
                 element->y = anchor->y;
             }
-        } else if (element->type == UI_ELEMENT_EZLONAGSTART ||
-                   element->type == UI_ELEMENT_EZLONAGACTIVE) {
+        } else if (element->type == UI_ELEMENT_EZLONAGSTART || element->type == UI_ELEMENT_EZLONAGACTIVE) {
             element->y = Port_Widescreen_HudTargetViewHeight() - 0x10;
         }
     }
@@ -144,17 +143,6 @@ void Port_UI_PrepareGameplayGeometry(void) {
 #endif
 
 static s32 HudBottomTilemapOffset(void) {
-#ifdef PC_PORT
-#if defined(MODE1_GBA_HEIGHT) && (MODE1_GBA_HEIGHT > 160)
-    const int viewWidth = Port_Widescreen_HudTargetViewWidth();
-    const int viewHeight = Port_Widescreen_HudTargetViewHeight();
-    /* Full View 400x240 only moves the bottom HUD rows vertically; its PPU
-     * right-anchor remaps columns 176..239. Interior 200x120 has no reveal
-     * columns, so move the right widgets five tile columns left as well as
-     * five rows up. This keeps keys/rupees inside the real logical viewport. */
-    return (s32)Port3DSFullViewPolicy_HudTilemapOffset(viewWidth, viewHeight);
-#endif
-#endif
     return 0;
 }
 
@@ -1129,21 +1117,29 @@ void Port_InitUIElementDefinitions(void) {
     gUIElementDefinitions[2] =
         (UIElementDefinition){ 0x0000, 0x0000, 0x0100, buttonSpriteIndex, ButtonUIElement, 2, 14, 1, 0 };
     /* [3] UI_ELEMENT_ITEM_A */
-    gUIElementDefinitions[3] = (UIElementDefinition){ 0x0000, 0x0000, 0x011A, itemSpriteIndex, ItemUIElement, 0, 8, 0, 0 };
+    gUIElementDefinitions[3] =
+        (UIElementDefinition){ 0x0000, 0x0000, 0x011A, itemSpriteIndex, ItemUIElement, 0, 8, 0, 0 };
     /* [4] UI_ELEMENT_ITEM_B */
-    gUIElementDefinitions[4] = (UIElementDefinition){ 0x0000, 0x0000, 0x0126, itemSpriteIndex, ItemUIElement, 1, 8, 0, 0 };
+    gUIElementDefinitions[4] =
+        (UIElementDefinition){ 0x0000, 0x0000, 0x0126, itemSpriteIndex, ItemUIElement, 1, 8, 0, 0 };
     /* [5] UI_ELEMENT_TEXT_R */
-    gUIElementDefinitions[5] = (UIElementDefinition){ 0x0000, 0x0000, 0x010E, itemSpriteIndex, TextUIElement, 2, 12, 0, 0 };
+    gUIElementDefinitions[5] =
+        (UIElementDefinition){ 0x0000, 0x0000, 0x010E, itemSpriteIndex, TextUIElement, 2, 12, 0, 0 };
     /* [6] UI_ELEMENT_HEART */
-    gUIElementDefinitions[6] = (UIElementDefinition){ 0x0000, 0x0000, 0x0122, itemSpriteIndex, HeartUIElement, 0, 4, 0, 0 };
+    gUIElementDefinitions[6] =
+        (UIElementDefinition){ 0x0000, 0x0000, 0x0122, itemSpriteIndex, HeartUIElement, 0, 4, 0, 0 };
     /* [7] UI_ELEMENT_EZLONAGSTART */
-    gUIElementDefinitions[7] = (UIElementDefinition){ 0x0300, 0x0000, 0x012E, itemSpriteIndex, EzloNagUIElement, 0, 8, 0, 0 };
+    gUIElementDefinitions[7] =
+        (UIElementDefinition){ 0x0300, 0x0000, 0x012E, itemSpriteIndex, EzloNagUIElement, 0, 8, 0, 0 };
     /* [8] UI_ELEMENT_EZLONAGACTIVE */
-    gUIElementDefinitions[8] = (UIElementDefinition){ 0x0000, 0x0000, 0x012E, itemSpriteIndex, EzloNagUIElement, 0, 8, 0, 0 };
+    gUIElementDefinitions[8] =
+        (UIElementDefinition){ 0x0000, 0x0000, 0x012E, itemSpriteIndex, EzloNagUIElement, 0, 8, 0, 0 };
     /* [9] UI_ELEMENT_TEXT_A */
-    gUIElementDefinitions[9] = (UIElementDefinition){ 0x0000, 0x0000, 0x011A, itemSpriteIndex, TextUIElement, 0, 12, 0, 0 };
+    gUIElementDefinitions[9] =
+        (UIElementDefinition){ 0x0000, 0x0000, 0x011A, itemSpriteIndex, TextUIElement, 0, 12, 0, 0 };
     /* [10] UI_ELEMENT_TEXT_B */
-    gUIElementDefinitions[10] = (UIElementDefinition){ 0x0000, 0x0000, 0x0126, itemSpriteIndex, TextUIElement, 1, 12, 0, 0 };
+    gUIElementDefinitions[10] =
+        (UIElementDefinition){ 0x0000, 0x0000, 0x0126, itemSpriteIndex, TextUIElement, 1, 12, 0, 0 };
 }
 
 void (*const ButtonUIElement_Actions[])(UIElement*) = {

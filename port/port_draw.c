@@ -83,8 +83,7 @@ static int IsValidSizeTable(const u8* data, u32 size) {
      * region-invariant in the retail USA and EU ROMs.  Validate the complete
      * table so a bad regional offset cannot silently turn nearby code pointers
      * into clipping anchors again. */
-    return data != NULL && size >= sizeof(sSizeTable) &&
-           memcmp(data, kOverlaySizeData, sizeof(sSizeTable)) == 0;
+    return data != NULL && size >= sizeof(sSizeTable) && memcmp(data, kOverlaySizeData, sizeof(sSizeTable)) == 0;
 }
 
 /* Called from port_rom.c after ROM is loaded */
@@ -97,9 +96,7 @@ void Port_LoadOverlayData(const u8* romData, u32 romSize, u32 overlayOffset) {
     } else {
         memcpy(sSizeTable, kOverlaySizeData, sizeof(sSizeTable));
         sSizeTableLoaded = 1;
-        fprintf(stderr,
-                "WARNING: OBJ size table at ROM 0x%X is invalid; using the canonical table.\n",
-                overlayOffset);
+        fprintf(stderr, "WARNING: OBJ size table at ROM 0x%X is invalid; using the canonical table.\n", overlayOffset);
     }
 }
 
@@ -1208,8 +1205,7 @@ const u8* Port_GetDirectSpriteFrame(u32 spriteIndex, u32 frameIndex, u32* outMax
     }
     frameData = LookupFrameData((u16)spriteIndex, (u8)frameIndex);
     if (frameData != NULL && outMaxPieces != NULL) {
-        const u8* fobEnd =
-            (const u8*)gFrameObjLists + Port_FrameObjListsSizeForRegion(gRomRegion);
+        const u8* fobEnd = (const u8*)gFrameObjLists + Port_FrameObjListsSizeForRegion(gRomRegion);
         *outMaxPieces = (u32)((fobEnd - (frameData + 1)) / 5);
     }
     return frameData;

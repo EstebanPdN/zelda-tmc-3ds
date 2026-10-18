@@ -114,8 +114,8 @@ bool PakArchive::Open(const std::filesystem::path& path, std::string* error_out)
     path_ = path;
 
 #ifdef _WIN32
-    HANDLE fh = CreateFileW(path.wstring().c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
-                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_RANDOM_ACCESS, nullptr);
+    HANDLE fh = CreateFileW(path.wstring().c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+                            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_RANDOM_ACCESS, nullptr);
     if (fh == INVALID_HANDLE_VALUE) {
         SetError(error_out, "CreateFileW failed for " + path.string());
         return false;
@@ -155,8 +155,7 @@ bool PakArchive::Open(const std::filesystem::path& path, std::string* error_out)
         ::close(fd);
         return false;
     }
-    void* mapping =
-        ::mmap(nullptr, static_cast<std::size_t>(st.st_size), PROT_READ, MAP_PRIVATE, fd, 0);
+    void* mapping = ::mmap(nullptr, static_cast<std::size_t>(st.st_size), PROT_READ, MAP_PRIVATE, fd, 0);
     if (mapping == MAP_FAILED) {
         SetError(error_out, std::string("mmap failed for ") + path.string() + ": " + std::strerror(errno));
         ::close(fd);
@@ -171,8 +170,7 @@ bool PakArchive::Open(const std::filesystem::path& path, std::string* error_out)
     const uint32_t magic = ReadU32LE(base_ + 0);
     const uint32_t version = ReadU32LE(base_ + 4);
     if (magic != kMagic || version != kVersion) {
-        SetError(error_out,
-                 "pak file magic/version mismatch: " + path.string());
+        SetError(error_out, "pak file magic/version mismatch: " + path.string());
         Close();
         return false;
     }
@@ -184,7 +182,8 @@ bool PakArchive::Open(const std::filesystem::path& path, std::string* error_out)
     entry_offset_ = kHeaderSize;
 
     /* Bounds-check header. */
-    const uint64_t end_of_entries = static_cast<uint64_t>(entry_offset_) + static_cast<uint64_t>(entry_count_) * kEntrySize;
+    const uint64_t end_of_entries =
+        static_cast<uint64_t>(entry_offset_) + static_cast<uint64_t>(entry_count_) * kEntrySize;
     if (end_of_entries > size_ || name_table_offset_ < end_of_entries ||
         static_cast<uint64_t>(name_table_offset_) + name_table_size > size_ ||
         static_cast<uint64_t>(data_offset) + data_size > size_) {

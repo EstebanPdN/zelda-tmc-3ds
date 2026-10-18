@@ -1582,7 +1582,7 @@ void ply_memacc(MusicPlayerInfo* mplayInfo, MusicPlayerTrack* track) {
             return;
     }
 
-cond_true : {
+cond_true: {
     // *& is required for matching
     ((MPlayFunc)(*&gMPlayJumpTable[1]))(mplayInfo, track);
     return;

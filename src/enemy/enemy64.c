@@ -27,7 +27,7 @@
 
 typedef struct {
     /*0x00*/ Entity base;
-    /*0x68*/ #if defined(PC_PORT) && (__SIZEOF_POINTER__ == 8)
+/*0x68*/ #if defined (PC_PORT) && (__SIZEOF_POINTER__ == 8)
     u8 unk_68[0x6 + 4];
 #else
     u8 unk_68[0x6];
@@ -45,8 +45,7 @@ typedef struct {
     /*0x82*/ u16 unk_82;
 } Enemy64Entity;
 
-PORT_STATIC_ASSERT_OFFSET(Enemy64Entity, unk_6e, 0x6e, 0x9a,
-                          "Enemy64Entity unk_6e offset (Enemy::child +4 pad)");
+PORT_STATIC_ASSERT_OFFSET(Enemy64Entity, unk_6e, 0x6e, 0x9a, "Enemy64Entity unk_6e offset (Enemy::child +4 pad)");
 
 extern void sub_08047EA4(Entity*, u32); // gyorgMale
 
