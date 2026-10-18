@@ -205,7 +205,7 @@ Kept because re-deriving them costs another hardware run each.
   applies to track buffers after mixing.
 - **Do not cache the backdrop.** At 3.9 ms it is bandwidth-bound on the write;
   caching would read 300 KB *and* write 300 KB — strictly worse.
-- **Shared `port/` code also builds for Android**, where `w ≈ 2049`. A proposed
+- **Shared `src/port/` code also builds for Android**, where `w ≈ 2049`. A proposed
   `int16_t[320]` per-call table would have smashed the stack.
 
 ## The run reports itself now -- read the log, not just dumps

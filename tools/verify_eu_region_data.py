@@ -15,8 +15,8 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
-REGISTRY = ROOT / "port" / "port_region_data.c"
-PORT_CONFIG = ROOT / "port" / "port_config.h"
+REGISTRY = ROOT / "src/port" / "port_region_data.c"
+PORT_CONFIG = ROOT / "src/port" / "port_config.h"
 
 EXPECTED_SHA1 = {
     "USA": "b4bd50e4131b027c334547b4524e2dbbd4227130",

@@ -41,9 +41,9 @@ for record in json.loads((recipe / 'sources.json').read_text()):
 
 mbed = source / 'mbedtls-2.28.8'
 for name in ['MBEDTLS_ENTROPY_HARDWARE_ALT', 'MBEDTLS_NO_PLATFORM_ENTROPY', 'MBEDTLS_CMAC_C']:
-    run(['perl', 'scripts/config.pl', 'set', name], mbed)
+    run(['perl', 'tools/scripts/config.pl', 'set', name], mbed)
 for name in ['MBEDTLS_SELF_TEST', 'MBEDTLS_TIMING_C']:
-    run(['perl', 'scripts/config.pl', 'unset', name], mbed)
+    run(['perl', 'tools/scripts/config.pl', 'unset', name], mbed)
 for folder, options in [
     ('mbedtls-2.28.8', ['-DENABLE_ZLIB_SUPPORT=FALSE', '-DENABLE_TESTING=FALSE', '-DENABLE_PROGRAMS=FALSE']),
     ('jansson-2.14', ['-DJANSSON_BUILD_DOCS=OFF', '-DJANSSON_BUILD_SHARED_LIBS=OFF', '-DJANSSON_WITHOUT_TESTS=ON'])

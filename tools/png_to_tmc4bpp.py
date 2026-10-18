@@ -7,8 +7,8 @@ colours to 15 + transparent, tiles the result into 8x8 blocks (GBA OBJ
 1D mapping = row-major within each tile, row-major over tiles) and
 writes raw 4bpp pixel data. Output matches the format of TMC's runtime
 asset files:
-  - engine/assets/gfx/gfx_*_*x*_4bpp_uncompressed.bin
-  - engine/assets/sprites/<symbol>/*.4bpp
+  - src/engine/assets/gfx/gfx_*_*x*_4bpp_uncompressed.bin
+  - src/engine/assets/sprites/<symbol>/*.4bpp
 
 Usage:
   png_to_tmc4bpp.py <input.png> <output.bin>

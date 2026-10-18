@@ -33,7 +33,7 @@
 #   MODE1_GBA_WIDTH  render width define   (default 240)
 #
 # The PPU source location is auto-detected so this survives the Phase 1
-# vendoring move (libs/ViruaPPU -> port/ppu) with no edit.
+# vendoring move (src/third_party/ViruaPPU -> src/port/ppu) with no edit.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -53,10 +53,10 @@ CORPUS="${PPU_CORPUS:-$ROOT/tools/ppu_corpus.txt}"
 GOLDEN="${PPU_GOLDEN:-$ROOT/tools/ppu_golden_hashes.txt}"
 
 # Auto-detect vendored vs submodule PPU source.
-if [ -d "$ROOT/port/ppu/src" ]; then
-    PPU_SRC="$ROOT/port/ppu/src"; PPU_INC="$ROOT/port/ppu/include"
+if [ -d "$ROOT/src/port/ppu/src" ]; then
+    PPU_SRC="$ROOT/src/port/ppu/src"; PPU_INC="$ROOT/src/port/ppu/include"
 else
-    PPU_SRC="$ROOT/libs/ViruaPPU/src"; PPU_INC="$ROOT/libs/ViruaPPU/include"
+    PPU_SRC="$ROOT/src/third_party/ViruaPPU/src"; PPU_INC="$ROOT/src/third_party/ViruaPPU/include"
 fi
 
 UPDATE=0

@@ -5,8 +5,8 @@ For current Nintendo 3DS ownership and commands, start with
 The inherited desktop guidance below retains its original platform scope.
 
 Conventions and reasoning for keeping `tmc_pc` easy to change and easy to
-onboard into. Scope is the **PC port** (`port/`, the port-owned parts of
-`engine/src/`); byte-matching the GBA decomp is upstream at zeldaret/tmc and out of
+onboard into. Scope is the **PC port** (`src/port/`, the port-owned parts of
+`src/engine/src/`); byte-matching the GBA decomp is upstream at zeldaret/tmc and out of
 scope here. See [CONTRIBUTING.md](CONTRIBUTING.md) for the module map and
 build/verify loop.
 
@@ -40,8 +40,8 @@ inline `extern`s.
   holds declarations, the `.c` holds definitions. ([Kieras guidelines][k])
 
 Worked example in this repo: the headless repro harnesses
-(`port/port_repro_*.c`) used to be declared with ~13 inline `extern`s inside
-`port_bios.c`'s per-frame loop. They now live in `port/port_repro.h`, included
+(`src/port/port_repro_*.c`) used to be declared with ~13 inline `extern`s inside
+`port_bios.c`'s per-frame loop. They now live in `src/port/port_repro.h`, included
 by both `port_bios.c` (caller) and every `port_repro_*.c` (definer), so the
 compiler checks each definition against the shared declaration. Likewise
 `gRomData` / `gRomSize` are owned by `port_rom.h` / `port_gba_mem.h` and
@@ -77,7 +77,7 @@ A decomp is legacy code in Feathers' sense — "code without tests." The fix is
 tests, not rewrites. ([WEWLC summary][wl])
 
 - Write **characterization tests** that pin *observed* behavior, not a spec.
-  `scripts/smoke_test.py` is the project's harness: it drives the real game
+  `tools/scripts/smoke_test.py` is the project's harness: it drives the real game
   loop and asserts on logged behavior (boot reaches `AgbMain`, the repro gate
   stays dormant, the mod loader is first-wins). Grow it when you fix a bug that
   has a deterministic, headless-observable signature.
@@ -95,7 +95,7 @@ tests, not rewrites. ([WEWLC summary][wl])
 1. ~~Retire inline-`extern` debt (repro harnesses → `port_repro.h`; dedup
    `gRomData`/`gRomSize`).~~ **Done.**
 2. Split `port_imgui_menu.cpp` by concern using the `.inc` pattern.
-3. Grow `scripts/smoke_test.py` with more characterization tests as bugs are
+3. Grow `tools/scripts/smoke_test.py` with more characterization tests as bugs are
    fixed (mod-load priority already covered).
 4. Optionally make `port_gba_mem.h` / `port_rom.h` `extern "C"`-safe so the C++
    TUs can drop their hand-declared global blocks (touches core headers; verify

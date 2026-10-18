@@ -1,7 +1,7 @@
 # TMC PC-Port Codebase Audit — 2026-05-30
 
 Full latent-bug & port-correctness audit of the GBA→x86-64 port. Method: 15
-hazard-class finders fanned out over `engine/src/` (619 C files) + `port/`, each
+hazard-class finders fanned out over `src/engine/src/` (619 C files) + `src/port/`, each
 candidate then adversarially verified against the real code (default-to-not-a-bug,
 checking for `#ifdef PC_PORT` guards, the `IsColliding` host-pointer range guard,
 same-alias-only reads, and reachability).
@@ -34,22 +34,22 @@ byte-identical (`#ifdef PC_PORT` guards).
 
 | Finding(s) | File | Fix |
 |---|---|---|
-| HDMA-leak root cause + lightManager:42 + whiteTriangleEffect:128 | `engine/src/common.c:987` | `sub_0801E104` now calls `port_hdma_unregister(0)` under `PC_PORT` — tears down the leaked HBlank channel at the source, fixing the whole `sub_0801E104`-only-teardown class. |
-| Live cannonball crash | `engine/src/projectile/cannonballProjectile.c:84` | Index real `AngryStatueManager::field_0x20[]` + NULL-guard parent. |
-| Vaati Evaporate DMA | `engine/src/manager/vaatiAppearingManager.c:144` | `DisableVBlankDMA()` on Action2 exit, mirroring Action1. |
-| #136 male-eye | `engine/src/enemy/gyorgMaleEye.c:28` | `parent==NULL` early-return. |
-| #136 vaati-arm | `engine/src/object/vaati3Arm.c:60` | guard `parent`/`parent->myHeap` before `heap[4]`. |
-| #91 interactable scan | `engine/src/playerUtils.c:1426` | `Port_IsValidHostPtr` guard (new shared helper in `port/port_rom.h`). |
-| Quicksave family (scroll.c:103 + port_quicksave.c:158 + player.c:556) | `port/port_quicksave.c`, `engine/src/player.c` | `Snapshot_Restore` re-resolves stale `camera_target` and player hitbox on cross-process load; new `Port_RestorePlayerHitbox`. |
-| Crash-handler safety (port_bugreport.cpp:529/601) | `port/port_bugreport.cpp` | write `backtrace.txt` first (before heavy steps); drop `SDL_ShowSimpleMessageBox` from the signal handler. |
-| #98 padding | `engine/src/enemy/torchTrap.c`, `engine/src/enemy/sensorBladeTrap.c` | `+4` filler (eyegore template). |
-| lilypad rails | `port/port_rom.c` | ROM-resolve `gLilypadRails[0..2]` (USA-gated). |
+| HDMA-leak root cause + lightManager:42 + whiteTriangleEffect:128 | `src/engine/src/common.c:987` | `sub_0801E104` now calls `port_hdma_unregister(0)` under `PC_PORT` — tears down the leaked HBlank channel at the source, fixing the whole `sub_0801E104`-only-teardown class. |
+| Live cannonball crash | `src/engine/src/projectile/cannonballProjectile.c:84` | Index real `AngryStatueManager::field_0x20[]` + NULL-guard parent. |
+| Vaati Evaporate DMA | `src/engine/src/manager/vaatiAppearingManager.c:144` | `DisableVBlankDMA()` on Action2 exit, mirroring Action1. |
+| #136 male-eye | `src/engine/src/enemy/gyorgMaleEye.c:28` | `parent==NULL` early-return. |
+| #136 vaati-arm | `src/engine/src/object/vaati3Arm.c:60` | guard `parent`/`parent->myHeap` before `heap[4]`. |
+| #91 interactable scan | `src/engine/src/playerUtils.c:1426` | `Port_IsValidHostPtr` guard (new shared helper in `src/port/port_rom.h`). |
+| Quicksave family (scroll.c:103 + port_quicksave.c:158 + player.c:556) | `src/port/port_quicksave.c`, `src/engine/src/player.c` | `Snapshot_Restore` re-resolves stale `camera_target` and player hitbox on cross-process load; new `Port_RestorePlayerHitbox`. |
+| Crash-handler safety (port_bugreport.cpp:529/601) | `src/port/port_bugreport.cpp` | write `backtrace.txt` first (before heavy steps); drop `SDL_ShowSimpleMessageBox` from the signal handler. |
+| #98 padding | `src/engine/src/enemy/torchTrap.c`, `src/engine/src/enemy/sensorBladeTrap.c` | `+4` filler (eyegore template). |
+| lilypad rails | `src/port/port_rom.c` | ROM-resolve `gLilypadRails[0..2]` (USA-gated). |
 | NULL/Create-fail guards | `gleerokProjectile.c`, `pullableMushroom.c` (×2), `madderpillar.c`, `picolyteBottle.c`, `wizzrobeWind.c` (×6) | guard parent/child/Create* derefs. |
-| OOB clamp | `engine/src/enemy/gyorgFemaleMouth.c:87` | clamp pointer-table index to [0,7]. |
-| unused-subsystem guard | `engine/src/npc/npc5.c:967` | NULL-guard `messageData` (empty `gZeldaFollowerText` stub). |
-| pak bounds | `port/port_asset_pak_loader.cpp` | validate every entry name-span at mount (`Open()`). |
-| map-asset bounds | `engine/src/beanstalkSubtask.c:239` | clamp copy length to real `assetSize`; LZ77 header guard. |
-| audio data race | `port/port_audio.c:141` | relaxed atomic load of `gMain.muteAudio`. |
+| OOB clamp | `src/engine/src/enemy/gyorgFemaleMouth.c:87` | clamp pointer-table index to [0,7]. |
+| unused-subsystem guard | `src/engine/src/npc/npc5.c:967` | NULL-guard `messageData` (empty `gZeldaFollowerText` stub). |
+| pak bounds | `src/port/port_asset_pak_loader.cpp` | validate every entry name-span at mount (`Open()`). |
+| map-asset bounds | `src/engine/src/beanstalkSubtask.c:239` | clamp copy length to real `assetSize`; LZ77 header guard. |
+| audio data race | `src/port/port_audio.c:141` | relaxed atomic load of `gMain.muteAudio`. |
 
 **Deliberate no-ops (verified safe — changing them would risk regression for no benefit):**
 
@@ -63,7 +63,7 @@ byte-identical (`#ifdef PC_PORT` guards).
 
 ## Tier 1 — Live crashes & corruption (fix first)
 
-### 1.1 `engine/src/projectile/cannonballProjectile.c:84` — HIGH, **the one reachable gameplay crash**
+### 1.1 `src/engine/src/projectile/cannonballProjectile.c:84` — HIGH, **the one reachable gameplay crash**
 `sub_080AB634` does `Entity** entities = (Entity**)&this->parent->zVelocity;` then
 iterates `entities[0..3]` and derefs them. The parent is an `AngryStatueManager`
 whose four statue pointers live in `field_0x20[4]`. On GBA `&parent->zVelocity` ==
@@ -79,15 +79,15 @@ that pass the `!= NULL` check, reach `IsColliding`, which derefs `that->collisio
 
 ### 1.2 Cross-process quicksave stale-pointer family — HIGH
 F6-loading a `state_*.bin` written by a **prior process** (different ASLR base) crashes,
-because `FixupEntityPointers` (`port/port_quicksave.c:158`) only relocates words whose
+because `FixupEntityPointers` (`src/port/port_quicksave.c:158`) only relocates words whose
 value lands **inside the `gEntities` window**. Everything pointing elsewhere stays stale:
-- **`engine/src/scroll.c:103`** — `gRoomControls.camera_target == &gPlayerEntity` (a static global, below `gEntities`) is never fixed; `Scroll1` derefs `camera_target->x` **every frame** → SIGSEGV on the first post-load frame. Same staleness hits `screenTileMap.c`, `script.c`, `message.c` camera_target derefs.
+- **`src/engine/src/scroll.c:103`** — `gRoomControls.camera_target == &gPlayerEntity` (a static global, below `gEntities`) is never fixed; `Scroll1` derefs `camera_target->x` **every frame** → SIGSEGV on the first post-load frame. Same staleness hits `screenTileMap.c`, `script.c`, `message.c` camera_target derefs.
 - **`port_quicksave.c:158`** — the structural gap: pointer-to-`.rodata` (hitbox), pointer-to-other-pool, and the separately-memcpy'd regions (`gPlayerEntity`/`gRoomControls`) are never passed to the fixup.
-- **`engine/src/player.c:556`** (LOW) — `Player->hitbox = &gPlayerHitbox/&sMinishHitbox` (`.rodata`) stale; unguarded tile-probe (`playerUtils.c:2586`) & interactable-scan (`1426`) derefs crash. (This one is the documented cross-process quicksave limitation.)
+- **`src/engine/src/player.c:556`** (LOW) — `Player->hitbox = &gPlayerHitbox/&sMinishHitbox` (`.rodata`) stale; unguarded tile-probe (`playerUtils.c:2586`) & interactable-scan (`1426`) derefs crash. (This one is the documented cross-process quicksave limitation.)
 - **Fix:** in `Snapshot_Restore`, after the memcpy loop, (a) re-assign `gPlayerEntity.base.hitbox` from live `.rodata` per `gPlayerState` form, and (b) record the saved base addresses of the fixed-global regions and shift any restored pointer landing in a saved region's range to the new base — `camera_target` is the most reliably-hit instance. A `scroll.c` range-guard fallback to `&gPlayerEntity` is a cheap belt-and-suspenders.
 - Same-process F5→F6 is the documented no-op early-return and stays safe.
 
-### 1.3 `engine/src/common.c:987` — MEDIUM, **HDMA-leak root cause (one-line fix kills a class)**
+### 1.3 `src/engine/src/common.c:987` — MEDIUM, **HDMA-leak root cause (one-line fix kills a class)**
 `sub_0801E104` sets `gScreen.vBlankDMA.ready = FALSE` but **never calls
 `port_hdma_unregister(0)`**, so the PC HBlank channel (`s_channels[0].active`) stays
 armed and `port_hdma_step_line` keeps firing the stale src table into the last dest
@@ -102,7 +102,7 @@ The dependent leaks (visual BG/window corruption in the next scene, no crash):
 
 Fixing `common.c:987` covers all three; targeted `DisableVBlankDMA()` at each site is the alternative.
 
-### 1.4 `port/port_bugreport.cpp:529` & `:601` — MEDIUM, **the crash handler can hide other crashes**
+### 1.4 `src/port/port_bugreport.cpp:529` & `:601` — MEDIUM, **the crash handler can hide other crashes**
 The SIGSEGV/SIGABRT/SIGBUS handler runs `std::filesystem`, libpng+`fopen`/`fprintf`,
 `std::ofstream`, `std::malloc`, **and `SDL_ShowSimpleMessageBox`** — none async-signal-safe.
 If the original fault was inside `malloc`/glibc-stdio/SDL (very common — the present path
@@ -117,10 +117,10 @@ crashes the audit is meant to catch.
 
 | File:Line | Class | Issue | Fix |
 |---|---|---|---|
-| `engine/src/object/lilypadSmall.c:67` | empty-native-array | `gLilypadRails` (`port_linked_stubs.c:1639`) is a zero-init `void*[32]` never populated; on GBA it was a 3-entry ROM pointer table. `type2>=0x80` small lilypads + kinstone-fused rails get NULL → platform never moves along its rail (no crash — `UpdateRailMovement` NULL-guards). | Populate from ROM in `port_rom.c` (resolve `0x080FEDA4/DDA/DF8` via `Port_ResolveRomData`), like `gFigurines`/`gPalette_549`. Also fixes the `kinstone.c:344` reader. |
-| `engine/src/enemy/torchTrap.c:47` | `#98` padding | No `+4` pad for `Enemy::child`; reads `unk_82/unk_84` (yPos/spritePtr params) from PC `0xAA/0xAC` but framework wrote them at `0xAE/0xB0`. Every torch trap mis-positions / fires wrong direction. 27 spawns across dungeons. | `eyegore.c` template: `#ifdef PC_PORT u8 filler[0xc + 4]; #else u8 filler[0xc]; #endif`. Add a `PORT_STATIC_ASSERT_OFFSET`. |
-| `engine/src/enemy/sensorBladeTrap.c:41` | `#98` padding | Same — `unk_84/unk_86` read from `0xAC/0xAE` instead of `0xB0/0xB2`; seeds launch target from `xPos/yPos` instead of params → fires wrong distance. | `#ifdef PC_PORT u8 unused1[16 + 4]` per the `eyegore.c` template + assert. |
-| `libs/ViruaPPU/src/mode2.c:16` | mode1/mode2 divergence | mode2 (title/affine path) captures `DISPCNT` + `OBJ_1D` once per frame; mode1 re-reads per scanline. A mid-frame HDMA-DISPCNT change isn't honored on the title path. Low impact (TMC doesn't HDMA DISPCNT on the title). | Move the `DISPCNT`/`obj_1d` read inside the per-line loop after the pre-line callback, mirroring `mode1.c:965-968`. |
+| `src/engine/src/object/lilypadSmall.c:67` | empty-native-array | `gLilypadRails` (`port_linked_stubs.c:1639`) is a zero-init `void*[32]` never populated; on GBA it was a 3-entry ROM pointer table. `type2>=0x80` small lilypads + kinstone-fused rails get NULL → platform never moves along its rail (no crash — `UpdateRailMovement` NULL-guards). | Populate from ROM in `port_rom.c` (resolve `0x080FEDA4/DDA/DF8` via `Port_ResolveRomData`), like `gFigurines`/`gPalette_549`. Also fixes the `kinstone.c:344` reader. |
+| `src/engine/src/enemy/torchTrap.c:47` | `#98` padding | No `+4` pad for `Enemy::child`; reads `unk_82/unk_84` (yPos/spritePtr params) from PC `0xAA/0xAC` but framework wrote them at `0xAE/0xB0`. Every torch trap mis-positions / fires wrong direction. 27 spawns across dungeons. | `eyegore.c` template: `#ifdef PC_PORT u8 filler[0xc + 4]; #else u8 filler[0xc]; #endif`. Add a `PORT_STATIC_ASSERT_OFFSET`. |
+| `src/engine/src/enemy/sensorBladeTrap.c:41` | `#98` padding | Same — `unk_84/unk_86` read from `0xAC/0xAE` instead of `0xB0/0xB2`; seeds launch target from `xPos/yPos` instead of params → fires wrong distance. | `#ifdef PC_PORT u8 unused1[16 + 4]` per the `eyegore.c` template + assert. |
+| `src/third_party/ViruaPPU/src/mode2.c:16` | mode1/mode2 divergence | mode2 (title/affine path) captures `DISPCNT` + `OBJ_1D` once per frame; mode1 re-reads per scanline. A mid-frame HDMA-DISPCNT change isn't honored on the title path. Low impact (TMC doesn't HDMA DISPCNT on the title). | Move the `DISPCNT`/`obj_1d` read inside the per-line loop after the pre-line callback, mirroring `mode1.c:965-968`. |
 
 > The two `#98` cases are the only ones that surfaced from a *sampled* sweep of 256
 > `Entity base;` subclasses — see Coverage gaps for the systematic follow-up.
@@ -135,18 +135,18 @@ but each is a thin invariant away from a live SIGSEGV. Fix shape is the standard
 
 | File:Line | Class | Why latent / when it goes live | Fix |
 |---|---|---|---|
-| `engine/src/playerUtils.c:1426` | null-deref (HIGH) | Interactable-scan derefs `entity->hitbox->width` with **no NULL check and no range guard** — the exact unguarded path that re-crashed cat #91 three weeks after the collision-path fix. Live the instant any interactable has a NULL/stale/spliced hitbox. | `if (iObject->entity->hitbox == NULL) continue;` + optional range-check vs `IsColliding`'s `[0x100000000000,0x800000000000)` window. This loop is the one interactable path lacking the shield. |
-| `engine/src/enemy/gyorgMaleEye.c:29` | `#136` sibling (HIGH) | Derefs `super->parent->next` with no `parent==NULL` guard — a **missed member** of the committed #136 Gyorg fix family (`gyorgFemaleEye.c:38-45` has it). | `#ifdef PC_PORT if (super->parent == NULL) return; #endif` at function top, mirroring `gyorgFemaleEye.c`. |
-| `engine/src/object/vaati3Arm.c:61` | `#136` sibling (HIGH) | `sub_080A0640` reads `((Entity**)parent->myHeap)[4]`; boss-death `vaatiArm.c:1159` sets `entities[4]->base.myHeap = NULL` while keeping it alive as the arm's parent → `((Entity**)NULL)[4]` → SIGSEGV on the death sequence. | `#ifdef PC_PORT if (this->parent == NULL || this->parent->myHeap == NULL) return; #endif`. |
-| `engine/src/object/octorokBossObject.c:149` | half-ptr write (HIGH) | `*(s32*)&this->helper = grid_index` truncates the 8-byte `HelperStruct*`; **latent** because type-8 entities only ever re-read it via the same `*(s32*)&` alias, never as a pointer (the pointer-using cases are disjoint by `super->type`). The documented canonical case. | No live fix; to eliminate cleanly, store the grid index in a dedicated `#ifdef PC_PORT s32` scratch field instead of aliasing the pointer slot. |
-| `engine/src/object/pullableMushroom.c:222` | null-deref (MED) | `(sub_0808B1F0(this, super->child) < 8) \|\| (super->child == NULL)` — calls the helper (which derefs arg2) **before** the NULL short-circuit. | Reorder to NULL-first. **Also guard `sub_0808AFD4` (line 319)** `(super->child)->direction` which faults earlier on the child-creation-failed path. |
-| `engine/src/enemy/madderpillar.c:117` | null-deref (MED) | Six `CreateEnemy` calls, then `entN->parent = super` with no NULL check; mid-chain slot exhaustion → NULL store. | NULL-check each return; bail+delete head if any fails. |
-| `engine/src/projectile/gleerokProjectile.c:52` | null-deref #51 (MED) | `super->parent->y - super->child->y` unguarded; `child` from `heap->entities[0]` can be NULL if `CreateEnemy` failed at boss init. | NULL-guard **both** parent and child at the `type != 3` block top. |
-| `engine/src/enemy/wizzrobeWind.c:126` | null-deref (MED) | Writes `super->parent->spriteSettings.draw` unguarded; `parent` is the wind's own created projectile — NULL when `EnemyCreateProjectile` fails on a full pool. | NULL-guard `super->parent` in Action1/2/3 + `sub_0802FA88` (also reached from Init before parent is set). |
-| `engine/src/npc/picolyteBottle.c:98` | null-deref (LOW) | Three unchecked `CreateNPC` returns in Init. Line 98 itself is safe (type-1 children always have parent). | NULL-check the Init `CreateNPC` returns before `npc->parent = super`. |
-| `engine/src/enemy/chuchu.c:692` | OOB index (LOW) | `gUnk_080CA2B4[frame & 0xf]` exceeds the 10-byte logical table; harmless (800-byte stub keeps it mapped, result never dereferenced). | Clamp index to 0..9 only if the jiggle offset looks visibly wrong; else leave. |
-| `engine/src/enemy/gyorgFemale.c:73` | OOB index (LOW) | `gUnk_080D28CC[tmp+1]` reaches index 8 of an 8-entry table; scalar over-read is harmless. The **pointer-table** read `gUnk_080D28AC[tmp]` at line 87 is the one to clamp. | `#ifdef PC_PORT` clamp `tmp` to [0,7], especially for line 87. |
-| `engine/src/npc/npc5.c:953` | empty-native-array (MED) | `gZeldaFollowerText` (`port_linked_stubs.c:1653`) zero-init, never populated → `messageData = NULL`. Subsystem appears unused. | If revived: resolve from ROM. Otherwise a `#ifdef PC_PORT if (messageData == NULL) break;` guard at line 967 suffices. |
+| `src/engine/src/playerUtils.c:1426` | null-deref (HIGH) | Interactable-scan derefs `entity->hitbox->width` with **no NULL check and no range guard** — the exact unguarded path that re-crashed cat #91 three weeks after the collision-path fix. Live the instant any interactable has a NULL/stale/spliced hitbox. | `if (iObject->entity->hitbox == NULL) continue;` + optional range-check vs `IsColliding`'s `[0x100000000000,0x800000000000)` window. This loop is the one interactable path lacking the shield. |
+| `src/engine/src/enemy/gyorgMaleEye.c:29` | `#136` sibling (HIGH) | Derefs `super->parent->next` with no `parent==NULL` guard — a **missed member** of the committed #136 Gyorg fix family (`gyorgFemaleEye.c:38-45` has it). | `#ifdef PC_PORT if (super->parent == NULL) return; #endif` at function top, mirroring `gyorgFemaleEye.c`. |
+| `src/engine/src/object/vaati3Arm.c:61` | `#136` sibling (HIGH) | `sub_080A0640` reads `((Entity**)parent->myHeap)[4]`; boss-death `vaatiArm.c:1159` sets `entities[4]->base.myHeap = NULL` while keeping it alive as the arm's parent → `((Entity**)NULL)[4]` → SIGSEGV on the death sequence. | `#ifdef PC_PORT if (this->parent == NULL || this->parent->myHeap == NULL) return; #endif`. |
+| `src/engine/src/object/octorokBossObject.c:149` | half-ptr write (HIGH) | `*(s32*)&this->helper = grid_index` truncates the 8-byte `HelperStruct*`; **latent** because type-8 entities only ever re-read it via the same `*(s32*)&` alias, never as a pointer (the pointer-using cases are disjoint by `super->type`). The documented canonical case. | No live fix; to eliminate cleanly, store the grid index in a dedicated `#ifdef PC_PORT s32` scratch field instead of aliasing the pointer slot. |
+| `src/engine/src/object/pullableMushroom.c:222` | null-deref (MED) | `(sub_0808B1F0(this, super->child) < 8) \|\| (super->child == NULL)` — calls the helper (which derefs arg2) **before** the NULL short-circuit. | Reorder to NULL-first. **Also guard `sub_0808AFD4` (line 319)** `(super->child)->direction` which faults earlier on the child-creation-failed path. |
+| `src/engine/src/enemy/madderpillar.c:117` | null-deref (MED) | Six `CreateEnemy` calls, then `entN->parent = super` with no NULL check; mid-chain slot exhaustion → NULL store. | NULL-check each return; bail+delete head if any fails. |
+| `src/engine/src/projectile/gleerokProjectile.c:52` | null-deref #51 (MED) | `super->parent->y - super->child->y` unguarded; `child` from `heap->entities[0]` can be NULL if `CreateEnemy` failed at boss init. | NULL-guard **both** parent and child at the `type != 3` block top. |
+| `src/engine/src/enemy/wizzrobeWind.c:126` | null-deref (MED) | Writes `super->parent->spriteSettings.draw` unguarded; `parent` is the wind's own created projectile — NULL when `EnemyCreateProjectile` fails on a full pool. | NULL-guard `super->parent` in Action1/2/3 + `sub_0802FA88` (also reached from Init before parent is set). |
+| `src/engine/src/npc/picolyteBottle.c:98` | null-deref (LOW) | Three unchecked `CreateNPC` returns in Init. Line 98 itself is safe (type-1 children always have parent). | NULL-check the Init `CreateNPC` returns before `npc->parent = super`. |
+| `src/engine/src/enemy/chuchu.c:692` | OOB index (LOW) | `gUnk_080CA2B4[frame & 0xf]` exceeds the 10-byte logical table; harmless (800-byte stub keeps it mapped, result never dereferenced). | Clamp index to 0..9 only if the jiggle offset looks visibly wrong; else leave. |
+| `src/engine/src/enemy/gyorgFemale.c:73` | OOB index (LOW) | `gUnk_080D28CC[tmp+1]` reaches index 8 of an 8-entry table; scalar over-read is harmless. The **pointer-table** read `gUnk_080D28AC[tmp]` at line 87 is the one to clamp. | `#ifdef PC_PORT` clamp `tmp` to [0,7], especially for line 87. |
+| `src/engine/src/npc/npc5.c:953` | empty-native-array (MED) | `gZeldaFollowerText` (`port_linked_stubs.c:1653`) zero-init, never populated → `messageData = NULL`. Subsystem appears unused. | If revived: resolve from ROM. Otherwise a `#ifdef PC_PORT if (messageData == NULL) break;` guard at line 967 suffices. |
 
 ---
 
@@ -154,10 +154,10 @@ but each is a thin invariant away from a live SIGSEGV. Fix shape is the standard
 
 | File:Line | Class | Issue | Fix |
 |---|---|---|---|
-| `port/port_asset_pak_loader.cpp:203` | bounds (MED) | `CompareEntry` builds `string_view(base + name_table_offset + name_offset, name_length)` with no per-entry validation against the mapped size. A truncated/corrupt `.pak` → OOB read on every binary-search probe. | Validate the name span in `CompareEntry` with u64 math; on overflow return a deterministic ordering (treat as ordered-after) so the search stays well-defined. Pass `size_` in (currently `static`). |
-| `engine/src/beanstalkSubtask.c:239` | bounds (MED) | `MemCopy(src, dest, dataDefinition->size)` trusts the JSON `size`; the real asset byte count (`assetSize`, already fetched line 220) is discarded. Truncated `.bin` → OOB heap read; LZ77 branch worse (length in header). | Mask flags → `cleanLen`, copy `min(cleanLen, assetSize)` + warn/continue on mismatch; require `assetSize >= 4` before `LZ77UnComp*`. Mirrors the palette guard at `port_asset_loader.cpp:1679`. |
-| `port/port_asset_loader.cpp:1267` | bounds (LOW) | gRomData room-property fallback checks `offset < gRomSize` but not `offset + extent`; consumer can walk past the ROM end. Low risk (ROM is checksum-validated). | Cap room-property walkers at `gRomData + gRomSize`. |
-| `port/port_audio.c:141` | data race (LOW) | `gMain.muteAudio` read on the SDL audio thread without `sStateMutex`. Init-only write makes it nearly benign. | Route mute through `sState` under the lock, or make it `_Atomic`. |
+| `src/port/port_asset_pak_loader.cpp:203` | bounds (MED) | `CompareEntry` builds `string_view(base + name_table_offset + name_offset, name_length)` with no per-entry validation against the mapped size. A truncated/corrupt `.pak` → OOB read on every binary-search probe. | Validate the name span in `CompareEntry` with u64 math; on overflow return a deterministic ordering (treat as ordered-after) so the search stays well-defined. Pass `size_` in (currently `static`). |
+| `src/engine/src/beanstalkSubtask.c:239` | bounds (MED) | `MemCopy(src, dest, dataDefinition->size)` trusts the JSON `size`; the real asset byte count (`assetSize`, already fetched line 220) is discarded. Truncated `.bin` → OOB heap read; LZ77 branch worse (length in header). | Mask flags → `cleanLen`, copy `min(cleanLen, assetSize)` + warn/continue on mismatch; require `assetSize >= 4` before `LZ77UnComp*`. Mirrors the palette guard at `port_asset_loader.cpp:1679`. |
+| `src/port/port_asset_loader.cpp:1267` | bounds (LOW) | gRomData room-property fallback checks `offset < gRomSize` but not `offset + extent`; consumer can walk past the ROM end. Low risk (ROM is checksum-validated). | Cap room-property walkers at `gRomData + gRomSize`. |
+| `src/port/port_audio.c:141` | data race (LOW) | `gMain.muteAudio` read on the SDL audio thread without `sStateMutex`. Init-only write makes it nearly benign. | Route mute through `sState` under the lock, or make it `_Atomic`. |
 
 ---
 

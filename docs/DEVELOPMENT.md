@@ -30,14 +30,14 @@ Use **clang-format 20.1.8**. For example, install it in an isolated environment:
 ```sh
 python3 -m venv /tmp/tmc-format
 /tmp/tmc-format/bin/pip install clang-format==20.1.8
-python3 scripts/dev/format.py --clang-format /tmp/tmc-format/bin/clang-format
-python3 scripts/dev/format.py --write --clang-format /tmp/tmc-format/bin/clang-format
+python3 tools/scripts/dev/format.py --clang-format /tmp/tmc-format/bin/clang-format
+python3 tools/scripts/dev/format.py --write --clang-format /tmp/tmc-format/bin/clang-format
 ```
 
 The default is a read-only check; `--write` applies formatting. `format.sh`
 forwards to the same command. The scope includes maintained C, C++, headers and
 include fragments in `engine`, `port`, `platform` and `tests`. The script
-lists explicit generated-file exclusions; imported SDL headers and `libs/`
+lists explicit generated-file exclusions; imported SDL headers and `src/third_party/`
 retain upstream style. Formatting never invokes clang-tidy fixes. Keep semantic
 refactors and formatter changes separately reviewable. The repository style
 uses four spaces, attached braces, a 120-column target and unchanged include
@@ -49,8 +49,8 @@ function signatures merely to improve a formatting metric.
 Install xmake and a native C/C++ compiler. xmake resolves the SDL3 dependency used by selected host fixtures. Run:
 
 ```sh
-python3 scripts/dev/run-tests.py --output /tmp/tmc-regressions
-python3 scripts/dev/run-tests.py save_migration_integration_test widescreen_stream_test
+python3 tools/scripts/dev/run-tests.py --output /tmp/tmc-regressions
+python3 tools/scripts/dev/run-tests.py save_migration_integration_test widescreen_stream_test
 ```
 
 The default runs every explicitly named `*_test` target plus the palette and
@@ -77,14 +77,14 @@ harness requires a native Jansson installation and libcurl.
 ## Repository checks
 
 ```sh
-python3 scripts/dev/check.py
-python3 scripts/dev/format.py
+python3 tools/scripts/dev/check.py
+python3 tools/scripts/dev/format.py
 git diff --check
 ```
 
 The repository checker validates current public documentation links, test-source
 references and private/runtime file exclusions. CI runs these static/style
-checks alongside the existing 3DS build. See [test ownership](../tests/README.md)
+checks alongside the existing 3DS build. See [test ownership](../tools/tests/README.md)
 for the suite boundaries.
 
 ## Evidence and review

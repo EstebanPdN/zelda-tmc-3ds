@@ -15,7 +15,7 @@ The retained implementation must:
 
 ## Hardware constraint
 
-PICA200 has programmable vertex shaders but no programmable fragment or compute shader. The existing integer fragment-shader rasterizer in `port/port_gpu_raster.*` therefore cannot run on this hardware. Raw GBA palette indices also cannot be resolved through a dependent palette lookup in the fixed fragment pipeline.
+PICA200 has programmable vertex shaders but no programmable fragment or compute shader. The existing integer fragment-shader rasterizer in `src/port/port_gpu_raster.*` therefore cannot run on this hardware. Raw GBA palette indices also cannot be resolved through a dependent palette lookup in the fixed fragment pipeline.
 
 The GPU path must consequently decode changed tiles on the CPU, then offload visibility, transforms, rasterization, priority, windows, effects, composition, and final scaling to PICA200.
 
@@ -115,7 +115,7 @@ Small deterministic tests cover behavior independent of PICA200:
 - capacity failure returning fallback rather than truncating output;
 - existing software PPU parity corpus remaining unchanged.
 
-The existing captured PPU states and `port/port_gpu_raster.*` output remain the semantic oracle for command generation.
+The existing captured PPU states and `src/port/port_gpu_raster.*` output remain the semantic oracle for command generation.
 
 ### Hardware parity mode
 

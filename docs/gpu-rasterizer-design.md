@@ -12,8 +12,8 @@ automatic fallback and as the byte-exact golden reference.
 
 ## 1. Goal
 
-Today the GPU (`port/port_gpu_renderer.cpp`) only *presents* a framebuffer that
-the CPU already rasterized in `port/ppu/src/mode1.c`. On low-end devices the
+Today the GPU (`src/port/port_gpu_renderer.cpp`) only *presents* a framebuffer that
+the CPU already rasterized in `src/port/ppu/src/mode1.c`. On low-end devices the
 software rasterizer is 55–80% of frame time (Moto G4 profiling: 4–7 ms render vs
 2–4 ms game logic). This design moves the rasterizer itself to the GPU so the CPU
 is freed for game logic, and keeps the CPU rasterizer as backup/compatibility.
@@ -47,7 +47,7 @@ rolling-barrel affine, window animation). A GPU can't run the CPU's HDMA
 callback between scanlines.
 
 But `mode1.c` **already flattened that state** to make its OpenMP pass parallel
-(`virtuappu_mode1_render_frame`, `port/ppu/src/mode1.c:1396`):
+(`virtuappu_mode1_render_frame`, `src/port/ppu/src/mode1.c:1396`):
 
 1. **Sequential pass** — calls `virtuappu_mode1_pre_line_callback(line)` once per
    scanline and snapshots the full 1 KB IO register file into
@@ -97,7 +97,7 @@ well-defined; the risk surface is division/modulo, which we keep to
 power-of-two masks/shifts as `mode1.c` already does.
 
 Sprites are resolved per-pixel by scanning the 128 OAM entries for the topmost
-covering sprite (bounded, fixed-cost: 128 tests/pixel worst case, ~4.9M/frame —
+covering sprite (bounded, fixed-cost: 128 tools/tests/pixel worst case, ~4.9M/frame —
 trivial for any GPU). Semi-transparent-OBJ and OBJ-window flags are produced
 alongside the OBJ color so the composite can honor them, matching the CPU's
 `obj_semitrans` / `obj_window` masks.
@@ -119,7 +119,7 @@ read-only storage buffers, or texture where a sampler helps):
 | Frame uniforms      | width, pitch, mode, affine flag, WS params | push/uniform buffer |
 
 VRAM/OAM/palette come straight from the bound GBA memory
-(`virtuappu_mode1_bind_gba_memory`, `port/port_ppu.cpp:751`). The per-line
+(`virtuappu_mode1_bind_gba_memory`, `src/port/port_ppu.cpp:751`). The per-line
 arrays are produced by the **existing** CPU sequential pass — we call it, then
 upload its outputs instead of running the CPU parallel pass.
 
@@ -165,14 +165,14 @@ flowchart TD
 
 ### 3.5 Cross-platform shaders
 
-One GLSL source per shader (`port/shaders/ppu_*.frag`), compiled offline:
+One GLSL source per shader (`src/port/shaders/ppu_*.frag`), compiled offline:
 
 - **SPIR-V** via `glslangValidator` (already the project's tool), committed under
-  `port/shaders/build/` — serves Vulkan on Linux/Windows/Android.
+  `src/port/shaders/build/` — serves Vulkan on Linux/Windows/Android.
 - **MSL** via `spirv-cross` run offline on that SPIR-V, committed as an `.inl`
   (extends the existing `port_gpu_msl_shaders.inl` pattern) — serves Metal.
 
-`port/shaders/build.sh` is extended to run `spirv-cross` after `glslangValidator`
+`src/port/shaders/build.sh` is extended to run `spirv-cross` after `glslangValidator`
 so both artifacts regenerate together. No new *build-time* dependency: the
 committed blobs are the source of truth at build time, exactly like the current
 filter shaders. `spirv-cross` is a dev-time tool for regenerating them.
@@ -228,26 +228,26 @@ Each phase ends with a parity check and a smoke build; no phase ships a stub.
 ## 6. Files
 
 **New**
-- `port/shaders/ppu_composite.frag` (+ any helper passes) — the GPU PPU.
-- `port/shaders/build/ppu_*.frag.spv` — committed SPIR-V.
-- `port/port_gpu_raster.cpp` / `.h` — host side: resource upload, pipeline,
+- `src/port/shaders/ppu_composite.frag` (+ any helper passes) — the GPU PPU.
+- `src/port/shaders/build/ppu_*.frag.spv` — committed SPIR-V.
+- `src/port/port_gpu_raster.cpp` / `.h` — host side: resource upload, pipeline,
   dispatch, readback, availability/fallback. (Kept separate from the
   presentation-focused `port_gpu_renderer.cpp`.)
 - `tools/ppu_gpu_parity.c` (+ xmake target) — CPU-vs-GPU diff harness.
 - `docs/gpu-rasterizer-parity-notes.md` — documented deltas.
 
 **Modified**
-- `port/port_ppu.cpp` — call CPU sequential pass, then dispatch GPU raster with
+- `src/port/port_ppu.cpp` — call CPU sequential pass, then dispatch GPU raster with
   fallback; lazy readback wiring.
-- `port/ppu/src/mode1.c` / `engine/include/cpu/mode1.h` — expose the sequential
+- `src/port/ppu/src/mode1.c` / `src/engine/include/cpu/mode1.h` — expose the sequential
   pass outputs (IO snapshots, per-line dispcnt, affine refs) so the host can run
   "prepare-only" without the parallel render. A new
   `virtuappu_mode1_prepare_frame(...)` that does the sequential pass and returns
   the per-line arrays; `render_frame` becomes prepare + CPU parallel pass.
-- `port/shaders/build.sh` — add `spirv-cross` MSL emission.
-- `port/port_gpu_msl_shaders.inl` (or a new `.inl`) — generated PPU MSL.
+- `src/port/shaders/build.sh` — add `spirv-cross` MSL emission.
+- `src/port/port_gpu_msl_shaders.inl` (or a new `.inl`) — generated PPU MSL.
 - `xmake.lua` — new source files, new `.spv` embeds, `ppu_gpu_parity` target.
-- `port/port_imgui_menu.cpp` / `port_runtime_config.*` — raster-backend toggle.
+- `src/port/port_imgui_menu.cpp` / `port_runtime_config.*` — raster-backend toggle.
 
 ---
 

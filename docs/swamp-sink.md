@@ -8,7 +8,7 @@ lower body hidden by a waterline that rises feet→head, slowly.
 ## Why the obvious approaches don't work
 
 - **No "head overlay" sprite.** `Object70` (swamp = type 0 / frame 0xb, created at
-  `SurfaceAction_Swamp`, `engine/src/player.c`) has def `gfx=133, spriteIndex=167`; sprite 167
+  `SurfaceAction_Swamp`, `src/engine/src/player.c`) has def `gfx=133, spriteIndex=167`; sprite 167
   frame 0xb is 12 pieces that all resolve to blank OBJ tile 133. It draws nothing — on
   GBA too. Its only effect is to set Link's body priority. (See memory
   `project_swamp_head_overlay_myth`.)
@@ -25,13 +25,13 @@ lower body hidden by a waterline that rises feet→head, slowly.
 A per-pixel vertical OBJ clip driven entirely by live engine state (no separate sink
 timer, so no double-drown desync):
 
-- **ViruaPPU** (`libs/ViruaPPU/src/mode1.c`, applied at build time via
-  `port/patches/viruappu-obj-clip-y.patch`; do **not** commit the dirty submodule —
+- **ViruaPPU** (`src/third_party/ViruaPPU/src/mode1.c`, applied at build time via
+  `src/port/patches/viruappu-obj-clip-y.patch`; do **not** commit the dirty submodule —
   see memory `project_viruappu_patches`): shared globals
   `virtuappu_mode1_obj_clip_mark[128]` / `_obj_clip_y` / `_obj_clip_enable`, and a guard in
   `virtuappu_mode1_render_obj_line` just before pixel-commit:
   `if (enable && mark[i] && line >= clip_y) continue;` (`i` = OAM index, `line` = scanline).
-- **Port** (`port/port_draw.c`):
+- **Port** (`src/port/port_draw.c`):
   - `DrawEntitySprites` sets `sRenderingPlayer` for **all** render paths (Link is the
     multi-part `renderMode==1` path; the old code only set it for `renderMode==0`, so the
     clip never ran for him).
@@ -51,7 +51,7 @@ back into view), or the clip catching a frame it shouldn't.
 
 Not yet pinned down — needs an on-display observation (headless ROOMCAP gives unreliable
 player/BG state for this; the **Sword Techniques** debug-menu toggles in
-`port/port_debug_actions.c` were added to grant Spin Attack and reproduce it interactively).
+`src/port/port_debug_actions.c` were added to grant Spin Attack and reproduce it interactively).
 
 Likely fix once confirmed: gate `sSwampClipActive` to an idle/sinking state — skip while an
 attack action is active, or skip affine frames (`flags & 0x300`). Confirm the exact

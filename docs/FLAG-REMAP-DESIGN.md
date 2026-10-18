@@ -9,12 +9,12 @@ save needs to *load and play correctly under any ROM*.
 A local-flag's save-bit position is `offset + enum_ordinal`:
 
 ```c
-// engine/src/flags.c
+// src/engine/src/flags.c
 u32  CheckLocalFlagByBank(u32 offset, u32 flag) { return CheckBits(gSave.flags, offset + flag, 1); }
 void SetLocalFlagByBank  (u32 offset, u32 flag) { if (flag) WriteBit(gSave.flags, offset + flag); }
 ```
 
-The `LocalFlags1` (and other bank) enums in `engine/include/flags.h` have **different sets/counts of
+The `LocalFlags1` (and other bank) enums in `src/engine/include/flags.h` have **different sets/counts of
 enumerators per region** — first divergence at `flags.h:192` (USA `MIZUUMI_00_CAP_0` = 1 enum;
 EU/JP `HIKYOU_00_T0/T1` = 2), cascading so every flag after it sits at a **different ordinal**
 in EU/JP than USA. The fat binary is compiled with USA ordinals; a loaded EU/JP ROM's *scripts*
@@ -26,7 +26,7 @@ script desyncs.
 - **C gameplay** calls `CheckLocalFlag(FLAG_CONSTANT)` (`flags.c:12`) with a **compile-time USA
   ordinal** (the enum value baked into the binary).
 - **Scripts** call through the opcode handlers `ScriptCommand_CheckLocalFlag` /
-  `ScriptCommand_SetLocalFlag` / `ScriptCommand_ClearLocalFlag` (+ `…ByBank`) in `engine/src/script.c`
+  `ScriptCommand_SetLocalFlag` / `ScriptCommand_ClearLocalFlag` (+ `…ByBank`) in `src/engine/src/script.c`
   (table at `script.c:553-579`), which read the flag value **out of the ROM bytecode** — i.e. in
   the **active region's ordinal space**.
 

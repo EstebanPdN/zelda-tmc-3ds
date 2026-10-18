@@ -30,7 +30,7 @@
 - Modify: `xmake.lua:1317-1327`
 
 **Interfaces:**
-- Consumes: `MODE1_VRAM_SIZE`, `MODE1_PALETTE_COLORS`, and `VirtuaPPUMode1GbaMemory` from `port/ppu/include/cpu/mode1.h`.
+- Consumes: `MODE1_VRAM_SIZE`, `MODE1_PALETTE_COLORS`, and `VirtuaPPUMode1GbaMemory` from `src/port/ppu/include/cpu/mode1.h`.
 - Produces:
   - `void PpuGpu3DS_CacheInit(PpuGpu3DSCache* cache);`
   - `void PpuGpu3DS_CacheBeginFrame(PpuGpu3DSCache* cache, const uint16_t* bgPalette, const uint16_t* objPalette, uint32_t frame);`
@@ -103,7 +103,7 @@ target("port_ppu_gpu_3ds_model_test")
     set_languages("c11")
     set_targetdir("build/pc")
     add_defines("MODE1_GBA_WIDTH=266")
-    add_includedirs("platform/3ds/source", "port/ppu/include")
+    add_includedirs("platform/3ds/source", "src/port/ppu/include")
     add_files("platform/3ds/source/port_ppu_gpu_3ds_model.c")
     add_files("platform/3ds/tests/port_ppu_gpu_3ds_model_test.c")
 target_end()
@@ -467,7 +467,7 @@ Expected: compile or link failure on `PpuGpu3DS_BuildCommands`.
 
 - [ ] **Step 3: Implement text-BG tile walking from the software oracle**
 
-Port the address and wrap rules from `virtuappu_mode1_render_text_bg_line()` at `port/ppu/src/mode1.c:955-1129` into tile-granularity geometry:
+Port the address and wrap rules from `virtuappu_mode1_render_text_bg_line()` at `src/port/ppu/src/mode1.c:955-1129` into tile-granularity geometry:
 
 ```c
 const unsigned priority = bgcnt & 3u;
@@ -561,7 +561,7 @@ Expected: the new OBJ/window assertions fail because the builder returns false.
 
 - [ ] **Step 3: Implement OBJ geometry exactly from OAM**
 
-Port dimensions, wrapping, mapping, and affine matrix lookup from `virtuappu_mode1_render_obj_line()` at `port/ppu/src/mode1.c:1132-1424`. Preserve these invariants:
+Port dimensions, wrapping, mapping, and affine matrix lookup from `virtuappu_mode1_render_obj_line()` at `src/port/ppu/src/mode1.c:1132-1424`. Preserve these invariants:
 
 ```c
 if (shape >= 3 || hidden) continue;

@@ -42,7 +42,7 @@ to the **next symbol boundary**. For animations neither is byte-exact:
 `WriteEditableAnimation` then strictly parses frames against that off-by size and
 **rejects** the mismatch → zeroed fallback.
 
-## The authoritative animation format (ground truth: `port/port_animation.c`)
+## The authoritative animation format (ground truth: `src/port/port_animation.c`)
 
 Frames are **4 bytes**:
 
@@ -125,7 +125,7 @@ The retry **must** prove it doesn't reintroduce garbage:
 - **Risk:** mis-deriving the terminator re-creates the garbage regression. The
   byte-identical guard (validation #1) catches it before it ships.
 - **Blast radius:** extractor-only + the one runtime `%4` branch; gated so the
-  GBA decomp is untouched. No `engine/src/` game-logic changes.
+  GBA decomp is untouched. No `src/engine/src/` game-logic changes.
 - **Rollback:** revert the extractor commit; runtime falls back to zeroed
   (blank) exactly as today. The `28fbfa9ff`/`8731a8075` pair is the reference
   for what *not* to do.

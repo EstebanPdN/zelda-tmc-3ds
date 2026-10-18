@@ -8,19 +8,19 @@ renaming those symbols is not part of a presentation or formatting change.
 
 | Location | Responsibility | Change boundary |
 | --- | --- | --- |
-| `engine/src/`, `engine/include/` | Game tasks, entities, rooms, scripts, saves and public engine declarations | Preserve retail state, region behavior, callback order and layouts. |
-| `engine/src/enemy/`, `engine/src/npc/`, `engine/src/object/`, `engine/src/playerItem/`, `engine/src/projectile/`, `engine/src/manager/` | Entity behavior by engine kind | Retain existing names, dispatch tables and allocation contracts. |
-| `engine/src/menu/`, `engine/src/subtask/`, `engine/src/worldEvent/`, `engine/src/item/` | Menus, temporary game tasks, scripted world events and item behavior | Preserve restoration of suspended engine state. |
-| `engine/src/data/` | Native data declarations compiled into the engine | Preserve table order, provenance and regional addresses. |
-| `port/` | Shared native adaptations and engine bridges | Platform-independent compatibility and bounded data access. |
-| `port/ppu/` | Software PPU, register/memory interfaces and renderer regressions | Preserve palette, blending, window, sprite and HDMA semantics. |
+| `src/engine/src/`, `src/engine/include/` | Game tasks, entities, rooms, scripts, saves and public engine declarations | Preserve retail state, region behavior, callback order and layouts. |
+| `src/engine/src/enemy/`, `src/engine/src/npc/`, `src/engine/src/object/`, `src/engine/src/playerItem/`, `src/engine/src/projectile/`, `src/engine/src/manager/` | Entity behavior by engine kind | Retain existing names, dispatch tables and allocation contracts. |
+| `src/engine/src/menu/`, `src/engine/src/subtask/`, `src/engine/src/worldEvent/`, `src/engine/src/item/` | Menus, temporary game tasks, scripted world events and item behavior | Preserve restoration of suspended engine state. |
+| `src/engine/src/data/` | Native data declarations compiled into the engine | Preserve table order, provenance and regional addresses. |
+| `src/port/` | Shared native adaptations and engine bridges | Platform-independent compatibility and bounded data access. |
+| `src/port/ppu/` | Software PPU, register/memory interfaces and renderer regressions | Preserve palette, blending, window, sprite and HDMA semantics. |
 | `platform/3ds/source/` | libctru, Citro2D/3D, input, audio, display, lifecycle and updater adapters | Hardware effects and service ownership stay here. |
 | `platform/3ds/tests/` | Host-testable 3DS policies and service mocks | No physical-console claims from mocks. |
-| `tests/port/` | Shared engine/port regressions previously mixed into `port/` | Fixtures use temporary working directories. |
-| `libs/`, `port/SDL3/` | Imported dependencies | Keep upstream notices, attribution and imported style. |
-| `tools/`, `scripts/dev/` | Data producers, development commands and repository checks | Tools are not game-loop code; document their inputs and effects. |
+| `tools/tests/port/` | Shared src/engine/port regressions previously mixed into `src/port/` | Fixtures use temporary working directories. |
+| `src/third_party/`, `src/port/SDL3/` | Imported dependencies | Keep upstream notices, attribution and imported style. |
+| `tools/`, `tools/scripts/dev/` | Data producers, development commands and repository checks | Tools are not game-loop code; document their inputs and effects. |
 | `platform/3ds/cia/`, `platform/3ds/romfs/`, `platform/3ds/assets/` | Packaging metadata, public certificates and original presentation assets | No ROM, save, extracted game asset or private diagnostic input. |
-| `build/USA/assets/`, `build/EU/assets/` | Tracked symbolic offset headers | Generated symbol-to-offset descriptions, not game assets. |
+| `src/offsets/USA/assets/`, `src/offsets/EU/assets/` | Tracked symbolic offset headers | Generated symbol-to-offset descriptions, not game assets. |
 | `docs/` | Current guides, technical references and dated investigation history | Start at the documentation index; historical reports are not current guarantees. |
 
 ## Execution and effects
@@ -34,7 +34,7 @@ flowchart TD
     C --> F[port_save.c: EEPROM persistence]
     C --> G[port_second_screen_state.c: snapshot publication]
     E --> H[port_ppu_3ds.c: frame preparation]
-    H --> I[port/ppu: software renderer]
+    H --> I[src/port/ppu: software renderer]
     H --> J[port_ppu_gpu_3ds.c: PICA renderer]
     I --> K[platform_gpu_3ds.c: presentation]
     J --> K
@@ -53,12 +53,12 @@ part of startup.
 | Module family | Owns | Important contract |
 | --- | --- | --- |
 | `port_rom`, `port_region_data`, `port_gba_mem`, `port_offset_remap` | ROM discovery, native/GBA pointer resolution and regional data provenance | Resolve the owning table and active region before following embedded pointers. |
-| `port_linked_stubs`, `port_room_funcs`, `port_script_funcs`, `port_gameplay_stubs` | Native replacements for engine/assembly entry points | Preserve names, calling convention, global layout and state ordering. |
+| `port_linked_stubs`, `port_room_funcs`, `port_script_funcs`, `port_gameplay_stubs` | Native replacements for src/engine/assembly entry points | Preserve names, calling convention, global layout and state ordering. |
 | `port_widescreen` | Room-capped camera geometry, outgoing map retention, reveal shadows, dialogue/banner placement | 3DS normal view is at most 266×160; no filter-dependent camera mode. |
 | `port_widescreen_internal.h` | Native rolling-tilemap bridge used by `UpdateScrollVram` | Zero return requests the original fill; buffers are borrowed. |
 | `port_save`, `port_bottle_compat`, `port_bomb_compat`, `port_vaati_progress`, `port_cloud_tops_fight` | Persistence and narrowly scoped compatibility recovery | Keep old profiles readable; preserve rejected files and backup-before-repair rules. |
 | `port_second_screen_*` | Snapshot, themed composition, world/dungeon maps and quest information | Preserve discovery, map ownership, touch coordinates and paint invalidation. |
-| `port_m4a_*`, `libs/agbplay_core` | Engine sound bridge and synthesis | Retain sample routing, scheduling and source-specific compiler flags. |
+| `port_m4a_*`, `src/third_party/agbplay_core` | Engine sound bridge and synthesis | Retain sample routing, scheduling and source-specific compiler flags. |
 | `port_hdma`, `port_draw`, `port_filter`, `port_animation` | Native rendering bridges | No SD access or allocations added to per-frame paths. |
 
 ## 3DS ownership

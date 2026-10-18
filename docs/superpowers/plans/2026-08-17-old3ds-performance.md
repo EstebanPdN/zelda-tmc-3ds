@@ -255,7 +255,7 @@ git commit -m "perf: compact Old 3DS GPU uploads"
 
 **Files:**
 - Modify only if evidence requires it: `docs/superpowers/specs/2026-08-17-old3ds-performance-design.md`
-- Verify: `port/ppu/src/mode1.c`, `tools/ppu_bench.c`
+- Verify: `src/port/ppu/src/mode1.c`, `tools/ppu_bench.c`
 
 **Interfaces:**
 - Consumes: existing `ppu_bench` and Old 3DS path counters.
@@ -264,8 +264,8 @@ git commit -m "perf: compact Old 3DS GPU uploads"
 - [ ] **Step 1: Rebuild and run the isolated PPU benchmark**
 
 ```bash
-gcc -O3 -mavx2 -mfma -fopenmp -I port/ppu/include -DMODE1_GBA_WIDTH=266 \
-    tools/ppu_bench.c port/ppu/src/mode1.c -o /tmp/ppu_bench -lm
+gcc -O3 -mavx2 -mfma -fopenmp -I src/port/ppu/include -DMODE1_GBA_WIDTH=266 \
+    tools/ppu_bench.c src/port/ppu/src/mode1.c -o /tmp/ppu_bench -lm
 /tmp/ppu_bench /tmp/tmc_old3ds_title.bin 2000 1
 ```
 

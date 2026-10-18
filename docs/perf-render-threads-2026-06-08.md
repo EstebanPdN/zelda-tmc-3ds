@@ -21,18 +21,18 @@ needed:
   update), *present* (all of `Port_PPU_PresentFrame`), and *render*
   (`virtuappu_render_frame`). Run uncapped (`config.json: frame_time_ns=0`) so
   pacing doesn't pollute the *game* bucket.
-- **Snapshot harness** — `TMC_PERFCAP=1` (`port/port_repro_perfcap.c`) drives
+- **Snapshot harness** — `TMC_PERFCAP=1` (`src/port/port_repro_perfcap.c`) drives
   title→file-select→game, settles, and dumps a *complete* PPU snapshot
   (IO + VRAM + BG/OBJ palette + OAM — unlike `port_quicksave.c`, which omits
   palette/OAM) to `TMC_PERFCAP_DUMP` (default `/tmp/tmc_ppu_snapshot.bin`).
   `TMC_PERFCAP_WARP="area,room,x,y,layer"` targets a specific scene.
-- **Microbench** — `tools/ppu_bench.c` links the real `libs/ViruaPPU/src/mode1.c`
+- **Microbench** — `tools/ppu_bench.c` links the real `src/third_party/ViruaPPU/src/mode1.c`
   and replays the snapshot with no engine running, so render cost is isolated and
   optimizations are A/B'd against a framebuffer checksum (the parity guard).
   Build:
   ```
-  gcc -O3 -mavx2 -mfma -fopenmp -I libs/ViruaPPU/include -DMODE1_GBA_WIDTH=240 \
-      tools/ppu_bench.c libs/ViruaPPU/src/mode1.c -o /tmp/ppu_bench -lm
+  gcc -O3 -mavx2 -mfma -fopenmp -I src/third_party/ViruaPPU/include -DMODE1_GBA_WIDTH=240 \
+      tools/ppu_bench.c src/third_party/ViruaPPU/src/mode1.c -o /tmp/ppu_bench -lm
   /tmp/ppu_bench /tmp/tmc_ppu_snapshot.bin 4000
   ```
 
@@ -60,7 +60,7 @@ threads sleep instead of spinning).
 
 ## The fix
 
-`port/port_ppu.cpp`, `Port_PPU_Init` (port-side; **no ViruaPPU patch** — the
+`src/port/port_ppu.cpp`, `Port_PPU_Init` (port-side; **no ViruaPPU patch** — the
 mode1 render pragma has no `num_threads` clause, so the process `nthreads`
 default governs it):
 
@@ -106,7 +106,7 @@ on constrained hardware.
   can't help): the serial split is composite 0.79 ms + bg×4 0.62 ms + obj
   0.045 ms. `virtuappu_mode1_composite_line`'s per-pixel priority×BG search is
   the largest serial item — a candidate for a parity-preserving rewrite, but it
-  lives in ViruaPPU (must be a `port/patches/viruappu-*.patch`) and should be
+  lives in ViruaPPU (must be a `src/port/patches/viruappu-*.patch`) and should be
   validated with `tools/ppu_bench` against the checksum before landing.
 - **`io_snapshots` memcpy** in `virtuappu_mode1_render_frame` copies the 1 KB IO
   block per scanline even with no active HDMA; it can be skipped (point all

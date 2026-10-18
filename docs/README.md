@@ -7,7 +7,7 @@ the source tree, build entry points, licensing, and the public project README.
 
 - [3DS architecture and source ownership](ARCHITECTURE.md)
 - [Current development and verification guide](DEVELOPMENT.md)
-- [Regression test map](../tests/README.md)
+- [Regression test map](../tools/tests/README.md)
 
 - [Build instructions](INSTALL.md)
 - [Contributing guide](CONTRIBUTING.md)

@@ -9,31 +9,31 @@ All runtime-toggleable features are at **F8 → Reborn** ribbon tab.
 
 | # | Feature | Toggle | Default | Hook |
 |---|---|---|---|---|
-| 1 | Shells cap 9999 | `REBORN_FEAT_SHELLS_9999` | ON | `engine/src/itemUtils.c::ModShells` |
-| 2 | L + R → Pegasus Boots | `REBORN_FEAT_EQUIP_LR_BOOTS` | ON | `engine/src/game.c::GameMain_Update` |
+| 1 | Shells cap 9999 | `REBORN_FEAT_SHELLS_9999` | ON | `src/engine/src/itemUtils.c::ModShells` |
+| 2 | L + R → Pegasus Boots | `REBORN_FEAT_EQUIP_LR_BOOTS` | ON | `src/engine/src/game.c::GameMain_Update` |
 | 3 | L + SELECT → Ocarina | `REBORN_FEAT_EQUIP_LSELECT_OCARINA` | ON | same handler |
-| 4 | L + A/B → secondary item | `REBORN_FEAT_SECONDARY_LAB` | ON | `engine/src/playerUtils.c::UpdateActiveItems`. Fires the items bound to the port's two soft slots (port-config storage; no save-format change). |
-| 5 | SELECT-hold in item menu → equip secondary | `REBORN_FEAT_SELECT_HOLD_EQUIP` | ON | `engine/src/menu/pauseMenu.c` |
-| 6 | Skip Ezlo hint on resume | `REBORN_FEAT_NO_EZLO_ON_RESUME` | ON | `engine/src/game.c::GameMain_InitRoom` + just-resumed flag |
-| 7 | Library reopen after Four Sword | `REBORN_FEAT_LIBRARY_REOPEN` | ON | `engine/src/roomInit.c` |
-| 8 | Hero Mode (2× damage) | `REBORN_FEAT_HERO_MODE` | OFF | `engine/src/gameUtils.c::ModHealth`. Surfaced via F8 toggle instead of Reborn's file-select-L. |
-| 9 | Skip Ezlo tutorials | `REBORN_FEAT_SKIP_EZLO_TUTORIALS` | OFF | `engine/src/manager/ezloHintManager.c` |
-| 10 | Figurine 1-shell odds floor at 20% | `REBORN_FEAT_FIGURINE_MIN_RAISED` | ON | `engine/src/object/figurineDevice.c::sub_0808826C` — remaps the base 1-shell curve 100%→0% to 100%→20% |
+| 4 | L + A/B → secondary item | `REBORN_FEAT_SECONDARY_LAB` | ON | `src/engine/src/playerUtils.c::UpdateActiveItems`. Fires the items bound to the port's two soft slots (port-config storage; no save-format change). |
+| 5 | SELECT-hold in item menu → equip secondary | `REBORN_FEAT_SELECT_HOLD_EQUIP` | ON | `src/engine/src/menu/pauseMenu.c` |
+| 6 | Skip Ezlo hint on resume | `REBORN_FEAT_NO_EZLO_ON_RESUME` | ON | `src/engine/src/game.c::GameMain_InitRoom` + just-resumed flag |
+| 7 | Library reopen after Four Sword | `REBORN_FEAT_LIBRARY_REOPEN` | ON | `src/engine/src/roomInit.c` |
+| 8 | Hero Mode (2× damage) | `REBORN_FEAT_HERO_MODE` | OFF | `src/engine/src/gameUtils.c::ModHealth`. Surfaced via F8 toggle instead of Reborn's file-select-L. |
+| 9 | Skip Ezlo tutorials | `REBORN_FEAT_SKIP_EZLO_TUTORIALS` | OFF | `src/engine/src/manager/ezloHintManager.c` |
+| 10 | Figurine 1-shell odds floor at 20% | `REBORN_FEAT_FIGURINE_MIN_RAISED` | ON | `src/engine/src/object/figurineDevice.c::sub_0808826C` — remaps the base 1-shell curve 100%→0% to 100%→20% |
 | 11 | ~~Rupee Like overhaul~~ — **removed** | `REBORN_FEAT_RUPEE_LIKE_OVERHAUL` (reserved) | — | removed; enum slot kept for config-bitmask stability |
-| 12 | Mirror Shield earlier | (no toggle — additive) | always | `engine/data/scripts/veilFalls/script_BigGoron3.inc` — flag swap GAMECLEAR → EZERO_1ST |
-| 13 | Oracle left-behind also offers charm | (no toggle — additive) | always | `engine/data/scripts/hyruleTown/script_{Nayru,Farore,Din}Alone.inc` — branch into MovedIn charm paths |
+| 12 | Mirror Shield earlier | (no toggle — additive) | always | `src/engine/data/scripts/veilFalls/script_BigGoron3.inc` — flag swap GAMECLEAR → EZERO_1ST |
+| 13 | Oracle left-behind also offers charm | (no toggle — additive) | always | `src/engine/data/scripts/hyruleTown/script_{Nayru,Farore,Din}Alone.inc` — branch into MovedIn charm paths |
 
 ## Not implemented (2)
 
 ### Joy Butterfly fusion earlier
-**Status:** *Couldn't locate the change.* Diffed `engine/src/kinstone.c`,
-`engine/data/scripts/kinstoneFusion/`, and `engine/data/scripts/sanctuary/` — no
+**Status:** *Couldn't locate the change.* Diffed `src/engine/src/kinstone.c`,
+`src/engine/data/scripts/kinstoneFusion/`, and `src/engine/data/scripts/sanctuary/` — no
 clear fusion-content diff found. Possibly buried in a fusion table
 that lives outside the script tree. Would need targeted investigation.
 
 ### Improved text boxes
 **Status:** Cosmetic; large scope. Reborn rewrote multiple recurring
-text strings — those live in compiled text banks (`engine/data/strings.s`
+text strings — those live in compiled text banks (`src/engine/data/strings.s`
 indirects into per-language `.bin` files). Diffing the asm shows only
 build-system simplification, not content. A proper port would replace
 specific entries in the text bank; not attempted.
@@ -71,7 +71,7 @@ slot via SELECT-hold equip, L+A/B simply falls back to the normal A/B item.
   in Reborn relies on a save-format flag we didn't need to add.
 - **Skip Ezlo tutorials** is a runtime gate on
   `EzloHintManager_Action2` rather than removing the hint entries
-  from `engine/data/map/entity_headers.s`. Same observable behavior;
+  from `src/engine/data/map/entity_headers.s`. Same observable behavior;
   reversible at runtime.
 - **L + A/B secondary items** reuses the port's soft-slot store (the same
   X/Y/L2/R2 binding system) rather than touching the GBA save at all.

@@ -4,20 +4,11 @@
     ".gitattributes",
     ".github",
     ".gitignore",
-    "COPYRIGHT.md",
     "LICENSE",
-    "Makefile",
     "README.md",
-    "THIRD-PARTY-LICENSES.md",
-    "build",
-    "config",
     "docs",
-    "engine",
-    "libs",
     "platform",
-    "port",
-    "scripts",
-    "tests",
+    "src",
     "tools",
     "xmake.lua"
   ],
@@ -29,8 +20,7 @@
   "required_paths": [
     "README.md",
     "docs/REPOSITORY.md",
-    "scripts/check-repository.py",
-    "Makefile",
+    "tools/scripts/check-repository.py",
     "xmake.lua",
     "platform/3ds/build.sh"
   ]

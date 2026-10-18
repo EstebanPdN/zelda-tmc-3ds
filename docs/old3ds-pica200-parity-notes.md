@@ -38,7 +38,7 @@ proof; see the caveats at the end.
 ## Limit 1: alpha blending cannot be bit-exact on PICA200
 
 The GBA folds two layers with `out5 = min(31, (top*eva + bottom*evb) >> 4)`
-(`port/ppu/src/mode1.c`), i.e. four fractional bits below the stored 5-bit unit.
+(`src/port/ppu/src/mode1.c`), i.e. four fractional bits below the stored 5-bit unit.
 The PICA200 blender computes `src*C/255 + dst*C'/255` in 8 bits and the RGBA5551
 colour buffer truncates to 5, leaving three fractional bits. The missing bit is
 not recoverable by any choice of constant:

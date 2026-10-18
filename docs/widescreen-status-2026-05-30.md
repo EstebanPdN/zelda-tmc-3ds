@@ -29,35 +29,35 @@ xmake f -y --game_version=USA --gpu_renderer=y --widescreen_width=240
 `MODE1_GBA_WIDTH == 240` ⇒ stock behavior; `> 240` ⇒ widescreen paths active.
 
 Headless smoke/visual capture used the env-gated harness in
-`port/port_repro_mazaal.c` (TMC_AUTOPLAY=1, TMC_REPRO_MAZAAL=1, plus temporary
+`src/port/port_repro_mazaal.c` (TMC_AUTOPLAY=1, TMC_REPRO_MAZAAL=1, plus temporary
 TMC_WARP / TMC_FRAME_DUMP / TMC_WS_WALK hooks). Those temporary hooks were
 reverted; the file is back to its original repro-only content. Run headless with
 `SDL_VIDEODRIVER=offscreen SDL_AUDIODRIVER=dummy`.
 
 ## What's implemented
 
-- **Compile-time viewport** — `port/port_widescreen.h` (new): `PORT_WIDESCREEN_VIEW_WIDTH`
+- **Compile-time viewport** — `src/port/port_widescreen.h` (new): `PORT_WIDESCREEN_VIEW_WIDTH`
   = `MODE1_GBA_WIDTH`, native 240/160 constants, half-extents. `xmake.lua` adds the
   `widescreen_width` option and the `MODE1_GBA_WIDTH=` define.
-- **Camera** — `engine/src/scroll.c`: `GetMaxScrollXForViewport` / `GetCenteredScrollXForViewport`
+- **Camera** — `src/engine/src/scroll.c`: `GetMaxScrollXForViewport` / `GetCenteredScrollXForViewport`
   decouple the follow-camera centering and right-clamp from the hardcoded 0x78/0xf0
   (used in `Scroll1`, `sub_08080974`, `sub_080809D4`). Link is centered in the wide view.
-- **Overworld room transition distance** — `engine/src/scroll.c` `Scroll2Sub2`: horizontal
+- **Overworld room transition distance** — `src/engine/src/scroll.c` `Scroll2Sub2`: horizontal
   transitions now scroll `ROOM_VIEWPORT_WIDTH / 4` steps instead of `0x3c` (240px).
   This is what fixes the Lon Lon Ranch / room-entry **permanent black band**.
-- **BG extension** — `libs/ViruaPPU` (applied via `port/patches/viruappu-widescreen.patch`):
+- **BG extension** — `src/third_party/ViruaPPU` (applied via `src/port/patches/viruappu-widescreen.patch`):
   `virtuappu_mode1_set_widescreen_bg` / `clear_widescreen_bgs`; `render_text_bg_line`
   renders columns ≥240 from a room-backed `map_special` source (128-stride subtile map);
   OAM viewport widened (`MODE1_GBA_VIEWPORT_X = MODE1_GBA_WIDTH`). `MODE1_GBA_BG_CLIP_X`
   stays 240 (split point between VRAM-buffer native cols and map_special extension).
-- **Per-frame bind + non-gameplay handling** — `port/port_ppu.cpp`:
+- **Per-frame bind + non-gameplay handling** — `src/port/port_ppu.cpp`:
   `Port_PPU_UpdateWidescreenBgs` binds `gMapBottom`/`gMapTop` room maps each frame
   (reads `gScreen`/`gRoomControls`/`gMap*` via local mirror structs — these C structs
   can't be included into this C++ TU). Non-gameplay frames (title/menus, affine-only
   screens) are **stretched to fill** (`Port_PPU_StretchNativeToWide`) — no pillarbox,
   no stale columns.
-- **Sprite visibility** — widened to the view width: `port/port_draw.c` `CheckOnScreen`
-  + `RenderSpritePieces` clip; `port/port_linked_stubs.c` `CheckRectOnScreen`.
+- **Sprite visibility** — widened to the view width: `src/port/port_draw.c` `CheckOnScreen`
+  + `RenderSpritePieces` clip; `src/port/port_linked_stubs.c` `CheckRectOnScreen`.
 - **Docs** — `README.md` native-widescreen build note.
 
 ## Verified working (headless capture at 384)
@@ -104,21 +104,21 @@ reverted; the file is back to its original repro-only content. Run headless with
 
 ## File inventory (all reverted; this is what to recreate)
 These were the widescreen edits, now backed out of the working tree:
-- `port/port_widescreen.h` (new) — viewport constants.
+- `src/port/port_widescreen.h` (new) — viewport constants.
 - `xmake.lua` — `widescreen_width` wired to `-DMODE1_GBA_WIDTH`.
-- `engine/src/scroll.c` — camera centering/clamp + horizontal transition distance.
-- `port/port_ppu.cpp` — per-frame BG-source bind, mirror structs, non-gameplay stretch.
-- `port/port_draw.c` — `CheckOnScreen` + `RenderSpritePieces` clip widths.
-- `port/port_linked_stubs.c` — `CheckRectOnScreen` width.
-- `port/patches/viruappu-widescreen.patch` — added the BG-source hooks + OAM viewport
+- `src/engine/src/scroll.c` — camera centering/clamp + horizontal transition distance.
+- `src/port/port_ppu.cpp` — per-frame BG-source bind, mirror structs, non-gameplay stretch.
+- `src/port/port_draw.c` — `CheckOnScreen` + `RenderSpritePieces` clip widths.
+- `src/port/port_linked_stubs.c` — `CheckRectOnScreen` width.
+- `src/port/patches/viruappu-widescreen.patch` — added the BG-source hooks + OAM viewport
   on top of the existing parallel-render patch (regenerated; clean-applied on a fresh
   submodule worktree).
-- `libs/ViruaPPU` (`engine/src/mode1.c`, `engine/include/cpu/mode1.h`) — produced by that patch.
+- `src/third_party/ViruaPPU` (`src/engine/src/mode1.c`, `src/engine/include/cpu/mode1.h`) — produced by that patch.
 - `README.md` — a "Native widescreen builds" section.
 
 Only this doc remains. The macOS SDL_GPU/Metal effort was untouched
-(`port/port_gpu_renderer.{cpp,h}`, `port/port_gpu_msl_shaders.inl`,
-`port/port_imgui_menu.cpp`, `port/port_main.c`, `port/port_glslp_runtime.cpp`,
+(`src/port/port_gpu_renderer.{cpp,h}`, `src/port/port_gpu_msl_shaders.inl`,
+`src/port/port_imgui_menu.cpp`, `src/port/port_main.c`, `src/port/port_glslp_runtime.cpp`,
 plus the GPU/Metal notes in `README.md`).
 
 ## Re-applying
@@ -127,7 +127,7 @@ The changes were reverted with `git checkout` (sources + patch), `rm`
 (`port_widescreen.h`), a submodule `reset --hard`, and surgical edits to
 `xmake.lua`/`README.md`. To resume, recreate the edits from the sections above
 (they are described by symbol, not line number, so they survive drift), starting
-with `port/port_widescreen.h` + the `xmake.lua` define wiring, then the
+with `src/port/port_widescreen.h` + the `xmake.lua` define wiring, then the
 ViruaPPU BG hook, then `port_ppu.cpp`, camera, transition, and sprite clips.
 
 ## Technical notes for resuming

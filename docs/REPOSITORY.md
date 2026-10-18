@@ -9,16 +9,16 @@ notices. Implementation, resources and supporting documents are grouped below.
 
 | Location | Responsibility |
 | --- | --- |
-| `engine/src, engine/include` | Shared C gameplay engine and declarations used by the native port. |
-| `engine/assets` | Symbolic metadata and generator inputs; no extracted game assets. |
-| `port` | Native engine bridges, ROM access, saves, software PPU and audio. |
+| `src/engine/src, src/engine/include` | Shared C gameplay engine and declarations used by the native port. |
+| `src/engine/assets` | Symbolic metadata and generator inputs; no extracted game assets. |
+| `src/port` | Native engine bridges, ROM access, saves, software PPU and audio. |
 | `platform/3ds` | Device integration, updater, packaging and platform regressions. |
-| `libs` | agbplay source and its original LGPL notices. |
-| `config/roms` | Reference clean-ROM checksum descriptions. |
-| `tests` | Host regression fixtures and the symbolic Goron script reference. |
-| `tools, scripts` | Source generators, parity tools, formatting and repository checks. |
+| `src/third_party` | agbplay source and its original LGPL notices. |
+| `docs/roms` | Reference clean-ROM checksum descriptions. |
+| `tools/tests` | Host regression fixtures and the symbolic Goron script reference. |
+| `tools` | Source generators, parity tools, formatting and repository checks. |
 | `docs` | Current guides, attribution, artwork and dated technical references. |
-| `build/USA/assets, build/EU/assets` | Tracked symbolic offset headers consumed by engine bridges. |
+| `src/offsets/USA/assets, src/offsets/EU/assets` | Tracked symbolic offset headers consumed by engine bridges. |
 
 Source file moves must preserve include paths, generated inputs, toolchain
 flags, runtime data locations and package contents. Update every consumer
@@ -31,7 +31,7 @@ not a gameplay change or a new performance claim.
 - Game-specific development: follow the build/test guides linked there.
 - File placement: use the table above and the checked
   [layout manifest](repository-layout.json).
-- Repository check: run `python3 scripts/check-repository.py` at the root.
+- Repository check: run `python3 tools/scripts/check-repository.py` at the root.
 - Release history: use the existing GitHub Releases and immutable version tags.
 
 ## Names and labels

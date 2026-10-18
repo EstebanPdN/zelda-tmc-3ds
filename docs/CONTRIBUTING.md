@@ -9,8 +9,8 @@ application builds are maintained by the credited upstream projects.
 
 1. Install the SDK and dependencies listed in the development guide.
 2. Build with `./platform/3ds/build.sh`; no ROM is required for compilation.
-3. Run `python3 scripts/dev/run-tests.py` for the host regression suite.
-4. Run `python3 scripts/check-repository.py`, `python3 scripts/dev/check.py`
+3. Run `python3 tools/scripts/dev/run-tests.py` for the host regression suite.
+4. Run `python3 tools/scripts/check-repository.py`, `python3 tools/scripts/dev/check.py`
    and the pinned formatter check described in the development guide.
 5. Describe the exercised behavior and distinguish host, cross-build and
    physical-console evidence in the pull request.

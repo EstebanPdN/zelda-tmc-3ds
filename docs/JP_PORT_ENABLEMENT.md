@@ -7,13 +7,13 @@ tables (see "Remaining gaps").*
 
 The Minish Cap speedrun scene runs the **Japanese** version (RNG manipulations are
 version-exclusive and were authored for JP). The decomp supports JP at the source
-level (`#ifdef JP` throughout `engine/src/`); this port now wires JP through the build and
+level (`#ifdef JP` throughout `src/engine/src/`); this port now wires JP through the build and
 runtime, and supplies the JP ROM data-table offsets.
 
 ## Build & run a JP port
 
 1. **Provide a legal JP baserom** (`BZMJ`, SHA-1 `6c5404a1effb17f481f352181d0f1c61a2765c5d`,
-   see `config/roms/tmc_jp.sha1`) as `baserom_jp.gba` in the repo root. (Gitignored — never committed.)
+   see `docs/roms/tmc_jp.sha1`) as `baserom_jp.gba` in the repo root. (Gitignored — never committed.)
 2. **Build:** `python build.py --jp` (or `xmake f --game_version=JP -y && xmake build -y tmc_pc`).
 3. **Run:** point the binary at the JP ROM. It auto-detects `JP (BZMJ)` and selects the
    JP offset table. Verified boot log:
@@ -28,12 +28,12 @@ runtime, and supplies the JP ROM data-table offsets.
 ## What's wired (all committed, USA build unaffected)
 
 - `ROM_REGION_JP`, `kRomOffsets_JP` (real values), `BZMJ` detection, JP/USA offset
-  selection, JP-aware region messages — `port/port_config.h`, `port/port_rom.c`
-- `port/port_offset_JP.h` (asset-blob offsets) + `#if defined(JP)` include — `port/port_main.c`
+  selection, JP-aware region messages — `src/port/port_config.h`, `src/port/port_rom.c`
+- `src/port/port_offset_JP.h` (asset-blob offsets) + `#if defined(JP)` include — `src/port/port_main.c`
 - `JP`/`JAPANESE` in `pc_versions` — `xmake.lua`; `--jp` + JP version entry — `build.py`
 - JP-only symbol guards so the JP port links (`sub_0807FC24`, `sub_08088658` are
-  USA-only in the decomp) — `port/port_script_funcs.c`
-- `-I port` on the decomp ROM build's preprocess so committed `engine/src/` port-includes
+  USA-only in the decomp) — `src/port/port_script_funcs.c`
+- `-I port` on the decomp ROM build's preprocess so committed `src/engine/src/` port-includes
   resolve (header-resolution only; no PC code enters the ROM build) — `xmake.lua`
 
 ## How `kRomOffsets_JP` was derived (content-anchoring)
@@ -64,16 +64,16 @@ and scripted cutscenes/NPCs — is correct.
 
 Resolved since the original writeup:
 
-- **Script addresses (was: `port/port_scripts.h` hardcoded USA).**
-  `Port_TranslateScriptAddr` (`port/port_script_addrs.c`) now remaps the
+- **Script addresses (was: `src/port/port_scripts.h` hardcoded USA).**
+  `Port_TranslateScriptAddr` (`src/port/port_script_addrs.c`) now remaps the
   **entire** script bytecode section — all 576 data scripts, USA→EU/JP by exact
   symbol lookup in the retail maps — not just the ~100 `GBA_script_*` macros.
   This covers scripts referenced only by raw entity-data blobs in
-  `port/data_const_stubs.c` (e.g. `script_ZeldaOutsideLinksHouse`, the prologue
+  `src/port/data_const_stubs.c` (e.g. `script_ZeldaOutsideLinksHouse`, the prologue
   Business Scrub orchestrators). Those were previously untranslated and ran
   garbage bytecode on JP/EU — the cause of the intro Zelda "wrong position" and
   the prologue scrub not spitting.
-- **`port/port_script_funcs.c` native-call table.** Has per-region tables
+- **`src/port/port_script_funcs.c` native-call table.** Has per-region tables
   (`sScriptFuncTable_JP` / `_EU`, selected at runtime via `REGION_IS_*`); the
   two USA-only functions are excluded for JP.
 

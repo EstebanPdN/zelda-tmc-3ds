@@ -11,7 +11,6 @@ Makefile text eol=lf
 *.sha1 text eol=lf
 *.sed text eol=lf
 *.sh text eol=lf
-android/gradlew text eol=lf
 *.json text eol=lf
 *.patch text eol=lf
 *.lua text eol=lf
@@ -24,9 +23,11 @@ android/gradlew text eol=lf
 
 *.h linguist-language=C
 *.inc linguist-language=Assembly
-engine/data/** linguist-language=data
 tools/** linguist-vendored
 
 # Preserve the exact upstream unified-diff context and recorded patch hashes.
 platform/3ds/update-dependencies/*.patch whitespace=-blank-at-eol,-blank-at-eof
 platform/3ds/source/update_ui_3ds.inc linguist-language=C
+
+tools/scripts/** linguist-vendored=false
+tools/tests/** linguist-vendored=false

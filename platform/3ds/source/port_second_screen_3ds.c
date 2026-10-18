@@ -15,7 +15,7 @@
 
 /* This replaces the direct port/port_second_screen.c entry in the 3DS CMake
  * source list. All normal exported functions retain their original symbols. */
-#include "../../../port/port_second_screen.c"
+#include "../../../src/port/port_second_screen.c"
 
 static volatile uint8_t sIdleSettingsOpen;
 static uint8_t sIdleOwnsSettingsTab;

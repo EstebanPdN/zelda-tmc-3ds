@@ -17,7 +17,7 @@
   <a href="https://github.com/EstebanPdN/zelda-tmc-3ds/releases/tag/v2.2"><img src="docs/badges/version.svg" alt="Stable release: v2.2" height="22"></a>
   <a href="#download-and-installation"><img src="docs/badges/platform.svg" alt="Nintendo 3DS" height="22"></a>
   <a href="#updates"><img src="docs/badges/updater.svg" alt="Updates: built in" height="22"></a>
-  <a href="THIRD-PARTY-LICENSES.md"><img src="docs/badges/license.svg" alt="Component-specific licenses" height="22"></a>
+  <a href="docs/legal/THIRD-PARTY-LICENSES.md"><img src="docs/badges/license.svg" alt="Component-specific licenses" height="22"></a>
 </p>
 
 <p align="center">
@@ -203,7 +203,7 @@ https://github.com/EstebanPdN/zelda-tmc-3ds/releases/latest
 
 - [Architecture and repository map](docs/ARCHITECTURE.md)
 - [Build, formatting and verification](docs/DEVELOPMENT.md)
-- [Regression test ownership](tests/README.md)
+- [Regression test ownership](tools/tests/README.md)
 
 | Guide | Purpose |
 | --- | --- |
@@ -252,15 +252,15 @@ The build does not include or embed a ROM.
 ## License and Legal Notice
 
 Original port contributions are distributed under **GNU GPL v3.0 or later**.
-See [LICENSE](LICENSE) for the full terms and [COPYRIGHT.md](COPYRIGHT.md) for scope and attribution.
+See [LICENSE](LICENSE) for the full terms and [COPYRIGHT.md](docs/legal/COPYRIGHT.md) for scope and attribution.
 
 Each release's **Source code** download contains the corresponding application
 and library sources and build scripts. The 3DS build uses **agbplay** by ipatix
-and contributors under **LGPL v3.0**; its [notice](libs/agbplay_core/LICENSE)
-and [license text](libs/agbplay_core/COPYING.LESSER) are included. You may modify
+and contributors under **LGPL v3.0**; its [notice](src/third_party/agbplay_core/LICENSE)
+and [license text](src/third_party/agbplay_core/COPYING.LESSER) are included. You may modify
 that library and rebuild the CIA or 3DSX with the documented build command.
 
-Third-party components retain their respective licenses as listed in [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md).
+Third-party components retain their respective licenses as listed in [THIRD-PARTY-LICENSES.md](docs/legal/THIRD-PARTY-LICENSES.md).
 
 Nintendo owns *The Legend of Zelda*, *The Minish Cap*, and all associated game content.
 
@@ -281,6 +281,6 @@ reproduce the problem. Review diagnostic captures before sharing them.
   <a href="https://estebanpdn.github.io/">Esteban’s Forge</a> ·
   <a href="https://discord.gg/BjbzfRYpV">Discord</a> ·
   <a href="#documentation">Documentation</a> ·
-  <a href="THIRD-PARTY-LICENSES.md">License and notices</a><br>
+  <a href="docs/legal/THIRD-PARTY-LICENSES.md">License and notices</a><br>
   <sub>An independent fan project. Game names and content belong to their respective owners.</sub>
 </p>

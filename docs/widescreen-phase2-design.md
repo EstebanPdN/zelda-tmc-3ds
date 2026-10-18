@@ -7,7 +7,7 @@ the feature is gated behind `config.json:widescreen_enabled` (default off,
 runtime-toggleable via F8 → Display settings). The rest of this document is
 retained as the design/history record — earlier "WIP"/"REVERTED" statuses are superseded.
 
-Root cause: `Port_Widescreen_UpdateShadows` (port/port_linked_stubs.c) assigned
+Root cause: `Port_Widescreen_UpdateShadows` (src/port/port_linked_stubs.c) assigned
 the shadow tilemaps to the wrong PPU BG index — hardcoded `shadow[1]=bottomMap`,
 `shadow[2]=topMap`. But the engine renders the **bottom** map as **PPU BG2** and
 the **top** map as **PPU BG1** (the map's `bgSettings->control` screen_base
@@ -20,7 +20,7 @@ the engine's 32-col tilemap window, but the area tileset is resident in char-VRA
 regardless of that window, so it blacked legitimately-loaded tiles (the ~45%
 black). No tile/palette loading subsystem was ever needed.
 
-Fix (all in `port/port_linked_stubs.c`, gated `#if MODE1_GBA_WIDTH > 240`):
+Fix (all in `src/port/port_linked_stubs.c`, gated `#if MODE1_GBA_WIDTH > 240`):
 1. `Port_WidescreenPpuBgForControl()` resolves each map's PPU BG index from its
    control screen_base; `Port_Widescreen_UpdateShadows` assigns the shadow to
    that index (no hardcoded 1/2).
@@ -130,7 +130,7 @@ history.
   `--widescreen_width=N`. Default 240. Spike value 256.
 - `MODE1_GBA_BG_CLIP_X` follows `MODE1_GBA_WIDTH` up to 256, then
   caps at 256.
-- Post-render stretch in `port/port_ppu.cpp` only fires for >256;
+- Post-render stretch in `src/port/port_ppu.cpp` only fires for >256;
   at ≤256 the BG renderer fills the wider buffer natively.
 - OAM viewport stays at 240 unconditionally — bumping it leaks the
   engine's parked off-screen sprites into the visible widescreen
@@ -143,7 +143,7 @@ BGCNT_TXT512x256 extension") implies the BG buffers are 32-tile wide
 and need to grow. Survey of the actual code shows the situation is
 more layered:
 
-### BG buffer layout (`engine/include/vram.h`)
+### BG buffer layout (`src/engine/include/vram.h`)
 
 ```
 gBG0Buffer: u16[0x400]   (32×32 = 1024 entries)
@@ -152,7 +152,7 @@ gBG2Buffer: u16[0x400]
 gBG3Buffer: u16[0x800]   (32×64 = 2048 entries — NOT 64×32)
 ```
 
-**gBG3 is taller, not wider.** Confirmed by `engine/src/enemy/waterDrop.c:76`
+**gBG3 is taller, not wider.** Confirmed by `src/engine/src/enemy/waterDrop.c:76`
 which addresses the bottom half as `(y & 0x1fU) * 0x20 + 0x400`. The
 extra 0x400 entries are a vertical pre-load buffer used during
 vertical room transitions, not a wider BG.
@@ -160,12 +160,12 @@ vertical room transitions, not a wider BG.
 ### Tile rendering pipeline
 
 1. `RenderMapLayerToSubTileMap(gMapDataBottomSpecial, &gMapBottom)`
-   in `engine/src/beanstalkSubtask.c:1126` renders the full room layer into
+   in `src/engine/src/beanstalkSubtask.c:1126` renders the full room layer into
    `gMapDataBottomSpecial` (`u16[0x4000]` = 128KB intermediate).
    Uses **0x80 row stride** = 128 u16 = 64 subtiles wide. This is the
    intermediate's layout, NOT any BG buffer.
 
-2. The "scroll modes" in `engine/src/scroll.c` (`Scroll0`..`Scroll5`) copy a
+2. The "scroll modes" in `src/engine/src/scroll.c` (`Scroll0`..`Scroll5`) copy a
    32-tile window from `gMapDataTopSpecial` / `gMapDataBottomSpecial`
    into `gBGnBuffer` based on camera position. Each mode handles a
    different room transition pattern (continuous scroll, screen-by-
@@ -177,8 +177,8 @@ vertical room transitions, not a wider BG.
 
 - BGCNT bits 14–15: `00` = 256×256 (1 screen block), `01` = 512×256,
   `10` = 256×512, `11` = 512×512.
-- TMC sets BG0–3 to `00` at `engine/src/common.c:647`. Title screen at
-  `engine/src/title.c:251` already overrides BG2 to `512×256` (`| BGCNT_TXT512x256`),
+- TMC sets BG0–3 to `00` at `src/engine/src/common.c:647`. Title screen at
+  `src/engine/src/title.c:251` already overrides BG2 to `512×256` (`| BGCNT_TXT512x256`),
   proving the PPU + hardware path handles it.
 - 512×256 mode requires 2 screen blocks in VRAM (left + right). The
   EWRAM-side buffer needs to mirror this: u16[0x800] with the right
@@ -192,23 +192,23 @@ For each BG layer that should be widescreen (BG1, BG2, BG3 — leave
 BG0 as 32-tile so UI offsets stay stable):
 
 1. Grow `gBGnBuffer` from `u16[0x400]` to `u16[0x800]` in
-   `engine/include/vram.h`. For gBG3, expand from 32×64 to a layout that
+   `src/engine/include/vram.h`. For gBG3, expand from 32×64 to a layout that
    covers both horizontal (64) and vertical (64) — i.e.
    `u16[0x1000]`. (Or accept losing the vertical pre-load buffer in
    exchange for horizontal — needs to be evaluated.)
 2. Update every `MemClear`/`MemCopy` `sizeof(gBGnBuffer)` / hardcoded
    `0x800` to track the new size. ~30 sites already mapped:
-   - `engine/src/debug.c:29-30`
-   - `engine/src/cutscene.c:263`
-   - `engine/src/gameUtils.c:972-975`
-   - `engine/src/common.c:628`
-   - `engine/src/menu/figurineMenu.c:121-122,577-578,648-650`
-   - `engine/src/staffroll.c:117,134,201-203`
-   - `engine/src/subtask.c:109`
-   - `engine/src/demo.c:69-70`
-   - `engine/src/ui.c:181`
-   - `engine/src/fileselect.c:398,410-411,800`
-3. Update BGCNT init at `engine/src/common.c:647-653` to OR in
+   - `src/engine/src/debug.c:29-30`
+   - `src/engine/src/cutscene.c:263`
+   - `src/engine/src/gameUtils.c:972-975`
+   - `src/engine/src/common.c:628`
+   - `src/engine/src/menu/figurineMenu.c:121-122,577-578,648-650`
+   - `src/engine/src/staffroll.c:117,134,201-203`
+   - `src/engine/src/subtask.c:109`
+   - `src/engine/src/demo.c:69-70`
+   - `src/engine/src/ui.c:181`
+   - `src/engine/src/fileselect.c:398,410-411,800`
+3. Update BGCNT init at `src/engine/src/common.c:647-653` to OR in
    `BGCNT_TXT512x256` for each widened layer.
 
 ### Step B: Scroll-mode widening
@@ -228,7 +228,7 @@ the intermediates already covers 64 tiles, so the SOURCE side is fine
 
 ### Step C: OAM viewport extension
 
-`MODE1_GBA_VIEWPORT_X` in `libs/ViruaPPU/include/cpu/mode1.h` must
+`MODE1_GBA_VIEWPORT_X` in `src/third_party/ViruaPPU/include/cpu/mode1.h` must
 track `MODE1_GBA_WIDTH` so sprites in the widescreen area render.
 Catch: the engine "parks" off-screen sprites by setting their OAM x
 to 240+. Bumping the viewport without changing the engine's parking
@@ -244,7 +244,7 @@ Either:
 
 ### Step D: UI offset audit
 
-`engine/src/ui.c`, `engine/src/message.c`, `engine/src/fileselect.c` use ~30 hardcoded
+`src/engine/src/ui.c`, `src/engine/src/message.c`, `src/engine/src/fileselect.c` use ~30 hardcoded
 offsets like `&gBG0Buffer[0x219]`. If BG0 stays at 32-tile width,
 none of these need to change. If BG0 widens too (to support widescreen
 HUDs), every offset needs to be re-derived for the new stride.
@@ -295,7 +295,7 @@ Total: ~10–15 focused sessions of engineering + verification.
 
 ### ✅ Slice 1 — `564650014`: ViruaPPU per-BG render-width clipping
 
-`port/patches/viruappu-widescreen.patch` extended to:
+`src/port/patches/viruappu-widescreen.patch` extended to:
 - `render_text_bg_line` honours BGCNT bit 14: 32-tile BGs clip at
   `MODE1_GBA_BG_CLIP_X` (240); 64-tile BGs (TXT512x256) render up
   to `MODE1_GBA_WIDTH`.
@@ -318,8 +318,8 @@ adjacent buffer or `gMapBottom`.
 The per-VBlank DMA routine now takes a `void* right_half` argument
 (PC_PORT only).  When `BGCNT size_flag == 1` (TXT512x256), it issues
 a second 0x800-byte DMA from `right_half` to VRAM base+0x800.
-Callers in `engine/src/interrupts.c::UpdateDisplayControls` and
-`engine/src/gameUtils.c::RestoreGameTask` pass the appropriate
+Callers in `src/engine/src/interrupts.c::UpdateDisplayControls` and
+`src/engine/src/gameUtils.c::RestoreGameTask` pass the appropriate
 `gBG[012]BufferRight` (or NULL for BG3).
 
 ### ❌ Step B-2 attempt 2 — VRAM dead-end (reverted)
@@ -333,7 +333,7 @@ blocks so the right-half DMA (`base + 0x800`) doesn't collide with
 another BG's screen base.
 
 **Why it failed**: in Hyrule Town,
-`engine/src/manager/hyruleTownTileSetManager.c` loads tileset chardata
+`src/engine/src/manager/hyruleTownTileSetManager.c` loads tileset chardata
 to `BG_SCREEN_ADDR(16/18/20)` (blocks 16-21, in the cb2 region),
 each load 0x1000 bytes (= 2 blocks).  These chardata blocks ARE
 referenced by BG1: BG1 cb1 = blocks 8-15, but BG1 tile indices in
@@ -374,7 +374,7 @@ What we kept:
 
 Implementation:
 
-1. `libs/ViruaPPU/include/cpu/mode1.h`: declare
+1. `src/third_party/ViruaPPU/include/cpu/mode1.h`: declare
    `virtuappu_mode1_ws_shadow[MODE1_GBA_BG_COUNT]` (per-BG u16 tile-
    entry table) + `virtuappu_mode1_ws_shadow_base_tile[]`
    (per-BG "where in PPU tile_col space does shadow[i=0] live?").
@@ -382,7 +382,7 @@ Implementation:
    headroom) and `MODE1_WS_SHADOW_ROWS = 32` (mirrors mod-32 row
    rolling).
 
-2. `libs/ViruaPPU/src/mode1.c::render_text_bg_line`: when a 32-tile
+2. `src/third_party/ViruaPPU/src/mode1.c::render_text_bg_line`: when a 32-tile
    BG has a non-NULL shadow registered, render up to
    `MODE1_GBA_WIDTH` instead of clipping at `MODE1_GBA_BG_CLIP_X`.
    For `x >= MODE1_GBA_BG_CLIP_X` it reads `tile_entry.raw` from
@@ -392,14 +392,14 @@ Implementation:
    indexes the right cell.  Chardata lookup + palette + flip are
    unchanged.
 
-3. `port/port_linked_stubs.c::Port_Widescreen_UpdateShadows`:
+3. `src/port/port_linked_stubs.c::Port_Widescreen_UpdateShadows`:
    per-frame populate (called from `UpdateDisplayControls`).  Reads
    23 BG-tile rows × 12 cols from `gMapData{Bottom,Top}Special` at
    world cols `[cam_bg_col + 30, cam_bg_col + 30 + 12)`, writes to
    `sWsShadowBG[12]`.  Sets the PPU's pointer + base_tile globals.
    `#if MODE1_GBA_WIDTH > 240` gated, no-op at native 240.
 
-4. `port/port_ppu.cpp`: removed the Phase-1 uniform-stretch fallback
+4. `src/port/port_ppu.cpp`: removed the Phase-1 uniform-stretch fallback
    (was clobbering real Phase-2 BG content with stretched 240-px).
 
 VRAM is untouched — the shadow lives entirely in port-side EWRAM.
@@ -456,7 +456,7 @@ Per the original design above.
 
 Re-did Option A from scratch — direct `gMapData{Bottom,Top}Special` reads in
 `render_text_bg_line` for `x >= MODE1_GBA_BG_CLIP_X` (no separate shadow buffer),
-camera centering + right-clamp keyed to the view width (`engine/src/scroll.c`), sprite
+camera centering + right-clamp keyed to the view width (`src/engine/src/scroll.c`), sprite
 visibility widened (`CheckOnScreen` / `CheckRectOnScreen` / `RenderSpritePieces`),
 non-gameplay **stretch** in `port_ppu.cpp`, OAM viewport = `MODE1_GBA_WIDTH`.
 Verified at 384: gameplay BG fills the full width, seamless at the col-240 split,
@@ -469,7 +469,7 @@ edges. No clean global fix; it is per-entity (several enemies/objects use hardco
 `scroll_x + 0x108`-style bounds, e.g. gyorgChild/gyorgMale/bombPeahat).
 
 **NEW finding (not previously documented): overworld room transitions hardcode a 240px
-scroll distance.** `engine/src/scroll.c::Scroll2Sub2` scrolls horizontal room crossings until
+scroll distance.** `src/engine/src/scroll.c::Scroll2Sub2` scrolls horizontal room crossings until
 `unk_18 == 0x3c` (60 steps × 4px = 240 = native width). With a wider camera the
 destination camera position is one *view* width away, so the transition under-scrolls by
 `W-240` and leaves a **permanent black band** on the leading edge after entry
@@ -488,18 +488,18 @@ explicitly rejected during review.
 ### 2026-06-01 re-land — BG reveal working again, correct shadow indexing
 
 Re-landed Option A (port-side shadow) on top of the new DISPLAY_WIDTH-parametric
-culling foundation (`port/port_widescreen.h`, parametric `CheckOnScreen` /
+culling foundation (`src/port/port_widescreen.h`, parametric `CheckOnScreen` /
 `CheckRectOnScreen`). Behind the default-off `--widescreen_width` flag.
 
 **Root-caused the prior shadow misalignment.** The 97efcdd18 template indexed the
 shadow as if `BGHOFS` carried the full camera scroll. It does NOT: the engine
-(`engine/src/scroll.c::UpdateScreenShake`) sets `BGHOFS = (scroll_x-origin_x) & 0xF` and
+(`src/engine/src/scroll.c::UpdateScreenShake`) sets `BGHOFS = (scroll_x-origin_x) & 0xF` and
 `BGVOFS = ((scroll_y-origin_y) & 0xF) + 8` — i.e. ONLY the sub-16px offset. Coarse
 scroll is done by re-filling the 32-tile buffer aligned to 16px blocks
 (`ram_sub_080B197C_c`: `col16 = xdiff>>4`, sub-tile stride **128 u16**, buffer cell
 `(br,bc)` holds world sub-tile `(2*row16-1+br, 2*col16+bc)`).
 
-Correct shadow population (`port/port_linked_stubs.c::Port_WidescreenShadow_Populate`):
+Correct shadow population (`src/port/port_linked_stubs.c::Port_WidescreenShadow_Populate`):
 - `base_col = 2*(xdiff>>4) + MODE1_GBA_BG_CLIP_X/8`  (world sub-col at display 240)
 - `base_row = 2*(ydiff>>4) - 1`  (world sub-row of buffer/shadow row 0)
 - `virtuappu_mode1_ws_shadow_base_tile = MODE1_GBA_BG_CLIP_X/8` (**constant 30** —
@@ -514,7 +514,7 @@ Correct shadow population (`port/port_linked_stubs.c::Port_WidescreenShadow_Popu
   (0/38400 px differ) — the change is provably additive, zero native regression.
 - Reveal columns [240,384) are 72% real world tiles (28% force-black: room edge /
   transparent), seamless at the col-240 seam.
-- `port/port_bugreport.cpp` screenshot capture made width-aware (`kFrameW =
+- `src/port/port_bugreport.cpp` screenshot capture made width-aware (`kFrameW =
   MODE1_GBA_WIDTH`) — it hard-coded 240 and sheared widescreen captures.
 - `port_ppu.cpp` stretch now gated to non-GAME tasks only (`gMain[2] != 2`);
   gameplay presents the real wide composite.
@@ -522,8 +522,8 @@ Correct shadow population (`port/port_linked_stubs.c::Port_WidescreenShadow_Popu
 
 **Still outstanding for a finished feature (unchanged from prior analysis):**
 - Camera centering + right-clamp (reveal is currently right-side only; player not
-  centered). `engine/src/scroll.c`.
-- `RenderSpritePieces` (`port/port_draw.c`) still clips sprite pieces at x>=240 and
+  centered). `src/engine/src/scroll.c`.
+- `RenderSpritePieces` (`src/port/port_draw.c`) still clips sprite pieces at x>=240 and
   masks OAM X to 9 bits — sprites don't yet render in the reveal. Needs the
   EXTENDED_OAM-style wide-X path + the per-entity parking pass (flicker).
 - Room-transition scroll distance (`Scroll2Sub2` → viewwidth/4) + the transient
@@ -532,13 +532,13 @@ Correct shadow population (`port/port_linked_stubs.c::Port_WidescreenShadow_Popu
 ### 2026-06-01 (cont.) — camera centering, sprite reveal, and the chardata wall
 
 Landed (all gated `#if MODE1_GBA_WIDTH > 240`, native 240 re-verified byte-identical):
-- **Camera centering** (`engine/src/scroll.c::sub_080809D4`, `sub_08080974`): the hardcoded
+- **Camera centering** (`src/engine/src/scroll.c::sub_080809D4`, `sub_08080974`): the hardcoded
   `120` (240/2) player-centering offset + room clamp are now parametric on
   `MODE1_GBA_WIDTH`. Clamp rewritten as `scroll_x = clamp(target - W/2, origin,
   max(origin, origin + width - W))` — reduces EXACTLY to the GBA-original at 240
   (kept verbatim in `#else`), centers the player in wide rooms, and pins narrow
   rooms (width < W) to the left.
-- **Sprite reveal** (`port/port_draw.c::RenderSpritePieces`): clip widened from
+- **Sprite reveal** (`src/port/port_draw.c::RenderSpritePieces`): clip widened from
   `x >= 240` to `x >= PORT_VIEW_WIDTH`. No OAM-width change needed after all —
   9-bit OAM X covers 0..511 and the PPU only sign-flips at `obj_x >= MODE1_GBA_WIDTH`
   (`mode1.c:462`), so reveal sprites at x in [240, W) draw correctly and genuine
@@ -565,9 +565,9 @@ on it. Per-entity parking pass (flicker) and `Scroll2Sub2` (transition) still op
 Confirmed *why* the chardata isn't resident: TMC streams BG tile graphics by camera
 region via per-area **tileset managers**, because GBA BG char VRAM can't hold a whole
 area's tileset at once:
-- `engine/src/manager/hyruleTownTileSetManager.c` — `*_UpdateLoadGfxGroups` swaps gfx groups
+- `src/engine/src/manager/hyruleTownTileSetManager.c` — `*_UpdateLoadGfxGroups` swaps gfx groups
   by the camera's town quadrant.
-- `engine/src/manager/minishVillageTileSetManager.c` — explicit `{ROM src, 0x0600x000 VRAM
+- `src/engine/src/manager/minishVillageTileSetManager.c` — explicit `{ROM src, 0x0600x000 VRAM
   char slot}` tables, reloaded as you cross region boundaries.
 
 Implications for universal BG widescreen:
@@ -588,7 +588,7 @@ camera, sprites) is complete and verified; it is gated and native-safe at 240.
 
 ### 2026-06-01 (cont.) — the chardata "working set" + a shippable 16:9 everywhere
 
-Built the foundation for reveal re-indexing (`port/port_widechar.cpp`: per-gfx-group
+Built the foundation for reveal re-indexing (`src/port/port_widechar.cpp`: per-gfx-group
 BG-char cache via a `Port_LoadGfxGroupFromAssets` hook; region->group rect harvest via
 a `CheckRegionsOnScreen` hook). All gated `MODE1_GBA_WIDTH > 240`; native 240 re-verified
 byte-identical.
@@ -627,7 +627,7 @@ Net, honest position:
 
 Reported: broken tiles on the reveal edge (stale-VRAM garbage), worst in tile-dense
 streamed areas. Added a port-side **residency gate** in the shadow populate
-(`port/port_linked_stubs.c::Port_WidescreenShadow_Populate`): a reveal tile is kept
+(`src/port/port_linked_stubs.c::Port_WidescreenShadow_Populate`): a reveal tile is kept
 only if its index appears in the engine's on-screen buffer (`gBG1Buffer`/`gBG2Buffer`)
 — those tiles' chardata is provably resident; everything else is forced transparent so
 the composite force-blacks it (clean black instead of garbage). Gated `>240`, native

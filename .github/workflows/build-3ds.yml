@@ -23,8 +23,8 @@ jobs:
           /tmp/tmc-style/bin/pip install clang-format==20.1.8
       - name: Check maintained source
         run: |
-          python3 scripts/dev/check.py
-          python3 scripts/dev/format.py --clang-format /tmp/tmc-style/bin/clang-format
+          python3 tools/scripts/dev/check.py
+          python3 tools/scripts/dev/format.py --clang-format /tmp/tmc-style/bin/clang-format
           git diff --check
 
   build:
