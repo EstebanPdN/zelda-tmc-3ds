@@ -46,9 +46,11 @@ namespace {
 /* Drop leading whitespace + comments (# / ;) from `s`. */
 static std::string Trim(const std::string& s) {
     size_t lo = 0;
-    while (lo < s.size() && std::isspace((unsigned char)s[lo])) ++lo;
+    while (lo < s.size() && std::isspace((unsigned char)s[lo]))
+        ++lo;
     size_t hi = s.size();
-    while (hi > lo && std::isspace((unsigned char)s[hi - 1])) --hi;
+    while (hi > lo && std::isspace((unsigned char)s[hi - 1]))
+        --hi;
     return s.substr(lo, hi - lo);
 }
 
@@ -73,7 +75,8 @@ static std::string StripComment(const std::string& line) {
  * them and process the standard JSON-style escapes (\" \\ \n \t).
  * Otherwise return unchanged. */
 static std::string Unquote(const std::string& s) {
-    if (s.size() < 2 || s.front() != '"' || s.back() != '"') return s;
+    if (s.size() < 2 || s.front() != '"' || s.back() != '"')
+        return s;
     std::string out;
     out.reserve(s.size() - 2);
     for (size_t i = 1; i + 1 < s.size(); ++i) {
@@ -81,11 +84,24 @@ static std::string Unquote(const std::string& s) {
         if (c == '\\' && i + 2 < s.size()) {
             char n = s[i + 1];
             switch (n) {
-                case '"':  out += '"';  ++i; break;
-                case '\\': out += '\\'; ++i; break;
-                case 'n':  out += '\n'; ++i; break;
-                case 't':  out += '\t'; ++i; break;
-                default:   out += c;   /* keep the backslash literal */
+                case '"':
+                    out += '"';
+                    ++i;
+                    break;
+                case '\\':
+                    out += '\\';
+                    ++i;
+                    break;
+                case 'n':
+                    out += '\n';
+                    ++i;
+                    break;
+                case 't':
+                    out += '\t';
+                    ++i;
+                    break;
+                default:
+                    out += c; /* keep the backslash literal */
             }
         } else {
             out += c;
@@ -94,7 +110,7 @@ static std::string Unquote(const std::string& s) {
     return out;
 }
 
-}  // namespace
+} // namespace
 
 /* Tokenize one .glslp file into key/value pairs. Returns an empty
  * map AND prints to stderr on error so the caller can distinguish
@@ -115,22 +131,20 @@ std::map<std::string, std::string> TokenizeGlslpFile(const char* path) {
         ++lineno;
         /* Strip the BOM SDL/Notepad sometimes appends — UTF-8 BOM is
          * EF BB BF, present at byte 0 of line 1 only. */
-        if (lineno == 1 && line.size() >= 3
-            && (unsigned char)line[0] == 0xEF
-            && (unsigned char)line[1] == 0xBB
-            && (unsigned char)line[2] == 0xBF) {
+        if (lineno == 1 && line.size() >= 3 && (unsigned char)line[0] == 0xEF && (unsigned char)line[1] == 0xBB &&
+            (unsigned char)line[2] == 0xBF) {
             line.erase(0, 3);
         }
 
         std::string s = StripComment(line);
         s = Trim(s);
-        if (s.empty()) continue;
+        if (s.empty())
+            continue;
 
         /* Find the `=`. Spaces around it are optional but common. */
         size_t eq = s.find('=');
         if (eq == std::string::npos) {
-            std::fprintf(stderr, "[glslp] %s:%d: missing '=' in '%s'\n",
-                         path, lineno, s.c_str());
+            std::fprintf(stderr, "[glslp] %s:%d: missing '=' in '%s'\n", path, lineno, s.c_str());
             continue;
         }
         std::string key = Trim(s.substr(0, eq));
@@ -150,38 +164,51 @@ namespace {
 
 /* Look up a key with a default fallback. Returns the default when
  * the key is absent so per-pass options collapse cleanly to defaults. */
-static const std::string* Find(const std::map<std::string, std::string>& m,
-                               const std::string& key) {
+static const std::string* Find(const std::map<std::string, std::string>& m, const std::string& key) {
     auto it = m.find(key);
     return (it == m.end()) ? nullptr : &it->second;
 }
 
 static int ParseInt(const std::string& s, int dflt) {
-    try { return std::stoi(s); } catch (...) { return dflt; }
+    try {
+        return std::stoi(s);
+    } catch (...) { return dflt; }
 }
 static float ParseFloat(const std::string& s, float dflt) {
-    try { return std::stof(s); } catch (...) { return dflt; }
+    try {
+        return std::stof(s);
+    } catch (...) { return dflt; }
 }
 static bool ParseBool(const std::string& s, bool dflt) {
-    if (s.empty()) return dflt;
-    if (s == "true"  || s == "True"  || s == "TRUE"  || s == "1" || s == "yes") return true;
-    if (s == "false" || s == "False" || s == "FALSE" || s == "0" || s == "no")  return false;
+    if (s.empty())
+        return dflt;
+    if (s == "true" || s == "True" || s == "TRUE" || s == "1" || s == "yes")
+        return true;
+    if (s == "false" || s == "False" || s == "FALSE" || s == "0" || s == "no")
+        return false;
     return dflt;
 }
 
 static ScaleType ParseScaleType(const std::string& s) {
-    if (s == "source")   return ScaleType::Source;
-    if (s == "viewport") return ScaleType::Viewport;
-    if (s == "absolute") return ScaleType::Absolute;
-    return ScaleType::Source;  /* libretro default */
+    if (s == "source")
+        return ScaleType::Source;
+    if (s == "viewport")
+        return ScaleType::Viewport;
+    if (s == "absolute")
+        return ScaleType::Absolute;
+    return ScaleType::Source; /* libretro default */
 }
 
 static WrapMode ParseWrapMode(const std::string& s) {
-    if (s == "clamp_to_border")  return WrapMode::ClampBorder;
-    if (s == "clamp_to_edge")    return WrapMode::ClampEdge;
-    if (s == "repeat")           return WrapMode::Repeat;
-    if (s == "mirrored_repeat")  return WrapMode::MirroredRepeat;
-    return WrapMode::ClampBorder;  /* libretro default */
+    if (s == "clamp_to_border")
+        return WrapMode::ClampBorder;
+    if (s == "clamp_to_edge")
+        return WrapMode::ClampEdge;
+    if (s == "repeat")
+        return WrapMode::Repeat;
+    if (s == "mirrored_repeat")
+        return WrapMode::MirroredRepeat;
+    return WrapMode::ClampBorder; /* libretro default */
 }
 
 /* Split "A;B;C" into ["A", "B", "C"]. Empty tokens dropped. */
@@ -190,7 +217,8 @@ static std::vector<std::string> SplitSemicolons(const std::string& s) {
     size_t lo = 0;
     while (lo <= s.size()) {
         size_t hi = s.find(';', lo);
-        if (hi == std::string::npos) hi = s.size();
+        if (hi == std::string::npos)
+            hi = s.size();
         std::string tok = s.substr(lo, hi - lo);
         /* Trim per-token whitespace — libretro presets sometimes write
          * "A; B; C" with spaces. */
@@ -206,22 +234,23 @@ static std::vector<std::string> SplitSemicolons(const std::string& s) {
 
 /* Resolve a maybe-relative path against the .glslp file's dirname.
  * Absolute paths return unchanged. */
-static std::string ResolvePath(const std::string& glslp_path,
-                               const std::string& rel) {
+static std::string ResolvePath(const std::string& glslp_path, const std::string& rel) {
     namespace fs = std::filesystem;
     fs::path p(rel);
-    if (p.is_absolute()) return p.lexically_normal().string();
+    if (p.is_absolute())
+        return p.lexically_normal().string();
     fs::path base = fs::path(glslp_path).parent_path();
     return (base / p).lexically_normal().string();
 }
 
-}  // namespace
+} // namespace
 
 /* Step 2 — assemble the raw key/value map from Step 1 into a Preset.
  * Catches malformed pass counts, missing required keys, and missing
  * referenced files (warn-but-continue, so partial trees still load). */
 std::optional<Preset> LoadPresetFile(const char* glslp_path) {
-    if (!glslp_path) return std::nullopt;
+    if (!glslp_path)
+        return std::nullopt;
 
     auto map = TokenizeGlslpFile(glslp_path);
     if (map.empty()) {
@@ -239,7 +268,7 @@ std::optional<Preset> LoadPresetFile(const char* glslp_path) {
         return std::nullopt;
     }
     int npasses = ParseInt(*shaders_str, -1);
-    if (npasses < 1 || npasses > 64) {  /* must have >=1 pass; libretro caps ~16 */
+    if (npasses < 1 || npasses > 64) { /* must have >=1 pass; libretro caps ~16 */
         std::fprintf(stderr, "[glslp] %s: bad shaders count %d (need 1..64)\n", glslp_path, npasses);
         return std::nullopt;
     }
@@ -254,34 +283,45 @@ std::optional<Preset> LoadPresetFile(const char* glslp_path) {
 
         const std::string* shader = Find(map, "shader" + idx);
         if (!shader) {
-            std::fprintf(stderr, "[glslp] %s: pass %d missing 'shader%d' key\n",
-                         glslp_path, i, i);
+            std::fprintf(stderr, "[glslp] %s: pass %d missing 'shader%d' key\n", glslp_path, i, i);
             return std::nullopt;
         }
         p.path = ResolvePath(glslp_path, *shader);
 
-        if (const std::string* v = Find(map, "filter_linear" + idx))    p.filter_linear    = ParseBool(*v, false);
-        if (const std::string* v = Find(map, "wrap_mode" + idx))        p.wrap             = ParseWrapMode(*v);
-        if (const std::string* v = Find(map, "mipmap_input" + idx))     p.mipmap_input     = ParseBool(*v, false);
-        if (const std::string* v = Find(map, "srgb_framebuffer" + idx)) p.srgb_framebuffer = ParseBool(*v, false);
-        if (const std::string* v = Find(map, "float_framebuffer" + idx)) p.float_framebuffer = ParseBool(*v, false);
+        if (const std::string* v = Find(map, "filter_linear" + idx))
+            p.filter_linear = ParseBool(*v, false);
+        if (const std::string* v = Find(map, "wrap_mode" + idx))
+            p.wrap = ParseWrapMode(*v);
+        if (const std::string* v = Find(map, "mipmap_input" + idx))
+            p.mipmap_input = ParseBool(*v, false);
+        if (const std::string* v = Find(map, "srgb_framebuffer" + idx))
+            p.srgb_framebuffer = ParseBool(*v, false);
+        if (const std::string* v = Find(map, "float_framebuffer" + idx))
+            p.float_framebuffer = ParseBool(*v, false);
 
         /* Scale type/factor: per-axis takes precedence over unified. */
         ScaleType st_unified = ScaleType::Source;
-        float     sc_unified = 1.0f;
-        if (const std::string* v = Find(map, "scale_type" + idx)) st_unified = ParseScaleType(*v);
-        if (const std::string* v = Find(map, "scale" + idx))      sc_unified = ParseFloat(*v, 1.0f);
+        float sc_unified = 1.0f;
+        if (const std::string* v = Find(map, "scale_type" + idx))
+            st_unified = ParseScaleType(*v);
+        if (const std::string* v = Find(map, "scale" + idx))
+            sc_unified = ParseFloat(*v, 1.0f);
         p.scale_type_x = st_unified;
         p.scale_type_y = st_unified;
         p.scale_x = sc_unified;
         p.scale_y = sc_unified;
-        if (const std::string* v = Find(map, "scale_type_x" + idx)) p.scale_type_x = ParseScaleType(*v);
-        if (const std::string* v = Find(map, "scale_type_y" + idx)) p.scale_type_y = ParseScaleType(*v);
-        if (const std::string* v = Find(map, "scale_x" + idx))      p.scale_x      = ParseFloat(*v, p.scale_x);
-        if (const std::string* v = Find(map, "scale_y" + idx))      p.scale_y      = ParseFloat(*v, p.scale_y);
+        if (const std::string* v = Find(map, "scale_type_x" + idx))
+            p.scale_type_x = ParseScaleType(*v);
+        if (const std::string* v = Find(map, "scale_type_y" + idx))
+            p.scale_type_y = ParseScaleType(*v);
+        if (const std::string* v = Find(map, "scale_x" + idx))
+            p.scale_x = ParseFloat(*v, p.scale_x);
+        if (const std::string* v = Find(map, "scale_y" + idx))
+            p.scale_y = ParseFloat(*v, p.scale_y);
 
         if (const std::string* v = Find(map, "alias" + idx)) {
-            if (!v->empty()) p.alias = *v;
+            if (!v->empty())
+                p.alias = *v;
         }
 
         /* Soft-validate the shader file exists. Missing-but-continue
@@ -290,8 +330,7 @@ std::optional<Preset> LoadPresetFile(const char* glslp_path) {
          * can't be compiled. */
         std::error_code ec;
         if (!std::filesystem::exists(p.path, ec)) {
-            std::fprintf(stderr, "[glslp] %s: pass %d shader missing: %s\n",
-                         glslp_path, i, p.path.c_str());
+            std::fprintf(stderr, "[glslp] %s: pass %d shader missing: %s\n", glslp_path, i, p.path.c_str());
         }
 
         out.passes.push_back(std::move(p));
@@ -303,21 +342,24 @@ std::optional<Preset> LoadPresetFile(const char* glslp_path) {
         for (const auto& name : SplitSemicolons(*tex_list)) {
             const std::string* path = Find(map, name);
             if (!path) {
-                std::fprintf(stderr, "[glslp] %s: LUT '%s' listed in textures= but no '%s = ...' line\n",
-                             glslp_path, name.c_str(), name.c_str());
+                std::fprintf(stderr, "[glslp] %s: LUT '%s' listed in textures= but no '%s = ...' line\n", glslp_path,
+                             name.c_str(), name.c_str());
                 continue;
             }
             LutTexture lut;
             lut.name = name;
             lut.path = ResolvePath(glslp_path, *path);
-            if (const std::string* v = Find(map, name + "_linear"))    lut.linear = ParseBool(*v, true);
-            if (const std::string* v = Find(map, name + "_wrap_mode")) lut.wrap   = ParseWrapMode(*v);
-            if (const std::string* v = Find(map, name + "_mipmap"))    lut.mipmap = ParseBool(*v, false);
+            if (const std::string* v = Find(map, name + "_linear"))
+                lut.linear = ParseBool(*v, true);
+            if (const std::string* v = Find(map, name + "_wrap_mode"))
+                lut.wrap = ParseWrapMode(*v);
+            if (const std::string* v = Find(map, name + "_mipmap"))
+                lut.mipmap = ParseBool(*v, false);
 
             std::error_code ec;
             if (!std::filesystem::exists(lut.path, ec)) {
-                std::fprintf(stderr, "[glslp] %s: LUT '%s' file missing: %s\n",
-                             glslp_path, name.c_str(), lut.path.c_str());
+                std::fprintf(stderr, "[glslp] %s: LUT '%s' file missing: %s\n", glslp_path, name.c_str(),
+                             lut.path.c_str());
             }
             out.luts.push_back(std::move(lut));
         }
@@ -333,7 +375,7 @@ std::optional<Preset> LoadPresetFile(const char* glslp_path) {
         for (const auto& id : SplitSemicolons(*param_list)) {
             ShaderParam pp;
             pp.id = id;
-            pp.label = id;  /* placeholder; Step 3 reads `#pragma parameter` for real */
+            pp.label = id; /* placeholder; Step 3 reads `#pragma parameter` for real */
             if (const std::string* v = Find(map, id)) {
                 pp.default_value = pp.current_value = ParseFloat(*v, 0.0f);
             }
@@ -344,7 +386,8 @@ std::optional<Preset> LoadPresetFile(const char* glslp_path) {
     /* Optional feedback pass. */
     if (const std::string* fb = Find(map, "feedback_pass")) {
         int fp = ParseInt(*fb, -1);
-        if (fp >= 0 && fp < npasses) out.feedback_pass = fp;
+        if (fp >= 0 && fp < npasses)
+            out.feedback_pass = fp;
     }
 
     return out;
@@ -368,7 +411,8 @@ static uint64_t Fnv1a64(const std::string& s) {
 
 static bool ReadFileBytes(const std::string& path, std::vector<uint8_t>& out) {
     std::ifstream f(path, std::ios::binary | std::ios::ate);
-    if (!f) return false;
+    if (!f)
+        return false;
     auto end = f.tellg();
     f.seekg(0);
     out.resize((size_t)end);
@@ -379,16 +423,14 @@ static bool ReadFileBytes(const std::string& path, std::vector<uint8_t>& out) {
     return true;
 }
 
-}  // namespace
+} // namespace
 
-std::optional<std::vector<uint8_t>>
-CompileGlslToSpirv(const std::string& glsl_source,
-                   ShaderStage        stage,
-                   const std::string& cache_dir) {
+std::optional<std::vector<uint8_t>> CompileGlslToSpirv(const std::string& glsl_source, ShaderStage stage,
+                                                       const std::string& cache_dir) {
     namespace fs = std::filesystem;
 
     const char* stage_flag = (stage == ShaderStage::Vertex) ? "vert" : "frag";
-    const std::string ext  = (stage == ShaderStage::Vertex) ? "vert.spv" : "frag.spv";
+    const std::string ext = (stage == ShaderStage::Vertex) ? "vert.spv" : "frag.spv";
 
     /* Cache lookup. The hash incorporates the stage so a vertex
      * shader text that happens to also be valid fragment source
@@ -398,8 +440,7 @@ CompileGlslToSpirv(const std::string& glsl_source,
         uint64_t h = Fnv1a64(glsl_source);
         h ^= ((stage == ShaderStage::Vertex) ? 0x1ULL : 0x2ULL) * 0x9e3779b97f4a7c15ULL;
         char namebuf[40];
-        std::snprintf(namebuf, sizeof(namebuf), "%016llx.%s",
-                      (unsigned long long)h, ext.c_str());
+        std::snprintf(namebuf, sizeof(namebuf), "%016llx.%s", (unsigned long long)h, ext.c_str());
         std::error_code ec;
         fs::create_directories(cache_dir, ec);
         cache_path = (fs::path(cache_dir) / namebuf).string();
@@ -417,7 +458,8 @@ CompileGlslToSpirv(const std::string& glsl_source,
      * old fixed "/tmp/tmc_glslp_in_<pid>" name was guessable). The .spv output
      * path derives from the unique input name. */
     const char* tmpdir = getenv("TMPDIR");
-    if (tmpdir == nullptr || tmpdir[0] == '\0') tmpdir = "/tmp";
+    if (tmpdir == nullptr || tmpdir[0] == '\0')
+        tmpdir = "/tmp";
     char tmp_in_buf[256];
     std::snprintf(tmp_in_buf, sizeof(tmp_in_buf), "%s/tmc_glslp_%s_XXXXXX", tmpdir, stage_flag);
     int in_fd = mkstemp(tmp_in_buf);
@@ -432,7 +474,10 @@ CompileGlslToSpirv(const std::string& glsl_source,
         bool wrote = true;
         while (off < glsl_source.size()) {
             ssize_t n = ::write(in_fd, glsl_source.data() + off, glsl_source.size() - off);
-            if (n <= 0) { wrote = false; break; }
+            if (n <= 0) {
+                wrote = false;
+                break;
+            }
             off += (size_t)n;
         }
         ::close(in_fd);
@@ -446,9 +491,7 @@ CompileGlslToSpirv(const std::string& glsl_source,
     /* Shell out to glslangValidator. -V = Vulkan SPIR-V output;
      * --quiet suppresses the "filename printed on success" line. */
     char cmd[512];
-    std::snprintf(cmd, sizeof(cmd),
-                  "glslangValidator -V -S %s -o %s %s 2>&1",
-                  stage_flag, tmp_out_buf, tmp_in_buf);
+    std::snprintf(cmd, sizeof(cmd), "glslangValidator -V -S %s -o %s %s 2>&1", stage_flag, tmp_out_buf, tmp_in_buf);
     FILE* pipe = popen(cmd, "r");
     if (!pipe) {
         std::fprintf(stderr, "[glslp] popen failed for glslangValidator\n");
@@ -495,7 +538,8 @@ namespace {
  * identifier-by-identifier substitution where simple find-and-
  * replace is correct. */
 static void ReplaceAll(std::string& s, const std::string& from, const std::string& to) {
-    if (from.empty()) return;
+    if (from.empty())
+        return;
     size_t pos = 0;
     while ((pos = s.find(from, pos)) != std::string::npos) {
         s.replace(pos, from.size(), to);
@@ -506,16 +550,21 @@ static void ReplaceAll(std::string& s, const std::string& from, const std::strin
 /* Read one whitespace-delimited token starting at `pos`. Updates `pos`
  * to the start of the NEXT token (i.e. past trailing whitespace). */
 static std::string ReadToken(const std::string& line, size_t& pos) {
-    while (pos < line.size() && std::isspace((unsigned char)line[pos])) ++pos;
-    if (pos >= line.size()) return {};
+    while (pos < line.size() && std::isspace((unsigned char)line[pos]))
+        ++pos;
+    if (pos >= line.size())
+        return {};
     size_t start = pos;
     if (line[pos] == '"') {
         ++pos;
-        while (pos < line.size() && line[pos] != '"') ++pos;
-        if (pos < line.size()) ++pos;
+        while (pos < line.size() && line[pos] != '"')
+            ++pos;
+        if (pos < line.size())
+            ++pos;
         return line.substr(start + 1, pos - start - 2);
     }
-    while (pos < line.size() && !std::isspace((unsigned char)line[pos])) ++pos;
+    while (pos < line.size() && !std::isspace((unsigned char)line[pos]))
+        ++pos;
     return line.substr(start, pos - start);
 }
 
@@ -529,17 +578,18 @@ static std::optional<ShaderParam> ParsePragmaParameter(const std::string& line) 
     ShaderParam p;
     p.id = ReadToken(line, pos);
     p.label = ReadToken(line, pos);
-    if (p.id.empty() || p.label.empty()) return std::nullopt;
+    if (p.id.empty() || p.label.empty())
+        return std::nullopt;
     std::string sd = ReadToken(line, pos);
     std::string sm = ReadToken(line, pos);
     std::string sx = ReadToken(line, pos);
     std::string ss = ReadToken(line, pos);
-    if (sd.empty() || sm.empty() || sx.empty()) return std::nullopt;
+    if (sd.empty() || sm.empty() || sx.empty())
+        return std::nullopt;
     p.default_value = ParseFloat(sd, 0.0f);
-    p.min_value     = ParseFloat(sm, 0.0f);
-    p.max_value     = ParseFloat(sx, 1.0f);
-    p.step_value    = ss.empty() ? (p.max_value - p.min_value) / 100.0f
-                                 : ParseFloat(ss, 0.01f);
+    p.min_value = ParseFloat(sm, 0.0f);
+    p.max_value = ParseFloat(sx, 1.0f);
+    p.step_value = ss.empty() ? (p.max_value - p.min_value) / 100.0f : ParseFloat(ss, 0.01f);
     p.current_value = p.default_value;
     return p;
 }
@@ -678,46 +728,46 @@ static void StripLibretroDefines(std::string& s) {
     std::istringstream rs(s);
     std::string ln;
     while (std::getline(rs, ln)) {
-        if (!ln.empty() && ln.back() == '\r') ln.pop_back();
+        if (!ln.empty() && ln.back() == '\r')
+            ln.pop_back();
         std::string tr = Trim(ln);
         if (tr.compare(0, 8, "#define ") == 0) {
             size_t p = 8;
-            while (p < tr.size() && std::isspace((unsigned char)tr[p])) ++p;
+            while (p < tr.size() && std::isspace((unsigned char)tr[p]))
+                ++p;
             size_t name_start = p;
-            while (p < tr.size() && !std::isspace((unsigned char)tr[p]) && tr[p] != '(') ++p;
+            while (p < tr.size() && !std::isspace((unsigned char)tr[p]) && tr[p] != '(')
+                ++p;
             std::string name = tr.substr(name_start, p - name_start);
-            if (name == "COMPAT_VARYING" || name == "COMPAT_ATTRIBUTE"
-                || name == "COMPAT_TEXTURE" || name == "COMPAT_PRECISION"
-                || name == "FragColor"
+            if (name == "COMPAT_VARYING" || name == "COMPAT_ATTRIBUTE" || name == "COMPAT_TEXTURE" ||
+                name == "COMPAT_PRECISION" ||
+                name == "FragColor"
                 /* Standard-uniform aliases the header already supplies.
                  * Sources like scanline.glsl re-#define these to wrap
                  * the value in a vec4(...), which collides with our
                  * `#define OutputSize u.OutputSize`. Drop the source-side
                  * version; the header's wins. */
-                || name == "OutputSize" || name == "TextureSize"
-                || name == "InputSize"  || name == "FrameCount"
-                || name == "FrameDirection" || name == "OriginalSize"
-                || name == "FinalViewportSize"
-                || name == "MVPMatrix") {
-                continue;  /* drop — header redefines */
+                || name == "OutputSize" || name == "TextureSize" || name == "InputSize" || name == "FrameCount" ||
+                name == "FrameDirection" || name == "OriginalSize" || name == "FinalViewportSize" ||
+                name == "MVPMatrix") {
+                continue; /* drop — header redefines */
             }
         }
         /* Drop a stray `#version N` line in the source body — our
          * stage header already emits `#version 450` and glslang
          * rejects a second `#version` directive that isn't the first
          * non-comment token. */
-        if (tr.compare(0, 8, "#version") == 0
-            && (tr.size() == 8 || std::isspace((unsigned char)tr[8]))) {
+        if (tr.compare(0, 8, "#version") == 0 && (tr.size() == 8 || std::isspace((unsigned char)tr[8]))) {
             continue;
         }
         /* Drop `out vec4 FragColor;` / `out vec3 FragColor;` etc. The
          * declaration appears in libretro shaders' modern-GLSL branch;
          * our header provides _FragColor at location=0. */
-        if (tr.size() > 4 && tr.compare(0, 4, "out ") == 0
-            && tr.find("FragColor") != std::string::npos) {
+        if (tr.size() > 4 && tr.compare(0, 4, "out ") == 0 && tr.find("FragColor") != std::string::npos) {
             continue;
         }
-        scrubbed += ln; scrubbed += '\n';
+        scrubbed += ln;
+        scrubbed += '\n';
     }
     s = std::move(scrubbed);
 }
@@ -735,30 +785,69 @@ static void StripLibretroDefines(std::string& s) {
  * The set of "declaration-context" tokens is the GLSL 450 type
  * keywords plus storage qualifiers and the libretro-specific
  * COMPAT_PRECISION marker that we strip elsewhere. */
-static void RewriteParameterRefs(std::string& s,
-                                 const std::vector<ShaderParam>& params) {
-    if (params.empty()) return;
+static void RewriteParameterRefs(std::string& s, const std::vector<ShaderParam>& params) {
+    if (params.empty())
+        return;
     static const std::set<std::string> kDeclContext = {
-        "void", "float", "int", "uint", "bool", "double",
-        "vec2", "vec3", "vec4", "dvec2", "dvec3", "dvec4",
-        "ivec2", "ivec3", "ivec4", "uvec2", "uvec3", "uvec4",
-        "bvec2", "bvec3", "bvec4",
-        "mat2", "mat3", "mat4",
-        "mat2x2", "mat2x3", "mat2x4",
-        "mat3x2", "mat3x3", "mat3x4",
-        "mat4x2", "mat4x3", "mat4x4",
-        "sampler1D", "sampler2D", "sampler3D", "samplerCube",
-        "sampler2DRect", "sampler2DShadow", "samplerCubeShadow",
-        "const", "in", "out", "inout", "uniform", "attribute", "varying",
-        "highp", "mediump", "lowp", "COMPAT_PRECISION", "COMPAT_VARYING",
+        "void",
+        "float",
+        "int",
+        "uint",
+        "bool",
+        "double",
+        "vec2",
+        "vec3",
+        "vec4",
+        "dvec2",
+        "dvec3",
+        "dvec4",
+        "ivec2",
+        "ivec3",
+        "ivec4",
+        "uvec2",
+        "uvec3",
+        "uvec4",
+        "bvec2",
+        "bvec3",
+        "bvec4",
+        "mat2",
+        "mat3",
+        "mat4",
+        "mat2x2",
+        "mat2x3",
+        "mat2x4",
+        "mat3x2",
+        "mat3x3",
+        "mat3x4",
+        "mat4x2",
+        "mat4x3",
+        "mat4x4",
+        "sampler1D",
+        "sampler2D",
+        "sampler3D",
+        "samplerCube",
+        "sampler2DRect",
+        "sampler2DShadow",
+        "samplerCubeShadow",
+        "const",
+        "in",
+        "out",
+        "inout",
+        "uniform",
+        "attribute",
+        "varying",
+        "highp",
+        "mediump",
+        "lowp",
+        "COMPAT_PRECISION",
+        "COMPAT_VARYING",
         "COMPAT_ATTRIBUTE",
     };
-    auto is_id_char = [](char c) {
-        return std::isalnum((unsigned char)c) != 0 || c == '_';
-    };
+    auto is_id_char = [](char c) { return std::isalnum((unsigned char)c) != 0 || c == '_'; };
     for (const auto& p : params) {
         const std::string& name = p.id;
-        if (name.empty()) continue;
+        if (name.empty())
+            continue;
         std::string out_buf;
         out_buf.reserve(s.size());
         size_t i = 0;
@@ -794,21 +883,25 @@ static void RewriteParameterRefs(std::string& s,
              * NAME slot (the first identifier after `#define`) — if so,
              * skip; otherwise (we're in the body) allow rewrite. */
             size_t line_start = pos;
-            while (line_start > 0 && s[line_start - 1] != '\n') --line_start;
+            while (line_start > 0 && s[line_start - 1] != '\n')
+                --line_start;
             size_t ls = line_start;
-            while (ls < s.size() && (s[ls] == ' ' || s[ls] == '\t')) ++ls;
+            while (ls < s.size() && (s[ls] == ' ' || s[ls] == '\t'))
+                ++ls;
             if (ls < s.size() && s[ls] == '#') {
                 size_t hash = ls + 1;
-                while (hash < s.size() && (s[hash] == ' ' || s[hash] == '\t')) ++hash;
-                bool is_define = (hash + 6 < s.size()
-                                  && s.compare(hash, 6, "define") == 0
-                                  && (s[hash + 6] == ' ' || s[hash + 6] == '\t'));
+                while (hash < s.size() && (s[hash] == ' ' || s[hash] == '\t'))
+                    ++hash;
+                bool is_define = (hash + 6 < s.size() && s.compare(hash, 6, "define") == 0 &&
+                                  (s[hash + 6] == ' ' || s[hash + 6] == '\t'));
                 if (is_define) {
                     /* Locate the macro-name slot. */
                     size_t ns = hash + 6;
-                    while (ns < s.size() && (s[ns] == ' ' || s[ns] == '\t')) ++ns;
+                    while (ns < s.size() && (s[ns] == ' ' || s[ns] == '\t'))
+                        ++ns;
                     size_t ne = ns;
-                    while (ne < s.size() && is_id_char(s[ne])) ++ne;
+                    while (ne < s.size() && is_id_char(s[ne]))
+                        ++ne;
                     if (pos >= ns && pos < ne) {
                         /* This occurrence IS the macro name — declaration. */
                         out_buf.append(name);
@@ -827,9 +920,11 @@ static void RewriteParameterRefs(std::string& s,
             }
             /* Find the previous non-whitespace identifier token. */
             size_t back = pos;
-            while (back > 0 && std::isspace((unsigned char)s[back - 1])) --back;
+            while (back > 0 && std::isspace((unsigned char)s[back - 1]))
+                --back;
             size_t tok_end = back;
-            while (back > 0 && is_id_char(s[back - 1])) --back;
+            while (back > 0 && is_id_char(s[back - 1]))
+                --back;
             std::string prev_token = s.substr(back, tok_end - back);
             if (kDeclContext.count(prev_token)) {
                 /* Local declaration shadowing the parameter — keep
@@ -855,22 +950,34 @@ static void RewriteParameterRefs(std::string& s,
  * location for each name; subsequent appearances reuse it (the
  * source may declare a varying in both `#if defined(VERTEX)` and
  * `#if defined(FRAGMENT)` branches with the same name). */
-static void RewriteVaryingDecls(std::string& s,
-                                std::map<std::string, int>& varying_map,
-                                bool isVertex) {
+static void RewriteVaryingDecls(std::string& s, std::map<std::string, int>& varying_map, bool isVertex) {
     std::string scrubbed;
     scrubbed.reserve(s.size());
     std::istringstream rs(s);
     std::string ln;
     while (std::getline(rs, ln)) {
-        if (!ln.empty() && ln.back() == '\r') ln.pop_back();
+        if (!ln.empty() && ln.back() == '\r')
+            ln.pop_back();
         std::string tr = Trim(ln);
         const std::string* keyword = nullptr;
         size_t kw_len = 0;
-        if (tr.compare(0, 15, "COMPAT_VARYING ") == 0)        { static const std::string k = "COMPAT_VARYING";   keyword = &k; kw_len = 14; }
-        else if (tr.compare(0, 17, "COMPAT_ATTRIBUTE ") == 0) { static const std::string k = "COMPAT_ATTRIBUTE"; keyword = &k; kw_len = 16; }
-        else if (tr.compare(0,  8, "varying ") == 0)          { static const std::string k = "varying";          keyword = &k; kw_len = 7;  }
-        else if (tr.compare(0, 10, "attribute ") == 0)        { static const std::string k = "attribute";        keyword = &k; kw_len = 9;  }
+        if (tr.compare(0, 15, "COMPAT_VARYING ") == 0) {
+            static const std::string k = "COMPAT_VARYING";
+            keyword = &k;
+            kw_len = 14;
+        } else if (tr.compare(0, 17, "COMPAT_ATTRIBUTE ") == 0) {
+            static const std::string k = "COMPAT_ATTRIBUTE";
+            keyword = &k;
+            kw_len = 16;
+        } else if (tr.compare(0, 8, "varying ") == 0) {
+            static const std::string k = "varying";
+            keyword = &k;
+            kw_len = 7;
+        } else if (tr.compare(0, 10, "attribute ") == 0) {
+            static const std::string k = "attribute";
+            keyword = &k;
+            kw_len = 9;
+        }
 
         if (keyword) {
             /* Pull <type> <name>. After the keyword + space, walk
@@ -883,8 +990,7 @@ static void RewriteVaryingDecls(std::string& s,
             size_t sp = body.find_last_of(" \t");
             if (sp != std::string::npos) {
                 std::string name = body.substr(sp + 1);
-                const bool is_input = !isVertex || (*keyword == "COMPAT_ATTRIBUTE")
-                                                 || (*keyword == "attribute");
+                const bool is_input = !isVertex || (*keyword == "COMPAT_ATTRIBUTE") || (*keyword == "attribute");
                 /* Vertex-stage attribute inputs: libretro convention is
                  * to read position/UV from `VertexCoord` / `TexCoord` /
                  * `COLOR` / `LUT_TexCoord` (and possibly numbered
@@ -896,14 +1002,17 @@ static void RewriteVaryingDecls(std::string& s,
                  * here so it doesn't conflict. */
                 if (isVertex && is_input) {
                     static const char* kSynthesised[] = {
-                        "VertexCoord", "TexCoord", "COLOR",
-                        "LUTTexCoord", "LUT_TexCoord",
+                        "VertexCoord", "TexCoord", "COLOR", "LUTTexCoord", "LUT_TexCoord",
                     };
                     bool synth = false;
                     for (const char* n : kSynthesised) {
-                        if (name == n) { synth = true; break; }
+                        if (name == n) {
+                            synth = true;
+                            break;
+                        }
                     }
-                    if (synth) continue;  /* drop the declaration */
+                    if (synth)
+                        continue; /* drop the declaration */
                 }
                 int loc;
                 auto it = varying_map.find(name);
@@ -914,16 +1023,15 @@ static void RewriteVaryingDecls(std::string& s,
                     loc = it->second;
                 }
                 char prefix[64];
-                std::snprintf(prefix, sizeof(prefix),
-                              "layout(location = %d) %s ", loc,
-                              is_input ? "in" : "out");
+                std::snprintf(prefix, sizeof(prefix), "layout(location = %d) %s ", loc, is_input ? "in" : "out");
                 scrubbed += prefix;
                 scrubbed += body;
                 scrubbed += ";\n";
                 continue;
             }
         }
-        scrubbed += ln; scrubbed += '\n';
+        scrubbed += ln;
+        scrubbed += '\n';
     }
     s = std::move(scrubbed);
 }
@@ -934,9 +1042,7 @@ static void RewriteVaryingDecls(std::string& s,
  * uniforms, shared helper functions). The result concatenates each
  * stage's block-specific lines with the shared lines preserved in
  * both. */
-static void SplitStages(const std::string& source,
-                        std::string& shared_out,
-                        std::string& vertex_out,
+static void SplitStages(const std::string& source, std::string& shared_out, std::string& vertex_out,
                         std::string& fragment_out) {
     enum Mode { Shared, Vertex, Fragment };
     Mode mode = Shared;
@@ -944,7 +1050,8 @@ static void SplitStages(const std::string& source,
     std::string line;
     while (std::getline(in, line)) {
         /* Strip trailing CR if file is CRLF. */
-        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
 
         /* Detect stage-switch pragmas. Match leading whitespace +
          * `#pragma stage <name>`. */
@@ -954,23 +1061,36 @@ static void SplitStages(const std::string& source,
             /* Trim. */
             size_t lo = name.find_first_not_of(" \t");
             size_t hi = name.find_last_not_of(" \t");
-            if (lo != std::string::npos) name = name.substr(lo, hi - lo + 1);
-            if      (name == "vertex")   mode = Vertex;
-            else if (name == "fragment") mode = Fragment;
-            else                          mode = Shared;
+            if (lo != std::string::npos)
+                name = name.substr(lo, hi - lo + 1);
+            if (name == "vertex")
+                mode = Vertex;
+            else if (name == "fragment")
+                mode = Fragment;
+            else
+                mode = Shared;
             /* Pragma line itself is dropped from the output. */
             continue;
         }
 
         switch (mode) {
-            case Shared:   shared_out   += line; shared_out   += '\n'; break;
-            case Vertex:   vertex_out   += line; vertex_out   += '\n'; break;
-            case Fragment: fragment_out += line; fragment_out += '\n'; break;
+            case Shared:
+                shared_out += line;
+                shared_out += '\n';
+                break;
+            case Vertex:
+                vertex_out += line;
+                vertex_out += '\n';
+                break;
+            case Fragment:
+                fragment_out += line;
+                fragment_out += '\n';
+                break;
         }
     }
 }
 
-}  // namespace
+} // namespace
 
 std::optional<PreprocessedShader> PreprocessLibretroGlsl(const std::string& source) {
     PreprocessedShader out;
@@ -982,14 +1102,14 @@ std::optional<PreprocessedShader> PreprocessLibretroGlsl(const std::string& sour
     std::istringstream in(source);
     std::string line;
     while (std::getline(in, line)) {
-        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
         size_t hash = line.find_first_not_of(" \t");
-        if (hash != std::string::npos
-            && line.compare(hash, 18, "#pragma parameter ") == 0) {
+        if (hash != std::string::npos && line.compare(hash, 18, "#pragma parameter ") == 0) {
             if (auto p = ParsePragmaParameter(line.substr(hash + 18))) {
                 out.parameters.push_back(std::move(*p));
             }
-            continue;  /* Drop the pragma from the output stream. */
+            continue; /* Drop the pragma from the output stream. */
         }
         filtered += line;
         filtered += '\n';
@@ -1034,11 +1154,13 @@ std::optional<PreprocessedShader> PreprocessLibretroGlsl(const std::string& sour
         auto strip_prefix = [&](const std::string& prefix) {
             while (true) {
                 size_t lo = r.find_first_not_of(" \t");
-                if (lo == std::string::npos) return;
-                if (r.compare(lo, prefix.size(), prefix) != 0) return;
+                if (lo == std::string::npos)
+                    return;
+                if (r.compare(lo, prefix.size(), prefix) != 0)
+                    return;
                 /* must be followed by whitespace, not e.g. an identifier */
-                if (lo + prefix.size() < r.size()
-                    && !std::isspace((unsigned char)r[lo + prefix.size()])) return;
+                if (lo + prefix.size() < r.size() && !std::isspace((unsigned char)r[lo + prefix.size()]))
+                    return;
                 r.erase(lo, prefix.size());
             }
         };
@@ -1055,23 +1177,20 @@ std::optional<PreprocessedShader> PreprocessLibretroGlsl(const std::string& sour
         std::string ln;
         int next_lut_binding = 1;
         while (std::getline(rs, ln)) {
-            if (!ln.empty() && ln.back() == '\r') ln.pop_back();
+            if (!ln.empty() && ln.back() == '\r')
+                ln.pop_back();
             std::string tr = Trim(strip_leading_qualifiers(ln));
             if (tr.size() > 8 && tr.compare(0, 8, "uniform ") == 0) {
                 /* Sampler / image uniform: opaque, allowed bare in
                  * Vulkan but still needs a layout decoration. Detect
                  * `sampler` substring; everything else falls through
                  * to the strip path below. */
-                if (tr.find("sampler") != std::string::npos
-                    || tr.find("image")   != std::string::npos) {
+                if (tr.find("sampler") != std::string::npos || tr.find("image") != std::string::npos) {
                     /* Pull the sampler name (last token before `;`). */
                     size_t sc = tr.find(';');
-                    std::string body = (sc == std::string::npos)
-                                       ? tr.substr(8)
-                                       : tr.substr(8, sc - 8);
+                    std::string body = (sc == std::string::npos) ? tr.substr(8) : tr.substr(8, sc - 8);
                     size_t sp = body.find_last_of(" \t");
-                    std::string name = (sp == std::string::npos) ? body
-                                                                  : body.substr(sp + 1);
+                    std::string name = (sp == std::string::npos) ? body : body.substr(sp + 1);
                     if (name == "Texture") {
                         /* The primary input is already declared in
                          * the fragment header at set=2/binding=0;
@@ -1083,8 +1202,7 @@ std::optional<PreprocessedShader> PreprocessLibretroGlsl(const std::string& sour
                     out.lut_sampler_names.push_back(name);
                     /* Rewrite with the layout decorator. */
                     char prefix[64];
-                    std::snprintf(prefix, sizeof(prefix),
-                                  "layout(set = 2, binding = %d) ", binding);
+                    std::snprintf(prefix, sizeof(prefix), "layout(set = 2, binding = %d) ", binding);
                     /* Preserve original spacing of the rest of the line. */
                     scrubbed += prefix;
                     scrubbed += ln;
@@ -1099,9 +1217,8 @@ std::optional<PreprocessedShader> PreprocessLibretroGlsl(const std::string& sour
                  * with our definitions. Anything truly unknown gets
                  * a stderr warning. */
                 static const char* kStandardLibretroUniforms[] = {
-                    "MVPMatrix", "OutputSize", "TextureSize", "InputSize",
-                    "FrameCount", "FrameDirection", "OriginalSize",
-                    "FinalViewportSize",
+                    "MVPMatrix",  "OutputSize",     "TextureSize",  "InputSize",
+                    "FrameCount", "FrameDirection", "OriginalSize", "FinalViewportSize",
                 };
                 size_t sc = tr.find(';');
                 if (sc != std::string::npos) {
@@ -1115,28 +1232,37 @@ std::optional<PreprocessedShader> PreprocessLibretroGlsl(const std::string& sour
                     {
                         std::istringstream bs(body);
                         std::string t;
-                        while (bs >> t) toks.push_back(std::move(t));
+                        while (bs >> t)
+                            toks.push_back(std::move(t));
                     }
-                    if (toks.empty()) { continue; }
+                    if (toks.empty()) {
+                        continue;
+                    }
                     std::string name = toks.back();
                     std::string type;
                     for (auto it = toks.rbegin() + 1; it != toks.rend(); ++it) {
-                        if (*it == "COMPAT_PRECISION" || *it == "highp"
-                            || *it == "mediump" || *it == "lowp"
-                            || *it == "const") continue;
+                        if (*it == "COMPAT_PRECISION" || *it == "highp" || *it == "mediump" || *it == "lowp" ||
+                            *it == "const")
+                            continue;
                         type = *it;
                         break;
                     }
                     bool standard = false;
                     for (const char* sn : kStandardLibretroUniforms) {
-                        if (name == sn) { standard = true; break; }
+                        if (name == sn) {
+                            standard = true;
+                            break;
+                        }
                     }
                     if (standard) {
-                        continue;  /* silent drop — we supplied it via the header */
+                        continue; /* silent drop — we supplied it via the header */
                     }
                     bool known = false;
                     for (const auto& p : out.parameters) {
-                        if (p.id == name) { known = true; break; }
+                        if (p.id == name) {
+                            known = true;
+                            break;
+                        }
                     }
                     if (!known) {
                         /* Auto-stub unknown uniforms with type-appropriate
@@ -1148,42 +1274,53 @@ std::optional<PreprocessedShader> PreprocessLibretroGlsl(const std::string& sour
                          * than failing to compile. Eventually replace
                          * with proper preset-driven overrides. */
                         std::string default_expr;
-                        if      (type == "float")  default_expr = "0.0";
-                        else if (type == "int")    default_expr = "0";
-                        else if (type == "uint")   default_expr = "0u";
-                        else if (type == "bool")   default_expr = "false";
+                        if (type == "float")
+                            default_expr = "0.0";
+                        else if (type == "int")
+                            default_expr = "0";
+                        else if (type == "uint")
+                            default_expr = "0u";
+                        else if (type == "bool")
+                            default_expr = "false";
                         else if (type == "vec2") {
                             /* Size-style uniforms (ending in *size,
                              * *Size, *_size) are usually divided into,
                              * so default to non-zero. */
-                            if (name.find("size") != std::string::npos
-                                || name.find("Size") != std::string::npos)
+                            if (name.find("size") != std::string::npos || name.find("Size") != std::string::npos)
                                 default_expr = "vec2(1.0, 1.0)";
                             else
                                 default_expr = "vec2(0.0)";
-                        }
-                        else if (type == "vec3")   default_expr = "vec3(0.0)";
-                        else if (type == "vec4")   default_expr = "vec4(0.0)";
-                        else if (type == "ivec2")  default_expr = "ivec2(0)";
-                        else if (type == "ivec3")  default_expr = "ivec3(0)";
-                        else if (type == "ivec4")  default_expr = "ivec4(0)";
-                        else if (type == "mat2")   default_expr = "mat2(1.0)";
-                        else if (type == "mat3")   default_expr = "mat3(1.0)";
-                        else if (type == "mat4")   default_expr = "mat4(1.0)";
+                        } else if (type == "vec3")
+                            default_expr = "vec3(0.0)";
+                        else if (type == "vec4")
+                            default_expr = "vec4(0.0)";
+                        else if (type == "ivec2")
+                            default_expr = "ivec2(0)";
+                        else if (type == "ivec3")
+                            default_expr = "ivec3(0)";
+                        else if (type == "ivec4")
+                            default_expr = "ivec4(0)";
+                        else if (type == "mat2")
+                            default_expr = "mat2(1.0)";
+                        else if (type == "mat3")
+                            default_expr = "mat3(1.0)";
+                        else if (type == "mat4")
+                            default_expr = "mat4(1.0)";
                         if (!default_expr.empty()) {
                             scrubbed += "#define " + name + " " + default_expr + "\n";
-                            continue;  /* don't emit the uniform decl */
+                            continue; /* don't emit the uniform decl */
                         }
                         /* Type we don't know how to default — drop with a warning. */
                         std::fprintf(stderr,
-                            "[glslp] preprocessor: dropped uniform '%s' (unknown type '%s'); "
-                            "shader may have undefined references\n",
-                            name.c_str(), type.c_str());
+                                     "[glslp] preprocessor: dropped uniform '%s' (unknown type '%s'); "
+                                     "shader may have undefined references\n",
+                                     name.c_str(), type.c_str());
                     }
                 }
                 continue;
             }
-            scrubbed += ln; scrubbed += '\n';
+            scrubbed += ln;
+            scrubbed += '\n';
         }
         filtered = std::move(scrubbed);
     }
@@ -1205,41 +1342,38 @@ std::optional<PreprocessedShader> PreprocessLibretroGlsl(const std::string& sour
      *     branch exists, and the missing vertex main() is supplied
      *     by a synthesised passthrough we prepend below. */
     if (vertex_body.empty() && fragment_body.empty()) {
-        const std::string passthrough_vertex =
-            "#ifndef VERTEX_MAIN_PROVIDED\n"
-            "/* Synthesised fullscreen-quad vertex shader for sources\n"
-            " * that don't gate a vertex stage of their own. Picked up\n"
-            " * when the source has no `#if defined(VERTEX)` block\n"
-            " * AND no #pragma stage vertex section. */\n"
-            "layout(location = 0) out vec2 vTexCoord;\n"
-            "void main() {\n"
-            "    vec2 pos = vec2((gl_VertexIndex & 1) == 0 ? -1.0 : 1.0,\n"
-            "                    (gl_VertexIndex & 2) == 0 ? -1.0 : 1.0);\n"
-            "    vTexCoord = vec2((gl_VertexIndex & 1) == 0 ?  0.0 : 1.0,\n"
-            "                     (gl_VertexIndex & 2) == 0 ?  1.0 : 0.0);\n"
-            "    gl_Position = vec4(pos, 0.0, 1.0);\n"
-            "}\n"
-            "#endif\n";
+        const std::string passthrough_vertex = "#ifndef VERTEX_MAIN_PROVIDED\n"
+                                               "/* Synthesised fullscreen-quad vertex shader for sources\n"
+                                               " * that don't gate a vertex stage of their own. Picked up\n"
+                                               " * when the source has no `#if defined(VERTEX)` block\n"
+                                               " * AND no #pragma stage vertex section. */\n"
+                                               "layout(location = 0) out vec2 vTexCoord;\n"
+                                               "void main() {\n"
+                                               "    vec2 pos = vec2((gl_VertexIndex & 1) == 0 ? -1.0 : 1.0,\n"
+                                               "                    (gl_VertexIndex & 2) == 0 ? -1.0 : 1.0);\n"
+                                               "    vTexCoord = vec2((gl_VertexIndex & 1) == 0 ?  0.0 : 1.0,\n"
+                                               "                     (gl_VertexIndex & 2) == 0 ?  1.0 : 0.0);\n"
+                                               "    gl_Position = vec4(pos, 0.0, 1.0);\n"
+                                               "}\n"
+                                               "#endif\n";
         /* Heuristic: if the shared body contains `defined(VERTEX)` or
          * `defined(FRAGMENT)`, the source provides its own per-stage
          * main()s — don't synthesise a vertex one. Use a `#define
          * VERTEX_MAIN_PROVIDED` to suppress the passthrough. */
         const bool source_has_vertex_main =
-            shared.find("defined(VERTEX)")   != std::string::npos ||
-            shared.find("#ifdef VERTEX")      != std::string::npos;
+            shared.find("defined(VERTEX)") != std::string::npos || shared.find("#ifdef VERTEX") != std::string::npos;
         std::string vertex_pre;
         if (source_has_vertex_main) {
             vertex_pre = "#define VERTEX_MAIN_PROVIDED\n";
         }
-        vertex_body   = vertex_pre + shared + passthrough_vertex;
+        vertex_body = vertex_pre + shared + passthrough_vertex;
         fragment_body = shared;
         shared.clear();
         /* Fragment-side stub: synthesised passthroughs (no
          * `#if defined(FRAGMENT)` in source) need a fragment main()
          * too. Emit one when the source doesn't provide its own. */
-        const bool source_has_fragment_main =
-            fragment_body.find("defined(FRAGMENT)")   != std::string::npos ||
-            fragment_body.find("#ifdef FRAGMENT")      != std::string::npos;
+        const bool source_has_fragment_main = fragment_body.find("defined(FRAGMENT)") != std::string::npos ||
+                                              fragment_body.find("#ifdef FRAGMENT") != std::string::npos;
         if (!source_has_fragment_main && fragment_body.find("void main()") == std::string::npos) {
             fragment_body = "layout(location = 0) in vec2 vTexCoord;\n" + fragment_body;
         }
@@ -1255,7 +1389,7 @@ std::optional<PreprocessedShader> PreprocessLibretroGlsl(const std::string& sour
     /* Build full stage modules: header + parameter block + shared +
      * stage-specific. Parameter block is empty when no parameters
      * exist; safe to concatenate. */
-    out.vertex_glsl   = std::string(kVertexHeader)   + param_block_decl + shared + vertex_body;
+    out.vertex_glsl = std::string(kVertexHeader) + param_block_decl + shared + vertex_body;
     out.fragment_glsl = std::string(kFragmentHeader) + param_block_decl + shared + fragment_body;
 
     /* Rewrite COMPAT_VARYING / COMPAT_ATTRIBUTE / varying / attribute
@@ -1264,7 +1398,7 @@ std::optional<PreprocessedShader> PreprocessLibretroGlsl(const std::string& sour
      * stages — required for the linker to match vertex outputs to
      * fragment inputs. */
     std::map<std::string, int> varying_map;
-    RewriteVaryingDecls(out.vertex_glsl,   varying_map, /*isVertex=*/true);
+    RewriteVaryingDecls(out.vertex_glsl, varying_map, /*isVertex=*/true);
     RewriteVaryingDecls(out.fragment_glsl, varying_map, /*isVertex=*/false);
 
     /* Replace each parameter NAME (whole-word, non-declaration
@@ -1272,7 +1406,7 @@ std::optional<PreprocessedShader> PreprocessLibretroGlsl(const std::string& sour
      * where a #pragma parameter has the same name as a local
      * variable inside a function — the local declaration keeps the
      * short name, references resolve via params.NAME. */
-    RewriteParameterRefs(out.vertex_glsl,   out.parameters);
+    RewriteParameterRefs(out.vertex_glsl, out.parameters);
     RewriteParameterRefs(out.fragment_glsl, out.parameters);
 
     return out;
@@ -1286,22 +1420,22 @@ namespace {
  * ReadFileBytes that returns the vector directly. */
 static std::optional<std::vector<uint8_t>> ReadFileVec(const std::string& path) {
     std::vector<uint8_t> v;
-    if (!ReadFileBytes(path, v)) return std::nullopt;
+    if (!ReadFileBytes(path, v))
+        return std::nullopt;
     return v;
 }
 
 /* Detect file type by magic. PNG starts with 0x89 'P' 'N' 'G'. TGA
  * has no robust magic; fall back to filename extension. */
 enum class LutImageFormat { Png, Tga, Unknown };
-static LutImageFormat DetectLutFormat(const std::string& path,
-                                      const std::vector<uint8_t>& bytes) {
-    if (bytes.size() >= 8 &&
-        bytes[0] == 0x89 && bytes[1] == 'P' && bytes[2] == 'N' && bytes[3] == 'G') {
+static LutImageFormat DetectLutFormat(const std::string& path, const std::vector<uint8_t>& bytes) {
+    if (bytes.size() >= 8 && bytes[0] == 0x89 && bytes[1] == 'P' && bytes[2] == 'N' && bytes[3] == 'G') {
         return LutImageFormat::Png;
     }
     const std::string lower = [&] {
         std::string s = path;
-        for (auto& c : s) c = (char)std::tolower((unsigned char)c);
+        for (auto& c : s)
+            c = (char)std::tolower((unsigned char)c);
         return s;
     }();
     if (lower.size() >= 4 && lower.substr(lower.size() - 4) == ".tga") {
@@ -1315,25 +1449,31 @@ static LutImageFormat DetectLutFormat(const std::string& path,
  * we flip if needed so the output is always top-left. Format covers
  * the LUTs in libretro/glsl-shaders that aren't PNG. */
 static std::optional<DecodedImage> DecodeTga(const std::vector<uint8_t>& bytes) {
-    if (bytes.size() < 18) return std::nullopt;
+    if (bytes.size() < 18)
+        return std::nullopt;
     /* Header layout (little-endian): [0] id_len, [1] cmap_type,
      * [2] image_type, [3..7] cmap spec, [8..11] x/y origin,
      * [12..13] width, [14..15] height, [16] pixel_depth,
      * [17] image_descriptor. */
-    if (bytes[1] != 0)        return std::nullopt;  /* no colormaps */
-    if (bytes[2] != 2)        return std::nullopt;  /* uncompressed truecolor only */
+    if (bytes[1] != 0)
+        return std::nullopt; /* no colormaps */
+    if (bytes[2] != 2)
+        return std::nullopt; /* uncompressed truecolor only */
     uint16_t w = (uint16_t)bytes[12] | ((uint16_t)bytes[13] << 8);
     uint16_t h = (uint16_t)bytes[14] | ((uint16_t)bytes[15] << 8);
-    uint8_t  depth = bytes[16];
-    uint8_t  desc  = bytes[17];
-    if (w == 0 || h == 0)         return std::nullopt;
-    if (depth != 24 && depth != 32) return std::nullopt;
+    uint8_t depth = bytes[16];
+    uint8_t desc = bytes[17];
+    if (w == 0 || h == 0)
+        return std::nullopt;
+    if (depth != 24 && depth != 32)
+        return std::nullopt;
     const size_t bpp = depth / 8;
     const size_t need = 18 + (size_t)bytes[0] + (size_t)w * h * bpp;
-    if (bytes.size() < need) return std::nullopt;
+    if (bytes.size() < need)
+        return std::nullopt;
     const uint8_t* px = bytes.data() + 18 + bytes[0];
     DecodedImage img;
-    img.width  = w;
+    img.width = w;
     img.height = h;
     img.rgba.resize((size_t)w * h * 4);
     const bool topLeft = (desc & 0x20) != 0;
@@ -1354,7 +1494,7 @@ static std::optional<DecodedImage> DecodeTga(const std::vector<uint8_t>& bytes) 
     return img;
 }
 
-}  // namespace
+} // namespace
 
 /* PNG decoder via libpng. libpng is already linked into the engine
  * (port_bugreport.cpp uses it for screenshot encoding); we reuse the
@@ -1375,8 +1515,10 @@ std::optional<DecodedImage> LoadLutImage(const std::string& path) {
     }
     const auto& bytes = *bytes_opt;
     switch (DetectLutFormat(path, bytes)) {
-        case LutImageFormat::Png: return DecodePng(bytes);
-        case LutImageFormat::Tga: return DecodeTga(bytes);
+        case LutImageFormat::Png:
+            return DecodePng(bytes);
+        case LutImageFormat::Tga:
+            return DecodeTga(bytes);
         case LutImageFormat::Unknown:
             std::fprintf(stderr, "[glslp] LUT format not recognised: %s\n", path.c_str());
             return std::nullopt;
@@ -1384,7 +1526,7 @@ std::optional<DecodedImage> LoadLutImage(const std::string& path) {
     return std::nullopt;
 }
 
-}  // namespace PortGlslp
+} // namespace PortGlslp
 
 /* PNG decoder implementation. Pulled out of the PortGlslp namespace so
  * it can be defined after the libpng include without polluting the
@@ -1396,20 +1538,24 @@ namespace PortGlslp {
 namespace {
 struct PngMemReader {
     const uint8_t* data;
-    size_t         remaining;
+    size_t remaining;
 };
 static void PngReadFromMemory(png_structp png_ptr, png_bytep target, png_size_t n) {
     PngMemReader* r = static_cast<PngMemReader*>(png_get_io_ptr(png_ptr));
-    if (r->remaining < n) { png_error(png_ptr, "short read"); return; }
+    if (r->remaining < n) {
+        png_error(png_ptr, "short read");
+        return;
+    }
     std::memcpy(target, r->data, n);
-    r->data      += n;
+    r->data += n;
     r->remaining -= n;
 }
-}  // namespace
+} // namespace
 
 static std::optional<DecodedImage> DecodePng(const std::vector<uint8_t>& bytes) {
     png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-    if (!png) return std::nullopt;
+    if (!png)
+        return std::nullopt;
     png_infop info = png_create_info_struct(png);
     if (!info) {
         png_destroy_read_struct(&png, nullptr, nullptr);
@@ -1427,37 +1573,37 @@ static std::optional<DecodedImage> DecodePng(const std::vector<uint8_t>& bytes) 
 
     png_uint_32 w = png_get_image_width(png, info);
     png_uint_32 h = png_get_image_height(png, info);
-    int bit_depth  = png_get_bit_depth(png, info);
+    int bit_depth = png_get_bit_depth(png, info);
     int color_type = png_get_color_type(png, info);
     /* Reject implausible dimensions before allocating: a crafted PNG header
      * could request a multi-gigabyte (w*h*4) buffer -> bad_alloc/terminate.
      * Real shader LUTs are tiny; 8192 per side is already far beyond any. */
     if (w == 0 || h == 0 || w > 8192 || h > 8192) {
-        std::fprintf(stderr, "[glslp] LUT rejected: implausible dimensions %ux%u\n",
-                     (unsigned)w, (unsigned)h);
+        std::fprintf(stderr, "[glslp] LUT rejected: implausible dimensions %ux%u\n", (unsigned)w, (unsigned)h);
         png_destroy_read_struct(&png, &info, nullptr);
         return std::nullopt;
     }
 
     /* Normalise to 8-bit RGBA. The libretro LUTs we care about are
      * 24-bit truecolor (no alpha) or 32-bit RGBA. */
-    if (bit_depth == 16) png_set_strip_16(png);
-    if (color_type == PNG_COLOR_TYPE_PALETTE) png_set_palette_to_rgb(png);
-    if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8) png_set_expand_gray_1_2_4_to_8(png);
-    if (png_get_valid(png, info, PNG_INFO_tRNS)) png_set_tRNS_to_alpha(png);
-    if (color_type == PNG_COLOR_TYPE_RGB ||
-        color_type == PNG_COLOR_TYPE_GRAY ||
-        color_type == PNG_COLOR_TYPE_PALETTE) {
+    if (bit_depth == 16)
+        png_set_strip_16(png);
+    if (color_type == PNG_COLOR_TYPE_PALETTE)
+        png_set_palette_to_rgb(png);
+    if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
+        png_set_expand_gray_1_2_4_to_8(png);
+    if (png_get_valid(png, info, PNG_INFO_tRNS))
+        png_set_tRNS_to_alpha(png);
+    if (color_type == PNG_COLOR_TYPE_RGB || color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_PALETTE) {
         png_set_filler(png, 0xFF, PNG_FILLER_AFTER);
     }
-    if (color_type == PNG_COLOR_TYPE_GRAY ||
-        color_type == PNG_COLOR_TYPE_GRAY_ALPHA) {
+    if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) {
         png_set_gray_to_rgb(png);
     }
     png_read_update_info(png, info);
 
     DecodedImage img;
-    img.width  = (int)w;
+    img.width = (int)w;
     img.height = (int)h;
     img.rgba.resize((size_t)w * h * 4);
     std::vector<png_bytep> rows(h);
@@ -1469,7 +1615,7 @@ static std::optional<DecodedImage> DecodePng(const std::vector<uint8_t>& bytes) 
     return img;
 }
 
-}  // namespace PortGlslp
+} // namespace PortGlslp
 
 /* C-callable runtime API lives in port_glslp_runtime.cpp now (Step 5).
  * Stubs removed from this file to avoid duplicate definitions. */

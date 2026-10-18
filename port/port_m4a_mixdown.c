@@ -16,8 +16,8 @@ static inline int16_t Quantize(float value) {
     return (int16_t)(scaled >= 0.0f ? scaled + 0.5f : scaled - 0.5f);
 }
 
-void PortM4A_Mixdown(const PortM4AMixTrack* tracks, size_t trackCount, size_t frames,
-                     float masterVolume, float* accL, float* accR, int16_t* out) {
+void PortM4A_Mixdown(const PortM4AMixTrack* tracks, size_t trackCount, size_t frames, float masterVolume, float* accL,
+                     float* accR, int16_t* out) {
     if (out == NULL || frames == 0) {
         return;
     }

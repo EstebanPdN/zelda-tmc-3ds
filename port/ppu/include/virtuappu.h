@@ -40,9 +40,9 @@ extern PPUMemory virtuappu_registers;
 
 void virtuappu_reset(void);
 void virtuappu_render_frame(void);
-uint32_t *virtuappu_get_frame_buffer(void);
-uint8_t *virtuappu_get_vram(void);
-PPUMemory *virtuappu_get_registers(void);
+uint32_t* virtuappu_get_frame_buffer(void);
+uint8_t* virtuappu_get_vram(void);
+PPUMemory* virtuappu_get_registers(void);
 
 #ifdef __cplusplus
 }

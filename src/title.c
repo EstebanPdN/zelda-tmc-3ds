@@ -258,7 +258,7 @@ static void HandleTitlescreen(void) {
             }
             break;
         case 2:
-        if ((REGION_IS_JP || REGION_IS_EU) ? (GetAdvanceState() != ADVANCE_NONE) : (--gIntroState.timer == 0)) {
+            if ((REGION_IS_JP || REGION_IS_EU) ? (GetAdvanceState() != ADVANCE_NONE) : (--gIntroState.timer == 0)) {
                 gIntroState.timer = 3600;
                 gIntroState.state++;
 #ifdef PC_PORT
@@ -267,7 +267,7 @@ static void HandleTitlescreen(void) {
                  * what input it expects. Fires exactly once per
                  * boot since state monotonically advances past 2. */
                 {
-                    PortTtsOptions opts = {0};
+                    PortTtsOptions opts = { 0 };
                     opts.priority = PORT_TTS_PRIO_URGENT;
                     opts.rate = opts.pitch = opts.volume = 0.0f / 0.0f;
                     opts.dedupe = false;
@@ -277,9 +277,9 @@ static void HandleTitlescreen(void) {
                 }
 #endif
             }
-        if (REGION_IS_USA) {
-            UpdatePressStartIcon();
-        }
+            if (REGION_IS_USA) {
+                UpdatePressStartIcon();
+            }
             break;
         default:
             advance = GetAdvanceState();
@@ -292,23 +292,23 @@ static void HandleTitlescreen(void) {
                 AdvanceIntroSequence(advance);
                 SoundReq(SONG_VOL_FADE_OUT);
             }
-        if (REGION_IS_EU) {
-            gOamCmd._4 = 0;
-            gOamCmd._6 = 0;
-            gOamCmd._8 = 0xE020;
-            gOamCmd.x = 120;
-            gOamCmd.y = 152;
-            DrawDirect(510, 1);
-        } else {
-            UpdatePressStartIcon();
-        }
+            if (REGION_IS_EU) {
+                gOamCmd._4 = 0;
+                gOamCmd._6 = 0;
+                gOamCmd._8 = 0xE020;
+                gOamCmd.x = 120;
+                gOamCmd.y = 152;
+                DrawDirect(510, 1);
+            } else {
+                UpdatePressStartIcon();
+            }
             if ((gIntroState.timer & 0x20) == 0) {
                 gOamCmd._8 = 0xe000;
                 gOamCmd.y = 0x84;
                 if (REGION_IS_EU) {
-                DrawDirect(0x1fe, 0);
+                    DrawDirect(0x1fe, 0);
                 } else {
-                DrawDirect(0x1ff, 0);
+                    DrawDirect(0x1ff, 0);
                 }
             }
     }
@@ -365,7 +365,7 @@ static void HandleJapaneseTitlescreenAnimationIntro(void) {
             if (!gFadeControl.active) {
                 gFadeControl.mask = 0xFFFFFFFF;
                 gIntroState.subState++;
-            gIntroState.timer = (REGION_IS_JP || REGION_IS_EU) ? 120 : 90;
+                gIntroState.timer = (REGION_IS_JP || REGION_IS_EU) ? 120 : 90;
                 pEVar2 = CreateObject(JAPANESE_SUBTITLE, 0, 0);
                 if (pEVar2 != NULL) {
                     pEVar2->x.HALF.HI = 0;

@@ -154,11 +154,8 @@ static char* FetchLatestReleaseJson(void) {
     size_t responseSize = 0;
     size_t responseCapacity = 0;
 
-    HINTERNET session = WinHttpOpen(L"tmc_pc/" TMC_WIDEN(TMC_PC_VERSION),
-                                    WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-                                    WINHTTP_NO_PROXY_NAME,
-                                    WINHTTP_NO_PROXY_BYPASS,
-                                    0);
+    HINTERNET session = WinHttpOpen(L"tmc_pc/" TMC_WIDEN(TMC_PC_VERSION), WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+                                    WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (!session) {
         return NULL;
     }
@@ -171,41 +168,25 @@ static char* FetchLatestReleaseJson(void) {
         return NULL;
     }
 
-    HINTERNET request = WinHttpOpenRequest(connect,
-                                           L"GET",
-                                           L"/repos/MatheoVignaud/tmc/releases?per_page=1",
-                                           NULL,
-                                           WINHTTP_NO_REFERER,
-                                           WINHTTP_DEFAULT_ACCEPT_TYPES,
-                                           WINHTTP_FLAG_SECURE);
+    HINTERNET request = WinHttpOpenRequest(connect, L"GET", L"/repos/MatheoVignaud/tmc/releases?per_page=1", NULL,
+                                           WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
     if (!request) {
         WinHttpCloseHandle(connect);
         WinHttpCloseHandle(session);
         return NULL;
     }
 
-    static const wchar_t headers[] =
-        L"Accept: application/vnd.github+json\r\n"
-        L"User-Agent: tmc_pc\r\n";
+    static const wchar_t headers[] = L"Accept: application/vnd.github+json\r\n"
+                                     L"User-Agent: tmc_pc\r\n";
 
-    BOOL ok = WinHttpSendRequest(request,
-                                 headers,
-                                 (DWORD)-1L,
-                                 WINHTTP_NO_REQUEST_DATA,
-                                 0,
-                                 0,
-                                 0) &&
+    BOOL ok = WinHttpSendRequest(request, headers, (DWORD)-1L, WINHTTP_NO_REQUEST_DATA, 0, 0, 0) &&
               WinHttpReceiveResponse(request, NULL);
 
     DWORD statusCode = 0;
     DWORD statusSize = sizeof(statusCode);
     if (ok) {
-        ok = WinHttpQueryHeaders(request,
-                                 WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
-                                 WINHTTP_HEADER_NAME_BY_INDEX,
-                                 &statusCode,
-                                 &statusSize,
-                                 WINHTTP_NO_HEADER_INDEX) &&
+        ok = WinHttpQueryHeaders(request, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                                 WINHTTP_HEADER_NAME_BY_INDEX, &statusCode, &statusSize, WINHTTP_NO_HEADER_INDEX) &&
              statusCode == 200;
     }
 
@@ -288,14 +269,12 @@ static char* FetchLatestReleaseJson(void) {
 
 static void ShowUpdateDialog(SDL_Window* window, const char* latestTag, const char* releaseUrl) {
     char message[512];
-    snprintf(message,
-             sizeof(message),
+    snprintf(message, sizeof(message),
              "A new version of TMC PC is available.\n\n"
              "Installed version: %s\n"
              "Latest version: %s\n\n"
              "Open the GitHub release page?",
-             TMC_PC_VERSION,
-             latestTag);
+             TMC_PC_VERSION, latestTag);
 
     const SDL_MessageBoxButtonData buttons[] = {
         { SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "Later" },
@@ -323,8 +302,7 @@ void Port_CheckForUpdates(SDL_Window* window) {
      * dialog, and TMC_NO_UPDATE_CHECK is an explicit opt-out. */
     const char* autoplay = getenv("TMC_AUTOPLAY");
     const char* noupdate = getenv("TMC_NO_UPDATE_CHECK");
-    if ((autoplay && autoplay[0] && autoplay[0] != '0') ||
-        (noupdate && noupdate[0] && noupdate[0] != '0')) {
+    if ((autoplay && autoplay[0] && autoplay[0] != '0') || (noupdate && noupdate[0] && noupdate[0] != '0')) {
         return;
     }
 

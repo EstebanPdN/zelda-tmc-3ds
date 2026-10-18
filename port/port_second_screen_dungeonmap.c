@@ -76,7 +76,6 @@
  * gDungeonFloorMetadatas has a header declaration). */
 extern const DungeonLayout* const* const gDungeonLayouts[];
 
-
 /* Raw-data accessors: src/common.c (palette groups, gfx groups, room
  * headers) and port/port_draw.c (frame pieces, OAM size table). */
 extern const u8* Port_GetRawPaletteGroupBankData(u32 group, u32 destPaletteNum, u32* outNumColors);
@@ -155,8 +154,7 @@ static const uint8_t* MapScreenObjTile(uint32_t tileNo) {
         return NULL;
     }
     for (i = 0; i < sizeof(kMapScreenObjGfxGroups); i++) {
-        const uint8_t* p =
-            Port_GetRawGfxSpanForVram(kMapScreenObjGfxGroups[i], 0x6010000u + tileNo * 32u, 32u);
+        const uint8_t* p = Port_GetRawGfxSpanForVram(kMapScreenObjGfxGroups[i], 0x6010000u + tileNo * 32u, 32u);
         if (p != NULL) {
             return p;
         }
@@ -168,8 +166,7 @@ static const uint16_t* MapScreenObjPalette(uint32_t row) {
     uint32_t i;
     for (i = 0; i < sizeof(kMapScreenPaletteGroups); i++) {
         u32 numColors = 0;
-        const uint8_t* p =
-            Port_GetRawPaletteGroupBankData(kMapScreenPaletteGroups[i], 16u + (row & 15u), &numColors);
+        const uint8_t* p = Port_GetRawPaletteGroupBankData(kMapScreenPaletteGroups[i], 16u + (row & 15u), &numColors);
         if (p != NULL && numColors >= 16) {
             return (const uint16_t*)p;
         }
@@ -263,8 +260,7 @@ static void DrawMarkerFrame(int32_t mapX, int32_t mapY, uint32_t frameIndex) {
  * pixels per byte MSB-first (sub_0801DF60), row stride (width+3)/4, raw
  * values recolored per sub_0801DF78 (0 stays clear, 1 stays 1, 2 becomes
  * the room-state color, 3 becomes 7). */
-static void BlitRoomShape(const DungeonLayout* lyt, uint32_t features, const uint16_t* pal,
-                          uint32_t pulseColorIdx) {
+static void BlitRoomShape(const DungeonLayout* lyt, uint32_t features, const uint16_t* pal, uint32_t pulseColorIdx) {
     const RoomHeader* hdr = Port_GetRoomHeaderSafe(lyt->area, lyt->room);
     const uint8_t* shape;
     uint32_t mapX, mapY, w, h, stride, x, y;
@@ -349,10 +345,9 @@ int Port_SecondScreenDungeonMap_GetInfo(uint8_t dungeonIdx, uint8_t area, uint8_
     return 1;
 }
 
-int Port_SecondScreenDungeonMap_Draw(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                     int32_t dstX, int32_t dstY, int32_t dstW, int32_t dstH,
-                                     uint8_t dungeonIdx, int32_t floor, uint8_t area, uint8_t room,
-                                     uint64_t visitedMask, uint8_t dungeonItemBits,
+int Port_SecondScreenDungeonMap_Draw(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t dstX,
+                                     int32_t dstY, int32_t dstW, int32_t dstH, uint8_t dungeonIdx, int32_t floor,
+                                     uint8_t area, uint8_t room, uint64_t visitedMask, uint8_t dungeonItemBits,
                                      int32_t playerAreaX, int32_t playerAreaY, uint32_t tick) {
     const DungeonLayout* list;
     const DungeonLayout* lyt;
@@ -372,8 +367,7 @@ int Port_SecondScreenDungeonMap_Draw(uint32_t* pixels, int32_t bufW, int32_t buf
     if (list == NULL) {
         return 0;
     }
-    bgPal = (const uint16_t*)Port_GetRawPaletteGroupBankData(MAP_BG_PALETTE_GROUP, MAP_BG_PALETTE_BANK,
-                                                             &numColors);
+    bgPal = (const uint16_t*)Port_GetRawPaletteGroupBankData(MAP_BG_PALETTE_GROUP, MAP_BG_PALETTE_BANK, &numColors);
     if (bgPal == NULL || numColors < 16) {
         return 0; /* ROM data not ready yet — schematic fallback */
     }

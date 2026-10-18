@@ -127,8 +127,7 @@ static u32 ReadLe32(const u8* p) {
 void Port_PopulateFigurines(void) {
     memset(gFigurines, 0, sizeof(gFigurines));
     for (u32 i = 1; i <= 136; i++) {
-        if (gRomOffsets != NULL && gRomOffsets->figurines != 0 &&
-            gRomOffsets->figurines + (i + 1) * 16 <= gRomSize) {
+        if (gRomOffsets != NULL && gRomOffsets->figurines != 0 && gRomOffsets->figurines + (i + 1) * 16 <= gRomSize) {
             const u8* entry = &gRomData[gRomOffsets->figurines + i * 16];
             gFigurines[i].pal = (u8*)Port_ResolveRomData(ReadLe32(entry));
             gFigurines[i].gfx = (u8*)Port_ResolveRomData(ReadLe32(entry + 4));

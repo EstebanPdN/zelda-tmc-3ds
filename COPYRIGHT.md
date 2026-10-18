@@ -29,4 +29,5 @@ Nintendo's intellectual property, which remains owned by Nintendo.
 
 Nintendo 3DS port maintenance modifications: 2026-10-02, Esteban PDN.
 Normal-save legacy metadata compatibility fix: 2026-10-04, Esteban PDN.
+Source organization and experimental camera removal: 2026-10-18, Esteban PDN.
 Corresponding source: https://github.com/EstebanPdN/zelda-tmc-3ds

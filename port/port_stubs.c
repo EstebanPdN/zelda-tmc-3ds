@@ -35,8 +35,7 @@ u32 GetNextScriptCommandHalfword(u16* ptr) {
         /* Script pointers are either inside the native ROM buffer or still
          * encoded as GBA addresses. Do not infer provenance from whether a
          * 3DS virtual page happens to be mapped. */
-        bool nativePointer =
-            gRomData && addr >= (uintptr_t)gRomData && addr < (uintptr_t)(gRomData + gRomSize);
+        bool nativePointer = gRomData && addr >= (uintptr_t)gRomData && addr < (uintptr_t)(gRomData + gRomSize);
         if (addr >= 0x08000000u && addr < 0x0A000000u && !nativePointer) {
             fprintf(stderr, "[SCRIPT] FATAL: GetNextScriptCommandHalfword called with unresolved GBA addr 0x%08X\n",
                     (unsigned)addr);

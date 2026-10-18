@@ -64,11 +64,10 @@ void sub_0805B448(StaticBackgroundManager* this) {
 void sub_0805B474(StaticBackgroundManager* this) {
 #if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
     const int viewHeight = Port_Widescreen_GameplayViewHeight();
-    s32 tmp = Port3DSFullViewPolicy_ParallaxOffset(gRoomControls.scroll_y - gRoomControls.origin_y,
-                                                   gRoomControls.height, viewHeight, 0x60);
+    s32 tmp = Port_Widescreen_ParallaxOffset(gRoomControls.scroll_y - gRoomControls.origin_y, gRoomControls.height,
+                                             viewHeight, 0x60);
 #else
-    s32 tmp = ((gRoomControls.scroll_y - gRoomControls.origin_y) * 0x60) /
-              (gRoomControls.height - DISPLAY_HEIGHT);
+    s32 tmp = ((gRoomControls.scroll_y - gRoomControls.origin_y) * 0x60) / (gRoomControls.height - DISPLAY_HEIGHT);
 #endif
     gScreen.bg3.yOffset = gRoomControls.origin_y + tmp;
     gScreen.bg3.xOffset = gRoomControls.scroll_x - ((gRoomControls.width - 0x100) / 2);

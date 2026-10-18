@@ -27,10 +27,8 @@ static bool32 VaatiProgressIsRepairable(const SaveFile* save) {
         return FALSE;
     }
 
-    if (VaatiProgressGlobalFlagIsSet(save, ENDING) ||
-        VaatiProgressGlobalFlagIsSet(save, GAMECLEAR) ||
-        VaatiProgressFlagIsSet(save, LV6_ZELDA_DISCURSE) ||
-        VaatiProgressFlagIsSet(save, LV6_00_ESCAPE) ||
+    if (VaatiProgressGlobalFlagIsSet(save, ENDING) || VaatiProgressGlobalFlagIsSet(save, GAMECLEAR) ||
+        VaatiProgressFlagIsSet(save, LV6_ZELDA_DISCURSE) || VaatiProgressFlagIsSet(save, LV6_00_ESCAPE) ||
         VaatiProgressFlagIsSet(save, LV6_SOTO_ENDING)) {
         return FALSE;
     }
@@ -45,8 +43,7 @@ static bool32 VaatiProgressNeedsForwardRepair(const SaveFile* save) {
 
 static bool32 VaatiProgressNeedsReplayRepair(const SaveFile* save) {
     return VaatiProgressIsRepairable(save) && !VaatiProgressFlagIsSet(save, LV6_GUFUU1_DEMO) &&
-           !VaatiProgressFlagIsSet(save, LV6_GUFUU2_DEAD) &&
-           VaatiProgressFlagIsSet(save, LV6_GUFUU1_FIGURE) &&
+           !VaatiProgressFlagIsSet(save, LV6_GUFUU2_DEAD) && VaatiProgressFlagIsSet(save, LV6_GUFUU1_FIGURE) &&
            VaatiProgressFlagIsSet(save, LV6_GUFUU2_FIGURE);
 }
 
@@ -56,13 +53,13 @@ static bool32 VaatiProgressMatchesLegacyBackup(const SaveFile* save, const SaveF
     const u8 demoMask = 1u << ((FLAG_BANK_10 + LV6_GUFUU1_DEMO) & 7);
     u32 i;
 
-    if (save->global_progress != backup->global_progress ||
-        memcmp(save->name, backup->name, sizeof(save->name)) != 0) {
+    if (save->global_progress != backup->global_progress || memcmp(save->name, backup->name, sizeof(save->name)) != 0) {
         return FALSE;
     }
     for (i = bankStart; i < bankStart + 0x20; ++i) {
         const u8 mask = i == demoByte ? (u8)~demoMask : 0xFF;
-        if ((save->flags[i] & mask) != (backup->flags[i] & mask)) return FALSE;
+        if ((save->flags[i] & mask) != (backup->flags[i] & mask))
+            return FALSE;
     }
     return TRUE;
 }

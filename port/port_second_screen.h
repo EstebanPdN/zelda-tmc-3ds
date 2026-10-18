@@ -81,15 +81,13 @@ typedef struct PortSecondScreenTestLoadStateLayout {
 /* Focused host oracle for the production ammo compositor.  Paints the A
  * counter at x=0 and B at x=20*scale, and returns how many equipped items
  * own a counter (including a real zero-ammo counter). */
-int Port_SecondScreen_TestPaintEquippedAmmo(uint32_t* pixels, int32_t width, int32_t height,
-                                            int32_t stride, const SecondScreenSnapshot* snap,
-                                            int32_t scale);
+int Port_SecondScreen_TestPaintEquippedAmmo(uint32_t* pixels, int32_t width, int32_t height, int32_t stride,
+                                            const SecondScreenSnapshot* snap, int32_t scale);
 void Port_SecondScreen_TestLoadStateConfirmationLayout(int32_t width, int32_t height,
                                                        PortSecondScreenTestLoadStateLayout* out);
 void Port_SecondScreen_TestUnavailableNoticeLayout(int32_t width, int32_t height,
-                                                        PortSecondScreenTestLoadStateLayout* out);
-float Port_SecondScreen_TestSidebarRingRadius(float vitalsBottom, float chipY, float width, float u,
-                                              int chargeVisible);
+                                                   PortSecondScreenTestLoadStateLayout* out);
+float Port_SecondScreen_TestSidebarRingRadius(float vitalsBottom, float chipY, float width, float u, int chargeVisible);
 #endif
 
 /* Which way round the two screens ended up this launch: nonzero when the

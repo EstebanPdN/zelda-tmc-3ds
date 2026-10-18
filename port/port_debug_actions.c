@@ -594,7 +594,6 @@ int Port_DebugQuery_IsMinish(void) {
     return (gPlayerState.flags & PL_MINISH) ? 1 : 0;
 }
 
-
 /* ------------------------------------------------------------------ */
 /*  Per-item ownership toggles                                        */
 /* ------------------------------------------------------------------ */

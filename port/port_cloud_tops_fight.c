@@ -53,8 +53,7 @@ static u32 Port_CloudTopsGoldenKinstoneCount(const SaveFile* save) {
 
 static bool32 Port_CloudTopsMatchesBrokenProgress(const SaveFile* save, u32 goldenKinstoneCount) {
 
-    if (save == NULL || !REGION_IS_EU || save->invalid || !save->initialized ||
-        Port_CloudTopsFightWasReplayed(save)) {
+    if (save == NULL || !REGION_IS_EU || save->invalid || !save->initialized || Port_CloudTopsFightWasReplayed(save)) {
         return FALSE;
     }
     if (ReadBit((void*)save->flags, FLAG_BANK_0 + KUMOTATSUMAKI)) {
@@ -65,10 +64,8 @@ static bool32 Port_CloudTopsMatchesBrokenProgress(const SaveFile* save, u32 gold
         !Port_CloudTopsSaveFlagIsSet(save, KUMOUE_02_AWASE_02) ||
         !Port_CloudTopsSaveFlagIsSet(save, KUMOUE_02_AWASE_03) ||
         !Port_CloudTopsSaveFlagIsSet(save, KUMOUE_02_AWASE_04) ||
-        Port_CloudTopsSaveFlagIsSet(save, KUMOUE_02_AWASE_05) ||
-        !Port_CloudTopsSaveFlagIsSet(save, KUMOUE_02_00) ||
-        !Port_CloudTopsSaveFlagIsSet(save, KUMOUE_02_01) ||
-        !Port_CloudTopsSaveFlagIsSet(save, KUMOUE_02_02) ||
+        Port_CloudTopsSaveFlagIsSet(save, KUMOUE_02_AWASE_05) || !Port_CloudTopsSaveFlagIsSet(save, KUMOUE_02_00) ||
+        !Port_CloudTopsSaveFlagIsSet(save, KUMOUE_02_01) || !Port_CloudTopsSaveFlagIsSet(save, KUMOUE_02_02) ||
         !Port_CloudTopsSaveFlagIsSet(save, KUMOUE_02_03)) {
         return FALSE;
     }
@@ -144,7 +141,7 @@ bool32 Port_RepairCloudTopsFight(SaveFile* save, bool32 legacyInventoryRepair) {
 }
 
 static void Port_CloudTopsPrepareFightEntities(EntityData* destination, const EntityData* usaTemplate, u16 cloudFlag,
-                                                u16 spawnFlag) {
+                                               u16 spawnFlag) {
     memcpy(destination, usaTemplate, sizeof(EntityData) * PORT_CLOUD_TOPS_FIGHT_ENTITY_COUNT);
 
     cloudFlag = Port_CloudTopsRemapLocalFlag(cloudFlag);

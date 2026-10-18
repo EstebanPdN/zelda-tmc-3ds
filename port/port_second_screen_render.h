@@ -35,16 +35,15 @@ extern "C" {
  * destination pixels are clipped silently. Palette banks resolve the way
  * the pause menu's item screen resolves them. */
 void Port_SecondScreenRender_DrawItemIcon(uint32_t* pixels, int32_t bufWidth, int32_t bufHeight, int32_t stride,
-                                           int32_t x, int32_t y, int32_t scale, uint8_t itemId);
+                                          int32_t x, int32_t y, int32_t scale, uint8_t itemId);
 
 /* Same, for a screen whose OAM command carries a different palette bank.
  * Nearly every icon piece names its bank absolutely and ignores the
  * command's, but not all of them do — and the pause menu's screens do not
  * all command the same bank: the item screen sends 3, the quest screen 14,
  * which is what colors the element crystal there. */
-void Port_SecondScreenRender_DrawItemIconBank(uint32_t* pixels, int32_t bufWidth, int32_t bufHeight,
-                                              int32_t stride, int32_t x, int32_t y, int32_t scale,
-                                              uint8_t itemId, uint32_t cmdPalBank);
+void Port_SecondScreenRender_DrawItemIconBank(uint32_t* pixels, int32_t bufWidth, int32_t bufHeight, int32_t stride,
+                                              int32_t x, int32_t y, int32_t scale, uint8_t itemId, uint32_t cmdPalBank);
 
 #ifdef __cplusplus
 }

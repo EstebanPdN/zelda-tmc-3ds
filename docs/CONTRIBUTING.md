@@ -1,5 +1,9 @@
 # Contributing to Project Picori
 
+For current Nintendo 3DS ownership and commands, start with
+[architecture](ARCHITECTURE.md) and [development](DEVELOPMENT.md).
+The inherited desktop guidance below retains its original platform scope.
+
 Thanks for helping with the Minish Cap PC port! This fork turns the
 [zeldaret/tmc](https://github.com/zeldaret/tmc) decompilation into a native PC
 game (SDL3 + a software PPU + the agbplay audio engine). The contributions we

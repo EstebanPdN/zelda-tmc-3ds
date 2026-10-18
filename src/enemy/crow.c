@@ -30,8 +30,7 @@ typedef struct {
     u8 unk_84;
 } CrowEntity;
 
-PORT_STATIC_ASSERT_OFFSET(CrowEntity, unk_78, 0x78, 0xA4,
-                          "CrowEntity unk_78 offset (Enemy::child +4 pad)");
+PORT_STATIC_ASSERT_OFFSET(CrowEntity, unk_78, 0x78, 0xA4, "CrowEntity unk_78 offset (Enemy::child +4 pad)");
 
 void (*const Crow_Functions[])(Entity*);
 void (*const gUnk_080CE990[])(CrowEntity*);

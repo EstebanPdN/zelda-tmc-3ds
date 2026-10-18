@@ -97,7 +97,8 @@ static void OnAptEvent(APT_HookType hook, void* parameter) {
 }
 
 static void RegisterAptHook(void) {
-    if (sAptHookRegistered) return;
+    if (sAptHookRegistered)
+        return;
     aptHook(&sAptHookCookie, OnAptEvent, NULL);
     sAptHookRegistered = true;
 }
@@ -164,8 +165,10 @@ int Platform3DS_Init(void) {
     const int limitCap = Port_Config_AppCpuLimit();
     static const u32 core1Candidates[] = { 80, 70, 50, 30 };
     for (size_t i = 0; i < sizeof(core1Candidates) / sizeof(core1Candidates[0]); ++i) {
-        if (limitCap > 0 && core1Candidates[i] > (u32)limitCap) continue;
-        if (R_FAILED(APT_SetAppCpuTimeLimit(core1Candidates[i]))) continue;
+        if (limitCap > 0 && core1Candidates[i] > (u32)limitCap)
+            continue;
+        if (R_FAILED(APT_SetAppCpuTimeLimit(core1Candidates[i])))
+            continue;
         u32 actual = 0;
         if (R_SUCCEEDED(APT_GetAppCpuTimeLimit(&actual)) && actual > 0) {
             sCore1Available = true;
@@ -179,7 +182,8 @@ int Platform3DS_Init(void) {
     sHeld = hidKeysHeld();
     sDown = hidKeysDown();
     hidCircleRead(&sCirclePosition);
-    if (sIsNew3DS) hidCstickRead(&sCStickPosition);
+    if (sIsNew3DS)
+        hidCstickRead(&sCStickPosition);
     return 1;
 }
 
@@ -198,12 +202,24 @@ void Platform3DS_Shutdown(void) {
     gfxExit();
 }
 
-bool Platform3DS_IsRunning(void) { return sRunning; }
-bool Platform3DS_IsNew3DS(void) { return sIsNew3DS; }
-bool Platform3DS_CanUseCore1(void) { return sCore1Available; }
-unsigned Platform3DS_Core1TimeLimit(void) { return sCore1TimeLimit; }
-bool Platform3DS_TurboHeld(void) { return sIsNew3DS && sCStickHeld; }
-unsigned Platform3DS_TurboMultiplier(void) { return sTurboMultiplier; }
+bool Platform3DS_IsRunning(void) {
+    return sRunning;
+}
+bool Platform3DS_IsNew3DS(void) {
+    return sIsNew3DS;
+}
+bool Platform3DS_CanUseCore1(void) {
+    return sCore1Available;
+}
+unsigned Platform3DS_Core1TimeLimit(void) {
+    return sCore1TimeLimit;
+}
+bool Platform3DS_TurboHeld(void) {
+    return sIsNew3DS && sCStickHeld;
+}
+unsigned Platform3DS_TurboMultiplier(void) {
+    return sTurboMultiplier;
+}
 void Platform3DS_SetTurboMultiplier(unsigned multiplier) {
     sTurboMultiplier = multiplier < 2 ? 2 : (multiplier > 5 ? 5 : multiplier);
 }
@@ -219,7 +235,8 @@ void Platform3DS_ShowSplash(void) {
         }
         fclose(file);
     }
-    if (!pixels) return;
+    if (!pixels)
+        return;
 
     uint16_t width = 0;
     uint16_t height = 0;
@@ -245,7 +262,8 @@ static bool GameplayLogSinkPrint(void* console, int character) {
 }
 
 void Platform3DS_EnterGameplayDisplay(void) {
-    if (sGameplayDisplayActive) return;
+    if (sGameplayDisplayActive)
+        return;
 
     /* Keep the visible console throughout boot, then prevent stdout from ever
      * writing into the bottom framebuffer owned by Citro3D. stderr remains
@@ -277,29 +295,45 @@ static uint16_t MapKeysToGba(uint32_t keys) {
     };
     const bool quickDumpCombo = (keys & (KEY_L | KEY_R | KEY_A)) == (KEY_L | KEY_R | KEY_A);
     uint16_t input = 0x03ff;
-    if ((keys & KEY_A) && !quickDumpCombo) input &= ~GBA_A;
-    if (keys & KEY_B) input &= ~GBA_B;
-    if (keys & KEY_SELECT) input &= ~GBA_SELECT;
-    if (keys & KEY_START) input &= ~GBA_START;
-    if (keys & (KEY_DRIGHT | KEY_CPAD_RIGHT)) input &= ~GBA_RIGHT;
-    if (keys & (KEY_DLEFT | KEY_CPAD_LEFT)) input &= ~GBA_LEFT;
-    if (keys & (KEY_DUP | KEY_CPAD_UP)) input &= ~GBA_UP;
-    if (keys & (KEY_DDOWN | KEY_CPAD_DOWN)) input &= ~GBA_DOWN;
-    if ((keys & KEY_R) && !quickDumpCombo) input &= ~GBA_R;
-    if ((keys & KEY_L) && !quickDumpCombo) input &= ~GBA_L;
+    if ((keys & KEY_A) && !quickDumpCombo)
+        input &= ~GBA_A;
+    if (keys & KEY_B)
+        input &= ~GBA_B;
+    if (keys & KEY_SELECT)
+        input &= ~GBA_SELECT;
+    if (keys & KEY_START)
+        input &= ~GBA_START;
+    if (keys & (KEY_DRIGHT | KEY_CPAD_RIGHT))
+        input &= ~GBA_RIGHT;
+    if (keys & (KEY_DLEFT | KEY_CPAD_LEFT))
+        input &= ~GBA_LEFT;
+    if (keys & (KEY_DUP | KEY_CPAD_UP))
+        input &= ~GBA_UP;
+    if (keys & (KEY_DDOWN | KEY_CPAD_DOWN))
+        input &= ~GBA_DOWN;
+    if ((keys & KEY_R) && !quickDumpCombo)
+        input &= ~GBA_R;
+    if ((keys & KEY_L) && !quickDumpCombo)
+        input &= ~GBA_L;
     return input;
 }
 
-uint16_t Platform3DS_ReadKeyInput(void) { return MapKeysToGba(sHeld); }
-uint16_t Platform3DS_ReadKeyDownInput(void) { return MapKeysToGba(sDown); }
+uint16_t Platform3DS_ReadKeyInput(void) {
+    return MapKeysToGba(sHeld);
+}
+uint16_t Platform3DS_ReadKeyDownInput(void) {
+    return MapKeysToGba(sDown);
+}
 
 uint32_t Platform3DS_KeysHeld(void) {
     return sHeld;
 }
 
 void Platform3DS_ReadCircle(float* x, float* y) {
-    if (x) *x = sCirclePosition.dx / 156.0f;
-    if (y) *y = -sCirclePosition.dy / 156.0f;
+    if (x)
+        *x = sCirclePosition.dx / 156.0f;
+    if (y)
+        *y = -sCirclePosition.dy / 156.0f;
 }
 
 uint16_t* Platform3DS_GetFramebuffer(int top, uint16_t* width, uint16_t* height) {
@@ -325,26 +359,31 @@ int Platform3DS_IsNativeAddress(uintptr_t value) {
     if (sStackRegionEnd == 0) {
         MemInfo stackInfo;
         PageInfo pageInfo;
-        if (R_FAILED(svcQueryMemory(&stackInfo, &pageInfo, (u32)currentSp)) ||
-            (stackInfo.perm & MEMPERM_WRITE) == 0u) {
+        if (R_FAILED(svcQueryMemory(&stackInfo, &pageInfo, (u32)currentSp)) || (stackInfo.perm & MEMPERM_WRITE) == 0u) {
             return 0;
         }
         sStackRegionBase = stackInfo.base_addr;
         sStackRegionEnd = sStackRegionBase + stackInfo.size;
     }
 
-    if (value >= sStackRegionBase && value < sStackRegionEnd) return 1;
+    if (value >= sStackRegionBase && value < sStackRegionEnd)
+        return 1;
 
     for (unsigned i = 0; i < sNativeMemoryRegionCount; ++i) {
-        if (value >= sNativeMemoryRegions[i].base && value < sNativeMemoryRegions[i].end) return 1;
+        if (value >= sNativeMemoryRegions[i].base && value < sNativeMemoryRegions[i].end)
+            return 1;
     }
 
     MemInfo info;
     PageInfo pageInfo;
-    if (R_FAILED(svcQueryMemory(&info, &pageInfo, (u32)value))) return 0;
-    if (info.base_addr == 0 || info.size == 0) return 0;
-    if (value < info.base_addr || value >= info.base_addr + info.size) return 0;
-    if ((info.perm & (MEMPERM_READ | MEMPERM_WRITE)) == 0u) return 0;
+    if (R_FAILED(svcQueryMemory(&info, &pageInfo, (u32)value)))
+        return 0;
+    if (info.base_addr == 0 || info.size == 0)
+        return 0;
+    if (value < info.base_addr || value >= info.base_addr + info.size)
+        return 0;
+    if ((info.perm & (MEMPERM_READ | MEMPERM_WRITE)) == 0u)
+        return 0;
 
     if (sNativeMemoryRegionCount < sizeof(sNativeMemoryRegions) / sizeof(sNativeMemoryRegions[0])) {
         NativeMemoryRegion* region = &sNativeMemoryRegions[sNativeMemoryRegionCount++];
@@ -370,7 +409,8 @@ bool Platform3DS_BeginFrameBoundary(void) {
     if (sFrameBoundaryEndTick != 0) {
         sEngineWorkLastTicks = now - sFrameBoundaryEndTick;
         sEngineWorkTicks += sEngineWorkLastTicks;
-        if (sEngineWorkLastTicks > sEngineWorkMaxTicks) sEngineWorkMaxTicks = sEngineWorkLastTicks;
+        if (sEngineWorkLastTicks > sEngineWorkMaxTicks)
+            sEngineWorkMaxTicks = sEngineWorkLastTicks;
     }
 
     ++sLogicFrames;
@@ -382,7 +422,8 @@ bool Platform3DS_BeginFrameBoundary(void) {
     sLogicLastTick = now;
     if (!sIsNew3DS) {
         const bool present = Old3DSFramePacer_BeginTick(&sOld3DSFramePacer, now, &sOld3DSSkippedTickSleep);
-        if (present) ++sPresentedFrames;
+        if (present)
+            ++sPresentedFrames;
         return present;
     }
 
@@ -429,7 +470,8 @@ static bool PumpLifecycleAndAudio(void) {
     const bool alive = sRunning && !Updater_ShouldClose() && aptMainLoop();
     const uint64_t aptTicks = svcGetSystemTick() - aptStart;
     sAptTicks += aptTicks;
-    if (aptTicks > sAptMaxTicks) sAptMaxTicks = aptTicks;
+    if (aptTicks > sAptMaxTicks)
+        sAptMaxTicks = aptTicks;
     if (!alive) {
         sRunning = false;
         return false;
@@ -438,38 +480,58 @@ static bool PumpLifecycleAndAudio(void) {
     Port_Audio_3DSPump();
     const uint64_t audioTicks = svcGetSystemTick() - audioStart;
     sAudioPumpTicks += audioTicks;
-    if (audioTicks > sAudioPumpMaxTicks) sAudioPumpMaxTicks = audioTicks;
+    if (audioTicks > sAudioPumpMaxTicks)
+        sAudioPumpMaxTicks = audioTicks;
     return true;
 }
 
-uint64_t Platform3DS_AptTicks(void) { return sAptTicks; }
-uint64_t Platform3DS_AptMaxTicks(void) { return sAptMaxTicks; }
-uint64_t Platform3DS_AudioPumpTicks(void) { return sAudioPumpTicks; }
-uint64_t Platform3DS_AudioPumpMaxTicks(void) { return sAudioPumpMaxTicks; }
-uint64_t Platform3DS_VblankWaitSamples(void) { return sVblankWaitSamples; }
-uint64_t Platform3DS_VblankWaitOverOnePeriod(void) { return sVblankWaitOverOnePeriod; }
-uint64_t Platform3DS_VblankWaitOverTwoPeriods(void) { return sVblankWaitOverTwoPeriods; }
+uint64_t Platform3DS_AptTicks(void) {
+    return sAptTicks;
+}
+uint64_t Platform3DS_AptMaxTicks(void) {
+    return sAptMaxTicks;
+}
+uint64_t Platform3DS_AudioPumpTicks(void) {
+    return sAudioPumpTicks;
+}
+uint64_t Platform3DS_AudioPumpMaxTicks(void) {
+    return sAudioPumpMaxTicks;
+}
+uint64_t Platform3DS_VblankWaitSamples(void) {
+    return sVblankWaitSamples;
+}
+uint64_t Platform3DS_VblankWaitOverOnePeriod(void) {
+    return sVblankWaitOverOnePeriod;
+}
+uint64_t Platform3DS_VblankWaitOverTwoPeriods(void) {
+    return sVblankWaitOverTwoPeriods;
+}
 
 void Platform3DS_PumpWithoutVBlank(void) {
-    if (!PumpLifecycleAndAudio()) return;
-    if (sIsNew3DS) return;
+    if (!PumpLifecycleAndAudio())
+        return;
+    if (sIsNew3DS)
+        return;
 
     if (sOld3DSSkippedTickSleep != 0) {
         const uint64_t sleepNs = sOld3DSSkippedTickSleep * 1000000000ULL / SYSCLOCK_ARM11;
         sOld3DSSkippedTickSleep = 0;
-        if (sleepNs != 0) svcSleepThread((int64_t)sleepNs);
+        if (sleepNs != 0)
+            svcSleepThread((int64_t)sleepNs);
     }
 
     PollInput();
 }
 
 void Platform3DS_GetRuntimeStats(Platform3DSRuntimeStats* stats) {
-    if (!stats) return;
+    if (!stats)
+        return;
     s32 threadPriority = -1;
     uintptr_t currentSp;
     __asm__ volatile("mov %0, sp" : "=r"(currentSp));
     svcGetThreadPriority(&threadPriority, CUR_THREAD_HANDLE);
-    if (sStackRegionEnd == 0) Platform3DS_IsNativeAddress(currentSp);
+    if (sStackRegionEnd == 0)
+        Platform3DS_IsNativeAddress(currentSp);
     *stats = (Platform3DSRuntimeStats){
         .kernelVersion = osGetKernelVersion(),
         .firmVersion = osGetFirmVersion(),
@@ -524,7 +586,8 @@ static void BottomWorkerMain(void* argument) {
     (void)argument;
     for (;;) {
         LightEvent_Wait(&sBottomWorkerStart);
-        if (!__atomic_load_n(&sBottomWorkerRunning, __ATOMIC_ACQUIRE)) break;
+        if (!__atomic_load_n(&sBottomWorkerRunning, __ATOMIC_ACQUIRE))
+            break;
         __atomic_thread_fence(__ATOMIC_ACQUIRE);
         extern void Port_PPU_3DS_RenderBottomWorker(void);
         Port_PPU_3DS_RenderBottomWorker();
@@ -533,8 +596,10 @@ static void BottomWorkerMain(void* argument) {
 }
 
 static bool EnsureBottomWorker(void) {
-    if (sBottomWorkerThread) return true;
-    if (sBottomWorkerAttempts >= BOTTOM_WORKER_MAX_ATTEMPTS) return false;
+    if (sBottomWorkerThread)
+        return true;
+    if (sBottomWorkerAttempts >= BOTTOM_WORKER_MAX_ATTEMPTS)
+        return false;
     if (sBottomWorkerRetryIn != 0) {
         --sBottomWorkerRetryIn;
         return false;
@@ -546,7 +611,8 @@ static bool EnsureBottomWorker(void) {
     LightEvent_Init(&sBottomWorkerDone, RESET_ONESHOT);
     s32 priority = 0x30;
     svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
-    if (priority < 0x3e) priority += 2;
+    if (priority < 0x3e)
+        priority += 2;
     sBottomWorkerRunning = true;
     /* The painter has always shared core 0 with the main thread. It cannot
      * preempt it (priority 50 against 48), but it does consume core 0 cycles,
@@ -561,17 +627,16 @@ static bool EnsureBottomWorker(void) {
     if (!sBottomWorkerThread) {
         sBottomWorkerRunning = false;
         char line[128];
-        snprintf(line, sizeof(line),
-                 "[tmc3ds] bottom worker create failed (attempt %u/%u); retrying in %u paints\n",
-                 sBottomWorkerAttempts, BOTTOM_WORKER_MAX_ATTEMPTS,
-                 BOTTOM_WORKER_RETRY_PAINTS);
+        snprintf(line, sizeof(line), "[tmc3ds] bottom worker create failed (attempt %u/%u); retrying in %u paints\n",
+                 sBottomWorkerAttempts, BOTTOM_WORKER_MAX_ATTEMPTS, BOTTOM_WORKER_RETRY_PAINTS);
         Platform3DS_Debug(line);
     }
     return sBottomWorkerThread != NULL;
 }
 
 bool Platform3DS_SubmitBottomWorker(void) {
-    if (sBottomWorkerBusy || !EnsureBottomWorker()) return false;
+    if (sBottomWorkerBusy || !EnsureBottomWorker())
+        return false;
     __atomic_thread_fence(__ATOMIC_RELEASE);
     sBottomWorkerBusy = true;
     LightEvent_Signal(&sBottomWorkerStart);
@@ -579,14 +644,16 @@ bool Platform3DS_SubmitBottomWorker(void) {
 }
 
 bool Platform3DS_TryFinishBottomWorker(void) {
-    if (!sBottomWorkerBusy || !LightEvent_TryWait(&sBottomWorkerDone)) return false;
+    if (!sBottomWorkerBusy || !LightEvent_TryWait(&sBottomWorkerDone))
+        return false;
     __atomic_thread_fence(__ATOMIC_ACQUIRE);
     sBottomWorkerBusy = false;
     return true;
 }
 
 void Platform3DS_ShutdownBottomWorker(void) {
-    if (!sBottomWorkerThread) return;
+    if (!sBottomWorkerThread)
+        return;
     __atomic_store_n(&sBottomWorkerRunning, false, __ATOMIC_RELEASE);
     LightEvent_Signal(&sBottomWorkerStart);
     threadJoin(sBottomWorkerThread, 2000000000ULL);
@@ -618,7 +685,8 @@ static void PollInput(void) {
         Port_SecondScreen_3DS_OnTap(touch.px, touch.py, 0);
     }
     const bool quickDumpCombo = (sHeld & (KEY_L | KEY_R | KEY_A)) == (KEY_L | KEY_R | KEY_A);
-    if (quickDumpCombo && !sQuickDumpComboWasHeld) sQuickDumpRequested = true;
+    if (quickDumpCombo && !sQuickDumpComboWasHeld)
+        sQuickDumpRequested = true;
     sQuickDumpComboWasHeld = quickDumpCombo;
 }
 
@@ -629,8 +697,12 @@ static void PollInput(void) {
 static volatile uint32_t sMainStage;
 static volatile uint32_t sMainHeartbeat;
 
-void Platform3DS_SetStage(uint32_t stage) { sMainStage = stage; }
-void Platform3DS_Heartbeat(void) { ++sMainHeartbeat; }
+void Platform3DS_SetStage(uint32_t stage) {
+    sMainStage = stage;
+}
+void Platform3DS_Heartbeat(void) {
+    ++sMainHeartbeat;
+}
 
 void Platform3DS_WatchdogPoll(void) {
     static uint32_t lastHeartbeat;
@@ -643,14 +715,15 @@ void Platform3DS_WatchdogPoll(void) {
         reported = false;
         return;
     }
-    if (reported) return;
+    if (reported)
+        return;
     /* Audio wakes roughly every 16 ms, so a few hundred polls is several
      * seconds of a genuinely stopped main thread rather than a slow frame. */
-    if (++stalledPolls < 240u) return;
+    if (++stalledPolls < 240u)
+        return;
     reported = true;
     char line[128];
-    snprintf(line, sizeof(line),
-             "[tmc3ds] WATCHDOG: main thread stopped at stage %lu, frame %lu\n",
+    snprintf(line, sizeof(line), "[tmc3ds] WATCHDOG: main thread stopped at stage %lu, frame %lu\n",
              (unsigned long)sMainStage, (unsigned long)beat);
     Platform3DS_Debug(line);
 }
@@ -664,39 +737,36 @@ void Platform3DS_WatchdogPoll(void) {
 static int sCacheCleanMode; /* 0 unprobed, 1 direct SVC, 2 GSP fallback */
 
 bool Platform3DS_CleanDataCache(const void* addr, size_t size) {
-    if (!addr || size == 0) return true;
+    if (!addr || size == 0)
+        return true;
     if (sCacheCleanMode == 0) {
-        const Result probe = svcStoreProcessDataCache(
-                CUR_PROCESS_HANDLE, (u32)(uintptr_t)addr, (u32)size);
+        const Result probe = svcStoreProcessDataCache(CUR_PROCESS_HANDLE, (u32)(uintptr_t)addr, (u32)size);
         sCacheCleanMode = R_SUCCEEDED(probe) ? 1 : 2;
         char line[96];
-        snprintf(line, sizeof(line),
-                 "[tmc3ds] cache clean: %s (probe 0x%08lx)\n",
-                 sCacheCleanMode == 1 ? "direct SVC" : "GSP fallback",
-                 (unsigned long)probe);
+        snprintf(line, sizeof(line), "[tmc3ds] cache clean: %s (probe 0x%08lx)\n",
+                 sCacheCleanMode == 1 ? "direct SVC" : "GSP fallback", (unsigned long)probe);
         Platform3DS_Debug(line);
-        if (sCacheCleanMode == 1) return true;
+        if (sCacheCleanMode == 1)
+            return true;
     }
     if (sCacheCleanMode == 1) {
-        return R_SUCCEEDED(svcStoreProcessDataCache(
-                CUR_PROCESS_HANDLE, (u32)(uintptr_t)addr, (u32)size));
+        return R_SUCCEEDED(svcStoreProcessDataCache(CUR_PROCESS_HANDLE, (u32)(uintptr_t)addr, (u32)size));
     }
     /* Fallback. GSPGPU_FlushDataCache is a synchronous service call: it blocks
      * this thread until GSP has done the work. GX_FlushCacheRegions queues the
      * same request onto the GX command queue instead, so the caller carries on.
      * The work still runs on core 1 either way -- this buys main-thread time,
      * not audio time. */
-    return R_SUCCEEDED(GX_FlushCacheRegions((u32*)(uintptr_t)addr, (u32)size,
-                                            NULL, 0, NULL, 0));
+    return R_SUCCEEDED(GX_FlushCacheRegions((u32*)(uintptr_t)addr, (u32)size, NULL, 0, NULL, 0));
 }
 
 const char* Platform3DS_CacheCleanPath(void) {
-    return sCacheCleanMode == 1   ? "direct SVC (no GSP round trip)"
-           : sCacheCleanMode == 2 ? "GSP fallback"
-                                  : "unprobed";
+    return sCacheCleanMode == 1 ? "direct SVC (no GSP round trip)" : sCacheCleanMode == 2 ? "GSP fallback" : "unprobed";
 }
 
-void Platform3DS_RequestQuickDump(void) { sQuickDumpRequested = true; }
+void Platform3DS_RequestQuickDump(void) {
+    sQuickDumpRequested = true;
+}
 
 /* Render and engine work together account for 12.7 ms of a 20.4 ms frame, and
  * the VBlank wait is 7.7 ms where about 4 would be expected -- so a few
@@ -706,10 +776,18 @@ void Platform3DS_RequestQuickDump(void) { sQuickDumpRequested = true; }
 static uint64_t sPumpTicks, sPostWaitTicks;
 static uint64_t sPumpMaxTicks, sPostWaitMaxTicks;
 
-uint64_t Platform3DS_PumpTicks(void) { return sPumpTicks; }
-uint64_t Platform3DS_PumpMaxTicks(void) { return sPumpMaxTicks; }
-uint64_t Platform3DS_PostWaitTicks(void) { return sPostWaitTicks; }
-uint64_t Platform3DS_PostWaitMaxTicks(void) { return sPostWaitMaxTicks; }
+uint64_t Platform3DS_PumpTicks(void) {
+    return sPumpTicks;
+}
+uint64_t Platform3DS_PumpMaxTicks(void) {
+    return sPumpMaxTicks;
+}
+uint64_t Platform3DS_PostWaitTicks(void) {
+    return sPostWaitTicks;
+}
+uint64_t Platform3DS_PostWaitMaxTicks(void) {
+    return sPostWaitMaxTicks;
+}
 
 void Platform3DS_WaitForVBlank(void) {
     Platform3DS_SetStage(11);
@@ -717,8 +795,10 @@ void Platform3DS_WaitForVBlank(void) {
     const bool pumped = PumpLifecycleAndAudio();
     const uint64_t pumpTicks = svcGetSystemTick() - pumpStart;
     sPumpTicks += pumpTicks;
-    if (pumpTicks > sPumpMaxTicks) sPumpMaxTicks = pumpTicks;
-    if (!pumped) return;
+    if (pumpTicks > sPumpMaxTicks)
+        sPumpMaxTicks = pumpTicks;
+    if (!pumped)
+        return;
     extern bool Port_PPU_3DS_UsesGpuPresenter(void);
     extern bool Port_Config_VblankPhaseLock(void);
     const uint64_t waitStart = svcGetSystemTick();
@@ -746,7 +826,8 @@ void Platform3DS_WaitForVBlank(void) {
     }
     sVblankWaitLastTicks = svcGetSystemTick() - waitStart;
     sVblankWaitTicks += sVblankWaitLastTicks;
-    if (sVblankWaitLastTicks > sVblankWaitMaxTicks) sVblankWaitMaxTicks = sVblankWaitLastTicks;
+    if (sVblankWaitLastTicks > sVblankWaitMaxTicks)
+        sVblankWaitMaxTicks = sVblankWaitLastTicks;
     /* Directly count lost display periods instead of inferring them.
      *
      * The whole residual deficit is that the loop waits ~2.1 ms/frame longer
@@ -762,8 +843,10 @@ void Platform3DS_WaitForVBlank(void) {
     ++sVblankWaitSamples;
     {
         const uint64_t period = Platform3DS_TicksPerSecond() * 280896u / 16777216u;
-        if (sVblankWaitLastTicks > period) ++sVblankWaitOverOnePeriod;
-        if (sVblankWaitLastTicks > period * 2u) ++sVblankWaitOverTwoPeriods;
+        if (sVblankWaitLastTicks > period)
+            ++sVblankWaitOverOnePeriod;
+        if (sVblankWaitLastTicks > period * 2u)
+            ++sVblankWaitOverTwoPeriods;
     }
     /* EndBottom only marks a bottom generation submitted.  Promote it after
      * the display boundary and before this tick's HID scan, so touch never
@@ -778,7 +861,8 @@ void Platform3DS_WaitForVBlank(void) {
     PollInput();
     const uint64_t postTicks = svcGetSystemTick() - postStart;
     sPostWaitTicks += postTicks;
-    if (postTicks > sPostWaitMaxTicks) sPostWaitMaxTicks = postTicks;
+    if (postTicks > sPostWaitMaxTicks)
+        sPostWaitMaxTicks = postTicks;
 }
 
 void Platform3DS_ShowFatal(const char* title, const char* message) {
@@ -792,13 +876,15 @@ void Platform3DS_ShowFatal(const char* title, const char* message) {
     printf("%s\n\n%s\n\nPress START to exit.\n", title ? title : "Error", message ? message : "");
     while (aptMainLoop()) {
         hidScanInput();
-        if (hidKeysDown() & KEY_START) break;
+        if (hidKeysDown() & KEY_START)
+            break;
         gspWaitForVBlank();
     }
 }
 
 void Platform3DS_Debug(const char* message) {
-    if (!message) return;
+    if (!message)
+        return;
     svcOutputDebugString(message, strlen(message));
     FILE* file = fopen("tmc3ds.log", "ab");
     if (file) {
@@ -807,8 +893,8 @@ void Platform3DS_Debug(const char* message) {
     }
 }
 
-static void ReadFramebufferPixel(const uint8_t* pixel, GSPGPU_FramebufferFormat format,
-                                 uint8_t* red, uint8_t* green, uint8_t* blue) {
+static void ReadFramebufferPixel(const uint8_t* pixel, GSPGPU_FramebufferFormat format, uint8_t* red, uint8_t* green,
+                                 uint8_t* blue) {
     switch (format) {
         case GSP_RGB565_OES: {
             uint16_t color;
@@ -850,35 +936,62 @@ static void ReadFramebufferPixel(const uint8_t* pixel, GSPGPU_FramebufferFormat 
     }
 }
 
-static bool SaveCapturedFramebufferBmp(const char* path, const GSPGPU_CaptureInfoEntry* capture,
-                                       int width, int height) {
-    if (!path || !capture || !capture->framebuf0_vaddr) return false;
+static bool SaveCapturedFramebufferBmp(const char* path, const GSPGPU_CaptureInfoEntry* capture, int width,
+                                       int height) {
+    if (!path || !capture || !capture->framebuf0_vaddr)
+        return false;
     const GSPGPU_FramebufferFormat format = (GSPGPU_FramebufferFormat)(capture->format & 7u);
     const unsigned bytesPerPixel = gspGetBytesPerPixel(format);
-    if (bytesPerPixel < 2 || bytesPerPixel > 4 || capture->framebuf_widthbytesize == 0) return false;
+    if (bytesPerPixel < 2 || bytesPerPixel > 4 || capture->framebuf_widthbytesize == 0)
+        return false;
 
     const uint8_t* framebuffer = (const uint8_t*)capture->framebuf0_vaddr;
     GSPGPU_InvalidateDataCache(framebuffer, capture->framebuf_widthbytesize * (u32)width);
 
     FILE* file = fopen(path, "wb");
-    if (!file) return false;
+    if (!file)
+        return false;
     const int rowSize = (width * 3 + 3) & ~3;
     const uint32_t fileSize = 54u + (uint32_t)rowSize * (uint32_t)height;
     const uint8_t header[54] = {
-        'B', 'M',
-        (uint8_t)fileSize, (uint8_t)(fileSize >> 8), (uint8_t)(fileSize >> 16), (uint8_t)(fileSize >> 24),
-        0, 0, 0, 0, 54, 0, 0, 0, 40, 0, 0, 0,
-        (uint8_t)width, (uint8_t)(width >> 8), (uint8_t)(width >> 16), (uint8_t)(width >> 24),
-        (uint8_t)height, (uint8_t)(height >> 8), (uint8_t)(height >> 16), (uint8_t)(height >> 24),
-        1, 0, 24, 0,
+        'B',
+        'M',
+        (uint8_t)fileSize,
+        (uint8_t)(fileSize >> 8),
+        (uint8_t)(fileSize >> 16),
+        (uint8_t)(fileSize >> 24),
+        0,
+        0,
+        0,
+        0,
+        54,
+        0,
+        0,
+        0,
+        40,
+        0,
+        0,
+        0,
+        (uint8_t)width,
+        (uint8_t)(width >> 8),
+        (uint8_t)(width >> 16),
+        (uint8_t)(width >> 24),
+        (uint8_t)height,
+        (uint8_t)(height >> 8),
+        (uint8_t)(height >> 16),
+        (uint8_t)(height >> 24),
+        1,
+        0,
+        24,
+        0,
     };
     bool ok = fwrite(header, 1, sizeof(header), file) == sizeof(header);
     uint8_t row[400 * 3];
     for (int y = height - 1; ok && y >= 0; --y) {
         memset(row, 0, (size_t)rowSize);
         for (int x = 0; x < width; ++x) {
-            const uint8_t* pixel = framebuffer + (size_t)x * capture->framebuf_widthbytesize +
-                                   (size_t)(height - 1 - y) * bytesPerPixel;
+            const uint8_t* pixel =
+                framebuffer + (size_t)x * capture->framebuf_widthbytesize + (size_t)(height - 1 - y) * bytesPerPixel;
             uint8_t red, green, blue;
             ReadFramebufferPixel(pixel, format, &red, &green, &blue);
             row[x * 3 + 0] = blue;
@@ -887,29 +1000,33 @@ static bool SaveCapturedFramebufferBmp(const char* path, const GSPGPU_CaptureInf
         }
         ok = fwrite(row, 1, (size_t)rowSize, file) == (size_t)rowSize;
     }
-    if (fclose(file) != 0) ok = false;
+    if (fclose(file) != 0)
+        ok = false;
     return ok;
 }
 
-static bool SaveCapturedFramebufferRaw(const char* path, const GSPGPU_CaptureInfoEntry* capture,
-                                       int width) {
-    if (!path) return true;
-    if (!capture || !capture->framebuf0_vaddr || capture->framebuf_widthbytesize == 0) return false;
+static bool SaveCapturedFramebufferRaw(const char* path, const GSPGPU_CaptureInfoEntry* capture, int width) {
+    if (!path)
+        return true;
+    if (!capture || !capture->framebuf0_vaddr || capture->framebuf_widthbytesize == 0)
+        return false;
     const size_t size = (size_t)capture->framebuf_widthbytesize * (size_t)width;
     GSPGPU_InvalidateDataCache(capture->framebuf0_vaddr, size);
     FILE* file = fopen(path, "wb");
-    if (!file) return false;
+    if (!file)
+        return false;
     const bool ok = fwrite(capture->framebuf0_vaddr, 1, size, file) == size;
-    if (fclose(file) != 0) return false;
+    if (fclose(file) != 0)
+        return false;
     return ok;
 }
 
-bool Platform3DS_SaveDisplayedScreensDetailed(const char* topPath, const char* bottomPath,
-                                              const char* topRawPath, const char* bottomRawPath,
-                                              Platform3DSCaptureStats* stats) {
+bool Platform3DS_SaveDisplayedScreensDetailed(const char* topPath, const char* bottomPath, const char* topRawPath,
+                                              const char* bottomRawPath, Platform3DSCaptureStats* stats) {
     GSPGPU_CaptureInfo capture;
     memset(&capture, 0, sizeof(capture));
-    if (R_FAILED(GSPGPU_ImportDisplayCaptureInfo(&capture))) return false;
+    if (R_FAILED(GSPGPU_ImportDisplayCaptureInfo(&capture)))
+        return false;
     const GSPGPU_CaptureInfoEntry* top = &capture.screencapture[GSP_SCREEN_TOP];
     const GSPGPU_CaptureInfoEntry* bottom = &capture.screencapture[GSP_SCREEN_BOTTOM];
     if (stats) {

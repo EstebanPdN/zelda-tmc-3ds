@@ -1,7 +1,11 @@
 #ifndef TOP_VIEW_3DS_H
 #define TOP_VIEW_3DS_H
 
-#include "port_3ds_full_view_policy.h"
+/* Logical source geometry for the native 160-line renderer. */
+typedef struct TopView3DSSource {
+    int renderWidth, renderHeight;
+    int sourceX, sourceY, sourceWidth, sourceHeight;
+} TopView3DSSource;
 
 enum {
     TOP_VIEW_3DS_ASPECT_WIDE = 0,
@@ -16,8 +20,7 @@ enum {
 };
 
 typedef struct TopView3DSPlan {
-    Port3DSFullViewMode mode;
-    Port3DSFullViewPresentation source;
+    TopView3DSSource source;
     int drawX;
     int drawY;
     int drawWidth;
@@ -27,28 +30,9 @@ typedef struct TopView3DSPlan {
     int sharpBilinearScale;
 } TopView3DSPlan;
 
-typedef struct TopView3DSPpuCoherence {
-    Port3DSFullViewMode mode;
-    int forceNativeFrame;
-    int clearFullViewProducer;
-} TopView3DSPpuCoherence;
-
-/* Reconcile the freshly selected presentation with the shadow geometry that
- * was published at the previous VBlank. Present runs before the next
- * UpdateDisplayControls, so a dialogue/fade may request E2 while the PPU still
- * owns Full View stride-54 shadows. A mismatch must render one native frame;
- * reading those shadows as a 266-wide E2 layout is not safe. */
-TopView3DSPpuCoherence TopView3DS_ResolvePpuCoherence(
-    Port3DSFullViewMode selectedMode, int producerFullView);
-
-/* Pure, host-testable plan used directly by platform_gpu_3ds.c. It owns the
- * final fail-closed hardware/config gate, texture source rectangle, filter and
- * physical 400x240 draw rectangle; the Citro2D layer only executes this plan. */
-void TopView3DS_BuildPlan(int old3DS, int fullViewComboEnabled,
-                          int aspect, int displayStyle,
-                          Port3DSFullViewMode requestedMode,
-                          int renderWidth, int renderHeight,
-                          int validSourceWidth, int validSourceHeight,
-                          int cropX, int cropY, TopView3DSPlan* plan);
+/* Pure presentation policy shared by CPU uploads and the GPU texture path.
+ * Aspect and filter are independent. Pixel Perfect centers the native source
+ * without changing camera geometry; Blur/Bilinear retain their existing scaling. */
+void TopView3DS_BuildPlan(int aspect, int displayStyle, int renderWidth, TopView3DSPlan* plan);
 
 #endif /* TOP_VIEW_3DS_H */

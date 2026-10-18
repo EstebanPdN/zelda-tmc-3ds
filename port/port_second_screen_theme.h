@@ -76,13 +76,13 @@ enum {
  * procedural parts of the panel that need to sit in the same palette.
  * Valid (non-fallback) only once Ready() returns 1. */
 enum {
-    SSC_WINDOW_FILL,   /* message-window interior fill */
-    SSC_BORDER_LIGHT,  /* brightest border color */
-    SSC_BORDER_DARK,   /* darkest border color */
-    SSC_GOLD,          /* key-icon gold (cursor/accent gold) */
-    SSC_HEART_RED,     /* full-heart red */
-    SSC_RUPEE_GREEN,   /* wallet-0 rupee green */
-    SSC_TEXT_LIGHT,    /* HUD digit body color */
+    SSC_WINDOW_FILL,  /* message-window interior fill */
+    SSC_BORDER_LIGHT, /* brightest border color */
+    SSC_BORDER_DARK,  /* darkest border color */
+    SSC_GOLD,         /* key-icon gold (cursor/accent gold) */
+    SSC_HEART_RED,    /* full-heart red */
+    SSC_RUPEE_GREEN,  /* wallet-0 rupee green */
+    SSC_TEXT_LIGHT,   /* HUD digit body color */
     /* Pause-menu screen palette (the light theme): sampled from the
      * composed item-screen layers and the message palette. */
     SSC_MENU_CREAM,      /* backdrop parchment (BG3 flat color) */
@@ -142,8 +142,8 @@ const uint16_t* Port_SecondScreenTheme_ObjPalette(uint32_t bank);
  * rect, border tiles scaled by tileScale (integer, nearest-neighbor).
  * Falls back to a plain palette-toned frame when the border tiles didn't
  * decode. The rect is clipped to the buffer. */
-void Port_SecondScreenTheme_DrawWindow(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                       int32_t x, int32_t y, int32_t w, int32_t h, int32_t tileScale);
+void Port_SecondScreenTheme_DrawWindow(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x,
+                                       int32_t y, int32_t w, int32_t h, int32_t tileScale);
 
 /* ------------------------------------------------------------------ *
  * Pause-menu dressing, decoded from the START menu's own screens      *
@@ -221,33 +221,32 @@ int Port_SecondScreenTheme_BackdropIsDark(void);
  * original diagonal lattice, anchored to the surface origin so panels
  * never shift phase), that cream without the lattice, or the flat
  * near-black. scale is the integer art scale. */
-void Port_SecondScreenTheme_DrawBackdrop(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                         int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t scale);
+void Port_SecondScreenTheme_DrawBackdrop(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x0,
+                                         int32_t y0, int32_t x1, int32_t y1, int32_t scale);
 
 /* Draws the menu's carved stone slab (the item screen's big plate) over
  * the rect: nine-sliced from the composed screen so the triforce corners
  * and carved bands stay pixel-authentic; interiors tile. */
-void Port_SecondScreenTheme_DrawPlate(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                      int32_t x, int32_t y, int32_t w, int32_t h, int32_t scale);
+void Port_SecondScreenTheme_DrawPlate(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x,
+                                      int32_t y, int32_t w, int32_t h, int32_t scale);
 
 /* Draws one recessed stone well (the item screen's slot/tray art),
  * nine-sliced from the bottle tray. Used for cells and list rows. */
-void Port_SecondScreenTheme_DrawWell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                     int32_t x, int32_t y, int32_t w, int32_t h, int32_t scale);
+void Port_SecondScreenTheme_DrawWell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x, int32_t y,
+                                     int32_t w, int32_t h, int32_t scale);
 
 /* Draws a rounded message chip (border_type 9) in the given SS_CHIP_*
  * fill scheme — the pause menu's name/header chips. */
-void Port_SecondScreenTheme_DrawChip(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                     int32_t x, int32_t y, int32_t w, int32_t h, int32_t tileScale,
-                                     int style);
+void Port_SecondScreenTheme_DrawChip(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x, int32_t y,
+                                     int32_t w, int32_t h, int32_t tileScale, int style);
 
 /* Text in the game's message font (gUnk_08109248 bank 0, per-glyph widths
  * from the metrics rows), colored through the game's own text LUTs
  * (SS_TEXT_*). Returns the advance in pixels, or 0 when the font is not
  * decoded yet (callers keep a procedural fallback). y is the glyph-box
  * top; visible ink spans rows 1..15 of the 16 px box. */
-int32_t Port_SecondScreenTheme_DrawText(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                        int32_t x, int32_t y, int32_t scale, int style, const char* str);
+int32_t Port_SecondScreenTheme_DrawText(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x,
+                                        int32_t y, int32_t scale, int style, const char* str);
 
 /* Pixel width DrawText would advance (0 when the font is not ready). */
 int32_t Port_SecondScreenTheme_TextWidth(const char* str, int32_t scale);
@@ -261,8 +260,8 @@ int32_t Port_SecondScreenTheme_TextWidth(const char* str, int32_t scale);
  * banners' own scheme is SS_TEXT_WHITE-on-chip / SS_TEXT_INK on plates.
  * y is the glyph-box top (16 rows at `scale`); returns the advance, or 0
  * when the bank isn't decoded (callers keep their fallback). */
-int32_t Port_SecondScreenTheme_DrawBigText(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                           int32_t x, int32_t y, int32_t scale, int style, const char* str);
+int32_t Port_SecondScreenTheme_DrawBigText(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x,
+                                           int32_t y, int32_t scale, int style, const char* str);
 
 /* Pixel width DrawBigText would advance (0 when the bank is not ready). */
 int32_t Port_SecondScreenTheme_BigTextWidth(const char* str, int32_t scale);
@@ -272,23 +271,21 @@ int32_t Port_SecondScreenTheme_BigTextWidth(const char* str, int32_t scale);
  * fitted to the rect and the label centered in the game's button font.
  * `pressed` draws the button's own active/held state. Returns 1 when the
  * authentic art was used, 0 while it isn't decoded (caller falls back). */
-int Port_SecondScreenTheme_DrawMenuButton(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                          int32_t x, int32_t y, int32_t w, int32_t h, const char* label,
-                                          int pressed);
+int Port_SecondScreenTheme_DrawMenuButton(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x,
+                                          int32_t y, int32_t w, int32_t h, const char* label, int pressed);
 
 /* The HUD's R button glyph, nearest-neighbor scaled in half-pixel units
  * (3 means 1.5x). Returns 1 when drawn, 0 while the art isn't decoded. */
-int Port_SecondScreenTheme_DrawRButton(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                       int32_t x, int32_t y, int32_t scale2);
+int Port_SecondScreenTheme_DrawRButton(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x,
+                                       int32_t y, int32_t scale2);
 
 /* One of the HUD's contextual button-prompt labels (SPEAK / READ / LIFT /
  * ...), by the sprite frame id the snapshot carries in rActionFrame —
  * the game's own label art, not re-lettered text. x is the horizontal center.
  * Returns the drawn width in pixels, or 0 when the frame isn't decodable /
  * the id is 0. */
-int32_t Port_SecondScreenTheme_DrawActionLabel(uint32_t* pixels, int32_t bufW, int32_t bufH,
-                                               int32_t stride, int32_t x, int32_t y, int32_t scale2,
-                                               uint8_t frameId);
+int32_t Port_SecondScreenTheme_DrawActionLabel(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x,
+                                               int32_t y, int32_t scale2, uint8_t frameId);
 
 #ifdef __cplusplus
 }

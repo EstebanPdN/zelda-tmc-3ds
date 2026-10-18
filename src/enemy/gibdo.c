@@ -17,7 +17,7 @@
 
 typedef struct {
     Entity base;
-    #if defined(PC_PORT) && (__SIZEOF_POINTER__ == 8)
+#if defined(PC_PORT) && (__SIZEOF_POINTER__ == 8)
     u8 filler[0xc + 4];
 #else
     u8 filler[0xc];
@@ -33,10 +33,8 @@ typedef struct {
     EntityRef field_0x84;
 } GibdoEntity;
 
-PORT_STATIC_ASSERT_OFFSET(GibdoEntity, field_0x74, 0x74, 0xa0,
-                          "GibdoEntity field_0x74 offset (Enemy::child +4 pad)");
-PORT_STATIC_ASSERT_SIZE(GibdoEntity, 0x88, 0xB8,
-                        "GibdoEntity must fit the 0xB8 entity pool slot (#127-class)");
+PORT_STATIC_ASSERT_OFFSET(GibdoEntity, field_0x74, 0x74, 0xa0, "GibdoEntity field_0x74 offset (Enemy::child +4 pad)");
+PORT_STATIC_ASSERT_SIZE(GibdoEntity, 0x88, 0xB8, "GibdoEntity must fit the 0xB8 entity pool slot (#127-class)");
 
 // Gibudo
 void sub_08037794(GibdoEntity*);

@@ -54,11 +54,9 @@ static const Hitbox* const gUnk_080B3DE8[] = {
     &gUnk_080B3E20,
     &gUnk_080B3E28,
 };
-static const KeyValuePair gUnk_080B3DF4[] = {
-    { TILE_TYPE_117, 1 }, { TILE_TYPE_118, 1 }, { TILE_TYPE_940, 1 }, { SPECIAL_TILE_80, 1 },
-    { TILE_TYPE_887, 1 }, { TILE_TYPE_888, 1 }, { TILE_TYPE_113, 1 }, { TILE_TYPE_114, 1 },
-    { 0, 0 }
-};
+static const KeyValuePair gUnk_080B3DF4[] = { { TILE_TYPE_117, 1 },   { TILE_TYPE_118, 1 }, { TILE_TYPE_940, 1 },
+                                              { SPECIAL_TILE_80, 1 }, { TILE_TYPE_887, 1 }, { TILE_TYPE_888, 1 },
+                                              { TILE_TYPE_113, 1 },   { TILE_TYPE_114, 1 }, { 0, 0 } };
 
 static const Hitbox gUnk_080B3E18 = { 0, 0, { 6, 3, 3, 6 }, 6, 6 };
 static const Hitbox gUnk_080B3E20 = { 0, 0, { 6, 3, 3, 6 }, 8, 8 };

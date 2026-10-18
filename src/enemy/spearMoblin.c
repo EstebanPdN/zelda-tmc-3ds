@@ -36,10 +36,8 @@ typedef struct {
     /*0x83*/ u8 unk_83;
 } SpearMoblinEntity;
 
-PORT_STATIC_ASSERT_OFFSET(SpearMoblinEntity, unk_7a, 0x7a, 0xA6,
-                          "SpearMoblinEntity unk_7a offset incorrect");
-PORT_STATIC_ASSERT_OFFSET(SpearMoblinEntity, unk_80, 0x80, 0xB0,
-                          "SpearMoblinEntity unk_80 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(SpearMoblinEntity, unk_7a, 0x7a, 0xA6, "SpearMoblinEntity unk_7a offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(SpearMoblinEntity, unk_80, 0x80, 0xB0, "SpearMoblinEntity unk_80 offset incorrect");
 
 void sub_08028604(SpearMoblinEntity*);
 void sub_08028754(SpearMoblinEntity*);

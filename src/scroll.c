@@ -78,9 +78,6 @@ void UpdateScroll(void) {
         Scroll0, Scroll1, Scroll2, NULL, Scroll4, Scroll5,
     };
 
-#ifdef PC_PORT
-    Port_Widescreen_PrepareGameplayCamera();
-#endif
     gRoomControls.scroll_flags &= 0xfb;
     gUnk_0811E768[gRoomControls.scrollAction](&gRoomControls);
 }
@@ -905,9 +902,7 @@ void sub_080809D4(void) {
 #if MODE1_GBA_WIDTH > 240
     /* THE shared camera-rest formula (port_widescreen.h) — must match
      * Scroll1 and WaitForCameraTouchRoomBorder exactly. */
-    {
-        roomControls->scroll_x = (s16)Port_Widescreen_CameraRestX(x);
-    }
+    { roomControls->scroll_x = (s16)Port_Widescreen_CameraRestX(x); }
 #else
     if (x <= var0 + 120) {
         roomControls->scroll_x = var0;

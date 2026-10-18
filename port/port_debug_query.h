@@ -12,8 +12,7 @@ const char* Port_DebugQuery_AreaName(unsigned char area);
 int Port_DebugQuery_AreaRoomCount(unsigned char area);
 
 /* Returns 1 and optionally fills width/height when the room exists. */
-int Port_DebugQuery_RoomDimensions(unsigned char area, unsigned char room,
-                                   unsigned short* w, unsigned short* h);
+int Port_DebugQuery_RoomDimensions(unsigned char area, unsigned char room, unsigned short* w, unsigned short* h);
 
 /* Shared predicate for debug/UI warp lists. */
 int Port_DebugAction_AreaIsWarpable(unsigned char area);

@@ -20,9 +20,9 @@ extern "C" {
 #endif
 
 typedef enum {
-    AUDIO_MUTE_EZLO_VOICE,     /* Ezlo's "yip" / hint voice samples */
-    AUDIO_MUTE_NPC_VOICE,      /* All SFX_VO_* — NPCs, animals, etc. */
-    AUDIO_MUTE_LOW_HEALTH_BEEP,/* The repeating beep when below 1/4 HP */
+    AUDIO_MUTE_EZLO_VOICE,      /* Ezlo's "yip" / hint voice samples */
+    AUDIO_MUTE_NPC_VOICE,       /* All SFX_VO_* — NPCs, animals, etc. */
+    AUDIO_MUTE_LOW_HEALTH_BEEP, /* The repeating beep when below 1/4 HP */
     AUDIO_MUTE_COUNT,
 } AudioMuteCategory;
 

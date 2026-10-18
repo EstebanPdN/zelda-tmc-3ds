@@ -37,9 +37,7 @@ bool Port_DiscordRpc_IsEnabled(void);
  * caring about spam. The "elapsed" timestamp Discord shows is anchored
  * to the moment Rich Presence was first enabled this session; no need
  * for the caller to pass a start time. */
-void Port_DiscordRpc_Update(const char* area_name,
-                            int hearts_now, int hearts_max,
-                            int rupees);
+void Port_DiscordRpc_Update(const char* area_name, int hearts_now, int hearts_max, int rupees);
 
 void Port_DiscordRpc_Shutdown(void);
 

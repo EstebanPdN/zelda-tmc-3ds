@@ -303,11 +303,11 @@ void sub_0802F8E4(WizzrobeEntity* this) {
             uVar8 = (uVar1 + iVar4) | 8;
             rand >>= 0x10;
             uVar1 = homeY;
-            iVar4 = ((s32)(rand)&0x7ff0) % (rangeY << 3);
+            iVar4 = ((s32)(rand) & 0x7ff0) % (rangeY << 3);
             uVar7 = (uVar1 + iVar4) | 8;
-            if (uVar8 < roomMinX || uVar8 >= roomMaxX ||
-                uVar7 < roomMinY || uVar7 >= roomMaxY) {
-                if (++tries >= 64) break;
+            if (uVar8 < roomMinX || uVar8 >= roomMaxX || uVar7 < roomMinY || uVar7 >= roomMaxY) {
+                if (++tries >= 64)
+                    break;
                 continue;
             }
             tilePos = TILE(uVar8, uVar7);
@@ -319,7 +319,8 @@ void sub_0802F8E4(WizzrobeEntity* this) {
                     loopCondition = FALSE;
                 }
             }
-            if (++tries >= 64) break;
+            if (++tries >= 64)
+                break;
         } while (loopCondition);
 #else
         loopCondition = TRUE;
@@ -330,7 +331,7 @@ void sub_0802F8E4(WizzrobeEntity* this) {
             uVar8 = (uVar1 + iVar4) | 8;
             rand >>= 0x10;
             uVar1 = homeY;
-            iVar4 = ((s32)(rand)&0x7ff0) % (rangeY << 3);
+            iVar4 = ((s32)(rand) & 0x7ff0) % (rangeY << 3);
             uVar7 = (uVar1 + iVar4) | 8;
             tilePos = TILE(uVar8, uVar7);
             if ((GetCollisionDataAtTilePos(tilePos, super->collisionLayer) == 0) &&

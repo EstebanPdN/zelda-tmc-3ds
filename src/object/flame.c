@@ -79,7 +79,10 @@ void Flame_Action1(FlameEntity* this) {
             break;
         case 3:
 #ifdef PC_PORT
-            if (super->parent == NULL) { DeleteThisEntity(); return; } /* #136 family */
+            if (super->parent == NULL) {
+                DeleteThisEntity();
+                return;
+            } /* #136 family */
 #endif
             if (super->parent->next == NULL) {
                 DeleteThisEntity();

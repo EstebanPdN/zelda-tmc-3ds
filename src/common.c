@@ -1568,50 +1568,50 @@ void UpdateVisibleFusionMapMarkers(void) {
             } else
 #endif
             {
-            switch (condition) {
-                case CND_0:
-                    tmp = 0;
-                    break;
-                case CND_1:
-                    tmp = s->bank;
-                    break;
-                case CND_2:
-                    tmp = 0xf;
-                    break;
-                case CND_3:
-                    tmp = 0x10;
-                    break;
-                case CND_4:
-                    tmp = 0x11;
-                    break;
+                switch (condition) {
+                    case CND_0:
+                        tmp = 0;
+                        break;
+                    case CND_1:
+                        tmp = s->bank;
+                        break;
+                    case CND_2:
+                        tmp = 0xf;
+                        break;
+                    case CND_3:
+                        tmp = 0x10;
+                        break;
+                    case CND_4:
+                        tmp = 0x11;
+                        break;
 #if (!defined(EU) && !defined(JP)) || defined(PC_PORT)
-                // Special conditions for BEANDEMO_00 to BEANDEMO_04
-                case CND_5:
-                    tmp = LOCAL_BANK_3;
-                    flag = SORA_10_H00;
-                    break;
-                case CND_6:
-                    tmp = LOCAL_BANK_3;
-                    flag = SORA_11_H00;
-                    break;
-                case CND_7:
-                    tmp = LOCAL_BANK_3;
-                    flag = SORA_12_T00;
-                    break;
-                case CND_8:
-                    tmp = LOCAL_BANK_3;
-                    flag = SORA_13_H00;
-                    break;
-                case CND_9:
-                    tmp = LOCAL_BANK_3;
-                    flag = SORA_14_T00;
-                    break;
-                case CND_10:
-                    tmp = LOCAL_BANK_4;
-                    flag = KS_B15;
-                    break;
+                    // Special conditions for BEANDEMO_00 to BEANDEMO_04
+                    case CND_5:
+                        tmp = LOCAL_BANK_3;
+                        flag = SORA_10_H00;
+                        break;
+                    case CND_6:
+                        tmp = LOCAL_BANK_3;
+                        flag = SORA_11_H00;
+                        break;
+                    case CND_7:
+                        tmp = LOCAL_BANK_3;
+                        flag = SORA_12_T00;
+                        break;
+                    case CND_8:
+                        tmp = LOCAL_BANK_3;
+                        flag = SORA_13_H00;
+                        break;
+                    case CND_9:
+                        tmp = LOCAL_BANK_3;
+                        flag = SORA_14_T00;
+                        break;
+                    case CND_10:
+                        tmp = LOCAL_BANK_4;
+                        flag = KS_B15;
+                        break;
 #endif
-            }
+                }
             }
 #ifdef PC_PORT
             /* `flag` is a compiled USA-baseline ordinal. sub_0807CB24 routes
@@ -1659,21 +1659,21 @@ KinstoneId GetFusionToOffer(Entity* entity) {
     /* Retail EU marks Eenie done even after cancelling his first fusion.
      * Only this exact unfinished, vanilla state is recoverable without
      * guessing another fuser's scripted sentinel. Preserve the raw profile. */
-    if (REGION_IS_EU && fuserId == 0x3fu && fuserProgress == 0 &&
-        offeredFusion == KINSTONE_FUSER_DONE && fuserData[5] == 0x29u &&
-        !CheckKinstoneFused(0x29u) && Port_Save_IsStandardProfile()) {
-        if (!Port_Save_PreserveBeforeFuserRepair()) return KINSTONE_NONE;
+    if (REGION_IS_EU && fuserId == 0x3fu && fuserProgress == 0 && offeredFusion == KINSTONE_FUSER_DONE &&
+        fuserData[5] == 0x29u && !CheckKinstoneFused(0x29u) && Port_Save_IsStandardProfile()) {
+        if (!Port_Save_PreserveBeforeFuserRepair())
+            return KINSTONE_NONE;
         offeredFusion = KINSTONE_NONE;
         gSave.kinstones.fuserOffers[fuserId] = KINSTONE_NONE;
     }
     /* Issue #22: legacy EU walls retain the first unfinished concrete offer
      * (0x25) with the cursor one entry ahead. Keep that offer and every fusion
      * bit; repair only this proven cursor mismatch, never a completed wall. */
-    if (REGION_IS_EU && Port_Save_IsStandardProfile() && fuserId >= 0x66u && fuserId <= 0x6Au &&
-        fuserProgress == 2 && offeredFusion == 0x25u && fuserData[5] == 0x29u &&
-        fuserData[6] == 0x25u && fuserData[7] == 0x2Au &&
+    if (REGION_IS_EU && Port_Save_IsStandardProfile() && fuserId >= 0x66u && fuserId <= 0x6Au && fuserProgress == 2 &&
+        offeredFusion == 0x25u && fuserData[5] == 0x29u && fuserData[6] == 0x25u && fuserData[7] == 0x2Au &&
         CheckKinstoneFused(0x29u) && !CheckKinstoneFused(0x25u)) {
-        if (!Port_Save_PreserveBeforeFuserRepair()) return KINSTONE_NONE;
+        if (!Port_Save_PreserveBeforeFuserRepair())
+            return KINSTONE_NONE;
         fuserProgress = 1;
         gSave.kinstones.fuserProgress[fuserId] = 1;
     }
@@ -1684,24 +1684,22 @@ KinstoneId GetFusionToOffer(Entity* entity) {
                 fuserId, fuserProgress, offeredFusion);
         return KINSTONE_NONE;
     }
-    if (!Port_IsFuserSaveStateSemanticallyValid(
-            fuserData, fuserProgress, offeredFusion, gSave.kinstones.fusedKinstones,
-            sizeof(gSave.kinstones.fusedKinstones), SharedFusions, 18u)) {
+    if (!Port_IsFuserSaveStateSemanticallyValid(fuserData, fuserProgress, offeredFusion, gSave.kinstones.fusedKinstones,
+                                                sizeof(gSave.kinstones.fusedKinstones), SharedFusions, 18u)) {
         const bool nonstandardProfile = !Port_Save_IsStandardProfile();
         const u8* e1FuserData = NULL;
         if (REGION_IS_EU && !nonstandardProfile) {
-            e1FuserData = Port_ResolveFuserDataFromRom(gRomData, gRomSize, PORT_FUSER_FUSION_PTRS_USA,
-                                                       fuserId, PORT_FUSER_FUSION_RECORD_BYTES);
+            e1FuserData = Port_ResolveFuserDataFromRom(gRomData, gRomSize, PORT_FUSER_FUSION_PTRS_USA, fuserId,
+                                                       PORT_FUSER_FUSION_RECORD_BYTES);
         }
-        if (!Port_ShouldRepairE1EuFuserSaveState(
-                REGION_IS_EU, nonstandardProfile, fuserId, fuserData, e1FuserData, fuserProgress,
-                offeredFusion, gSave.kinstones.fusedKinstones, sizeof(gSave.kinstones.fusedKinstones),
-                SharedFusions, 18u)) {
+        if (!Port_ShouldRepairE1EuFuserSaveState(REGION_IS_EU, nonstandardProfile, fuserId, fuserData, e1FuserData,
+                                                 fuserProgress, offeredFusion, gSave.kinstones.fusedKinstones,
+                                                 sizeof(gSave.kinstones.fusedKinstones), SharedFusions, 18u)) {
             fprintf(stderr,
                     "[KINSTONE] Refusing unproven saved fuser mismatch (id=%u progress=%u offer=0x%02X "
                     "region=%s nonstandard=%u); save left untouched.\n",
-                    fuserId, fuserProgress, offeredFusion,
-                    REGION_IS_EU ? "EU" : (REGION_IS_JP ? "JP" : "USA"), nonstandardProfile ? 1u : 0u);
+                    fuserId, fuserProgress, offeredFusion, REGION_IS_EU ? "EU" : (REGION_IS_JP ? "JP" : "USA"),
+                    nonstandardProfile ? 1u : 0u);
             return KINSTONE_NONE;
         }
         /* E1's EU fuser-table base was 42 entries early.  Its saved offers are

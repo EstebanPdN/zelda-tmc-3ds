@@ -46,7 +46,7 @@ void WaterfallOpening(Entity* this) {
                         UnloadGFXSlots(this);
                         LoadFixedGFX(this, 0x18c);
                         if (!REGION_IS_EU) {
-                        SoundReq(SFX_EVAPORATE);
+                            SoundReq(SFX_EVAPORATE);
                         }
                     }
                     break;

@@ -282,8 +282,10 @@ void sub_08067A0C(CatEntity* this) {
              * native Hitbox struct (both 8 bytes), so the resolved
              * native pointer is directly usable. */
             int idx = (int)tmp - 1 + ((int)super->spriteSettings.flipX << 2);
-            if (idx < 0)  idx = 0;
-            if (idx >= 8) idx = 7;
+            if (idx < 0)
+                idx = 0;
+            if (idx >= 8)
+                idx = 7;
             COLLISION_ON(super);
 #ifdef PC_PORT
             super->hitbox = (Hitbox*)Port_UnpackRomDataPtr(&gUnk_08111154[0], idx);

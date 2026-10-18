@@ -42,12 +42,10 @@ typedef struct Old3DSFramePacer {
 void Old3DSFramePacer_Init(Old3DSFramePacer* pacer, uint64_t ticksPerSecond);
 /* Thread-safe event mark. The next boundary consumes all pending reasons as
  * one resync, excludes that interval from cadence, and clears stale debt. */
-void Old3DSFramePacer_MarkDiscontinuity(Old3DSFramePacer* pacer,
-                                       Old3DSFramePacerDiscontinuity reason);
+void Old3DSFramePacer_MarkDiscontinuity(Old3DSFramePacer* pacer, Old3DSFramePacerDiscontinuity reason);
 /* Returns false only for an invalid pacer or when this interval consumed an
  * explicit discontinuity; elapsed duration alone never implies a pause. */
 bool Old3DSFramePacer_RecordActiveInterval(Old3DSFramePacer* pacer, uint64_t elapsedTicks);
-bool Old3DSFramePacer_BeginTick(Old3DSFramePacer* pacer, uint64_t nowTick,
-                               uint64_t* skippedTickSleep);
+bool Old3DSFramePacer_BeginTick(Old3DSFramePacer* pacer, uint64_t nowTick, uint64_t* skippedTickSleep);
 
 #endif

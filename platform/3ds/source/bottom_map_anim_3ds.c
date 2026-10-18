@@ -36,8 +36,7 @@ uint32_t BottomMapAnim_Signature(uint32_t tick, int isDungeon, int32_t width, in
     return sig;
 }
 
-int BottomMapAnim_NeedsPaint(uint32_t tick, uint32_t paintedTick, int isDungeon, int32_t width,
-                             int32_t height) {
+int BottomMapAnim_NeedsPaint(uint32_t tick, uint32_t paintedTick, int isDungeon, int32_t width, int32_t height) {
     if (BottomMapAnim_Signature(tick, isDungeon, width, height) !=
         BottomMapAnim_Signature(paintedTick, isDungeon, width, height)) {
         return 1;

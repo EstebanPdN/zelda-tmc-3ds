@@ -47,7 +47,7 @@ typedef struct {
 #define SECOND_SCREEN_AR_HAS_MAP 0x08
 
 typedef struct {
-    uint8_t inGame; /* gMain.task == TASK_GAME; nothing else below is valid otherwise */
+    uint8_t inGame;      /* gMain.task == TASK_GAME; nothing else below is valid otherwise */
     uint8_t introCinema; /* Picori legend auxiliary cutscene, including its fades. */
     uint8_t hasWorldMap; /* The actual ITEM_MAP inventory entitlement. */
     uint8_t area;
@@ -60,7 +60,7 @@ typedef struct {
      * slot matches what the real pause menu marks. */
     uint8_t equippedSlotA;
     uint8_t equippedSlotB;
-    uint8_t health;    /* 8 units per heart */
+    uint8_t health; /* 8 units per heart */
     uint8_t maxHealth;
     /* Sword charge state for the bottom-screen replacement HUD.  The top
      * HUD visibility bit is published too because DrawUI's runtime hide is
@@ -91,25 +91,25 @@ typedef struct {
     uint8_t arrowMax;
     uint8_t kinstoneFused; /* gSave.kinstones.fusedCount */
     uint8_t figurineCount; /* set bits in gSave.figurines[] (owned figurines) */
-    uint16_t kinstoneBag; /* pieces currently in the bag (sum of amounts[]) */
+    uint16_t kinstoneBag;  /* pieces currently in the bag (sum of amounts[]) */
     /* QUEST STATUS screen (pause screen 2): the save values sub_080A5594
      * reads while filling its sixteen slots, published as the quantities
      * themselves. Which well each one lands in is slot-table and
      * gItemMetaData geometry the render side already has from ROM — only
      * the values have to cross the thread. */
-    uint8_t heartPieces;  /* gSave.stats.heartPieces; the well shows heartPieces/4 */
-    uint8_t swordSkills;  /* techniques owned, ITEM_SKILL_SPIN_ATTACK..ITEM_SKILL_PERIL_BEAM */
-    uint8_t shellsOwned;  /* GetInventoryValue(ITEM_SHELLS): whether the shell well exists */
-    uint8_t carlovMedal;  /* GetInventoryValue(ITEM_QST_CARLOV_MEDAL); 1 = won, and the medal
-                           * takes the shell well. Published as the raw two-bit inventory
-                           * value, not a flag, because sub_080A5594 tests both == 1 (place
-                           * the medal) and == 0 (let the shell counter have the well), and
-                           * a script can leave a quest item in the spent state 2. */
-    uint8_t tingleTrophy; /* GetInventoryValue(ITEM_QST_TINGLE_TROPHY), same sense: 1 takes
-                           * the kinstone bag's well, 0 leaves it to the bag */
+    uint8_t heartPieces;      /* gSave.stats.heartPieces; the well shows heartPieces/4 */
+    uint8_t swordSkills;      /* techniques owned, ITEM_SKILL_SPIN_ATTACK..ITEM_SKILL_PERIL_BEAM */
+    uint8_t shellsOwned;      /* GetInventoryValue(ITEM_SHELLS): whether the shell well exists */
+    uint8_t carlovMedal;      /* GetInventoryValue(ITEM_QST_CARLOV_MEDAL); 1 = won, and the medal
+                               * takes the shell well. Published as the raw two-bit inventory
+                               * value, not a flag, because sub_080A5594 tests both == 1 (place
+                               * the medal) and == 0 (let the shell counter have the well), and
+                               * a script can leave a quest item in the spent state 2. */
+    uint8_t tingleTrophy;     /* GetInventoryValue(ITEM_QST_TINGLE_TROPHY), same sense: 1 takes
+                               * the kinstone bag's well, 0 leaves it to the bag */
     uint8_t kinstoneBagOwned; /* GetInventoryValue(ITEM_KINSTONE_BAG); owning the bag is what
                                * puts anything in that well, kinstoneBag only picks the tier */
-    uint16_t shells;      /* gSave.stats.shells — the three digits under the shell */
+    uint16_t shells;          /* gSave.stats.shells — the three digits under the shell */
     /* The carried quest items (broken sword, dog food, books, ...), in the
      * order sub_080A5594's rolling counter drops them into its three-slot
      * tray: ascending item id, the third slot holding the last one owned.

@@ -816,8 +816,7 @@ target("tmc_pc")
     add_files("port/port_bios.c")
     add_files("port/port_bugreport.cpp")     -- F9 bug-report capture (screenshot + save + state dump)
     add_files("port/port_bugreport_state.c") -- Crash-handler state snapshot
-    add_files("port/port_linked_stubs.c")
-    add_files("port/port_3ds_full_view_policy.c")
+    add_files("port/port_linked_stubs.c", "port/port_widescreen.c")
     add_files("port/port_figurines.c")  -- gFigurines[] resolved from ROM (#57)
     add_files("port/port_draw.c")
     add_files("port/port_gba_mem.c")
@@ -1094,7 +1093,7 @@ target("rng_golden_test")
     set_languages("c11")
     set_targetdir("build/pc")
     add_includedirs("port")
-    add_files("port/port_rng_golden_test.c")
+    add_files("tests/port/port_rng_golden_test.c")
 target_end()
 
 
@@ -1111,7 +1110,7 @@ target("debug_actions_test")
     add_includedirs("include")
     add_defines("PC_PORT")
     add_files("port/port_debug_actions.c")
-    add_files("port/port_debug_actions_test.c")
+    add_files("tests/port/port_debug_actions_test.c")
 target_end()
 
 
@@ -1127,7 +1126,7 @@ target("gba_mem_test")
     add_includedirs("include")
     add_defines("PC_PORT")
     add_files("port/port_gba_mem.c")
-    add_files("port/port_gba_mem_test.c")
+    add_files("tests/port/port_gba_mem_test.c")
 target_end()
 
 
@@ -1141,7 +1140,7 @@ target("transition_axis_test")
     add_includedirs(".")
     add_includedirs("port")
     add_includedirs("include")
-    add_files("port/port_transition_axis_test.c")
+    add_files("tests/port/port_transition_axis_test.c")
 target_end()
 
 
@@ -1163,7 +1162,7 @@ target("rolling_barrel_transition_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_rolling_barrel_transition_test.c")
+    add_files("tests/port/port_rolling_barrel_transition_test.c")
     add_files("port/port_hdma.c")
     add_files("src/common.c")
     add_files("src/manager/rollingBarrelManager.c")
@@ -1181,7 +1180,7 @@ target("region_language_test")
     add_includedirs("port")
     add_includedirs("include")
     add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
-    add_files("port/port_region_language_test.c")
+    add_files("tests/port/port_region_language_test.c")
 target_end()
 
 
@@ -1196,7 +1195,7 @@ target("region_runtime_data_test")
     add_includedirs("port")
     add_includedirs("include")
     add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
-    add_files("port/port_region_runtime_data_test.c")
+    add_files("tests/port/port_region_runtime_data_test.c")
     add_files("port/port_offset_remap.c")
 target_end()
 
@@ -1218,7 +1217,7 @@ target("object70_overlay_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_object70_overlay_test.c")
+    add_files("tests/port/port_object70_overlay_test.c")
     add_files("src/object/object70.c")
 target_end()
 
@@ -1232,7 +1231,7 @@ target("bottle_compat_test")
     set_targetdir("build/pc")
     add_includedirs(".", "port", "include")
     add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
-    add_files("port/port_bottle_compat.c", "port/port_bottle_compat_test.c")
+    add_files("port/port_bottle_compat.c", "tests/port/port_bottle_compat_test.c")
 target_end()
 
 target("chest_reward_test")
@@ -1247,7 +1246,7 @@ target("chest_reward_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_chest_reward_test.c", "port/port_bottle_compat.c")
+    add_files("tests/port/port_chest_reward_test.c", "port/port_bottle_compat.c")
     add_files("src/object/chestSpawner.c", "src/playerItemUtils.c")
 target_end()
 
@@ -1266,7 +1265,7 @@ target("sprite_region_oam_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_sprite_region_oam_test.c")
+    add_files("tests/port/port_sprite_region_oam_test.c")
     add_files("port/port_draw.c")
     add_files("src/enemyUtils.c")
     add_files("src/projectileUtils.c")
@@ -1290,7 +1289,7 @@ target("horizontal_minish_path_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_horizontal_minish_path_test.c")
+    add_files("tests/port/port_horizontal_minish_path_test.c")
     add_files("src/manager/horizontalMinishPathBackgroundManager.c")
 target_end()
 
@@ -1312,7 +1311,7 @@ target("npc_gfx_retry_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_npc_gfx_retry_test.c")
+    add_files("tests/port/port_npc_gfx_retry_test.c")
     add_files("src/npcUtils.c")
 target_end()
 
@@ -1326,7 +1325,7 @@ target("gfx_group_dma_test")
     set_targetdir("build/pc")
     add_includedirs("port")
     add_includedirs("include")
-    add_files("port/port_gfx_group_dma_test.c")
+    add_files("tests/port/port_gfx_group_dma_test.c")
 target_end()
 
 -- ====================
@@ -1341,7 +1340,7 @@ target("dump_state_test")
     add_includedirs("port")
     add_includedirs("include")
     add_files("port/port_dump_state.c")
-    add_files("port/port_dump_state_test.c")
+    add_files("tests/port/port_dump_state_test.c")
 target_end()
 
 
@@ -1363,7 +1362,7 @@ target("second_screen_charge_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_second_screen_charge_test.c")
+    add_files("tests/port/port_second_screen_charge_test.c")
     add_files("port/port_second_screen.c")
 target_end()
 
@@ -1385,7 +1384,7 @@ target("second_screen_kinstone_layout_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_second_screen_kinstone_layout_test.c")
+    add_files("tests/port/port_second_screen_kinstone_layout_test.c")
     add_files("port/port_second_screen_quest.c")
 target_end()
 
@@ -1401,7 +1400,7 @@ target("kinstone_report_fixtures_test")
     add_includedirs("port")
     add_includedirs("include")
     add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
-    add_files("port/port_kinstone_report_fixtures_test.c")
+    add_files("tests/port/port_kinstone_report_fixtures_test.c")
 target_end()
 
 
@@ -1413,7 +1412,7 @@ target("widescreen_banner_state_test")
     set_languages("c11")
     set_targetdir("build/pc")
     add_includedirs("port")
-    add_files("port/port_widescreen_banner_state_test.c")
+    add_files("tests/port/port_widescreen_banner_state_test.c")
 target_end()
 
 
@@ -1434,7 +1433,7 @@ target("pullable_mushroom_allocation_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/pullable_mushroom_allocation_test.c")
+    add_files("tests/port/pullable_mushroom_allocation_test.c")
     add_files("src/object/pullableMushroom.c")
 target_end()
 
@@ -1456,7 +1455,7 @@ target("enemy_target_null_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_enemy_target_null_test.c")
+    add_files("tests/port/port_enemy_target_null_test.c")
     add_files("src/enemyUpdate.c")
 target_end()
 
@@ -1478,7 +1477,7 @@ target("delayed_entity_script_slot_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_delayed_entity_script_slot_test.c")
+    add_files("tests/port/port_delayed_entity_script_slot_test.c")
     add_files("src/manager/delayedEntityLoadManager.c")
 target_end()
 
@@ -1496,7 +1495,7 @@ target("flag_runtime_test")
     add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
     add_files("src/flags.c")
     add_files("port/flag_remap_generated.c")
-    add_files("port/port_flag_runtime_test.c")
+    add_files("tests/port/port_flag_runtime_test.c")
 target_end()
 
 
@@ -1518,7 +1517,7 @@ target("dialog_region_test")
         add_ldflags("-Wl,--gc-sections")
     end
     add_files("src/npcUtils.c")
-    add_files("port/port_dialog_region_test.c")
+    add_files("tests/port/port_dialog_region_test.c")
 target_end()
 
 
@@ -1533,7 +1532,7 @@ target("region_data_resolver_test")
     add_includedirs("port")
     add_includedirs("include")
     add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
-    add_files("port/port_region_data_test.c")
+    add_files("tests/port/port_region_data_test.c")
     add_files("port/port_region_data.c")
 target_end()
 
@@ -1559,7 +1558,7 @@ target("cloud_tops_fight_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_cloud_tops_fight_test.c")
+    add_files("tests/port/port_cloud_tops_fight_test.c")
     add_files("port/port_cloud_tops_fight.c")
 target_end()
 
@@ -1575,7 +1574,7 @@ target("vaati_progress_test")
     add_includedirs("port")
     add_includedirs("include")
     add_defines("PC_PORT", "MULTI_REGION", "TMC_3DS", "USA", "ENGLISH")
-    add_files("port/port_vaati_progress_test.c")
+    add_files("tests/port/port_vaati_progress_test.c")
     add_files("port/port_vaati_progress.c")
 target_end()
 
@@ -1591,7 +1590,7 @@ target("text_variables_test")
     add_includedirs("port")
     add_includedirs("include")
     add_defines("PC_PORT", "USA", "ENGLISH")
-    add_files("port/port_text_variables_test.c")
+    add_files("tests/port/port_text_variables_test.c")
 target_end()
 
 
@@ -1612,7 +1611,7 @@ target("spiked_rollers_motion_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_spiked_rollers_motion_test.c")
+    add_files("tests/port/port_spiked_rollers_motion_test.c")
     add_files("src/projectile/spikedRollers.c")
 target_end()
 
@@ -1634,7 +1633,7 @@ target("gleerok_fire_hitbox_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_gleerok_fire_hitbox_test.c")
+    add_files("tests/port/port_gleerok_fire_hitbox_test.c")
     add_files("src/object/gleerokParticle.c")
     add_files("src/collision.c")
 target_end()
@@ -1657,7 +1656,7 @@ target("arrow_projectile_hitbox_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_arrow_projectile_hitbox_test.c")
+    add_files("tests/port/port_arrow_projectile_hitbox_test.c")
     add_files("src/projectile/arrowProjectile.c")
     add_files("src/playerHitbox.c")
     add_files("src/collision.c")
@@ -1675,7 +1674,7 @@ target("save_layout_test")
     add_includedirs("port")
     add_includedirs("include")
     add_defines("PC_PORT", "USA", "ENGLISH")
-    add_files("port/port_save_layout_test.c")
+    add_files("tests/port/port_save_layout_test.c")
 target_end()
 
 
@@ -1691,7 +1690,7 @@ target("save_persistence_test")
     add_includedirs("include")
     add_defines("PC_PORT", "MULTI_REGION", "TMC_3DS", "PORT_SAVE_TEST", "USA", "ENGLISH")
     add_files("port/port_save.c")
-    add_files("port/port_save_persistence_test.c")
+    add_files("tests/port/port_save_persistence_test.c")
 target_end()
 
 
@@ -1718,7 +1717,7 @@ target("save_migration_integration_test")
     end
     add_files("port/port_save.c")
     add_files("src/save.c")
-    add_files("port/port_save_migration_integration_test.c")
+    add_files("tests/port/port_save_migration_integration_test.c")
 target_end()
 
 
@@ -1746,7 +1745,7 @@ target("kinstone_integration_test")
     end
     add_files("port/port_save.c")
     add_files("src/common.c")
-    add_files("port/port_kinstone_integration_test.c")
+    add_files("tests/port/port_kinstone_integration_test.c")
 target_end()
 
 
@@ -1762,7 +1761,7 @@ target("save_story_region_test")
     add_includedirs("include")
     add_defines("PC_PORT", "MULTI_REGION", "USA", "ENGLISH")
     add_files("port/flag_remap_generated.c")
-    add_files("port/port_save_story_region_test.c")
+    add_files("tests/port/port_save_story_region_test.c")
 target_end()
 
 
@@ -1777,7 +1776,7 @@ target("tile_interaction_data_test")
     add_includedirs("port")
     add_includedirs("include")
     add_defines("PC_PORT", "USA", "ENGLISH")
-    add_files("port/port_tile_interaction_data_test.c")
+    add_files("tests/port/port_tile_interaction_data_test.c")
     add_files("src/data/data_080046A4.c")
 target_end()
 
@@ -1791,7 +1790,7 @@ target("castle_maid_dialog_test")
     set_targetdir("build/pc")
     add_includedirs("port")
     add_includedirs("include")
-    add_files("port/port_castle_maid_dialog_test.c")
+    add_files("tests/port/port_castle_maid_dialog_test.c")
 target_end()
 
 
@@ -1808,7 +1807,7 @@ target("port_second_screen_slicemap_test")
     set_kind("binary")
     set_languages("c11")
     set_targetdir("build/pc")
-    add_files("port/port_second_screen_slicemap_test.c")
+    add_files("tests/port/port_second_screen_slicemap_test.c")
 target_end()
 
 
@@ -1821,7 +1820,7 @@ target("host_pointer_3ds_test")
     add_includedirs("include")
     add_defines("PC_PORT", "TMC_3DS")
     add_files("port/port_gba_mem.c")
-    add_files("port/port_host_pointer_3ds_test.c")
+    add_files("tests/port/port_host_pointer_3ds_test.c")
 target_end()
 
 
@@ -1873,7 +1872,7 @@ target("port_m4a_mixdown_test")
     set_targetdir("build/pc")
     add_includedirs("port")
     add_files("port/port_m4a_mixdown.c")
-    add_files("port/port_m4a_mixdown_test.c")
+    add_files("tests/port/port_m4a_mixdown_test.c")
     add_syslinks("m")
 target_end()
 -- ====================
@@ -1976,7 +1975,7 @@ target("memory_watch_test")
     add_includedirs("include")
     add_defines("PC_PORT")
     add_files("port/port_debug_memory_watch.c")
-    add_files("port/port_memory_watch_test.c")
+    add_files("tests/port/port_memory_watch_test.c")
 target_end()
 
 
@@ -2018,16 +2017,6 @@ target("mode1_native_fast_path_test")
     add_syslinks("m")
 target_end()
 
-target("mode1_full_view_fast_path_test")
-    set_kind("binary")
-    set_languages("c11")
-    set_targetdir("build/pc")
-    add_includedirs("port/ppu/include")
-    add_defines("VIRTUAPPU_TESTING", "MODE1_GBA_WIDTH=400", "MODE1_GBA_HEIGHT=240")
-    add_files("port/ppu/tests/mode1_native_fast_path_test.c")
-    add_files("port/ppu/src/mode1.c")
-    add_syslinks("m")
-target_end()
 
 target("mode1_draw_order_profile_test")
     set_kind("binary")
@@ -2436,13 +2425,13 @@ target("subtask_affine_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_subtask_affine_test.c", "src/subtask.c", "src/code_0805EC04.c")
+    add_files("tests/port/port_subtask_affine_test.c", "src/subtask.c", "src/code_0805EC04.c")
 target_end()
 
 -- Production palette reservation and enemy death allocation regressions.
 for _, spec in ipairs({
-    {"palette_release_test", "port/port_palette_release_test.c", "src/color.c"},
-    {"enemy_death_fx_test", "port/port_enemy_death_fx_test.c", "src/enemyUtils.c"}
+    {"palette_release_test", "tests/port/port_palette_release_test.c", "src/color.c"},
+    {"enemy_death_fx_test", "tests/port/port_enemy_death_fx_test.c", "src/enemyUtils.c"}
 }) do
     target(spec[1])
         set_kind("binary")
@@ -2472,7 +2461,7 @@ target("gfx_slots_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_gfx_slots_test.c", "src/vram.c")
+    add_files("tests/port/port_gfx_slots_test.c", "src/vram.c")
 target_end()
 
 -- Native equivalents of the three retail EU Backport corrections.
@@ -2488,7 +2477,7 @@ target("eu_backport_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_eu_backport_test.c", "src/npc/farmers.c", "src/roomInit.c",
+    add_files("tests/port/port_eu_backport_test.c", "src/npc/farmers.c", "src/roomInit.c",
               "src/itemMetaData.c", "src/itemUtils.c")
 target_end()
 
@@ -2498,7 +2487,7 @@ target("second_screen_state_test")
     set_targetdir("build/pc")
     add_includedirs(".", "port", "include", "platform/3ds/source")
     add_defines("PC_PORT", "TMC_3DS", "USA", "ENGLISH")
-    add_files("port/port_second_screen_state.c", "port/port_second_screen_state_test.c")
+    add_files("port/port_second_screen_state.c", "tests/port/port_second_screen_state_test.c")
 target_end()
 
 -- Legacy bomb ownership recovery and the actual bag reward path.
@@ -2514,7 +2503,7 @@ target("bomb_compat_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_bomb_compat.c", "port/port_bomb_compat_test.c", "src/itemUtils.c", "src/itemMetaData.c")
+    add_files("port/port_bomb_compat.c", "tests/port/port_bomb_compat_test.c", "src/itemUtils.c", "src/itemMetaData.c")
 target_end()
 
 -- Production tile streaming and reveal continuity across adjacent rooms.
@@ -2531,8 +2520,8 @@ target("widescreen_stream_test")
     else
         add_ldflags("-Wl,--gc-sections")
     end
-    add_files("port/port_widescreen_stream_test.c", "port/port_linked_stubs.c")
-    add_files("port/port_3ds_full_view_policy.c", "port/ppu/src/mode1.c")
+    add_files("tests/port/port_widescreen_stream_test.c", "port/port_linked_stubs.c", "port/port_widescreen.c")
+    add_files("port/ppu/src/mode1.c")
     add_syslinks("m")
 target_end()
 
@@ -2552,4 +2541,13 @@ target("bottom_map_camera_3ds_test")
     end
     add_files("platform/3ds/tests/bottom_map_camera_3ds_test.c",
               "platform/3ds/source/bottom_map_anim_3ds.c")
+target_end()
+
+-- Production top-screen aspect/filter policy, independent of device SDKs.
+target("top_view_3ds_test")
+    set_kind("binary")
+    set_languages("c11")
+    set_targetdir("build/pc")
+    add_includedirs("platform/3ds/source")
+    add_files("platform/3ds/tests/top_view_3ds_test.c", "platform/3ds/source/top_view_3ds.c")
 target_end()

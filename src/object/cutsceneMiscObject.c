@@ -466,7 +466,6 @@ void CutsceneMiscObject_Type6(CutsceneMiscObjectEntity* this) {
             }
             break;
 #endif
-
     }
 }
 

@@ -46,7 +46,10 @@ extern unsigned int GetInventoryValue(unsigned int item);
 /* Mirror of the relevant prefix of ItemMetaData. We only need menuSlot and
  * the existence of the entry; the real struct (include/itemMetaData.h) has
  * eight u8 fields starting with menuSlot. */
-struct PortSoftSlotItemMeta { unsigned char menuSlot; unsigned char rest[7]; };
+struct PortSoftSlotItemMeta {
+    unsigned char menuSlot;
+    unsigned char rest[7];
+};
 extern const struct PortSoftSlotItemMeta gItemMetaData[];
 
 #define SOFTSLOT_FILENAME "tmc.softslots"
@@ -56,19 +59,24 @@ static uint8_t sAssignments[PORT_SOFTSLOT_COUNT];
 static int sActiveSlot = -1;
 static bool sLoaded = false;
 
-
 const char* Port_SoftSlots_SlotName(int slot) {
     switch (slot) {
-        case 0: return "X";
-        case 1: return "Y";
-        case 2: return "L2";
-        case 3: return "R2";
-        default: return "?";
+        case 0:
+            return "X";
+        case 1:
+            return "Y";
+        case 2:
+            return "L2";
+        case 3:
+            return "R2";
+        default:
+            return "?";
     }
 }
 
 void Port_SoftSlots_Init(void) {
-    if (sLoaded) return;
+    if (sLoaded)
+        return;
     Port_SoftSlots_Load();
     sLoaded = true;
 }
@@ -112,25 +120,29 @@ bool Port_SoftSlots_IsBHeld(void) {
 }
 
 uint8_t Port_SoftSlots_GetEffectiveBItem(uint8_t saved) {
-    if (sActiveSlot < 0) return saved;
+    if (sActiveSlot < 0)
+        return saved;
     uint8_t a = sAssignments[sActiveSlot];
     return a ? a : saved;
 }
 
 uint8_t Port_SoftSlots_GetAssignment(int slot) {
-    if (slot < 0 || slot >= PORT_SOFTSLOT_COUNT) return 0;
+    if (slot < 0 || slot >= PORT_SOFTSLOT_COUNT)
+        return 0;
     return sAssignments[slot];
 }
 
 void Port_SoftSlots_SetAssignment(int slot, uint8_t itemId) {
-    if (slot < 0 || slot >= PORT_SOFTSLOT_COUNT) return;
+    if (slot < 0 || slot >= PORT_SOFTSLOT_COUNT)
+        return;
     sAssignments[slot] = itemId;
     Port_SoftSlots_Save();
 }
 
 void Port_SoftSlots_Save(void) {
     FILE* f = fopen(SOFTSLOT_FILENAME, "wb");
-    if (!f) return;
+    if (!f)
+        return;
     fwrite(SOFTSLOT_MAGIC, 1, sizeof(SOFTSLOT_MAGIC), f);
     fwrite(sAssignments, 1, sizeof(sAssignments), f);
     fclose(f);
@@ -139,10 +151,10 @@ void Port_SoftSlots_Save(void) {
 void Port_SoftSlots_Load(void) {
     memset(sAssignments, 0, sizeof(sAssignments));
     FILE* f = fopen(SOFTSLOT_FILENAME, "rb");
-    if (!f) return;
+    if (!f)
+        return;
     char magic[sizeof(SOFTSLOT_MAGIC)];
-    if (fread(magic, 1, sizeof(magic), f) == sizeof(magic) &&
-        memcmp(magic, SOFTSLOT_MAGIC, sizeof(magic)) == 0) {
+    if (fread(magic, 1, sizeof(magic), f) == sizeof(magic) && memcmp(magic, SOFTSLOT_MAGIC, sizeof(magic)) == 0) {
         if (fread(sAssignments, 1, sizeof(sAssignments), f) != sizeof(sAssignments)) {
             memset(sAssignments, 0, sizeof(sAssignments));
         }
@@ -159,62 +171,71 @@ void Port_SoftSlots_Load(void) {
  * _ON at runtime. ITEM_BOMBS / _BOW / _BOOMERANG / _SHIELD / _LANTERN
  * pair up with their upgraded variants — owning the upgraded variant
  * implies ownership of the base one for our purposes. */
-static const struct { uint8_t id; const char* name; } kEquippable[] = {
+static const struct {
+    uint8_t id;
+    const char* name;
+} kEquippable[] = {
     /* values mirror include/item.h enum positions 1..0x21 */
-    { 1,  "Sword (Smith)"   }, /* ITEM_SMITH_SWORD     */
-    { 2,  "Sword (Green)"   }, /* ITEM_GREEN_SWORD     */
-    { 3,  "Sword (Red)"     }, /* ITEM_RED_SWORD       */
-    { 4,  "Sword (Blue)"    }, /* ITEM_BLUE_SWORD      */
-    { 7,  "Bombs"           }, /* ITEM_BOMBS           */
-    { 8,  "Remote Bombs"    }, /* ITEM_REMOTE_BOMBS    */
-    { 9,  "Bow"             }, /* ITEM_BOW             */
-    { 10, "Light Arrow"     }, /* ITEM_LIGHT_ARROW     */
-    { 11, "Boomerang"       }, /* ITEM_BOOMERANG       */
+    { 1, "Sword (Smith)" },    /* ITEM_SMITH_SWORD     */
+    { 2, "Sword (Green)" },    /* ITEM_GREEN_SWORD     */
+    { 3, "Sword (Red)" },      /* ITEM_RED_SWORD       */
+    { 4, "Sword (Blue)" },     /* ITEM_BLUE_SWORD      */
+    { 7, "Bombs" },            /* ITEM_BOMBS           */
+    { 8, "Remote Bombs" },     /* ITEM_REMOTE_BOMBS    */
+    { 9, "Bow" },              /* ITEM_BOW             */
+    { 10, "Light Arrow" },     /* ITEM_LIGHT_ARROW     */
+    { 11, "Boomerang" },       /* ITEM_BOOMERANG       */
     { 12, "Magic Boomerang" }, /* ITEM_MAGIC_BOOMERANG */
-    { 13, "Shield"          }, /* ITEM_SHIELD          */
-    { 14, "Mirror Shield"   }, /* ITEM_MIRROR_SHIELD   */
-    { 15, "Lantern"         }, /* ITEM_LANTERN_OFF     */
-    { 17, "Gust Jar"        }, /* ITEM_GUST_JAR        */
-    { 18, "Pacci Cane"      }, /* ITEM_PACCI_CANE      */
-    { 19, "Mole Mitts"      }, /* ITEM_MOLE_MITTS      */
-    { 20, "Roc's Cape"      }, /* ITEM_ROCS_CAPE       */
-    { 21, "Pegasus Boots"   }, /* ITEM_PEGASUS_BOOTS   */
-    { 23, "Ocarina"         }, /* ITEM_OCARINA         */
-    { 28, "Bottle 1"        }, /* ITEM_BOTTLE1         */
-    { 29, "Bottle 2"        }, /* ITEM_BOTTLE2         */
-    { 30, "Bottle 3"        }, /* ITEM_BOTTLE3         */
-    { 31, "Bottle 4"        }, /* ITEM_BOTTLE4         */
+    { 13, "Shield" },          /* ITEM_SHIELD          */
+    { 14, "Mirror Shield" },   /* ITEM_MIRROR_SHIELD   */
+    { 15, "Lantern" },         /* ITEM_LANTERN_OFF     */
+    { 17, "Gust Jar" },        /* ITEM_GUST_JAR        */
+    { 18, "Pacci Cane" },      /* ITEM_PACCI_CANE      */
+    { 19, "Mole Mitts" },      /* ITEM_MOLE_MITTS      */
+    { 20, "Roc's Cape" },      /* ITEM_ROCS_CAPE       */
+    { 21, "Pegasus Boots" },   /* ITEM_PEGASUS_BOOTS   */
+    { 23, "Ocarina" },         /* ITEM_OCARINA         */
+    { 28, "Bottle 1" },        /* ITEM_BOTTLE1         */
+    { 29, "Bottle 2" },        /* ITEM_BOTTLE2         */
+    { 30, "Bottle 3" },        /* ITEM_BOTTLE3         */
+    { 31, "Bottle 4" },        /* ITEM_BOTTLE4         */
 };
 
 static const char* ItemDisplayName(uint8_t id) {
-    if (id == 0) return "(unassigned)";
+    if (id == 0)
+        return "(unassigned)";
     for (size_t i = 0; i < sizeof(kEquippable) / sizeof(kEquippable[0]); i++) {
-        if (kEquippable[i].id == id) return kEquippable[i].name;
+        if (kEquippable[i].id == id)
+            return kEquippable[i].name;
     }
     return "?";
 }
 
 const char* Port_SoftSlots_GetSlotLabel(int slot) {
     static char buf[64];
-    if (slot < 0 || slot >= PORT_SOFTSLOT_COUNT) return "?";
+    if (slot < 0 || slot >= PORT_SOFTSLOT_COUNT)
+        return "?";
     uint8_t id = sAssignments[slot];
-    snprintf(buf, sizeof(buf), "%-3s : %s",
-             Port_SoftSlots_SlotName(slot), ItemDisplayName(id));
+    snprintf(buf, sizeof(buf), "%-3s : %s", Port_SoftSlots_SlotName(slot), ItemDisplayName(id));
     return buf;
 }
 
 /* Returns the table index of `id`, or -1 if not in the table. */
 static int CycleIndexOf(uint8_t id) {
-    if (id == 0) return -1; /* "unassigned" lives outside the table */
+    if (id == 0)
+        return -1; /* "unassigned" lives outside the table */
     for (size_t i = 0; i < sizeof(kEquippable) / sizeof(kEquippable[0]); i++) {
-        if (kEquippable[i].id == id) return (int)i;
+        if (kEquippable[i].id == id)
+            return (int)i;
     }
     return -1;
 }
 
 void Port_SoftSlots_CycleAssignment(int slot, int direction) {
-    if (slot < 0 || slot >= PORT_SOFTSLOT_COUNT) return;
-    if (direction == 0) return;
+    if (slot < 0 || slot >= PORT_SOFTSLOT_COUNT)
+        return;
+    if (direction == 0)
+        return;
     int step = direction > 0 ? 1 : -1;
     int n = (int)(sizeof(kEquippable) / sizeof(kEquippable[0]));
 
@@ -284,7 +305,8 @@ bool Port_SoftSlots_ConfigHandleKey(int sdlKey) {
     (void)sdlKey;
     return false;
 #else
-    if (!sConfigOpen) return false;
+    if (!sConfigOpen)
+        return false;
     switch (sdlKey) {
         case SDLK_UP:
             sConfigCursor = (sConfigCursor + PORT_SOFTSLOT_COUNT - 1) % PORT_SOFTSLOT_COUNT;
@@ -316,7 +338,8 @@ static const char* SlotValueLabel(int slot) {
     /* sAssignments stored across runs; render "—" for empty so the panel
      * looks intentional rather than crashed. */
     uint8_t id = sAssignments[slot];
-    if (id == 0) return "---";
+    if (id == 0)
+        return "---";
     /* Reuse ItemDisplayName — the same name table the cycle code drives. */
     static char buf[32];
     SDL_strlcpy(buf, ItemDisplayName(id), sizeof(buf));
@@ -345,8 +368,7 @@ static void RenderConfigOverlay(SDL_Renderer* r, int winW, int winH) {
     const char* title = "EXTRA EQUIP SLOTS";
     int titleLen = (int)SDL_strlen(title);
     SDL_SetRenderDrawColor(r, 200, 220, 255, 255);
-    SDL_RenderDebugText(r, box.x + (box.w - titleLen * charW) * 0.5f,
-                        box.y + 8.0f, title);
+    SDL_RenderDebugText(r, box.x + (box.w - titleLen * charW) * 0.5f, box.y + 8.0f, title);
 
     float y = box.y + 30.0f;
     for (int i = 0; i < PORT_SOFTSLOT_COUNT; i++) {
@@ -376,8 +398,7 @@ static void RenderConfigOverlay(SDL_Renderer* r, int winW, int winH) {
     SDL_SetRenderDrawColor(r, 180, 180, 180, 255);
     const char* foot = "Up/Down pick  Left/Right cycle  Enter/Esc done";
     int footLen = (int)SDL_strlen(foot);
-    SDL_RenderDebugText(r, box.x + (box.w - footLen * charW) * 0.5f,
-                        box.y + box.h - 18.0f, foot);
+    SDL_RenderDebugText(r, box.x + (box.w - footLen * charW) * 0.5f, box.y + box.h - 18.0f, foot);
 }
 #endif
 
@@ -388,7 +409,8 @@ void Port_SoftSlots_RenderOverlay(void* sdl_renderer, int winW, int winH) {
     (void)winH;
 #else
     SDL_Renderer* r = (SDL_Renderer*)sdl_renderer;
-    if (!r) return;
+    if (!r)
+        return;
     if (sConfigOpen) {
         RenderConfigOverlay(r, winW, winH);
     }

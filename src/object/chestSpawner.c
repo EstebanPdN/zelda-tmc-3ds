@@ -106,9 +106,8 @@ void ChestSpawner_Type2Init(ChestSpawnerEntity* this) {
     super->hitbox = (Hitbox*)&gUnk_0811F8B0;
 #ifdef PC_PORT
     if (gRoomControls.area == AREA_DEEPWOOD_SHRINE && gRoomControls.room == ROOM_DEEPWOOD_SHRINE_TORCHES) {
-        fprintf(stderr,
-                "[CHEST] Type2Init flag=0x%04X local=%u layer=%u\n",
-                CS_FLAG(this), super->type2, super->collisionLayer);
+        fprintf(stderr, "[CHEST] Type2Init flag=0x%04X local=%u layer=%u\n", CS_FLAG(this), super->type2,
+                super->collisionLayer);
     }
 #endif
     if (CheckLocalFlag(super->type2)) {
@@ -189,9 +188,8 @@ void ChestSpawner_Type2Action3(ChestSpawnerEntity* this) {
     if (super->interactType != INTERACTION_NONE) {
 #ifdef PC_PORT
         if (gRoomControls.area == AREA_DEEPWOOD_SHRINE && gRoomControls.room == ROOM_DEEPWOOD_SHRINE_TORCHES) {
-            fprintf(stderr,
-                    "[CHEST] Type2Action3 interact flag=0x%04X local=%u interactType=%u\n",
-                        CS_FLAG(this), super->type2, super->interactType);
+            fprintf(stderr, "[CHEST] Type2Action3 interact flag=0x%04X local=%u interactType=%u\n", CS_FLAG(this),
+                    super->type2, super->interactType);
         }
 #endif
         super->action = 4;
@@ -248,7 +246,8 @@ bool32 sub_08084074(u32 flag) {
 #endif
                 return CreateItemEntityWithFlag(item, subtype, 0, flag);
             }
-            if (isChest) chestIndex++;
+            if (isChest)
+                chestIndex++;
         }
     }
     return FALSE;

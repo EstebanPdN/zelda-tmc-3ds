@@ -55,9 +55,8 @@ void BottomFrameState3DS_MarkSubmitted(BottomFrameState3DS* state, uint32_t gene
 int BottomFrameState3DS_PromoteSubmitted(BottomFrameState3DS* state);
 int BottomFrameState3DS_CanDispatchTouch(BottomFrameState3DS* state, int currentInGame);
 int BottomFrameState3DS_VisibleModeMatches(const BottomFrameState3DS* state, int currentInGame);
-int BottomFrameState3DS_ShouldSchedulePaint(int workerPending, int forcedUpdate, int cadenceDue,
-                                           int justPromoted, int snapshotChanged,
-                                           int animationRequired);
+int BottomFrameState3DS_ShouldSchedulePaint(int workerPending, int forcedUpdate, int cadenceDue, int justPromoted,
+                                            int snapshotChanged, int animationRequired);
 void BottomFrameState3DS_GetStats(const BottomFrameState3DS* state, BottomFrameState3DSStats* out);
 
 #ifdef __cplusplus

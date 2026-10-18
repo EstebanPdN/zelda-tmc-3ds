@@ -22,8 +22,7 @@ typedef struct {
     /*0x86*/ u16 hitFlag;
 } HittableLeverEntity;
 
-PORT_STATIC_ASSERT_OFFSET(HittableLeverEntity, hitFlag, 0x86, 0xB2,
-                          "HittableLever hitFlag must alias field_0x86");
+PORT_STATIC_ASSERT_OFFSET(HittableLeverEntity, hitFlag, 0x86, 0xB2, "HittableLever hitFlag must alias field_0x86");
 
 extern void (*const HittableLever_Actions[])(HittableLeverEntity*);
 extern const Hitbox HittableLever_Hitbox;

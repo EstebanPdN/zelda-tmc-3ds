@@ -28,9 +28,8 @@ typedef struct {
 
 PORT_STATIC_ASSERT_SIZE(RemovableDustEntity, 0x88, 0xB0, "RemovableDustEntity size incorrect");
 PORT_STATIC_ASSERT_OFFSET(RemovableDustEntity, entityData, 0x68, 0x90,
-                        "RemovableDustEntity entityData offset incorrect");
-PORT_STATIC_ASSERT_OFFSET(RemovableDustEntity, unk_86, 0x86, 0xAE,
-                        "RemovableDustEntity flag offset incorrect");
+                          "RemovableDustEntity entityData offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(RemovableDustEntity, unk_86, 0x86, 0xAE, "RemovableDustEntity flag offset incorrect");
 
 #ifdef PC_PORT
 #define DUST_FLAG(this) (GE_FIELD(&((this)->base), field_0x86)->HWORD)

@@ -37,7 +37,7 @@
 namespace tmc_vkrt {
 
 class DenoisePipeline {
-public:
+  public:
     explicit DenoisePipeline(Engine& eng);
     ~DenoisePipeline();
 
@@ -55,18 +55,18 @@ public:
      * storage image, ready for the swapchain blit. */
     void dispatch(VkCommandBuffer cmd, uint32_t width, uint32_t height);
 
-private:
+  private:
     std::vector<char> loadSpv(const std::string& path);
 
-    Engine&               mEngine;
+    Engine& mEngine;
     VkDescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
-    VkPipelineLayout      mPipelineLayout      = VK_NULL_HANDLE;
-    VkPipeline            mPipeline            = VK_NULL_HANDLE;
-    VkDescriptorPool      mDescriptorPool      = VK_NULL_HANDLE;
+    VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
+    VkPipeline mPipeline = VK_NULL_HANDLE;
+    VkDescriptorPool mDescriptorPool = VK_NULL_HANDLE;
     /* Three sets — one per pass.  Each binds different src/dst pairs
      * so we don't have to rebind / vkUpdateDescriptorSets between
      * dispatches inside the same cmd. */
-    VkDescriptorSet       mSets[3]{};
+    VkDescriptorSet mSets[3]{};
 };
 
-}  /* namespace tmc_vkrt */
+} /* namespace tmc_vkrt */

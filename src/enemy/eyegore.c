@@ -50,9 +50,7 @@ typedef struct {
     /*0x86*/ u16 tileIndex4;
 } EyegoreEntity;
 
-PORT_STATIC_ASSERT_OFFSET(EyegoreEntity, unk_6d, 0x6d, 0x99,
-                          "EyegoreEntity unk_6d offset (Enemy::child +4 pad)");
-
+PORT_STATIC_ASSERT_OFFSET(EyegoreEntity, unk_6d, 0x6d, 0x99, "EyegoreEntity unk_6d offset (Enemy::child +4 pad)");
 
 extern Entity* sub_08017A90(Entity*, Entity*);
 

@@ -36,9 +36,8 @@ void NdspPcm_Shutdown(void);
  * caller must then Kill() the voice exactly as the software path does; it
  * cannot resume in software, because MP2K's samplePos did not advance while
  * the DSP owned the voice. */
-bool NdspPcm_Play(int* slot, const int8_t* samplePtr, uint32_t endPos,
-                  uint32_t loopPos, bool loopEnabled, uint32_t startPos,
-                  float rate, float leftVol, float rightVol, bool* finished);
+bool NdspPcm_Play(int* slot, const int8_t* samplePtr, uint32_t endPos, uint32_t loopPos, bool loopEnabled,
+                  uint32_t startPos, float rate, float leftVol, float rightVol, bool* finished);
 
 void NdspPcm_Stop(int* slot);
 

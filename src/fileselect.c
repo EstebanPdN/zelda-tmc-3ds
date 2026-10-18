@@ -559,8 +559,8 @@ extern void HandleFileCopy(void);
 extern void HandleFileDelete(void);
 extern void HandleFileStart(void);
 static void (*const sFileScreenSubHandlers[])(void) = {
-    HandleFileSelect,      HandleFileNew,  HandleFileLanguageSelect, HandleFileOptions,
-    HandleFileView,        HandleFileCopy, HandleFileDelete,         HandleFileStart,
+    HandleFileSelect, HandleFileNew,  HandleFileLanguageSelect, HandleFileOptions,
+    HandleFileView,   HandleFileCopy, HandleFileDelete,         HandleFileStart,
 };
 
 #ifdef PC_PORT
@@ -659,7 +659,6 @@ static void HandlePortSettingsMenu(void);
 static void DrawPortSettingsMenu(void);
 #endif
 
-
 void sub_08051358(void);
 void sub_08051574(u32);
 void sub_08051480(u32);
@@ -752,7 +751,6 @@ void SetFileSelectState(FileSelectState mode) {
             case STATE_START:
                 name = "Starting game.";
                 break;
-
         }
         if (name) {
             PortTtsOptions opts = { 0 };
@@ -890,8 +888,7 @@ void SetActiveSave(u32 idx) {
             } else if (needsFightReplay && Port_RepairCloudTopsFight(&gSave, legacyInventoryRepair)) {
                 MemCopy(&gSave, &gFileSelectState.saves[idx], sizeof(gSave));
                 if (WriteSaveFile(idx, &gSave) != 0) {
-                    fprintf(stderr,
-                            "[SAVE] Reopened the corrupted Cloud Tops piranha fight and reward in slot %u.\n",
+                    fprintf(stderr, "[SAVE] Reopened the corrupted Cloud Tops piranha fight and reward in slot %u.\n",
                             idx);
                 } else {
                     fprintf(stderr,
@@ -904,7 +901,6 @@ void SetActiveSave(u32 idx) {
     }
 #endif
 }
-
 
 void FileSelectTask(void) {
     FlushSprites();
@@ -2445,7 +2441,6 @@ void sub_080518E4(void) {
             break;
     }
 }
-
 
 void HandleFileStart(void) {
     if (gMenu.menuType == 0) {

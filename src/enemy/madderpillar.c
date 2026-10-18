@@ -132,7 +132,8 @@ void sub_0802999C(MadderpillarEntity* this) {
            `entN->parent = super` then wrote into BIOS garbage; on PC it is a
            NULL store -> SIGSEGV. Bail on the first failure (partial chain is
            harmless). */
-        if (ent1 == NULL) return;
+        if (ent1 == NULL)
+            return;
 #endif
         ent1->parent = super;
         PositionRelative(super, ent1, 0, 5);
@@ -140,7 +141,8 @@ void sub_0802999C(MadderpillarEntity* this) {
 
         ent2 = CreateEnemy(MADDERPILLAR, 2);
 #ifdef PC_PORT
-        if (ent2 == NULL) return;
+        if (ent2 == NULL)
+            return;
 #endif
         ent2->parent = super;
         PositionRelative(super, ent2, 0, 4);
@@ -148,7 +150,8 @@ void sub_0802999C(MadderpillarEntity* this) {
 
         ent3 = CreateEnemy(MADDERPILLAR, 3);
 #ifdef PC_PORT
-        if (ent3 == NULL) return;
+        if (ent3 == NULL)
+            return;
 #endif
         ent3->parent = super;
         PositionRelative(super, ent3, 0, 3);
@@ -156,7 +159,8 @@ void sub_0802999C(MadderpillarEntity* this) {
 
         ent4 = CreateEnemy(MADDERPILLAR, 4);
 #ifdef PC_PORT
-        if (ent4 == NULL) return;
+        if (ent4 == NULL)
+            return;
 #endif
         ent4->parent = super;
         PositionRelative(super, ent4, 0, 2);
@@ -164,7 +168,8 @@ void sub_0802999C(MadderpillarEntity* this) {
 
         ent5 = CreateEnemy(MADDERPILLAR, 5);
 #ifdef PC_PORT
-        if (ent5 == NULL) return;
+        if (ent5 == NULL)
+            return;
 #endif
         ent5->parent = super;
         PositionRelative(super, ent5, 0, 1);
@@ -172,7 +177,8 @@ void sub_0802999C(MadderpillarEntity* this) {
 
         ent6 = CreateEnemy(MADDERPILLAR, 6);
 #ifdef PC_PORT
-        if (ent6 == NULL) return;
+        if (ent6 == NULL)
+            return;
 #endif
         ent6->child = super;
         ent6->parent = super;

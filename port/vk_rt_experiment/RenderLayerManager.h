@@ -34,14 +34,7 @@
 
 namespace tmc_vkrt {
 
-enum class Layer : uint32_t {
-    UI         = 0,
-    Sprite     = 1,
-    BG0        = 2,
-    BG1        = 3,
-    BG2        = 4,
-    Count
-};
+enum class Layer : uint32_t { UI = 0, Sprite = 1, BG0 = 2, BG1 = 3, BG2 = 4, Count };
 
 /* Z value per layer, indexable by Layer cast to uint32_t.
  * Kept as a constexpr array so the compiler folds the table lookup. */
@@ -63,9 +56,9 @@ inline constexpr float kLayerZ[(size_t)Layer::Count] = {
  * 96 bytes, 16-byte aligned by design so the per-quad write stays
  * cache-friendly. */
 struct Vertex {
-    float position[3];      /* world-space xyz; z = kLayerZ[layer] */
-    float uv[2];            /* per-vertex UV into the diffuse atlas */
-    float emissive;         /* 0.0 normal, 1.0 emissive (treated as light) */
+    float position[3]; /* world-space xyz; z = kLayerZ[layer] */
+    float uv[2];       /* per-vertex UV into the diffuse atlas */
+    float emissive;    /* 0.0 normal, 1.0 emissive (treated as light) */
 };
 static_assert(sizeof(Vertex) == 24, "Vertex layout drifted — shader binding will misalign");
 
@@ -77,20 +70,20 @@ inline constexpr uint32_t kQuadIndices[6] = { 0, 1, 2, 0, 2, 3 };
  * the buffer/memory handles become owned by the RenderLayerManager
  * until reset() is called or the manager is destroyed. */
 struct GeometryBuffers {
-    VkBuffer       vertexBuffer = VK_NULL_HANDLE;
+    VkBuffer vertexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory vertexMemory = VK_NULL_HANDLE;
-    VkBuffer       indexBuffer  = VK_NULL_HANDLE;
-    VkDeviceMemory indexMemory  = VK_NULL_HANDLE;
-    uint32_t       vertexCount  = 0;
-    uint32_t       indexCount   = 0;
+    VkBuffer indexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory indexMemory = VK_NULL_HANDLE;
+    uint32_t vertexCount = 0;
+    uint32_t indexCount = 0;
     /* Device addresses captured at allocation time so the BLAS-build
      * code doesn't need to re-query. */
-    VkDeviceAddress vertexAddr  = 0;
-    VkDeviceAddress indexAddr   = 0;
+    VkDeviceAddress vertexAddr = 0;
+    VkDeviceAddress indexAddr = 0;
 };
 
 class RenderLayerManager {
-public:
+  public:
     explicit RenderLayerManager(Engine& eng);
     ~RenderLayerManager();
 
@@ -108,15 +101,13 @@ public:
      *
      * uvU0..1, uvV0..1 are normalised 0..1 UVs into the diffuse atlas.
      * `emissive` non-zero marks the quad as a light source. */
-    void drawSprite(Layer layer, float x, float y, float w, float h,
-                    float uvU0, float uvV0, float uvU1, float uvV1,
+    void drawSprite(Layer layer, float x, float y, float w, float h, float uvU0, float uvV0, float uvU1, float uvV1,
                     bool emissive = false);
 
     /* Convenience: draw a full-screen BG quad covering the GBA frame
      * at the layer's Z. The atlas UVs are passed in directly to let
      * the BG-tile assembly fragment-pack into the atlas as it wishes. */
-    void drawBgQuad(Layer layer,
-                    float uvU0, float uvV0, float uvU1, float uvV1);
+    void drawBgQuad(Layer layer, float uvU0, float uvV0, float uvU1, float uvV1);
 
     /* Upload the staged vertices/indices to GPU device-local buffers.
      * After return, `buffers()` reports the freshly-allocated handles.
@@ -125,16 +116,22 @@ public:
     void flushToBuffers();
 
     /* Read-only accessor for the current GPU buffers (post-flush). */
-    const GeometryBuffers& buffers() const { return mBuffers; }
+    const GeometryBuffers& buffers() const {
+        return mBuffers;
+    }
 
     /* Number of quads currently staged (host-side). Useful for the
      * BLAS-builder to know how many primitives to declare. */
-    uint32_t quadCount() const { return (uint32_t)(mVertices.size() / 4); }
+    uint32_t quadCount() const {
+        return (uint32_t)(mVertices.size() / 4);
+    }
 
     /* For the closest-hit shader: stride between Vertex entries in
      * bytes. Matches sizeof(Vertex). Public so RayTracingPipeline can
      * pass it into the geometry data struct. */
-    static constexpr VkDeviceSize vertexStride() { return sizeof(Vertex); }
+    static constexpr VkDeviceSize vertexStride() {
+        return sizeof(Vertex);
+    }
 
     /* Slice-11 perf: capacity of the persistent buffers in quads.
      * 256 quads = 1024 verts × 24B = 24 KB vertex, 1.5 KB index, 30 KB
@@ -143,10 +140,10 @@ public:
      * (back composite + ≤128 OAM sprites). */
     static constexpr uint32_t kMaxQuads = 256;
 
-private:
+  private:
     /* Generate one quad worth of vertices into `mVertices`. */
-    void emitQuad(Layer layer, float x, float y, float w, float h,
-                  float uvU0, float uvV0, float uvU1, float uvV1, bool emissive);
+    void emitQuad(Layer layer, float x, float y, float w, float h, float uvU0, float uvV0, float uvU1, float uvV1,
+                  bool emissive);
 
     /* Free the GPU buffers, zero out GeometryBuffers. */
     void freeBuffers();
@@ -156,22 +153,22 @@ private:
     void ensurePersistentBuffers();
 
     /* Host-side staging — re-filled every frame. */
-    std::vector<Vertex>   mVertices;
+    std::vector<Vertex> mVertices;
     std::vector<uint32_t> mIndices;
 
-    Engine&          mEngine;
-    GeometryBuffers  mBuffers{};
+    Engine& mEngine;
+    GeometryBuffers mBuffers{};
 
     /* Slice-11 persistent host-visible staging.  Kept mapped so the
      * per-frame upload is one memcpy + one vkCmdCopyBuffer instead
      * of alloc/map/copy/unmap/free. */
-    VkBuffer        mStagingVertex     = VK_NULL_HANDLE;
-    VkDeviceMemory  mStagingVertexMem  = VK_NULL_HANDLE;
-    void*           mStagingVertexMap  = nullptr;
-    VkBuffer        mStagingIndex      = VK_NULL_HANDLE;
-    VkDeviceMemory  mStagingIndexMem   = VK_NULL_HANDLE;
-    void*           mStagingIndexMap   = nullptr;
-    bool            mPersistentReady   = false;
+    VkBuffer mStagingVertex = VK_NULL_HANDLE;
+    VkDeviceMemory mStagingVertexMem = VK_NULL_HANDLE;
+    void* mStagingVertexMap = nullptr;
+    VkBuffer mStagingIndex = VK_NULL_HANDLE;
+    VkDeviceMemory mStagingIndexMem = VK_NULL_HANDLE;
+    void* mStagingIndexMap = nullptr;
+    bool mPersistentReady = false;
 };
 
-}  /* namespace tmc_vkrt */
+} /* namespace tmc_vkrt */

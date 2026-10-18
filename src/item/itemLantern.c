@@ -56,9 +56,8 @@ void sub_08075A0C(ItemBehavior* this, u32 index) {
 void sub_08075ADC(ItemBehavior* this, u32 index) {
     u32 bVar1;
 
-    if ((!REGION_IS_EU && gPlayerState.item != NULL) ||
-        (this->playerFrame & 1) == 0 || (gPlayerState.flags & (PL_DISABLE_ITEMS | PL_CAPTURED)) != 0 ||
-        sub_08079D48() == 0) {
+    if ((!REGION_IS_EU && gPlayerState.item != NULL) || (this->playerFrame & 1) == 0 ||
+        (gPlayerState.flags & (PL_DISABLE_ITEMS | PL_CAPTURED)) != 0 || sub_08079D48() == 0) {
         this->animPriority = 0;
         this->stateID++;
         gPlayerState.flags |= PL_USE_LANTERN;

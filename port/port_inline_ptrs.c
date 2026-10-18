@@ -24,7 +24,6 @@
 #include "port_rom.h"
 #include "region.h"
 
-
 typedef struct {
     uint32_t offset;
     uint32_t value;

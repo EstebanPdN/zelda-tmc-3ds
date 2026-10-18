@@ -35,7 +35,8 @@ void Vaati3InsideArmManager_Action1(Vaati3InsideArmManager* this) {
 #ifdef PC_PORT
     /* #136 family: the GBA NULL->next read falls into BIOS memory; on PC the
      * final-fight arm timer should keep ticking instead of crashing. */
-    if (super->parent == NULL) return;
+    if (super->parent == NULL)
+        return;
 #endif
     if (((super->parent)->next == NULL) && (super->action = 2, 0x12d < this->field_0x20)) {
         this->field_0x20 = 0x12d;

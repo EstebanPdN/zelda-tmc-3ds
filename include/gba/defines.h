@@ -43,7 +43,7 @@
 #define ALIGNED(n) __declspec(align(n))
 #define MAY_ALIAS
 #define PACKED_STRUCT_BEGIN __pragma(pack(push, 1))
-#define PACKED_STRUCT_END   __pragma(pack(pop))
+#define PACKED_STRUCT_END __pragma(pack(pop))
 #else
 #define PACKED __attribute__((packed))
 #define ALIGNED(n) __attribute__((aligned(n)))

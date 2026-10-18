@@ -22,9 +22,9 @@ void LadderUp(Entity* this) {
                 action = 1;
             } else {
                 if (!REGION_IS_EU) {
-                action = 3;
+                    action = 3;
                 } else {
-                action = 2;
+                    action = 2;
                 }
             }
             this->action = action;
@@ -49,18 +49,18 @@ void LadderUp(Entity* this) {
                 SoundReq(SFX_10B);
                 this->action = 2;
                 if (!REGION_IS_EU) {
-                this->timer = 60;
+                    this->timer = 60;
                 }
             }
             break;
         case 2:
             if (!REGION_IS_EU) {
-            if (--this->timer) {
-                return;
-            }
-            this->action = 3;
-            SoundReq(SFX_SECRET_BIG);
-            break;
+                if (--this->timer) {
+                    return;
+                }
+                this->action = 3;
+                SoundReq(SFX_SECRET_BIG);
+                break;
             }
         default:
             if (this->type2 == 0) {

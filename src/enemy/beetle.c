@@ -26,8 +26,7 @@ typedef struct {
     /*0x87*/ u8 unk_87;
 } BeetleEntity;
 
-PORT_STATIC_ASSERT_OFFSET(BeetleEntity, unk_86, 0x86, 0xB2,
-                          "BeetleEntity unk_86 offset (Enemy::child +4 pad)");
+PORT_STATIC_ASSERT_OFFSET(BeetleEntity, unk_86, 0x86, 0xB2, "BeetleEntity unk_86 offset (Enemy::child +4 pad)");
 
 u32 sub_08021D00(BeetleEntity*);
 void sub_08021D44(BeetleEntity* this, u32 direction);

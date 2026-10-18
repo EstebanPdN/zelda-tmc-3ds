@@ -43,7 +43,7 @@
 #endif
 
 #ifdef PC_PORT
-#define SHOULD_RUN_SOUTH_HYRULE_ZELDA_INTRO()                                                        \
+#define SHOULD_RUN_SOUTH_HYRULE_ZELDA_INTRO() \
     Port_ShouldRunZeldaIntro(CheckLocalFlagB(SOUGEN_01_ZELDA) != 0, CheckGlobalFlag(TABIDACHI) != 0)
 #else
 #define SHOULD_RUN_SOUTH_HYRULE_ZELDA_INTRO() (!CheckLocalFlagB(SOUGEN_01_ZELDA))
@@ -458,8 +458,7 @@ u32 sub_unk3_HouseInteriors1_InnWestRoom(void) {
         SetLocalFlagB(BILL05_YADO1F_MATSU_T0);
     }
 #ifdef PC_PORT
-    gRoomVars.properties[3] =
-        Port_ReadActiveRomPtrTable(gRomOffsets ? gRomOffsets->innWestEntities : 0, index);
+    gRoomVars.properties[3] = Port_ReadActiveRomPtrTable(gRomOffsets ? gRomOffsets->innWestEntities : 0, index);
 #else
     gRoomVars.properties[3] = gUnk_080D6A74[index];
 #endif
@@ -491,8 +490,7 @@ u32 sub_unk3_HouseInteriors1_InnMiddleRoom(void) {
         SetLocalFlagB(BILL06_YADO1F_TAKE_T0);
     }
 #ifdef PC_PORT
-    gRoomVars.properties[3] =
-        Port_ReadActiveRomPtrTable(gRomOffsets ? gRomOffsets->innMiddleEntities : 0, index);
+    gRoomVars.properties[3] = Port_ReadActiveRomPtrTable(gRomOffsets ? gRomOffsets->innMiddleEntities : 0, index);
 #else
     gRoomVars.properties[3] = gUnk_080D6B18[index];
 #endif
@@ -522,8 +520,7 @@ u32 sub_unk3_HouseInteriors1_InnEastRoom(void) {
         SetLocalFlagB(BILL07_YADO1F_UME_T0);
     }
 #ifdef PC_PORT
-    gRoomVars.properties[3] =
-        Port_ReadActiveRomPtrTable(gRomOffsets ? gRomOffsets->innEastEntities : 0, index);
+    gRoomVars.properties[3] = Port_ReadActiveRomPtrTable(gRomOffsets ? gRomOffsets->innEastEntities : 0, index);
 #else
     gRoomVars.properties[3] = gUnk_080D6BB8[index];
 #endif
@@ -1061,7 +1058,8 @@ void sub_0804BF38(Entity* this, ScriptExecutionContext* context) {
      * On 64-bit, native sizeof = 24. Index and read with GBA stride of 16. */
     {
         const u8* table = (const u8*)Port_ResolveRegionData(gUnk_080D8E50);
-        if (iVar2 >= 6 || table == NULL) return;
+        if (iVar2 >= 6 || table == NULL)
+            return;
         const u8* raw = table + iVar2 * 16;
         u32 gba_a = Port_ReadU32(raw + 0);
         a = gba_a ? (u16*)Port_ResolveRomData(gba_a) : NULL;
@@ -1073,17 +1071,22 @@ void sub_0804BF38(Entity* this, ScriptExecutionContext* context) {
         u16 p_sfx = Port_ReadU16(raw + 14);
         /* Validate the complete pattern before changing any tiles. The
          * largest of the six wall patterns contains 39 pairs and a sentinel. */
-        if (a == NULL || numEnts > 13) return;
+        if (a == NULL || numEnts > 13)
+            return;
         const uintptr_t pattern = (uintptr_t)a;
         const uintptr_t rom = (uintptr_t)gRomData;
-        if (pattern < rom || pattern - rom >= gRomSize) return;
+        if (pattern < rom || pattern - rom >= gRomSize)
+            return;
         const size_t remaining = gRomSize - (pattern - rom);
         u32 pairs;
         for (pairs = 0; pairs <= 39; ++pairs) {
-            if (remaining < pairs * 4u + 2u) return;
-            if (Port_ReadU16((const u8*)a + pairs * 4u) == 0xffffu) break;
+            if (remaining < pairs * 4u + 2u)
+                return;
+            if (Port_ReadU16((const u8*)a + pairs * 4u) == 0xffffu)
+                break;
         }
-        if (pairs > 39) return;
+        if (pairs > 39)
+            return;
         xtile = (p_x >> 4) & 0x3f;
         ytile = ((p_y >> 4) & 0x3f) << 6;
         sub_0807BB68(a, xtile | ytile, 1);
@@ -1698,7 +1701,8 @@ extern EntityData gUnk_080DB4D0;
 extern EntityData gUnk_080DB4A0;
 
 void sub_StateChange_TownMinishHoles_MayorsHouse(void) {
-    if (!GetInventoryValue(ITEM_FLIPPERS) && !GetInventoryValue(ITEM_QST_BOOK3) && CheckLocalFlagB(MIZUKAKI_HINT3_MAYOR))
+    if (!GetInventoryValue(ITEM_FLIPPERS) && !GetInventoryValue(ITEM_QST_BOOK3) &&
+        CheckLocalFlagB(MIZUKAKI_HINT3_MAYOR))
         LoadRoomEntityList(&gUnk_080DB4D0);
     else
         LoadRoomEntityList(&gUnk_080DB4A0);
@@ -4826,8 +4830,7 @@ void sub_StateChange_SimonsSimulation_Main(void) {
             (EntityData*)Port_ReadActiveRomPtrTable(gRomOffsets ? gRomOffsets->simonEntityLists : 0, index & 0xF));
         index >>= 4;
         r >>= 8;
-        chestPattern =
-            (const u8*)Port_ReadActiveRomPtrTable(gRomOffsets ? gRomOffsets->simonChestPatterns : 0, index);
+        chestPattern = (const u8*)Port_ReadActiveRomPtrTable(gRomOffsets ? gRomOffsets->simonChestPatterns : 0, index);
         if (chestPattern == NULL) {
             return;
         }
@@ -5567,7 +5570,7 @@ void sub_StateChange_HouseInteriors3_StockwellShop(void) {
                     LoadRoomEntityList(bombBag);
                 } else
 #endif
-                if (!REGION_IS_EU)
+                    if (!REGION_IS_EU)
                     LoadRoomEntityList(&gUnk_080F58A8);
             }
         }

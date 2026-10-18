@@ -18,13 +18,14 @@
 
 namespace PortAssetLog {
 
-class Reporter
-{
+class Reporter {
   public:
     static Reporter& Instance();
 
     void SetVerbose(bool verbose);
-    bool Verbose() const { return verbose_.load(std::memory_order_relaxed); }
+    bool Verbose() const {
+        return verbose_.load(std::memory_order_relaxed);
+    }
 
     /* GUI progress hook for embedders (tmc_pc draws a real progress
      * bar from this). Fires whenever the in-process counters change:
@@ -34,8 +35,7 @@ class Reporter
      *   - EndPhase:   done=total, total=N, phase=name (one final fire)
      * Called from worker threads under the Reporter mutex; the
      * callback should snapshot into atomics and return quickly. */
-    using ProgressCallback =
-        std::function<void(std::string_view phase, std::size_t done, std::size_t total)>;
+    using ProgressCallback = std::function<void(std::string_view phase, std::size_t done, std::size_t total)>;
     void SetProgressCallback(ProgressCallback cb);
 
     void BeginPhase(std::string_view name, std::size_t total);
@@ -56,20 +56,20 @@ class Reporter
     void FireProgressLocked();
 
     std::mutex mutex_;
-    std::atomic<bool> verbose_{false};
+    std::atomic<bool> verbose_{ false };
 
     std::string phase_;
-    std::size_t total_{0};
-    std::atomic<std::size_t> count_{0};
+    std::size_t total_{ 0 };
+    std::atomic<std::size_t> count_{ 0 };
     std::chrono::steady_clock::time_point last_redraw_{};
-    bool phase_active_{false};
+    bool phase_active_{ false };
 
     ProgressCallback progress_cb_;
     /* Lock-free hint so Tick's fast path can short-circuit when no
      * embedder needs progress events (the common standalone case).
      * Accessed without holding mutex_; safe because flips are rare
      * (set once at the start of an extraction run). */
-    std::atomic<bool> has_progress_cb_{false};
+    std::atomic<bool> has_progress_cb_{ false };
 };
 
 std::size_t WorkerCount();
@@ -90,8 +90,7 @@ std::size_t WorkerCount();
  * Errors are captured per-task in the returned future and rethrown from
  * Wait() (first submitted error wins, all tasks still complete) — the
  * same semantics as ParallelFor. */
-class BackgroundWriter
-{
+class BackgroundWriter {
   public:
     static BackgroundWriter& Instance();
 
@@ -127,9 +126,7 @@ void EnsureDir(const std::filesystem::path& dir);
 // the same process (otherwise unused).
 void ResetEnsureDirCache();
 
-template <typename Index, typename Fn>
-void ParallelFor(Index begin, Index end, Fn body)
-{
+template <typename Index, typename Fn> void ParallelFor(Index begin, Index end, Fn body) {
     static_assert(std::is_integral_v<Index>, "ParallelFor requires an integral index type");
     if (end <= begin) {
         return;
@@ -144,7 +141,7 @@ void ParallelFor(Index begin, Index end, Fn body)
         return;
     }
 
-    std::atomic<std::size_t> next{0};
+    std::atomic<std::size_t> next{ 0 };
     std::mutex error_mu;
     std::exception_ptr first_error;
 

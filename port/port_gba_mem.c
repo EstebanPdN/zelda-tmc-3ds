@@ -224,12 +224,12 @@ u32 gba_read32(uint32_t addr) {
     return 0;
 }
 
-void* port_resolve_addr(uintptr_t val)
-{
+void* port_resolve_addr(uintptr_t val) {
     /* Native pointers into the loaded ROM are already resolved. On 3DS the
      * ROM buffer is deliberately allocated outside the numeric GBA window,
      * which makes this test unambiguous. */
-    if (Port_IsLoadedAssetBytes((const void*)val, 1)) return (void*)val;
+    if (Port_IsLoadedAssetBytes((const void*)val, 1))
+        return (void*)val;
 
     /* GBA-range values are address-mapped through gba_TryMemPtr on
      * every platform. The previous Windows-only short-circuit used
@@ -265,20 +265,23 @@ void* port_resolve_write_addr(uintptr_t val) {
      * most commonly a 3DS stack or heap object. */
     if (val >= 0x02000000u && val < 0x08000000u) {
         void* p = gba_TryMemPtr((uint32_t)val);
-        if (p) return p;
+        if (p)
+            return p;
     }
     return (void*)val;
 }
 
 const void* port_resolve_copy_src(const void* src, u32 size) {
-    if (Port_IsLoadedAssetBytes(src, size)) return src;
+    if (Port_IsLoadedAssetBytes(src, size))
+        return src;
 #ifdef TMC_3DS
     /* Local scalars and temporary structs can occupy the same numeric range
      * as GBA ROM. This check is intentionally limited to copy sources; raw
      * GBA addresses passed to the general resolver must remain GBA addresses. */
     if ((uintptr_t)src >= 0x08000000u && (uintptr_t)src < 0x0A000000u) {
         extern int Platform3DS_IsActiveStackAddress(uintptr_t value);
-        if (Platform3DS_IsActiveStackAddress((uintptr_t)src)) return src;
+        if (Platform3DS_IsActiveStackAddress((uintptr_t)src))
+            return src;
     }
 #endif
     return port_resolve_addr((uintptr_t)src);

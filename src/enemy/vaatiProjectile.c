@@ -24,8 +24,7 @@ typedef struct {
     /*0x78*/ u16 unk_78;
 } VaatiProjectileEntity;
 
-PORT_STATIC_ASSERT_OFFSET(VaatiProjectileEntity, unk_78, 0x78, 0xA4,
-                          "VaatiProjectileEntity unk_78 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(VaatiProjectileEntity, unk_78, 0x78, 0xA4, "VaatiProjectileEntity unk_78 offset incorrect");
 
 bool32 sub_0803E4A0(VaatiProjectileEntity*);
 void VaatiProjectile_OnTick(VaatiProjectileEntity*);
@@ -225,7 +224,8 @@ void VaatiProjectileFunction0Action7(VaatiProjectileEntity* this) {
 
 void VaatiProjectileFunction0Action8(VaatiProjectileEntity* this) {
 #ifdef PC_PORT
-    if (super->parent == NULL) return; /* #136 family */
+    if (super->parent == NULL)
+        return; /* #136 family */
 #endif
     if (super->parent->next == NULL) {
         DeleteThisEntity();
@@ -269,31 +269,31 @@ void sub_0803E480(VaatiProjectileEntity* this) {
 
 bool32 sub_0803E4A0(VaatiProjectileEntity* this) {
     if (REGION_IS_EU) {
-    bool32 ret;
-    if (gRoomTransition.field_0x39 == 0) {
-        return TRUE;
-    } else {
-        if (super->parent == NULL) {
-            return FALSE;
-        }
-        ret = super->parent->next == NULL;
-    }
-    return ret;
-    } else {
-    bool32 ret;
-    if (gRoomTransition.field_0x39 != 0) {
-        if (super->parent == NULL) {
-            return FALSE;
-        }
-        if (super->parent->health == 0) {
+        bool32 ret;
+        if (gRoomTransition.field_0x39 == 0) {
             return TRUE;
         } else {
+            if (super->parent == NULL) {
+                return FALSE;
+            }
             ret = super->parent->next == NULL;
         }
+        return ret;
     } else {
-        return TRUE;
-    }
-    return ret;
+        bool32 ret;
+        if (gRoomTransition.field_0x39 != 0) {
+            if (super->parent == NULL) {
+                return FALSE;
+            }
+            if (super->parent->health == 0) {
+                return TRUE;
+            } else {
+                ret = super->parent->next == NULL;
+            }
+        } else {
+            return TRUE;
+        }
+        return ret;
     }
 }
 

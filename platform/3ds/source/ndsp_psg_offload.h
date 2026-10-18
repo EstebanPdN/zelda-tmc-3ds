@@ -35,19 +35,16 @@ void NdspPsg_SetReverbLevel(int level);
 /* Claims a hardware channel on first use for this voice. Returns false when
  * offload is disabled or no channel is free, in which case the caller must
  * synthesise in software as before. */
-bool NdspPsg_PlaySquare(int* slot, float fetchRateHz, int dutyIndex,
-                        float volumeLeft, float volumeRight);
+bool NdspPsg_PlaySquare(int* slot, float fetchRateHz, int dutyIndex, float volumeLeft, float volumeRight);
 
 /* Wave voices carry their own 16-byte table of 4-bit samples, so the table is
  * rebuilt per voice; 32 samples make a period, hence rate = frequency * 32. */
-bool NdspPsg_PlayWave(int* slot, float fetchRateHz, const unsigned char* wave16,
-                      float volumeLeft, float volumeRight);
+bool NdspPsg_PlayWave(int* slot, float fetchRateHz, const unsigned char* wave16, float volumeLeft, float volumeRight);
 
 /* Noise is an LFSR sequence, pre-generated once for each of the two mask
  * lengths the hardware uses. One LFSR step per output sample, so rate is the
  * voice frequency directly. */
-bool NdspPsg_PlayNoise(int* slot, float lfsrClockHz, bool shortPeriod,
-                       float volumeLeft, float volumeRight);
+bool NdspPsg_PlayNoise(int* slot, float lfsrClockHz, bool shortPeriod, float volumeLeft, float volumeRight);
 
 void NdspPsg_Stop(int* slot);
 

@@ -26,8 +26,7 @@ typedef struct {
     /*0x7e*/ u16 unk_7e;
 } DoorMimicEntity;
 
-PORT_STATIC_ASSERT_OFFSET(DoorMimicEntity, unk_78, 0x78, 0xA4,
-                          "DoorMimicEntity unk_78 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(DoorMimicEntity, unk_78, 0x78, 0xA4, "DoorMimicEntity unk_78 offset incorrect");
 
 void sub_080221C0(DoorMimicEntity*);
 
@@ -54,8 +53,10 @@ void DoorMimic(DoorMimicEntity* this) {
      * Either index can transiently exceed bounds during animation resets. */
     outer = super->type2;
     inner = super->frameIndex;
-    if (outer >= 4) outer = 3;
-    if (inner >= 12) inner = 11;
+    if (outer >= 4)
+        outer = 3;
+    if (inner >= 12)
+        inner = 11;
     super->hitbox = (Hitbox*)gUnk_080CB8A4[outer][inner];
 }
 

@@ -162,9 +162,9 @@ void sub_08046930(GyorgMaleEntity* this) {
         super->subAction = 5;
         super->direction = 0x20;
         if (REGION_IS_EU) {
-        super->speed = 0x200;
+            super->speed = 0x200;
         } else {
-        super->speed = 0x280;
+            super->speed = 0x280;
         }
     }
     sub_08047D88(this);
@@ -175,9 +175,9 @@ void sub_08046930(GyorgMaleEntity* this) {
     super->animationState = IdleNorth;
     super->direction = IdleNorth;
     if (REGION_IS_EU) {
-    super->speed = 0x200;
+        super->speed = 0x200;
     } else {
-    super->speed = 0x280;
+        super->speed = 0x280;
     }
 }
 
@@ -190,7 +190,7 @@ void sub_0804696C(GyorgMaleEntity* this) {
         super->spriteOrientation.flipY = 3;
         super->spriteRendering.b3 = 3;
         if (!REGION_IS_EU) {
-        SoundReq(BGM_BOSS_THEME);
+            SoundReq(BGM_BOSS_THEME);
         }
     }
     if (super->timer) {

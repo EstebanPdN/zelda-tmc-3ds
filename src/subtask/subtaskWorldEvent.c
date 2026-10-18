@@ -52,14 +52,12 @@ void Subtask_WorldEvent_Update(void) {
 #ifdef PC_PORT
     /* The state callback can start a fade. Re-clamp before it emits OAM;
      * this subtask's retail order otherwise reaches UpdateScroll too late. */
-    (void)Port_Widescreen_PrepareGameplayCamera();
 #endif
     FlushSprites();
     UpdateEntities();
 #ifdef PC_PORT
     /* Cutscene entities can themselves open a textbox/window. Reconcile once
      * more after entity logic and before their screen-relative OAM is built. */
-    (void)Port_Widescreen_PrepareGameplayCamera();
 #endif
     DrawEntities();
     CopyOAM();

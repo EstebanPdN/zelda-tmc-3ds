@@ -53,8 +53,7 @@ void BridgeManager_Init(BridgeManager* this) {
     super->action = (super->type2 & 0x80) ? 2 : 1;
 #ifdef PC_PORT
     if (gRoomControls.area == AREA_DEEPWOOD_SHRINE && gRoomControls.room == ROOM_DEEPWOOD_SHRINE_BUTTON) {
-        fprintf(stderr,
-                "[BRIDGE7] Init flag=0x%04X x=%d y=%d layer=%u len=%u type2=0x%02X action=%u check=%u\n",
+        fprintf(stderr, "[BRIDGE7] Init flag=0x%04X x=%d y=%d layer=%u len=%u type2=0x%02X action=%u check=%u\n",
                 this->flags, this->x, this->y, this->unk_3c, this->unk_32, super->type2, super->action,
                 CheckFlags(this->flags));
     }
@@ -98,8 +97,7 @@ void BridgeManager_Action1(BridgeManager* this) {
         super->subtimer++;
 #ifdef PC_PORT
         if (gRoomControls.area == AREA_DEEPWOOD_SHRINE && gRoomControls.room == ROOM_DEEPWOOD_SHRINE_POT_BRIDGE) {
-            fprintf(stderr,
-                    "[POTBRIDGE] Bridge_Set step=%u tilePos=0x%03X layer=%u tile=0x%X setType=0x%X\n",
+            fprintf(stderr, "[POTBRIDGE] Bridge_Set step=%u tilePos=0x%03X layer=%u tile=0x%X setType=0x%X\n",
                     super->subtimer, this->x | (this->y << 6), this->unk_3c,
                     GetTileTypeAtTilePos(this->x | (this->y << 6), this->unk_3c), this->unk_30);
         }

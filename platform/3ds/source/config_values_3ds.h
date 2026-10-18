@@ -8,8 +8,7 @@
 #define CONFIG_3DS_DEFAULT_ASPECT PORT_3DS_ASPECT_STRETCH
 #define CONFIG_3DS_DEFAULT_DISPLAY PORT_3DS_DISPLAY_BILINEAR
 
-_Static_assert(PORT_3DS_DISPLAY_BLUR == 0 && PORT_3DS_DISPLAY_BILINEAR == 1 &&
-                   PORT_3DS_DISPLAY_PIXEL_PERFECT == 2,
+_Static_assert(PORT_3DS_DISPLAY_BLUR == 0 && PORT_3DS_DISPLAY_BILINEAR == 1 && PORT_3DS_DISPLAY_PIXEL_PERFECT == 2,
                "3DS display styles must follow the Settings menu order");
 
 static inline const char* ConfigValues3DS_AspectName(Port3DSAspectRatio mode) {
@@ -18,8 +17,7 @@ static inline const char* ConfigValues3DS_AspectName(Port3DSAspectRatio mode) {
         [PORT_3DS_ASPECT_ORIGINAL] = "original",
         [PORT_3DS_ASPECT_STRETCH] = "stretch",
     };
-    return mode >= 0 && mode < PORT_3DS_ASPECT_COUNT ? names[mode]
-                                                     : names[CONFIG_3DS_DEFAULT_ASPECT];
+    return mode >= 0 && mode < PORT_3DS_ASPECT_COUNT ? names[mode] : names[CONFIG_3DS_DEFAULT_ASPECT];
 }
 
 static inline Port3DSAspectRatio ConfigValues3DS_ParseAspect(const char* value) {
@@ -39,8 +37,7 @@ static inline const char* ConfigValues3DS_DisplayName(Port3DSDisplayStyle style)
         [PORT_3DS_DISPLAY_BILINEAR] = "bilinear",
         [PORT_3DS_DISPLAY_PIXEL_PERFECT] = "pixel-perfect",
     };
-    return style >= 0 && style < PORT_3DS_DISPLAY_COUNT ? names[style]
-                                                        : names[CONFIG_3DS_DEFAULT_DISPLAY];
+    return style >= 0 && style < PORT_3DS_DISPLAY_COUNT ? names[style] : names[CONFIG_3DS_DEFAULT_DISPLAY];
 }
 
 static inline const char* ConfigValues3DS_DisplayLabel(Port3DSDisplayStyle style) {
@@ -49,8 +46,7 @@ static inline const char* ConfigValues3DS_DisplayLabel(Port3DSDisplayStyle style
         [PORT_3DS_DISPLAY_BILINEAR] = "BILINEAR",
         [PORT_3DS_DISPLAY_PIXEL_PERFECT] = "PIXEL PERFECT",
     };
-    return style >= 0 && style < PORT_3DS_DISPLAY_COUNT ? names[style]
-                                                        : names[CONFIG_3DS_DEFAULT_DISPLAY];
+    return style >= 0 && style < PORT_3DS_DISPLAY_COUNT ? names[style] : names[CONFIG_3DS_DEFAULT_DISPLAY];
 }
 
 static inline Port3DSDisplayStyle ConfigValues3DS_ParseDisplay(const char* value) {

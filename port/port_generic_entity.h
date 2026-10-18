@@ -58,22 +58,22 @@ static inline int Port_GEFieldShift(const Entity* e, size_t ge_extra_rel) {
         return 0; /* 32-bit pointers (N64 target): GBA layouts hold, no shift */
 
     switch (e->kind) {
-    case 3: /* ENEMY */
-        if (ge_extra_rel >= 4 && ge_extra_rel < 28)
-            return 4;
-        return 0;
+        case 3: /* ENEMY */
+            if (ge_extra_rel >= 4 && ge_extra_rel < 28)
+                return 4;
+            return 0;
 
-    case 1: /* PLAYER */
-        if (ge_extra_rel >= 32)
-            return 4;
-        if (ge_extra_rel >= 16)
-            return 8;
-        if (ge_extra_rel >= 12)
-            return 4;
-        return 0;
+        case 1: /* PLAYER */
+            if (ge_extra_rel >= 32)
+                return 4;
+            if (ge_extra_rel >= 16)
+                return 8;
+            if (ge_extra_rel >= 12)
+                return 4;
+            return 0;
 
-    default:
-        return 0;
+        default:
+            return 0;
     }
 }
 
@@ -93,11 +93,9 @@ static inline u8* Port_GEFieldAddr(Entity* e, size_t ge_field_offset) {
  *
  * Usage:  GE_FIELD(entity, field_0x80)->HWORD = 0;
  */
-#define GE_FIELD_HWORD(ent, fname) \
-    ((union SplitHWord*)Port_GEFieldAddr((Entity*)(ent), offsetof(GenericEntity, fname)))
+#define GE_FIELD_HWORD(ent, fname) ((union SplitHWord*)Port_GEFieldAddr((Entity*)(ent), offsetof(GenericEntity, fname)))
 
-#define GE_FIELD_WORD(ent, fname) \
-    ((union SplitWord*)Port_GEFieldAddr((Entity*)(ent), offsetof(GenericEntity, fname)))
+#define GE_FIELD_WORD(ent, fname) ((union SplitWord*)Port_GEFieldAddr((Entity*)(ent), offsetof(GenericEntity, fname)))
 
 /* Generic accessor — casts the pointer to the field's actual type.
  * Works for any GenericEntity field thanks to __typeof__. */

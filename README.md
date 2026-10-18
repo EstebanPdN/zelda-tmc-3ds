@@ -14,9 +14,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/EstebanPdN/zelda-tmc-3ds/releases/tag/v2.1"><img src="docs/badges/version.svg" alt="Stable release: v2.1" height="22"></a>
+  <a href="https://github.com/EstebanPdN/zelda-tmc-3ds/releases/tag/v2.2"><img src="docs/badges/version.svg" alt="Stable release: v2.2" height="22"></a>
   <a href="#download-and-installation"><img src="docs/badges/platform.svg" alt="Nintendo 3DS" height="22"></a>
-  <a href="https://github.com/EstebanPdN/zelda-tmc-3ds/releases/tag/v2.2-E1"><img src="docs/badges/experimental.svg" alt="Experimental: v2.2-E1" height="22"></a>
   <a href="#updates"><img src="docs/badges/updater.svg" alt="Updates: built in" height="22"></a>
   <a href="THIRD-PARTY-LICENSES.md"><img src="docs/badges/license.svg" alt="Component-specific licenses" height="22"></a>
 </p>
@@ -66,9 +65,7 @@ No ROM or extracted Nintendo game assets are distributed with this project. You 
   shows only its stone frame until Link receives it.
 * New 3DS enhancements including 804 MHz mode, L2 cache, multi-core rendering, and optional 2x–5x turbo using the C-Stick.
 * Three display styles: Blur, Bilinear, and Pixel Perfect.
-* On New Nintendo 3DS, the existing Wide + Pixel Perfect combination enables
-  experimental Full View: compatible outdoor rooms render at 400x240, while
-  supported interiors use a centered 200x120 view scaled exactly 2x.
+* Aspect and filter selections are independent; Wide + Pixel Perfect uses the normal widescreen camera.
 * In-app updates with Stable and Pre-release channels, top-screen changelogs, and verified CIA/3DSX installation.
 * Native stereo audio, persistent settings, reliable save handling, FPS tools, and diagnostic dumps for bug reports.
 
@@ -87,24 +84,22 @@ The bottom-screen worker avoids redundant static redraws while keeping touch inp
 ## Download and installation
 
 <p>
-  <a href="https://github.com/EstebanPdN/zelda-tmc-3ds/releases/download/v2.1/tmc-3ds-v2.1.cia"><img src="docs/images/download-cia.svg" alt="Download The Minish Cap 3DS CIA" width="210" height="46"></a>
-  <a href="https://github.com/EstebanPdN/zelda-tmc-3ds/releases/download/v2.1/tmc-3ds-v2.1.3dsx"><img src="docs/images/download-3dsx.svg" alt="Download Homebrew Launcher 3DSX" width="210" height="46"></a>
+  <a href="https://github.com/EstebanPdN/zelda-tmc-3ds/releases/download/v2.2/tmc-3ds-v2.2.cia"><img src="docs/images/download-cia.svg" alt="Download The Minish Cap 3DS CIA" width="210" height="46"></a>
+  <a href="https://github.com/EstebanPdN/zelda-tmc-3ds/releases/download/v2.2/tmc-3ds-v2.2.3dsx"><img src="docs/images/download-3dsx.svg" alt="Download Homebrew Launcher 3DSX" width="210" height="46"></a>
 </p>
 
-**Stable: [v2.1](https://github.com/EstebanPdN/zelda-tmc-3ds/releases/tag/v2.1).** Experimental: [v2.2-E1](https://github.com/EstebanPdN/zelda-tmc-3ds/releases/tag/v2.2-E1).
+**Stable: [v2.2](https://github.com/EstebanPdN/zelda-tmc-3ds/releases/tag/v2.2).**
 
-**Experimental v2.2-E1** fixes normal saves being rejected when previous
-versions left empty legacy metadata beside them. Install it over the existing
-application; keep your `.sav` and companion files. The fix recognizes that
-inactive metadata without deleting it. Active or unrecognized legacy profiles
-remain protected. Download the experimental CIA or 3DSX from
-[v2.2-E1](https://github.com/EstebanPdN/zelda-tmc-3ds/releases/tag/v2.2-E1).
-The stable release remains v2.1.
+v2.2 includes the normal-save compatibility fix from v2.2-E1 and removes the
+experimental filter-dependent camera mode. Install it over the existing
+application and keep your `.sav` and companion files. Known inactive legacy
+metadata is accepted without deletion; active or unrecognized profiles remain
+protected.
 
 1. Install the CIA with FBI, or use the 3DSX build with the Homebrew Launcher.
 
 ```text
-tmc-3ds-v2.1.cia
+tmc-3ds-v2.2.cia
 ```
 
 2. Create this folder on your SD card:
@@ -203,6 +198,10 @@ https://github.com/EstebanPdN/zelda-tmc-3ds/releases/latest
 
 ## Documentation
 
+- [Architecture and repository map](docs/ARCHITECTURE.md)
+- [Build, formatting and verification](docs/DEVELOPMENT.md)
+- [Regression test ownership](tests/README.md)
+
 | Guide | Purpose |
 | --- | --- |
 | [3DS guide](platform/3ds/README.md) | Platform controls, setup and diagnostics. |
@@ -233,8 +232,8 @@ chmod +x platform/3ds/build.sh
 Builds are generated under:
 
 ```text
-build-3ds/game/tmc-3ds-v2.2-E1.cia
-build-3ds/game/tmc-3ds-v2.2-E1.3dsx
+build-3ds/game/tmc-3ds-v2.2.cia
+build-3ds/game/tmc-3ds-v2.2.3dsx
 ```
 
 The build does not include or embed a ROM.

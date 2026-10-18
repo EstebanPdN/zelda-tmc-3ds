@@ -42,8 +42,7 @@ typedef struct {
     /*0x86*/ u16 unk_86;
 } Enemy4DEntity;
 
-PORT_STATIC_ASSERT_OFFSET(Enemy4DEntity, unk_6d, 0x6d, 0x99,
-                          "Enemy4DEntity unk_6d offset (Enemy::child +4 pad)");
+PORT_STATIC_ASSERT_OFFSET(Enemy4DEntity, unk_6d, 0x6d, 0x99, "Enemy4DEntity unk_6d offset (Enemy::child +4 pad)");
 
 extern void sub_0803E9A4(Entity*);      // ballChainSoldier
 extern void sub_0803E94C(Entity*, u32); // ballChainSoldier

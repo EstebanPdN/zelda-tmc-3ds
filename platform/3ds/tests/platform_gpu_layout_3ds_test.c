@@ -13,12 +13,12 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define CHECK(cond)                                                                      \
-    do {                                                                                 \
-        if (!(cond)) {                                                                    \
-            fputs("platform_gpu_layout_3ds_test: FAILED " #cond "\n", stderr);            \
-            return 1;                                                                     \
-        }                                                                                 \
+#define CHECK(cond)                                                            \
+    do {                                                                       \
+        if (!(cond)) {                                                         \
+            fputs("platform_gpu_layout_3ds_test: FAILED " #cond "\n", stderr); \
+            return 1;                                                          \
+        }                                                                      \
     } while (0)
 
 int main(void) {
@@ -48,10 +48,8 @@ int main(void) {
 
     /* And it must actually be smaller, or it buys nothing. This is the
      * assertion a stub fails. */
-    const uint64_t fullBottom =
-        (uint64_t)full.bottomPitch * full.bottomRows * sizeof(uint32_t);
-    const uint64_t compactBottom =
-        (uint64_t)compact.bottomPitch * compact.bottomRows * sizeof(uint32_t);
+    const uint64_t fullBottom = (uint64_t)full.bottomPitch * full.bottomRows * sizeof(uint32_t);
+    const uint64_t compactBottom = (uint64_t)compact.bottomPitch * compact.bottomRows * sizeof(uint32_t);
     CHECK(compactBottom < fullBottom);
 
     const uint64_t fullTop = (uint64_t)full.topPitch * full.topRows * sizeof(uint32_t);
@@ -59,7 +57,7 @@ int main(void) {
     CHECK(compactTop < fullTop);
 
     printf("platform_gpu_layout_3ds_test: PASS (bottom %llu -> %llu bytes, top %llu -> %llu)\n",
-           (unsigned long long)fullBottom, (unsigned long long)compactBottom,
-           (unsigned long long)fullTop, (unsigned long long)compactTop);
+           (unsigned long long)fullBottom, (unsigned long long)compactBottom, (unsigned long long)fullTop,
+           (unsigned long long)compactTop);
     return 0;
 }

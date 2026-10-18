@@ -14,7 +14,7 @@ void Vaati3PlayerObject(Entity* this) {
         this->action = 1;
     }
     if (!REGION_IS_EU) {
-    gRoomControls.camera_target = this;
+        gRoomControls.camera_target = this;
     }
     PositionRelative(&gPlayerEntity.base, this, 0, Q_16_16(-40.0));
 }

@@ -458,32 +458,26 @@ void sub_0805A8EC(TempleOfDropletsManager* this) {
             u32 i;
             u32 bg3_nonzero = 0;
             for (i = 0; i < sizeof(gBG3Buffer) / sizeof(gBG3Buffer[0]); ++i) {
-                if (gBG3Buffer[i]) ++bg3_nonzero;
+                if (gBG3Buffer[i])
+                    ++bg3_nonzero;
             }
             fprintf(stderr,
-                "[ToD-mgr] sub_0805A8EC type=%u action=%u subAction=%u unk_20=%u "
-                "room=%u reload=%u localFlag=0x%04x flag=0x%04x "
-                "unk_23=%u unk_34=%d unk_36=%d "
-                "dispCtl=0x%04x bg3.ctl=0x%04x bg3.off=(%d,%d) bg3.upd=%u "
-                "win1H=0x%04x win1V=0x%04x pal5[0..3]=%04x %04x %04x %04x "
-                "gBG3Buffer nonzero=%u/%u\n",
-                (unsigned)super->type, (unsigned)super->action,
-                (unsigned)super->subAction, (unsigned)this->unk_20,
-                (unsigned)gRoomControls.room, (unsigned)gRoomControls.reload_flags,
-                (unsigned)this->localFlag, (unsigned)this->flag,
-                (unsigned)this->unk_23, (int)this->unk_34, (int)this->unk_36,
-                (unsigned)gScreen.lcd.displayControl,
-                (unsigned)gScreen.bg3.control,
-                (int)(s16)gScreen.bg3.xOffset, (int)(s16)gScreen.bg3.yOffset,
-                (unsigned)gScreen.bg3.updated,
-                (unsigned)gScreen.controls.window1HorizontalDimensions,
-                (unsigned)gScreen.controls.window1VerticalDimensions,
-                (unsigned)gPaletteBuffer[5 * 16 + 0],
-                (unsigned)gPaletteBuffer[5 * 16 + 1],
-                (unsigned)gPaletteBuffer[5 * 16 + 2],
-                (unsigned)gPaletteBuffer[5 * 16 + 3],
-                (unsigned)bg3_nonzero,
-                (unsigned)(sizeof(gBG3Buffer) / sizeof(gBG3Buffer[0])));
+                    "[ToD-mgr] sub_0805A8EC type=%u action=%u subAction=%u unk_20=%u "
+                    "room=%u reload=%u localFlag=0x%04x flag=0x%04x "
+                    "unk_23=%u unk_34=%d unk_36=%d "
+                    "dispCtl=0x%04x bg3.ctl=0x%04x bg3.off=(%d,%d) bg3.upd=%u "
+                    "win1H=0x%04x win1V=0x%04x pal5[0..3]=%04x %04x %04x %04x "
+                    "gBG3Buffer nonzero=%u/%u\n",
+                    (unsigned)super->type, (unsigned)super->action, (unsigned)super->subAction, (unsigned)this->unk_20,
+                    (unsigned)gRoomControls.room, (unsigned)gRoomControls.reload_flags, (unsigned)this->localFlag,
+                    (unsigned)this->flag, (unsigned)this->unk_23, (int)this->unk_34, (int)this->unk_36,
+                    (unsigned)gScreen.lcd.displayControl, (unsigned)gScreen.bg3.control, (int)(s16)gScreen.bg3.xOffset,
+                    (int)(s16)gScreen.bg3.yOffset, (unsigned)gScreen.bg3.updated,
+                    (unsigned)gScreen.controls.window1HorizontalDimensions,
+                    (unsigned)gScreen.controls.window1VerticalDimensions, (unsigned)gPaletteBuffer[5 * 16 + 0],
+                    (unsigned)gPaletteBuffer[5 * 16 + 1], (unsigned)gPaletteBuffer[5 * 16 + 2],
+                    (unsigned)gPaletteBuffer[5 * 16 + 3], (unsigned)bg3_nonzero,
+                    (unsigned)(sizeof(gBG3Buffer) / sizeof(gBG3Buffer[0])));
         }
     }
 #endif
@@ -569,7 +563,9 @@ void sub_0805A9CC(TempleOfDropletsManager* this) {
     gScreen.bg3.updated = 1;
 }
 
-extern struct { u8 unk_00[0x20]; } gUnk_085A97A0[];
+extern struct {
+    u8 unk_00[0x20];
+} gUnk_085A97A0[];
 
 void sub_0805AA58(TempleOfDropletsManager* this) {
     if (--super->timer == 0) {

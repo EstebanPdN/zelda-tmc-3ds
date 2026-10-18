@@ -48,8 +48,10 @@ bool Port_AnalogMovement_Apply(u32* heldInputOut, u32* directionOut) {
     }
     const float magSq = sx * sx + sy * sy;
     float dz = Port_Config_GetAnalogDeadzone();
-    if (dz < 0.0f) dz = 0.0f;
-    if (dz > 0.95f) dz = 0.95f;
+    if (dz < 0.0f)
+        dz = 0.0f;
+    if (dz > 0.95f)
+        dz = 0.95f;
     if (magSq < dz * dz) {
         return false;
     }
@@ -60,7 +62,8 @@ bool Port_AnalogMovement_Apply(u32* heldInputOut, u32* directionOut) {
      * via +x (right), matching the engine's quadrant scheme once we
      * subtract 8 (90°) to put 0 at the top of the screen. */
     float angle = atan2f(sx, -sy); /* 0 = up, +π/2 = right */
-    if (angle < 0.0f) angle += 2.0f * kPi;
+    if (angle < 0.0f)
+        angle += 2.0f * kPi;
     const int dir32 = ((int)((angle * 32.0f) / (2.0f * kPi) + 0.5f)) & 31;
 
     /* Also set the cardinal direction bits whose component matches the
@@ -69,10 +72,14 @@ bool Port_AnalogMovement_Apply(u32* heldInputOut, u32* directionOut) {
      * axis (and the secondary when diagonal) so the existing logic
      * sees a sane "user is pressing a direction" state. */
     u32 held = *heldInputOut & ~INPUT_ANY_DIRECTION;
-    if (sx >  0.35f) held |= INPUT_RIGHT;
-    if (sx < -0.35f) held |= INPUT_LEFT;
-    if (sy < -0.35f) held |= INPUT_UP;
-    if (sy >  0.35f) held |= INPUT_DOWN;
+    if (sx > 0.35f)
+        held |= INPUT_RIGHT;
+    if (sx < -0.35f)
+        held |= INPUT_LEFT;
+    if (sy < -0.35f)
+        held |= INPUT_UP;
+    if (sy > 0.35f)
+        held |= INPUT_DOWN;
     if ((held & INPUT_ANY_DIRECTION) == 0) {
         /* Magnitude was past the deadzone but neither axis component
          * was strong enough to assert a cardinal — happens at very

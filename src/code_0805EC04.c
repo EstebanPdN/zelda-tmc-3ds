@@ -149,11 +149,10 @@ void UpdatePlayerInput(void) {
      *
      * No effect when the toggle is off, no gamepad is attached, the
      * stick is centered, or the player is in a control-disabled state. */
-    if (gPlayerState.playerInput.playerMacro == NULL &&
-        gPlayerState.controlMode == CONTROL_ENABLED) {
-        extern bool Port_AnalogMovement_Apply(u32* heldInputOut, u32* directionOut);
+    if (gPlayerState.playerInput.playerMacro == NULL && gPlayerState.controlMode == CONTROL_ENABLED) {
+        extern bool Port_AnalogMovement_Apply(u32 * heldInputOut, u32 * directionOut);
         u32 override_held = gPlayerState.playerInput.heldInput;
-        u32 override_dir  = gPlayerState.direction;
+        u32 override_dir = gPlayerState.direction;
         if (Port_AnalogMovement_Apply(&override_held, &override_dir)) {
             /* Recompute newInput so the rising-edge bits for any newly
              * asserted direction still fire. prevState was captured
@@ -161,17 +160,15 @@ void UpdatePlayerInput(void) {
              * direction freshly tilted into gets newInput set just like
              * a D-pad tap would. */
             gPlayerState.playerInput.heldInput = override_held;
-            gPlayerState.playerInput.newInput  = override_held & prevState;
+            gPlayerState.playerInput.newInput = override_held & prevState;
             gPlayerState.direction = (u8)override_dir;
             state = override_held;
         }
     }
     {
-        extern void Port_LogPlayerInput(unsigned ctlMode, unsigned heldKeys,
-                                        unsigned keys, unsigned state, unsigned direction,
-                                        int hasMacro);
-        Port_LogPlayerInput(gPlayerState.controlMode, gInput.heldKeys, keys,
-                            state, gPlayerState.direction,
+        extern void Port_LogPlayerInput(unsigned ctlMode, unsigned heldKeys, unsigned keys, unsigned state,
+                                        unsigned direction, int hasMacro);
+        Port_LogPlayerInput(gPlayerState.controlMode, gInput.heldKeys, keys, state, gPlayerState.direction,
                             gPlayerState.playerInput.playerMacro != NULL);
     }
 #endif

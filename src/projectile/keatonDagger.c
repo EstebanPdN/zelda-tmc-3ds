@@ -28,7 +28,8 @@ void KeatonDagger(Entity* this) {
         /* #91 / #97 pattern: gUnk_08129998 has 4 entries; animationState may be
          * 0xff during transient states. Clamp to keep the last valid hitbox. */
         u32 idx = parent->animationState;
-        if (idx >= 4) idx = 3;
+        if (idx >= 4)
+            idx = 3;
         this->hitbox = (Hitbox*)gUnk_08129998[idx];
         CopyPosition(parent, this);
         if ((parent->iframes != 0) && (this->iframes == 0)) {

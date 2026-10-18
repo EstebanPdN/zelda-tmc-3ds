@@ -68,8 +68,7 @@
 /* src/common.c (appended accessors — ROM-const reads only). */
 extern const u8* Port_GetRawPaletteGroupData(u32 group, u32* outNumColors);
 extern const u8* Port_GetRawPaletteGroupBankData(u32 group, u32 destPaletteNum, u32* outNumColors);
-extern const u8* Port_GetRawPaletteGroupEntryData(u32 group, u32 entryIdx, u32* outNumColors,
-                                                  u32* outDestPaletteNum);
+extern const u8* Port_GetRawPaletteGroupEntryData(u32 group, u32 entryIdx, u32* outNumColors, u32* outDestPaletteNum);
 extern const u8* Port_ResolveGfxGroupVram(u32 group, u32 vramAddr, u32* outAvail);
 
 /* src/affine.c — frame OBJ piece list for (sprite, frame); PC path is
@@ -160,8 +159,8 @@ static const u8 kQuestObjGfxGroups[] = { 91u, 86u, 23u, 16u };
  * ((health & 3) + 0x11), 0x15 full (gUnk_080C8F2C's DMA'd entries). */
 #define TILE_HEART_EMPTY 0x11
 #define TILE_HEART_FULL 0x15
-#define TILE_KEY 0x1C       /* 2x2 */
-#define TILE_RUPEE_W0 0x60  /* 2x2, +4 per wallet tier */
+#define TILE_KEY 0x1C      /* 2x2 */
+#define TILE_RUPEE_W0 0x60 /* 2x2, +4 per wallet tier */
 
 /* OBJ palette bank the ammo-digit pieces select (sprite 322's digit
  * pieces carry palette 4 with the absolute bit — see the frame OBJ data
@@ -245,8 +244,8 @@ static uint32_t sTrayPx[TRAY_W * TRAY_H];
  * Slices then tile nothing but stone and carvings. */
 #define SLAB_CORNER_W 26
 #define SLAB_CORNER_H 44
-#define SLAB_SIDE_W 28  /* carved side columns end before x 44 / after 196 */
-#define SLAB_TOP_H 15   /* top triangle band rows 17..31 */
+#define SLAB_SIDE_W 28 /* carved side columns end before x 44 / after 196 */
+#define SLAB_TOP_H 15  /* top triangle band rows 17..31 */
 #define SLAB_BOTTOM_H 18
 #define STONE_PATCH_X 190 /* clean speckled stone, right of the well grid */
 #define STONE_PATCH_Y 56
@@ -263,8 +262,16 @@ static int sBackdropStyle = SS_BACKDROP_PARCHMENT;
 
 /* Window chrome: 6 border tiles in sub_0805F918's strip order plus the
  * solid fill tile — index meanings per src/message.c's tile enum. */
-enum { CHROME_CORNER, CHROME_H_CORNER, CHROME_H_STRAIGHT, CHROME_V_CORNER, CHROME_V_STRAIGHT, CHROME_CURSOR,
-       CHROME_FILL, CHROME_TILE_COUNT };
+enum {
+    CHROME_CORNER,
+    CHROME_H_CORNER,
+    CHROME_H_STRAIGHT,
+    CHROME_V_CORNER,
+    CHROME_V_STRAIGHT,
+    CHROME_CURSOR,
+    CHROME_FILL,
+    CHROME_TILE_COUNT
+};
 static uint32_t sChromeTiles[CHROME_TILE_COUNT][64];
 static int sChromeOk = 0;
 
@@ -414,9 +421,7 @@ static void BuildChrome(const uint16_t* hudPal, u32 hudColors) {
                 for (px = 0; px < 8; px++) {
                     u32 pix = unpacked[py * 8 + px] & 0x0Fu;
                     u32 colorIdx = (px & 1) ? (u32)(lutOdd[pix] >> 4) : (u32)(lutEven[pix] & 0x0Fu);
-                    uint32_t rgba = (colorIdx == 0 || colorIdx >= hudColors)
-                                        ? 0u
-                                        : Rgb555ToRgba8888(hudPal[colorIdx]);
+                    uint32_t rgba = (colorIdx == 0 || colorIdx >= hudColors) ? 0u : Rgb555ToRgba8888(hudPal[colorIdx]);
                     sChromeTiles[block * 2 + (py >> 3)][(py & 7) * 8 + px] = rgba;
                     if (block == 0 && py < 8 && rgba != 0) {
                         opaque++; /* corner-tile visibility check */
@@ -435,8 +440,8 @@ static void BuildChrome(const uint16_t* hudPal, u32 hudColors) {
      * above lands interior/outside pixels exactly like the game. */
     {
         u32 fillIdx = fillWord & 0xFu; /* one nibble per pixel; pattern words repeat it */
-        uint32_t fill = (fillIdx != 0 && fillIdx < hudColors) ? Rgb555ToRgba8888(hudPal[fillIdx])
-                                                              : sColors[SSC_WINDOW_FILL];
+        uint32_t fill =
+            (fillIdx != 0 && fillIdx < hudColors) ? Rgb555ToRgba8888(hudPal[fillIdx]) : sColors[SSC_WINDOW_FILL];
         for (py = 0; py < 64; py++) {
             sChromeTiles[CHROME_FILL][py] = fill;
         }
@@ -504,10 +509,14 @@ static int BuildSpriteComposite(u32 spriteIdx, u32 frameIdx, u32 baseTile, u32 b
         if (shape == 3) {
             return 0;
         }
-        if (px < minX) minX = px;
-        if (py < minY) minY = py;
-        if (px + kObjW[shape][size] > maxX) maxX = px + kObjW[shape][size];
-        if (py + kObjH[shape][size] > maxY) maxY = py + kObjH[shape][size];
+        if (px < minX)
+            minX = px;
+        if (py < minY)
+            minY = py;
+        if (px + kObjW[shape][size] > maxX)
+            maxX = px + kObjW[shape][size];
+        if (py + kObjH[shape][size] > maxY)
+            maxY = py + kObjH[shape][size];
     }
     w = maxX - minX;
     h = maxY - minY;
@@ -573,8 +582,10 @@ static int BuildSpriteComposite(u32 spriteIdx, u32 frameIdx, u32 baseTile, u32 b
                         }
                         dx = tx * 8 + xx;
                         dy = ty * 8 + yy;
-                        if (hflip) dx = pw - 1 - dx;
-                        if (vflip) dy = ph - 1 - dy;
+                        if (hflip)
+                            dx = pw - 1 - dx;
+                        if (vflip)
+                            dy = ph - 1 - dy;
                         out[(py + dy) * w + px + dx] = Rgb555ToRgba8888(pal[idx]);
                     }
                 }
@@ -764,8 +775,10 @@ static void MenuDrawLayer(uint32_t* dst, const u8* tilemap, u32 mapLen, const u8
             if (tileId >= tileCount) {
                 continue;
             }
-            if (entry & 0x400u) inX = 7 - inX;
-            if (entry & 0x800u) inY = 7 - inY;
+            if (entry & 0x400u)
+                inX = 7 - inX;
+            if (entry & 0x800u)
+                inY = 7 - inY;
             packed = tiles[tileId * 32u + (u32)inY * 4u + ((u32)inX >> 1)];
             colorIndex = (inX & 1) ? (u8)(packed >> 4) : (u8)(packed & 0xFu);
             if (colorIndex == 0) {
@@ -780,8 +793,7 @@ static void MenuDrawLayer(uint32_t* dst, const u8* tilemap, u32 mapLen, const u8
 /* Most common color of an image region (RGB444 buckets — plenty for GBA
  * color depth), used to sample the parchment/stone/well tones from the
  * composed layers instead of hardcoding them. */
-static uint32_t ModeColor(const uint32_t* img, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
-                          uint32_t fallback) {
+static uint32_t ModeColor(const uint32_t* img, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t fallback) {
     static uint16_t hist[4096]; /* one-time build helper; zeroed per use */
     uint32_t bestBucket = 0xFFFFFFFFu;
     uint32_t bestCount = 0;
@@ -851,8 +863,7 @@ static int BuildChipSet(u32 borderType, u32 fillType, const uint16_t* pal, u32 n
             for (px = 0; px < 8; px++) {
                 u32 pix = unpacked[py * 8 + px] & 0x0Fu;
                 u32 colorIdx = (px & 1) ? (u32)(lutO[pix] >> 4) : (u32)(lutE[pix] & 0x0Fu);
-                uint32_t rgba =
-                    (colorIdx == 0 || colorIdx >= numColors) ? 0u : Rgb555ToRgba8888(pal[colorIdx]);
+                uint32_t rgba = (colorIdx == 0 || colorIdx >= numColors) ? 0u : Rgb555ToRgba8888(pal[colorIdx]);
                 out[block * 2 + (py >> 3)][(py & 7) * 8 + px] = rgba;
                 if (block == 0 && py < 8 && rgba != 0) {
                     opaque++;
@@ -884,8 +895,8 @@ static void BuildMenuTheme(void) {
     int32_t x, y;
 
     sMenuOk = 0;
-    if (slabTiles == NULL || slabMap == NULL || backTiles == NULL || backMap == NULL ||
-        slabTilesLen < 32 || backTilesLen < 32) {
+    if (slabTiles == NULL || slabMap == NULL || backTiles == NULL || backMap == NULL || slabTilesLen < 32 ||
+        backTilesLen < 32) {
         return;
     }
 
@@ -911,10 +922,14 @@ static void BuildMenuTheme(void) {
         for (y = 0; y < MENU_SCREEN_H; y++) {
             for (x = 0; x < MENU_SCREEN_W; x++) {
                 if (sMenuBg2[y * MENU_SCREEN_W + x] != 0) {
-                    if (x < minX) minX = x;
-                    if (x > maxX) maxX = x;
-                    if (y < minY) minY = y;
-                    if (y > maxY) maxY = y;
+                    if (x < minX)
+                        minX = x;
+                    if (x > maxX)
+                        maxX = x;
+                    if (y < minY)
+                        minY = y;
+                    if (y > maxY)
+                        maxY = y;
                 }
             }
         }
@@ -926,21 +941,19 @@ static void BuildMenuTheme(void) {
     }
 
     /* Colors first (the doodle/tray checks compare against them). */
-    sColors[SSC_MENU_CREAM] = ModeColor(sMenuBg3, 0, 0, MENU_SCREEN_W, MENU_SCREEN_H,
-                                        sColors[SSC_MENU_CREAM]);
+    sColors[SSC_MENU_CREAM] = ModeColor(sMenuBg3, 0, 0, MENU_SCREEN_W, MENU_SCREEN_H, sColors[SSC_MENU_CREAM]);
     if (sSlabOk) {
-        sColors[SSC_MENU_STONE] =
-            ModeColor(sMenuBg2, sSlabX0, sSlabY0, sSlabX1, sSlabY1, sColors[SSC_MENU_STONE]);
+        sColors[SSC_MENU_STONE] = ModeColor(sMenuBg2, sSlabX0, sSlabY0, sSlabX1, sSlabY1, sColors[SSC_MENU_STONE]);
     }
-    sColors[SSC_MENU_STONE_DARK] = ModeColor(sMenuBg2, TRAY_X0 + WELL_CORNER, TRAY_Y0 + WELL_CORNER,
-                                             TRAY_X1 - WELL_CORNER, TRAY_Y1 - WELL_CORNER,
-                                             sColors[SSC_MENU_STONE_DARK]);
+    sColors[SSC_MENU_STONE_DARK] =
+        ModeColor(sMenuBg2, TRAY_X0 + WELL_CORNER, TRAY_Y0 + WELL_CORNER, TRAY_X1 - WELL_CORNER, TRAY_Y1 - WELL_CORNER,
+                  sColors[SSC_MENU_STONE_DARK]);
 
     /* Bottle-tray well: all four rim corners plus the center must be
      * opaque slab pixels, or wells fall back to flat tones. The tray is
      * copied out now because the slab interior is re-paved next. */
-    sTrayOk = sSlabOk && TRAY_X0 >= sSlabX0 && TRAY_X1 <= sSlabX1 && TRAY_Y0 >= sSlabY0 &&
-              TRAY_Y1 <= sSlabY1 && sMenuBg2[TRAY_Y0 * MENU_SCREEN_W + TRAY_X0] != 0 &&
+    sTrayOk = sSlabOk && TRAY_X0 >= sSlabX0 && TRAY_X1 <= sSlabX1 && TRAY_Y0 >= sSlabY0 && TRAY_Y1 <= sSlabY1 &&
+              sMenuBg2[TRAY_Y0 * MENU_SCREEN_W + TRAY_X0] != 0 &&
               sMenuBg2[TRAY_Y0 * MENU_SCREEN_W + TRAY_X1 - 1] != 0 &&
               sMenuBg2[(TRAY_Y1 - 1) * MENU_SCREEN_W + TRAY_X0] != 0 &&
               sMenuBg2[(TRAY_Y1 - 1) * MENU_SCREEN_W + TRAY_X1 - 1] != 0 &&
@@ -970,9 +983,9 @@ static void BuildMenuTheme(void) {
         }
         for (y = sSlabY0 + SLAB_TOP_H; y < sSlabY1 - SLAB_BOTTOM_H; y++) {
             for (x = sSlabX0 + SLAB_SIDE_W; x < sSlabX1 - SLAB_SIDE_W; x++) {
-                sMenuBg2[y * MENU_SCREEN_W + x] =
-                    patchOk ? patch[(y % STONE_PATCH_H) * STONE_PATCH_W + (x % STONE_PATCH_W)]
-                            : sColors[SSC_MENU_STONE];
+                sMenuBg2[y * MENU_SCREEN_W + x] = patchOk
+                                                      ? patch[(y % STONE_PATCH_H) * STONE_PATCH_W + (x % STONE_PATCH_W)]
+                                                      : sColors[SSC_MENU_STONE];
             }
         }
     }
@@ -993,12 +1006,16 @@ static void BuildMenuTheme(void) {
             }
         }
         for (x = -1; x <= DOODLE_W; x++) {
-            if (sMenuBg3[(DOODLE_SRC_Y - 1) * MENU_SCREEN_W + DOODLE_SRC_X + x] != cream) ringInk++;
-            if (sMenuBg3[(DOODLE_SRC_Y + DOODLE_H) * MENU_SCREEN_W + DOODLE_SRC_X + x] != cream) ringInk++;
+            if (sMenuBg3[(DOODLE_SRC_Y - 1) * MENU_SCREEN_W + DOODLE_SRC_X + x] != cream)
+                ringInk++;
+            if (sMenuBg3[(DOODLE_SRC_Y + DOODLE_H) * MENU_SCREEN_W + DOODLE_SRC_X + x] != cream)
+                ringInk++;
         }
         for (y = 0; y < DOODLE_H; y++) {
-            if (sMenuBg3[(DOODLE_SRC_Y + y) * MENU_SCREEN_W + DOODLE_SRC_X - 1] != cream) ringInk++;
-            if (sMenuBg3[(DOODLE_SRC_Y + y) * MENU_SCREEN_W + DOODLE_SRC_X + DOODLE_W] != cream) ringInk++;
+            if (sMenuBg3[(DOODLE_SRC_Y + y) * MENU_SCREEN_W + DOODLE_SRC_X - 1] != cream)
+                ringInk++;
+            if (sMenuBg3[(DOODLE_SRC_Y + y) * MENU_SCREEN_W + DOODLE_SRC_X + DOODLE_W] != cream)
+                ringInk++;
         }
         sDoodleOk = inked >= 300 && inked <= 1000 && ringInk <= 8;
     }
@@ -1056,17 +1073,17 @@ static void BuildMenuTheme(void) {
         }
         /* Role slots: 14 body, 12/13 (+10/11) shades, 1 outline, 15 rim. */
         sBigPal[SS_TEXT_INK][14] = sMsgPal[15];
-        sBigPal[SS_TEXT_INK][12] = sBigPal[SS_TEXT_INK][13] = sBigPal[SS_TEXT_INK][10] =
-            sBigPal[SS_TEXT_INK][11] = sMsgPal[11];
+        sBigPal[SS_TEXT_INK][12] = sBigPal[SS_TEXT_INK][13] = sBigPal[SS_TEXT_INK][10] = sBigPal[SS_TEXT_INK][11] =
+            sMsgPal[11];
         sBigPal[SS_TEXT_RED][14] = sMsgPal[8];
-        sBigPal[SS_TEXT_RED][12] = sBigPal[SS_TEXT_RED][13] = sBigPal[SS_TEXT_RED][10] =
-            sBigPal[SS_TEXT_RED][11] = sMsgPal[7];
+        sBigPal[SS_TEXT_RED][12] = sBigPal[SS_TEXT_RED][13] = sBigPal[SS_TEXT_RED][10] = sBigPal[SS_TEXT_RED][11] =
+            sMsgPal[7];
         sBigPal[SS_TEXT_GREEN][14] = sMsgPal[2];
         sBigPal[SS_TEXT_GREEN][12] = sBigPal[SS_TEXT_GREEN][13] = sBigPal[SS_TEXT_GREEN][10] =
             sBigPal[SS_TEXT_GREEN][11] = sMsgPal[1];
         sBigPal[SS_TEXT_NAVY][14] = bank1[1];
-        sBigPal[SS_TEXT_NAVY][12] = sBigPal[SS_TEXT_NAVY][13] = sBigPal[SS_TEXT_NAVY][10] =
-            sBigPal[SS_TEXT_NAVY][11] = bank1[2];
+        sBigPal[SS_TEXT_NAVY][12] = sBigPal[SS_TEXT_NAVY][13] = sBigPal[SS_TEXT_NAVY][10] = sBigPal[SS_TEXT_NAVY][11] =
+            bank1[2];
         sColors[SSC_BANNER_NAVY] = bank1[1];
         sBigFontGlyphs = (const u8*)gUnk_08109248[8];
         sBigFontOk = sBigFontGlyphs != NULL && !REGION_IS_JP;
@@ -1082,8 +1099,7 @@ static void BuildMenuTheme(void) {
  * the most common color, the letter body next, and the letters' highlight
  * after that. Ordering the two letter tones by luma tells body from
  * highlight without assuming which palette slot either lives in. */
-static void SampleButtonTones(const uint32_t* px, int32_t stride, int32_t x0, int32_t y0, int32_t w,
-                              int32_t h) {
+static void SampleButtonTones(const uint32_t* px, int32_t stride, int32_t x0, int32_t y0, int32_t w, int32_t h) {
     uint32_t colors[24];
     uint32_t counts[24];
     int32_t n = 0, x, y, i, best[3] = { -1, -1, -1 };
@@ -1154,10 +1170,14 @@ static void BuildMenuButton(void) {
     for (y = 0; y < sBtnPlate.h; y++) {
         for (x = 0; x < sBtnPlate.w; x++) {
             if ((px[(size_t)y * (size_t)sBtnPlate.w + x] >> 24) != 0) {
-                if (x < minX) minX = x;
-                if (x > maxX) maxX = x;
-                if (y < minY) minY = y;
-                if (y > maxY) maxY = y;
+                if (x < minX)
+                    minX = x;
+                if (x > maxX)
+                    maxX = x;
+                if (y < minY)
+                    minY = y;
+                if (y > maxY)
+                    maxY = y;
             }
         }
     }
@@ -1215,8 +1235,8 @@ static void BuildMenuButton(void) {
         return;
     }
 
-    BuildSpriteComposite(SPRITE_PAUSE_MISC, MENU_BRACKET_FRAME, 0, 0, kQuestObjGfxGroups,
-                         sizeof(kQuestObjGfxGroups), &sBtnBracket);
+    BuildSpriteComposite(SPRITE_PAUSE_MISC, MENU_BRACKET_FRAME, 0, 0, kQuestObjGfxGroups, sizeof(kQuestObjGfxGroups),
+                         &sBtnBracket);
     sBtnOk = 1;
 }
 
@@ -1299,16 +1319,16 @@ static void BuildAll(const uint16_t* hudPal, u32 hudColors) {
      * fixed VRAM block) + the pause menu's blinking equip cursor
      * (VRAM-absolute tiles; the game draws it with command bank 0). */
     const u16 hudButtonSprite = Port_RemapSpriteIndex(SPRITE_HUD_BUTTONS_RAW);
-    BuildSpriteComposite(hudButtonSprite, 0, BUTTON_VRAM_SLOT, 0, kHudObjGfxGroups,
-                         sizeof(kHudObjGfxGroups), &sSprites[SST_BUTTON_A]);
-    BuildSpriteComposite(hudButtonSprite, 1, BUTTON_VRAM_SLOT, 0, kHudObjGfxGroups,
-                         sizeof(kHudObjGfxGroups), &sSprites[SST_BUTTON_B]);
+    BuildSpriteComposite(hudButtonSprite, 0, BUTTON_VRAM_SLOT, 0, kHudObjGfxGroups, sizeof(kHudObjGfxGroups),
+                         &sSprites[SST_BUTTON_A]);
+    BuildSpriteComposite(hudButtonSprite, 1, BUTTON_VRAM_SLOT, 0, kHudObjGfxGroups, sizeof(kHudObjGfxGroups),
+                         &sSprites[SST_BUTTON_B]);
     BuildSpriteComposite(hudButtonSprite, BUTTON_R_FRAME, BUTTON_VRAM_SLOT, 0, kHudObjGfxGroups,
                          sizeof(kHudObjGfxGroups), &sSprites[SST_BUTTON_R]);
-    BuildSpriteComposite(SPRITE_PAUSE_MISC, CURSOR_FRAME_0, 0, 0, kPauseObjGfxGroups,
-                         sizeof(kPauseObjGfxGroups), &sSprites[SST_CURSOR_0]);
-    BuildSpriteComposite(SPRITE_PAUSE_MISC, CURSOR_FRAME_1, 0, 0, kPauseObjGfxGroups,
-                         sizeof(kPauseObjGfxGroups), &sSprites[SST_CURSOR_1]);
+    BuildSpriteComposite(SPRITE_PAUSE_MISC, CURSOR_FRAME_0, 0, 0, kPauseObjGfxGroups, sizeof(kPauseObjGfxGroups),
+                         &sSprites[SST_CURSOR_0]);
+    BuildSpriteComposite(SPRITE_PAUSE_MISC, CURSOR_FRAME_1, 0, 0, kPauseObjGfxGroups, sizeof(kPauseObjGfxGroups),
+                         &sSprites[SST_CURSOR_1]);
 
     DeriveColors();
     BuildMenuTheme();
@@ -1339,8 +1359,8 @@ int Port_SecondScreenTheme_Ready(void) {
     sColors[SSC_MENU_INK] = 0xFF383040u;        /* dark warm ink */
     sColors[SSC_MENU_BLACK] = 0xFF000000u;
     sColors[SSC_MENU_WHITE] = 0xFFF8F8F8u;
-    sColors[SSC_MENU_RED] = 0xFF2838C8u;        /* brick red */
-    sColors[SSC_BANNER_NAVY] = 0xFF903018u;     /* dark navy */
+    sColors[SSC_MENU_RED] = 0xFF2838C8u;    /* brick red */
+    sColors[SSC_BANNER_NAVY] = 0xFF903018u; /* dark navy */
 
     /* The one ingredient everything needs: the HUD/message palette. If
      * it (or the HUD tiles) aren't resolved yet the ROM isn't ready —
@@ -1378,13 +1398,17 @@ const uint16_t* Port_SecondScreenTheme_ObjPalette(uint32_t bank) {
 /*  Window drawing                                                       */
 /* -------------------------------------------------------------------- */
 
-static void FillRectTheme(uint32_t* px, int32_t bufW, int32_t bufH, int32_t stride, int32_t x0, int32_t y0,
-                          int32_t x1, int32_t y1, uint32_t color) {
+static void FillRectTheme(uint32_t* px, int32_t bufW, int32_t bufH, int32_t stride, int32_t x0, int32_t y0, int32_t x1,
+                          int32_t y1, uint32_t color) {
     int32_t x, y;
-    if (x0 < 0) x0 = 0;
-    if (y0 < 0) y0 = 0;
-    if (x1 > bufW) x1 = bufW;
-    if (y1 > bufH) y1 = bufH;
+    if (x0 < 0)
+        x0 = 0;
+    if (y0 < 0)
+        y0 = 0;
+    if (x1 > bufW)
+        x1 = bufW;
+    if (y1 > bufH)
+        y1 = bufH;
     for (y = y0; y < y1; y++) {
         uint32_t* row = px + (size_t)y * (size_t)stride;
         for (x = x0; x < x1; x++) {
@@ -1396,15 +1420,18 @@ static void FillRectTheme(uint32_t* px, int32_t bufW, int32_t bufH, int32_t stri
 /* Nearest-neighbor integer-scale blit of one chrome tile with optional
  * mirroring, clipped to [cx0,cy0)x(cx1,cy1) so edge runs can end on a
  * partial tile without ever scaling the art non-integrally. */
-static void BlitChromeTile(uint32_t* px, int32_t bufW, int32_t bufH, int32_t stride, int tile, int32_t x,
-                           int32_t y, int32_t ts, int hflip, int vflip, int32_t cx0, int32_t cy0, int32_t cx1,
-                           int32_t cy1) {
+static void BlitChromeTile(uint32_t* px, int32_t bufW, int32_t bufH, int32_t stride, int tile, int32_t x, int32_t y,
+                           int32_t ts, int hflip, int vflip, int32_t cx0, int32_t cy0, int32_t cx1, int32_t cy1) {
     const uint32_t* src = sChromeTiles[tile];
     int32_t sx, sy, ex, ey;
-    if (cx0 < 0) cx0 = 0;
-    if (cy0 < 0) cy0 = 0;
-    if (cx1 > bufW) cx1 = bufW;
-    if (cy1 > bufH) cy1 = bufH;
+    if (cx0 < 0)
+        cx0 = 0;
+    if (cy0 < 0)
+        cy0 = 0;
+    if (cx1 > bufW)
+        cx1 = bufW;
+    if (cy1 > bufH)
+        cy1 = bufH;
     for (sy = 0; sy < 8; sy++) {
         int32_t srcY = vflip ? 7 - sy : sy;
         for (sx = 0; sx < 8; sx++) {
@@ -1430,8 +1457,8 @@ static void BlitChromeTile(uint32_t* px, int32_t bufW, int32_t bufH, int32_t str
     }
 }
 
-void Port_SecondScreenTheme_DrawWindow(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                       int32_t x, int32_t y, int32_t w, int32_t h, int32_t tileScale) {
+void Port_SecondScreenTheme_DrawWindow(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x,
+                                       int32_t y, int32_t w, int32_t h, int32_t tileScale) {
     int32_t t, cx;
     if (tileScale < 1) {
         tileScale = 1;
@@ -1446,8 +1473,8 @@ void Port_SecondScreenTheme_DrawWindow(uint32_t* pixels, int32_t bufW, int32_t b
         FillRectTheme(pixels, bufW, bufH, stride, x, y + h - tileScale, x + w, y + h, light);
         FillRectTheme(pixels, bufW, bufH, stride, x, y, x + tileScale, y + h, light);
         FillRectTheme(pixels, bufW, bufH, stride, x + w - tileScale, y, x + w, y + h, light);
-        FillRectTheme(pixels, bufW, bufH, stride, x + tileScale, y + tileScale, x + w - tileScale,
-                      y + h - tileScale, sColors[SSC_WINDOW_FILL]);
+        FillRectTheme(pixels, bufW, bufH, stride, x + tileScale, y + tileScale, x + w - tileScale, y + h - tileScale,
+                      sColors[SSC_WINDOW_FILL]);
         (void)dark;
         return;
     }
@@ -1468,18 +1495,17 @@ void Port_SecondScreenTheme_DrawWindow(uint32_t* pixels, int32_t bufW, int32_t b
         BlitChromeTile(pixels, bufW, bufH, stride, CHROME_CORNER, x, y, tileScale, 0, 0, 0, 0, bufW, bufH);
         BlitChromeTile(pixels, bufW, bufH, stride, CHROME_CORNER, x + w - t, y, tileScale, 1, 0, 0, 0, bufW, bufH);
         BlitChromeTile(pixels, bufW, bufH, stride, CHROME_CORNER, x, y + h - t, tileScale, 0, 1, 0, 0, bufW, bufH);
-        BlitChromeTile(pixels, bufW, bufH, stride, CHROME_CORNER, x + w - t, y + h - t, tileScale, 1, 1, 0, 0,
-                       bufW, bufH);
+        BlitChromeTile(pixels, bufW, bufH, stride, CHROME_CORNER, x + w - t, y + h - t, tileScale, 1, 1, 0, 0, bufW,
+                       bufH);
         BlitChromeTile(pixels, bufW, bufH, stride, CHROME_H_CORNER, x + t, y, tileScale, 0, 0, 0, 0, bufW, bufH);
         BlitChromeTile(pixels, bufW, bufH, stride, CHROME_H_CORNER, xr, y, tileScale, 1, 0, 0, 0, bufW, bufH);
         BlitChromeTile(pixels, bufW, bufH, stride, CHROME_H_CORNER, x + t, y + h - t, tileScale, 0, 1, 0, 0, bufW,
                        bufH);
-        BlitChromeTile(pixels, bufW, bufH, stride, CHROME_H_CORNER, xr, y + h - t, tileScale, 1, 1, 0, 0, bufW,
-                       bufH);
+        BlitChromeTile(pixels, bufW, bufH, stride, CHROME_H_CORNER, xr, y + h - t, tileScale, 1, 1, 0, 0, bufW, bufH);
         for (cx = x + 2 * t; cx < xr; cx += t) {
             BlitChromeTile(pixels, bufW, bufH, stride, CHROME_H_STRAIGHT, cx, y, tileScale, 0, 0, 0, 0, xr, bufH);
-            BlitChromeTile(pixels, bufW, bufH, stride, CHROME_H_STRAIGHT, cx, y + h - t, tileScale, 0, 1, 0, 0,
-                           xr, bufH);
+            BlitChromeTile(pixels, bufW, bufH, stride, CHROME_H_STRAIGHT, cx, y + h - t, tileScale, 0, 1, 0, 0, xr,
+                           bufH);
         }
     }
     /* Left and right columns. */
@@ -1490,12 +1516,11 @@ void Port_SecondScreenTheme_DrawWindow(uint32_t* pixels, int32_t bufW, int32_t b
         BlitChromeTile(pixels, bufW, bufH, stride, CHROME_V_CORNER, x + w - t, y + t, tileScale, 1, 0, 0, 0, bufW,
                        bufH);
         BlitChromeTile(pixels, bufW, bufH, stride, CHROME_V_CORNER, x, yb, tileScale, 0, 1, 0, 0, bufW, bufH);
-        BlitChromeTile(pixels, bufW, bufH, stride, CHROME_V_CORNER, x + w - t, yb, tileScale, 1, 1, 0, 0, bufW,
-                       bufH);
+        BlitChromeTile(pixels, bufW, bufH, stride, CHROME_V_CORNER, x + w - t, yb, tileScale, 1, 1, 0, 0, bufW, bufH);
         for (cy = y + 2 * t; cy < yb; cy += t) {
             BlitChromeTile(pixels, bufW, bufH, stride, CHROME_V_STRAIGHT, x, cy, tileScale, 0, 0, 0, 0, bufW, yb);
-            BlitChromeTile(pixels, bufW, bufH, stride, CHROME_V_STRAIGHT, x + w - t, cy, tileScale, 1, 0, 0, 0,
-                           bufW, yb);
+            BlitChromeTile(pixels, bufW, bufH, stride, CHROME_V_STRAIGHT, x + w - t, cy, tileScale, 1, 0, 0, 0, bufW,
+                           yb);
         }
     }
 }
@@ -1509,8 +1534,7 @@ int Port_SecondScreenTheme_MenuReady(void) {
 }
 
 void Port_SecondScreenTheme_SetBackdropStyle(int style) {
-    sBackdropStyle =
-        (style > SS_BACKDROP_PARCHMENT && style < SS_BACKDROP_COUNT) ? style : SS_BACKDROP_PARCHMENT;
+    sBackdropStyle = (style > SS_BACKDROP_PARCHMENT && style < SS_BACKDROP_COUNT) ? style : SS_BACKDROP_PARCHMENT;
 }
 
 /* a -> b by t/255. Per-channel, alpha left at a's — every color here is
@@ -1532,13 +1556,18 @@ uint32_t Port_SecondScreenTheme_BackdropColor(void) {
      * chrome's own carving colors, so they track the ROM's palette rather
      * than being literals that could drift away from the plates. */
     switch (sBackdropStyle) {
-        case SS_BACKDROP_DARK:  return SS_BACKDROP_DARK_RGBA;
-        case SS_BACKDROP_DIM:   return MixRGBA(sColors[SSC_MENU_CREAM], sColors[SSC_MENU_INK],
-                                               SS_BACKDROP_DIM_MIX);
-        case SS_BACKDROP_STONE: return sColors[SSC_MENU_STONE];
-        case SS_BACKDROP_SLATE: return sColors[SSC_MENU_STONE_DARK];
-        case SS_BACKDROP_NAVY:  return sColors[SSC_BANNER_NAVY];
-        default:                return sColors[SSC_MENU_CREAM];
+        case SS_BACKDROP_DARK:
+            return SS_BACKDROP_DARK_RGBA;
+        case SS_BACKDROP_DIM:
+            return MixRGBA(sColors[SSC_MENU_CREAM], sColors[SSC_MENU_INK], SS_BACKDROP_DIM_MIX);
+        case SS_BACKDROP_STONE:
+            return sColors[SSC_MENU_STONE];
+        case SS_BACKDROP_SLATE:
+            return sColors[SSC_MENU_STONE_DARK];
+        case SS_BACKDROP_NAVY:
+            return sColors[SSC_BANNER_NAVY];
+        default:
+            return sColors[SSC_MENU_CREAM];
     }
 }
 
@@ -1553,23 +1582,26 @@ int Port_SecondScreenTheme_BackdropIsDark(void) {
     return (299u * r + 587u * g + 114u * b) / 1000u < 128u;
 }
 
-void Port_SecondScreenTheme_DrawBackdrop(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                         int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t scale) {
+void Port_SecondScreenTheme_DrawBackdrop(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x0,
+                                         int32_t y0, int32_t x1, int32_t y1, int32_t scale) {
     if (scale < 1) {
         scale = 1;
     }
     FillRectTheme(pixels, bufW, bufH, stride, x0, y0, x1, y1, Port_SecondScreenTheme_BackdropColor());
-    if ((sBackdropStyle != SS_BACKDROP_PARCHMENT && sBackdropStyle != SS_BACKDROP_DIM) || !sMenuOk ||
-        !sDoodleOk) {
+    if ((sBackdropStyle != SS_BACKDROP_PARCHMENT && sBackdropStyle != SS_BACKDROP_DIM) || !sMenuOk || !sDoodleOk) {
         /* Flat fill and done: that IS the CREAM, DARK, STONE, SLATE and
          * NAVY styles, and it is also what the two lattice styles look
          * like until the pattern decodes. */
         return;
     }
-    if (x0 < 0) x0 = 0;
-    if (y0 < 0) y0 = 0;
-    if (x1 > bufW) x1 = bufW;
-    if (y1 > bufH) y1 = bufH;
+    if (x0 < 0)
+        x0 = 0;
+    if (y0 < 0)
+        y0 = 0;
+    if (x1 > bufW)
+        x1 = bufW;
+    if (y1 > bufH)
+        y1 = bufH;
     if (x0 >= x1 || y0 >= y1) {
         return;
     }
@@ -1595,18 +1627,21 @@ void Port_SecondScreenTheme_DrawBackdrop(uint32_t* pixels, int32_t bufW, int32_t
              * which read as a bare seam along the top/left edges. */
             int32_t fi = (int32_t)floorf((dy - 2.0f * dx) / 128.0f);
             int32_t fj = (int32_t)floorf((2.0f * dx + 7.0f * dy) / 384.0f);
-            if (fi - 1 < iMin) iMin = fi - 1;
-            if (fi + 1 > iMax) iMax = fi + 1;
-            if (fj - 1 < jMin) jMin = fj - 1;
-            if (fj + 1 > jMax) jMax = fj + 1;
+            if (fi - 1 < iMin)
+                iMin = fi - 1;
+            if (fi + 1 > iMax)
+                iMax = fi + 1;
+            if (fj - 1 < jMin)
+                jMin = fj - 1;
+            if (fj + 1 > jMax)
+                jMax = fj + 1;
         }
         for (j = jMin; j <= jMax; j++) {
             for (i = iMin; i <= iMax; i++) {
                 int32_t dpx = (DOODLE_SRC_X + i * DOODLE_AX + j * DOODLE_BX) * scale;
                 int32_t dpy = (DOODLE_SRC_Y + i * DOODLE_AY + j * DOODLE_BY) * scale;
                 int32_t sx, sy, ex, ey;
-                if (dpx >= x1 || dpy >= y1 || dpx + DOODLE_W * scale <= x0 ||
-                    dpy + DOODLE_H * scale <= y0) {
+                if (dpx >= x1 || dpy >= y1 || dpx + DOODLE_W * scale <= x0 || dpy + DOODLE_H * scale <= y0) {
                     continue;
                 }
                 for (sy = 0; sy < DOODLE_H; sy++) {
@@ -1644,13 +1679,13 @@ void Port_SecondScreenTheme_DrawBackdrop(uint32_t* pixels, int32_t bufW, int32_t
 
 /* Nine-slice source mapping for one axis: exact corners, tiled middle.
  * snap keeps the middle period on the carved art's own rhythm. */
-static int32_t SliceMap(int32_t d, int32_t dstLen, int32_t srcLen, int32_t corner, int32_t snap,
-                        int32_t scale) {
+static int32_t SliceMap(int32_t d, int32_t dstLen, int32_t srcLen, int32_t corner, int32_t snap, int32_t scale) {
     int32_t c = corner;
     int32_t sd, se, span, tspan;
     if (c * 2 * scale > dstLen) {
         c = dstLen / (2 * scale);
-        if (c < 1) c = 1;
+        if (c < 1)
+            c = 1;
     }
     sd = d / scale;
     se = (dstLen - 1 - d) / scale;
@@ -1673,10 +1708,9 @@ static int32_t SliceMap(int32_t d, int32_t dstLen, int32_t srcLen, int32_t corne
 
 /* Shared sliced blit off one of the composed menu sources. Transparent
  * source pixels are skipped (the slab's rounded outline corners). */
-static void DrawSliced(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x, int32_t y,
-                       int32_t w, int32_t h, int32_t scale, const uint32_t* srcImg, int32_t srcStride,
-                       int32_t sx0, int32_t sy0, int32_t sx1, int32_t sy1, int32_t cw, int32_t ch,
-                       int32_t snap) {
+static void DrawSliced(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x, int32_t y, int32_t w,
+                       int32_t h, int32_t scale, const uint32_t* srcImg, int32_t srcStride, int32_t sx0, int32_t sy0,
+                       int32_t sx1, int32_t sy1, int32_t cw, int32_t ch, int32_t snap) {
     int32_t dx, dy;
     if (scale < 1) {
         scale = 1;
@@ -1782,41 +1816,39 @@ static void DrawSliced(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t str
     }
 }
 
-void Port_SecondScreenTheme_DrawPlate(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                      int32_t x, int32_t y, int32_t w, int32_t h, int32_t scale) {
+void Port_SecondScreenTheme_DrawPlate(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x,
+                                      int32_t y, int32_t w, int32_t h, int32_t scale) {
     if (!sMenuOk || !sSlabOk) {
         /* Palette-toned stand-in: stone fill, ink outline. */
         uint32_t ink = sColors[SSC_MENU_INK];
         int32_t t = scale > 0 ? 2 * scale : 2;
         FillRectTheme(pixels, bufW, bufH, stride, x, y, x + w, y + h, ink);
-        FillRectTheme(pixels, bufW, bufH, stride, x + t, y + t, x + w - t, y + h - t,
-                      sColors[SSC_MENU_STONE]);
+        FillRectTheme(pixels, bufW, bufH, stride, x + t, y + t, x + w - t, y + h - t, sColors[SSC_MENU_STONE]);
         return;
     }
-    DrawSliced(pixels, bufW, bufH, stride, x, y, w, h, scale, sMenuBg2, MENU_SCREEN_W, sSlabX0, sSlabY0,
-               sSlabX1, sSlabY1, SLAB_CORNER_W, SLAB_CORNER_H, 16);
+    DrawSliced(pixels, bufW, bufH, stride, x, y, w, h, scale, sMenuBg2, MENU_SCREEN_W, sSlabX0, sSlabY0, sSlabX1,
+               sSlabY1, SLAB_CORNER_W, SLAB_CORNER_H, 16);
 }
 
-void Port_SecondScreenTheme_DrawWell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                     int32_t x, int32_t y, int32_t w, int32_t h, int32_t scale) {
+void Port_SecondScreenTheme_DrawWell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x, int32_t y,
+                                     int32_t w, int32_t h, int32_t scale) {
     if (!sMenuOk || !sTrayOk) {
         uint32_t rim = sColors[SSC_MENU_INK];
         int32_t t = scale > 0 ? scale : 1;
         FillRectTheme(pixels, bufW, bufH, stride, x, y, x + w, y + h, rim);
-        FillRectTheme(pixels, bufW, bufH, stride, x + t, y + t, x + w - t, y + h - t,
-                      sColors[SSC_MENU_STONE_DARK]);
+        FillRectTheme(pixels, bufW, bufH, stride, x + t, y + t, x + w - t, y + h - t, sColors[SSC_MENU_STONE_DARK]);
         return;
     }
-    DrawSliced(pixels, bufW, bufH, stride, x, y, w, h, scale, sTrayPx, TRAY_W, 0, 0, TRAY_W, TRAY_H,
-               WELL_CORNER, WELL_CORNER, 8);
+    DrawSliced(pixels, bufW, bufH, stride, x, y, w, h, scale, sTrayPx, TRAY_W, 0, 0, TRAY_W, TRAY_H, WELL_CORNER,
+               WELL_CORNER, 8);
 }
 
 /* Chip drawing shares DrawWindow's tile arrangement, just over a chip
  * tile set. Duplicated loop kept tiny by reusing BlitChromeTile via a
  * temporary swap of the active tile pointer would hurt readability more
  * than this small dedicated blitter. */
-static void BlitChipTile(uint32_t* px, int32_t bufW, int32_t bufH, int32_t stride, const uint32_t* tile,
-                         int32_t x, int32_t y, int32_t ts, int hflip, int vflip, int32_t cx1) {
+static void BlitChipTile(uint32_t* px, int32_t bufW, int32_t bufH, int32_t stride, const uint32_t* tile, int32_t x,
+                         int32_t y, int32_t ts, int hflip, int vflip, int32_t cx1) {
     int32_t sx, sy, ex, ey;
     for (sy = 0; sy < 8; sy++) {
         int32_t srcY = vflip ? 7 - sy : sy;
@@ -1842,10 +1874,9 @@ static void BlitChipTile(uint32_t* px, int32_t bufW, int32_t bufH, int32_t strid
     }
 }
 
-void Port_SecondScreenTheme_DrawChip(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                     int32_t x, int32_t y, int32_t w, int32_t h, int32_t tileScale,
-                                     int style) {
-    const uint32_t(*tiles)[64];
+void Port_SecondScreenTheme_DrawChip(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x, int32_t y,
+                                     int32_t w, int32_t h, int32_t tileScale, int style) {
+    const uint32_t (*tiles)[64];
     int32_t t, cx, cy, xr, yb;
     if (style < 0 || style >= SS_CHIP_STYLE_COUNT) {
         style = SS_CHIP_DARK;
@@ -1873,28 +1904,24 @@ void Port_SecondScreenTheme_DrawChip(uint32_t* pixels, int32_t bufW, int32_t buf
     BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_CORNER], x, y, tileScale, 0, 0, bufW);
     BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_CORNER], x + w - t, y, tileScale, 1, 0, bufW);
     BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_CORNER], x, y + h - t, tileScale, 0, 1, bufW);
-    BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_CORNER], x + w - t, y + h - t, tileScale, 1, 1,
-                 bufW);
+    BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_CORNER], x + w - t, y + h - t, tileScale, 1, 1, bufW);
     BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_H_CORNER], x + t, y, tileScale, 0, 0, bufW);
     BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_H_CORNER], xr, y, tileScale, 1, 0, bufW);
     BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_H_CORNER], x + t, y + h - t, tileScale, 0, 1, bufW);
     BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_H_CORNER], xr, y + h - t, tileScale, 1, 1, bufW);
     for (cx = x + 2 * t; cx < xr; cx += t) {
         BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_H_STRAIGHT], cx, y, tileScale, 0, 0, xr);
-        BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_H_STRAIGHT], cx, y + h - t, tileScale, 0, 1,
-                     xr);
+        BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_H_STRAIGHT], cx, y + h - t, tileScale, 0, 1, xr);
     }
     BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_V_CORNER], x, y + t, tileScale, 0, 0, bufW);
     BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_V_CORNER], x + w - t, y + t, tileScale, 1, 0, bufW);
     if (yb > y + t) {
         BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_V_CORNER], x, yb, tileScale, 0, 1, bufW);
-        BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_V_CORNER], x + w - t, yb, tileScale, 1, 1,
-                     bufW);
+        BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_V_CORNER], x + w - t, yb, tileScale, 1, 1, bufW);
     }
     for (cy = y + 2 * t; cy < yb; cy += t) {
         BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_V_STRAIGHT], x, cy, tileScale, 0, 0, bufW);
-        BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_V_STRAIGHT], x + w - t, cy, tileScale, 1, 0,
-                     bufW);
+        BlitChipTile(pixels, bufW, bufH, stride, tiles[CHROME_V_STRAIGHT], x + w - t, cy, tileScale, 1, 0, bufW);
     }
 }
 
@@ -1944,8 +1971,8 @@ int32_t Port_SecondScreenTheme_TextWidth(const char* str, int32_t scale) {
     return w * (scale < 1 ? 1 : scale);
 }
 
-int32_t Port_SecondScreenTheme_DrawText(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                        int32_t x, int32_t y, int32_t scale, int style, const char* str) {
+int32_t Port_SecondScreenTheme_DrawText(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x,
+                                        int32_t y, int32_t scale, int style, const char* str) {
     const u8* lutE;
     const u8* lutO;
     int32_t startX = x;
@@ -2013,8 +2040,8 @@ static const u8* BigGlyphData(char c) {
 }
 
 #define BIG_SPACE_ADVANCE 8 /* the tokenizer's fixed word gap (case 0xc) */
-#define BIG_GLYPH_ROWS 16 /* stylized cell height; ink spans rows 1..15 */
-#define BIG_INK_ROWS 13   /* rows the body/shade roles actually cover */
+#define BIG_GLYPH_ROWS 16   /* stylized cell height; ink spans rows 1..15 */
+#define BIG_INK_ROWS 13     /* rows the body/shade roles actually cover */
 
 int32_t Port_SecondScreenTheme_BigTextWidth(const char* str, int32_t scale) {
     int32_t w = 0, gs, gw, adv;
@@ -2047,8 +2074,8 @@ int32_t Port_SecondScreenTheme_BigTextWidth(const char* str, int32_t scale) {
 /* Shared body of the stylized draw, taking the value->RGBA table directly so
  * the menu button can letter its labels in the plate's own tones without
  * those becoming a public SS_TEXT_* style. */
-static int32_t DrawBigTextPal(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x,
-                              int32_t y, int32_t scale, const uint32_t* pal, const char* str) {
+static int32_t DrawBigTextPal(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x, int32_t y,
+                              int32_t scale, const uint32_t* pal, const char* str) {
     int32_t startX = x;
     if (!sBuilt || !sBigFontOk || str == NULL) {
         return 0;
@@ -2109,9 +2136,8 @@ static int32_t DrawBigTextPal(uint32_t* pixels, int32_t bufW, int32_t bufH, int3
 /*  Menu button / R glyph / action label                                 */
 /* -------------------------------------------------------------------- */
 
-int32_t Port_SecondScreenTheme_DrawBigText(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                           int32_t x, int32_t y, int32_t scale, int style,
-                                           const char* str) {
+int32_t Port_SecondScreenTheme_DrawBigText(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x,
+                                           int32_t y, int32_t scale, int style, const char* str) {
     if (style < 0 || style >= SS_TEXT_STYLE_COUNT) {
         style = SS_TEXT_INK;
     }
@@ -2122,9 +2148,8 @@ int32_t Port_SecondScreenTheme_DrawBigText(uint32_t* pixels, int32_t bufW, int32
  * Corner patches land exactly (dw == sw*scale); edge and interior patches
  * are 1 px along the stretched axis and simply repeat, which is what the
  * plate's uniform rim and flat fill want. */
-static void PlatePatch(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t sx,
-                       int32_t sy, int32_t sw, int32_t sh, int32_t dx, int32_t dy, int32_t dw,
-                       int32_t dh, int32_t scale) {
+static void PlatePatch(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t sx, int32_t sy, int32_t sw,
+                       int32_t sh, int32_t dx, int32_t dy, int32_t dw, int32_t dh, int32_t scale) {
     int32_t i, j;
     if (sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0) {
         return;
@@ -2152,8 +2177,8 @@ static void PlatePatch(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t str
 
 /* Stamps one quadrant of the selection-bracket composite (its art only
  * occupies the composite's corners) at a destination corner. */
-static void BracketCorner(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int right,
-                          int bottom, int32_t dx, int32_t dy, int32_t scale) {
+static void BracketCorner(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int right, int bottom,
+                          int32_t dx, int32_t dy, int32_t scale) {
     int32_t cw = sBtnBracket.w / 2, ch = sBtnBracket.h / 2;
     int32_t sx = right ? sBtnBracket.w - cw : 0;
     int32_t sy = bottom ? sBtnBracket.h - ch : 0;
@@ -2180,9 +2205,8 @@ static void BracketCorner(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t 
     }
 }
 
-int Port_SecondScreenTheme_DrawMenuButton(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                          int32_t x, int32_t y, int32_t w, int32_t h, const char* label,
-                                          int pressed) {
+int Port_SecondScreenTheme_DrawMenuButton(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x,
+                                          int32_t y, int32_t w, int32_t h, const char* label, int pressed) {
     int32_t ps, corner, cleanCol = sBtnCleanCol, cleanRow = sBtnCleanRow;
     int32_t ls, textW = 0, tx, ty;
 
@@ -2212,21 +2236,18 @@ int Port_SecondScreenTheme_DrawMenuButton(uint32_t* pixels, int32_t bufW, int32_
         int32_t c = corner * ps;
         int32_t ix = x + c, iy = y + c, iw = w - 2 * c, ih = h - 2 * c;
         /* interior fill first, then the four edges, then the corners */
-        PlatePatch(pixels, bufW, bufH, stride, sBtnX0 + cleanCol, sBtnY0 + cleanRow, 1, 1, ix, iy, iw, ih,
-                   ps);
+        PlatePatch(pixels, bufW, bufH, stride, sBtnX0 + cleanCol, sBtnY0 + cleanRow, 1, 1, ix, iy, iw, ih, ps);
         PlatePatch(pixels, bufW, bufH, stride, sBtnX0 + cleanCol, sBtnY0, 1, corner, ix, y, iw, c, ps);
-        PlatePatch(pixels, bufW, bufH, stride, sBtnX0 + cleanCol, sBtnY0 + sBtnH - corner, 1, corner, ix,
-                   y + h - c, iw, c, ps);
+        PlatePatch(pixels, bufW, bufH, stride, sBtnX0 + cleanCol, sBtnY0 + sBtnH - corner, 1, corner, ix, y + h - c, iw,
+                   c, ps);
         PlatePatch(pixels, bufW, bufH, stride, sBtnX0, sBtnY0 + cleanRow, corner, 1, x, iy, c, ih, ps);
-        PlatePatch(pixels, bufW, bufH, stride, sBtnX0 + sBtnW - corner, sBtnY0 + cleanRow, corner, 1,
-                   x + w - c, iy, c, ih, ps);
+        PlatePatch(pixels, bufW, bufH, stride, sBtnX0 + sBtnW - corner, sBtnY0 + cleanRow, corner, 1, x + w - c, iy, c,
+                   ih, ps);
         PlatePatch(pixels, bufW, bufH, stride, sBtnX0, sBtnY0, corner, corner, x, y, c, c, ps);
-        PlatePatch(pixels, bufW, bufH, stride, sBtnX0 + sBtnW - corner, sBtnY0, corner, corner, x + w - c,
-                   y, c, c, ps);
-        PlatePatch(pixels, bufW, bufH, stride, sBtnX0, sBtnY0 + sBtnH - corner, corner, corner, x,
-                   y + h - c, c, c, ps);
-        PlatePatch(pixels, bufW, bufH, stride, sBtnX0 + sBtnW - corner, sBtnY0 + sBtnH - corner, corner,
-                   corner, x + w - c, y + h - c, c, c, ps);
+        PlatePatch(pixels, bufW, bufH, stride, sBtnX0 + sBtnW - corner, sBtnY0, corner, corner, x + w - c, y, c, c, ps);
+        PlatePatch(pixels, bufW, bufH, stride, sBtnX0, sBtnY0 + sBtnH - corner, corner, corner, x, y + h - c, c, c, ps);
+        PlatePatch(pixels, bufW, bufH, stride, sBtnX0 + sBtnW - corner, sBtnY0 + sBtnH - corner, corner, corner,
+                   x + w - c, y + h - c, c, c, ps);
 
         /* Label: the stylized font in the plate's own blue, shrunk until it
          * fits the plate's inner box the way the game's own lettering sits
@@ -2261,8 +2282,8 @@ int Port_SecondScreenTheme_DrawMenuButton(uint32_t* pixels, int32_t bufW, int32_
     return 1;
 }
 
-int Port_SecondScreenTheme_DrawRButton(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                       int32_t x, int32_t y, int32_t scale2) {
+int Port_SecondScreenTheme_DrawRButton(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x,
+                                       int32_t y, int32_t scale2) {
     const SecondScreenThemeSprite* s = Port_SecondScreenTheme_Get(SST_BUTTON_R);
     int32_t dw, dh, dx, dy;
     if (s == NULL || pixels == NULL) {
@@ -2301,9 +2322,8 @@ int Port_SecondScreenTheme_DrawRButton(uint32_t* pixels, int32_t bufW, int32_t b
 #define ACTION_LABEL_MAX_H 48
 static uint32_t sActionScratch[ACTION_LABEL_MAX_W * ACTION_LABEL_MAX_H];
 
-int32_t Port_SecondScreenTheme_DrawActionLabel(uint32_t* pixels, int32_t bufW, int32_t bufH,
-                                               int32_t stride, int32_t x, int32_t y, int32_t scale2,
-                                               uint8_t frameId) {
+int32_t Port_SecondScreenTheme_DrawActionLabel(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x,
+                                               int32_t y, int32_t scale2, uint8_t frameId) {
     const SpritePtr* sprite;
     const SpriteFrame* frame;
     const u8* slotTiles;
@@ -2369,18 +2389,24 @@ int32_t Port_SecondScreenTheme_DrawActionLabel(uint32_t* pixels, int32_t bufW, i
                         if (idx == 0) {
                             continue;
                         }
-                        if (hflip) dx = pw - 1 - dx;
-                        if (vflip) dy = ph - 1 - dy;
+                        if (hflip)
+                            dx = pw - 1 - dx;
+                        if (vflip)
+                            dy = ph - 1 - dy;
                         dx += (int32_t)(int8_t)p[0] + ACTION_LABEL_MAX_W / 2;
                         dy += (int32_t)(int8_t)p[1] + ACTION_LABEL_MAX_H / 2;
                         if (dx < 0 || dy < 0 || dx >= ACTION_LABEL_MAX_W || dy >= ACTION_LABEL_MAX_H) {
                             continue;
                         }
                         sActionScratch[dy * ACTION_LABEL_MAX_W + dx] = Rgb555ToRgba8888(pal[idx]);
-                        if (dx < minX) minX = dx;
-                        if (dx > maxX) maxX = dx;
-                        if (dy < minY) minY = dy;
-                        if (dy > maxY) maxY = dy;
+                        if (dx < minX)
+                            minX = dx;
+                        if (dx > maxX)
+                            maxX = dx;
+                        if (dy < minY)
+                            minY = dy;
+                        if (dy > maxY)
+                            maxY = dy;
                     }
                 }
             }

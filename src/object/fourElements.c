@@ -21,7 +21,6 @@
 #include "fade.h"
 #include "port_scripts.h"
 
-
 typedef struct {
     /*0x00*/ Entity base;
     /*0x68*/ u16 unk_68;

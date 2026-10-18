@@ -42,7 +42,8 @@ void VaatiWrathEye(Entity* this) {
 #ifdef PC_PORT
     /* #136 family — parent==NULL crashes on PC before the first real
        frame. Same fix shape as gyorgFemaleMouth.c. */
-    if (this->parent == NULL) return;
+    if (this->parent == NULL)
+        return;
 #endif
     if (this->parent->next == NULL) {
         DeleteThisEntity();

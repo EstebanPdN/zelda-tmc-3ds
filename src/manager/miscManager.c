@@ -76,13 +76,11 @@ typedef struct {
     u16 unk_08;
 } PACKED ALIGNED(2) MiscManager_HelperStruct;
 
-const MiscManager_HelperStruct gUnk_08108354[] = {
-    { 0xF0, 0xB0, 0xF0, 0xB0, 0x100 },
-    { 0x188, 0x190, 0x28, 0x30, 0x100 },
-    { 0xF0, 0x340, 0xF0, 0xB0, 0x80 },
-    { 0x180, 0x278, 0x60, 0x38, 0x80 },
-    { 0xFFFF, 0, 0, 0, 0 }
-};
+const MiscManager_HelperStruct gUnk_08108354[] = { { 0xF0, 0xB0, 0xF0, 0xB0, 0x100 },
+                                                   { 0x188, 0x190, 0x28, 0x30, 0x100 },
+                                                   { 0xF0, 0x340, 0xF0, 0xB0, 0x80 },
+                                                   { 0x180, 0x278, 0x60, 0x38, 0x80 },
+                                                   { 0xFFFF, 0, 0, 0, 0 } };
 
 const u32 gUnk_08108354_terminator = 0xFFFF; // terminator for the previous array
 
@@ -326,7 +324,7 @@ void MiscManager_Type9(MiscManager* this) {
             sub_080592EC(this);
             sub_0805930C(this);
             if (!REGION_IS_EU) {
-            SoundReq(SFX_16E);
+                SoundReq(SFX_16E);
             }
             DeleteThisEntity();
         }
@@ -340,9 +338,9 @@ void sub_080592EC(MiscManager* this) {
 void sub_0805930C(MiscManager* this) {
     Entity* tmp;
     if (REGION_IS_EU) {
-    tmp = CreateObject(SPECIAL_FX, FX_BIG_EXPLOSION2, 0x0);
+        tmp = CreateObject(SPECIAL_FX, FX_BIG_EXPLOSION2, 0x0);
     } else {
-    tmp = CreateObject(SPECIAL_FX, FX_BIG_EXPLOSION2, 0x40);
+        tmp = CreateObject(SPECIAL_FX, FX_BIG_EXPLOSION2, 0x40);
     }
     if (!tmp)
         return;

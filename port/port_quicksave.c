@@ -430,7 +430,6 @@ static int WriteSlotToDisk(int slot) {
     return 1;
 }
 
-
 /* Reads the fixed 4-field slot header (magic, version, total, saved_at).
  * Returns 1 if all four fields read, 0 on short read. Field values are
  * not validated and no diagnostics are emitted — callers decide. */

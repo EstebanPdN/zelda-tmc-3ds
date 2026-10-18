@@ -36,7 +36,6 @@ extern NPCData* gUnk_08001A7C[];
 #define GetFusionNpcData(fuserId) (gUnk_08001A7C[fuserId])
 #endif
 
-
 u32 sub_0806EF88(Entity*);
 u32 sub_0806EE70(Entity*);
 u32 sub_0806EED0(Entity*);
@@ -336,9 +335,8 @@ void CollideFollowers(void) {
      * quickload: the preliminary count also walks restored next pointers. */
     extern int Port_IsValidEntityAddr(const void*);
     int _wCount = 0;
-    for (currentEntity = entityList->first, val = 0;
-         currentEntity != (Entity*)entityList && currentEntity != NULL && _wCount < 256 &&
-         Port_IsValidEntityAddr(currentEntity);
+    for (currentEntity = entityList->first, val = 0; currentEntity != (Entity*)entityList && currentEntity != NULL &&
+                                                     _wCount < 256 && Port_IsValidEntityAddr(currentEntity);
          currentEntity = currentEntity->next, ++_wCount) {
         val++;
     }
@@ -357,7 +355,9 @@ void CollideFollowers(void) {
      * produced both a `next` cycle and a `next` pointing at a stray GBA
      * EWRAM-relative address that escaped widening. */
     int _wOuter = 0;
-    for (currentEntity = entityList->first; currentEntity != (Entity*)entityList && currentEntity != NULL && _wOuter < 256 && Port_IsValidEntityAddr(currentEntity); currentEntity = currentEntity->next, ++_wOuter) {
+    for (currentEntity = entityList->first; currentEntity != (Entity*)entityList && currentEntity != NULL &&
+                                            _wOuter < 256 && Port_IsValidEntityAddr(currentEntity);
+         currentEntity = currentEntity->next, ++_wOuter) {
 #else
     for (currentEntity = entityList->first; currentEntity != (Entity*)entityList; currentEntity = currentEntity->next) {
 #endif
@@ -369,7 +369,9 @@ void CollideFollowers(void) {
 
 #ifdef PC_PORT
         int _wInner = 0;
-        for (nextEnt = currentEntity->next; nextEnt != (Entity*)entityList && nextEnt != NULL && _wInner < 256 && Port_IsValidEntityAddr(nextEnt); nextEnt = nextEnt->next, ++_wInner) {
+        for (nextEnt = currentEntity->next;
+             nextEnt != (Entity*)entityList && nextEnt != NULL && _wInner < 256 && Port_IsValidEntityAddr(nextEnt);
+             nextEnt = nextEnt->next, ++_wInner) {
 #else
         for (nextEnt = currentEntity->next; nextEnt != (Entity*)entityList; nextEnt = nextEnt->next) {
 #endif

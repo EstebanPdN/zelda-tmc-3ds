@@ -32,8 +32,7 @@ typedef struct {
  * screen scales the art: trimming it to the non-transparent pixels makes
  * differently shaped halves grow to different sizes (and turns the retail
  * one-pixel black outline into a conspicuous block). */
-static inline SecondScreenQuestRect Port_SecondScreenQuest_KinstoneFrameRect(int32_t commandX,
-                                                                              int32_t commandY) {
+static inline SecondScreenQuestRect Port_SecondScreenQuest_KinstoneFrameRect(int32_t commandX, int32_t commandY) {
     SecondScreenQuestRect rect = { commandX - 16, commandY - 16, 32, 32 };
     return rect;
 }
@@ -51,10 +50,9 @@ typedef struct {
  * whatever the real screen animates. `outHot` may be NULL; when given it
  * receives the tappable wells' rects. Returns 1 when the authentic screen was
  * drawn, 0 while its ROM data isn't decodable yet. */
-int Port_SecondScreenQuest_Draw(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                int32_t dstX, int32_t dstY, int32_t dstW, int32_t dstH,
-                                const SecondScreenSnapshot* snap, uint32_t tick,
-                                SecondScreenQuestHotspots* outHot);
+int Port_SecondScreenQuest_Draw(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t dstX,
+                                int32_t dstY, int32_t dstW, int32_t dstH, const SecondScreenSnapshot* snap,
+                                uint32_t tick, SecondScreenQuestHotspots* outHot);
 
 /* The two lists the quest screen opens, drawn into the same kind of rect:
  * KINSTONE PIECES (pause screen 7) — every kinstone type in the bag with its
@@ -67,19 +65,17 @@ int Port_SecondScreenQuest_Draw(uint32_t* pixels, int32_t bufW, int32_t bufH, in
  *
  * Return 1 when drawn, 0 while their ROM data isn't decodable — the caller
  * keeps the main screen up rather than showing an empty slab. */
-int Port_SecondScreenQuest_DrawKinstones(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                         int32_t dstX, int32_t dstY, int32_t dstW, int32_t dstH,
-                                         const SecondScreenSnapshot* snap);
+int Port_SecondScreenQuest_DrawKinstones(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t dstX,
+                                         int32_t dstY, int32_t dstW, int32_t dstH, const SecondScreenSnapshot* snap);
 
-int Port_SecondScreenQuest_DrawTechniques(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                          int32_t dstX, int32_t dstY, int32_t dstW, int32_t dstH,
-                                          const SecondScreenSnapshot* snap);
+int Port_SecondScreenQuest_DrawTechniques(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t dstX,
+                                          int32_t dstY, int32_t dstW, int32_t dstH, const SecondScreenSnapshot* snap);
 
 #ifdef PORT_SECOND_SCREEN_QUEST_TEST
 /* Direct host entry into the production list-cell renderer. */
-void Port_SecondScreenQuest_TestDrawKinstoneListCell(
-    uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t idx, int32_t cx,
-    int32_t cy, int32_t side, int32_t scale, const SecondScreenSnapshot* snap);
+void Port_SecondScreenQuest_TestDrawKinstoneListCell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
+                                                     int32_t idx, int32_t cx, int32_t cy, int32_t side, int32_t scale,
+                                                     const SecondScreenSnapshot* snap);
 #endif
 
 #ifdef __cplusplus

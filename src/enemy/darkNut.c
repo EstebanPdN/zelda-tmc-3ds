@@ -29,10 +29,8 @@ typedef struct {
     /*0x84*/ u8 unk_84;
 } DarkNutEntity;
 
-PORT_STATIC_ASSERT_OFFSET(DarkNutEntity, unk_74, 0x74, 0xA0,
-                          "DarkNutEntity unk_74 offset incorrect");
-PORT_STATIC_ASSERT_OFFSET(DarkNutEntity, unk_7c, 0x7c, 0xA8,
-                          "DarkNutEntity unk_7c offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(DarkNutEntity, unk_74, 0x74, 0xA0, "DarkNutEntity unk_74 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(DarkNutEntity, unk_7c, 0x7c, 0xA8, "DarkNutEntity unk_7c offset incorrect");
 
 typedef struct {
     u8 field_0x0;

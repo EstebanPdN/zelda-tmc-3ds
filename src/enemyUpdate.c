@@ -42,11 +42,7 @@ static void HazardNull(Entity* e) {
 void sub_08001214(Entity*);
 #ifdef PC_PORT
 void (*const gUnk_080012C8[])(Entity*) = {
-    HazardNull,
-    sub_08001214,
-    CreateDrownFx,
-    CreateLavaDrownFx,
-    CreateSwampDrownFx,
+    HazardNull, sub_08001214, CreateDrownFx, CreateLavaDrownFx, CreateSwampDrownFx,
 };
 #else
 extern void (*const gUnk_080012C8[])(Entity*);

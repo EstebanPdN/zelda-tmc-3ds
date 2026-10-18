@@ -55,8 +55,8 @@ typedef struct PortM4AMixTrack {
  * only touched when trackCount > 1, so the common offloaded case needs no
  * scratch traffic. Passing NULL scratch is valid when trackCount <= 1.
  */
-void PortM4A_Mixdown(const PortM4AMixTrack* tracks, size_t trackCount, size_t frames,
-                     float masterVolume, float* accL, float* accR, int16_t* out);
+void PortM4A_Mixdown(const PortM4AMixTrack* tracks, size_t trackCount, size_t frames, float masterVolume, float* accL,
+                     float* accR, int16_t* out);
 
 #ifdef __cplusplus
 }

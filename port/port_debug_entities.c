@@ -32,8 +32,8 @@ int Port_DebugQuery_RefreshEntities(void) {
         LinkedList* ll = &gEntityLists[li];
         Entity* e = ll->first;
         int steps = 0;
-        while (e != (Entity*)ll && e != NULL && steps < PORT_ENTITY_LIST_CAP &&
-               n < PORT_ENTITY_SNAP_MAX && Port_IsValidEntityAddr(e)) {
+        while (e != (Entity*)ll && e != NULL && steps < PORT_ENTITY_LIST_CAP && n < PORT_ENTITY_SNAP_MAX &&
+               Port_IsValidEntityAddr(e)) {
             PortEntityInfo* info = &sSnap[n];
             info->listIndex = li;
             info->kind = e->kind;
@@ -64,13 +64,21 @@ const PortEntityInfo* Port_DebugQuery_Entity(int i) {
 
 const char* Port_DebugQuery_EntityKindName(int kind) {
     switch (kind) {
-        case PLAYER:      return "Player";
-        case ENEMY:       return "Enemy";
-        case PROJECTILE:  return "Projectile";
-        case OBJECT:      return "Object";
-        case NPC:         return "NPC";
-        case PLAYER_ITEM: return "PlayerItem";
-        case MANAGER:     return "Manager";
-        default:          return "?";
+        case PLAYER:
+            return "Player";
+        case ENEMY:
+            return "Enemy";
+        case PROJECTILE:
+            return "Projectile";
+        case OBJECT:
+            return "Object";
+        case NPC:
+            return "NPC";
+        case PLAYER_ITEM:
+            return "PlayerItem";
+        case MANAGER:
+            return "Manager";
+        default:
+            return "?";
     }
 }

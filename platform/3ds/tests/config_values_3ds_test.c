@@ -4,23 +4,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define CHECK(condition)                                                               \
-    do {                                                                               \
-        if (!(condition)) {                                                            \
-            fprintf(stderr, "config_values_3ds_test: check failed at line %d: %s\n", \
-                    __LINE__, #condition);                                              \
-            return EXIT_FAILURE;                                                       \
-        }                                                                              \
+#define CHECK(condition)                                                                                    \
+    do {                                                                                                    \
+        if (!(condition)) {                                                                                 \
+            fprintf(stderr, "config_values_3ds_test: check failed at line %d: %s\n", __LINE__, #condition); \
+            return EXIT_FAILURE;                                                                            \
+        }                                                                                                   \
     } while (0)
 
 int main(void) {
     static const char* const aspectNames[] = { "wide", "original", "stretch" };
-    static const char* const displayNames[] = {
-        "blur", "bilinear", "pixel-perfect"
-    };
-    static const char* const displayLabels[] = {
-        "BLUR", "BILINEAR", "PIXEL PERFECT"
-    };
+    static const char* const displayNames[] = { "blur", "bilinear", "pixel-perfect" };
+    static const char* const displayLabels[] = { "BLUR", "BILINEAR", "PIXEL PERFECT" };
 
     CHECK(CONFIG_3DS_DEFAULT_ASPECT == PORT_3DS_ASPECT_STRETCH);
     CHECK(CONFIG_3DS_DEFAULT_DISPLAY == PORT_3DS_DISPLAY_BILINEAR);

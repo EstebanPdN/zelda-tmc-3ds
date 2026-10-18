@@ -22,24 +22,25 @@ extern void AgbMain(void);
 
 static int PrepareStorage(void) {
     mkdir("sdmc:/3ds", 0777);
-    if (mkdir(APP_DIR, 0777) != 0 && errno != EEXIST) return 0;
+    if (mkdir(APP_DIR, 0777) != 0 && errno != EEXIST)
+        return 0;
     return chdir(APP_DIR) == 0;
 }
 
 static int HasGbaExtension(const char* name) {
     const size_t length = strlen(name);
-    if (length < 5) return 0;
+    if (length < 5)
+        return 0;
     const char* ext = name + length - 4;
-    return tolower((unsigned char)ext[0]) == '.' &&
-           tolower((unsigned char)ext[1]) == 'g' &&
-           tolower((unsigned char)ext[2]) == 'b' &&
-           tolower((unsigned char)ext[3]) == 'a';
+    return tolower((unsigned char)ext[0]) == '.' && tolower((unsigned char)ext[1]) == 'g' &&
+           tolower((unsigned char)ext[2]) == 'b' && tolower((unsigned char)ext[3]) == 'a';
 }
 
 static int RomIsSupported(const char* path) {
     char gameCode[4];
     FILE* file = fopen(path, "rb");
-    if (!file) return 0;
+    if (!file)
+        return 0;
     int ok = fseek(file, 0xAC, SEEK_SET) == 0 && fread(gameCode, 1, sizeof(gameCode), file) == sizeof(gameCode) &&
              (memcmp(gameCode, "BZME", sizeof(gameCode)) == 0 || memcmp(gameCode, "BZMP", sizeof(gameCode)) == 0);
     fclose(file);
@@ -48,18 +49,23 @@ static int RomIsSupported(const char* path) {
 
 static int FindRom(char* out, size_t outSize) {
     DIR* dir = opendir(".");
-    if (!dir) return 0;
+    if (!dir)
+        return 0;
 
     int foundGba = 0;
     struct dirent* entry;
     while ((entry = readdir(dir)) != NULL) {
-        if (entry->d_name[0] == '.') continue;
-        if (!HasGbaExtension(entry->d_name)) continue;
+        if (entry->d_name[0] == '.')
+            continue;
+        if (!HasGbaExtension(entry->d_name))
+            continue;
 
         struct stat info;
-        if (stat(entry->d_name, &info) != 0 || !S_ISREG(info.st_mode)) continue;
+        if (stat(entry->d_name, &info) != 0 || !S_ISREG(info.st_mode))
+            continue;
         foundGba = 1;
-        if (!RomIsSupported(entry->d_name)) continue;
+        if (!RomIsSupported(entry->d_name))
+            continue;
         snprintf(out, outSize, "%s", entry->d_name);
         closedir(dir);
         return 1;
@@ -72,15 +78,15 @@ static int FindRom(char* out, size_t outSize) {
 int main(int argc, char** argv) {
     (void)argc;
     (void)argv;
-    if (!Platform3DS_Init()) return 1;
+    if (!Platform3DS_Init())
+        return 1;
     Platform3DS_ShowSplash();
 
     printf("The Minish Cap 3DS v" TMC_PORT_VERSION "\n\n");
     printf("agbplay: ipatix and contributors (LGPLv3).\nLicenses: romfs:/licenses/\n\n");
     printf("System: %s\n", Platform3DS_IsNew3DS() ? "New Nintendo 3DS" : "Nintendo 3DS");
     printf("Performance: %s\n",
-           Platform3DS_IsNew3DS() ? "New 3DS full presentation"
-                                  : "Old 3DS adaptive presentation skip (max 3)");
+           Platform3DS_IsNew3DS() ? "New 3DS full presentation" : "Old 3DS adaptive presentation skip (max 3)");
     printf("PPU worker core 1: %u%%\n", Platform3DS_Core1TimeLimit());
     printf("Extra New 3DS core: %s\n\n", Platform3DS_IsNew3DS() ? "enabled" : "unavailable");
     printf("Preparing storage...\n");

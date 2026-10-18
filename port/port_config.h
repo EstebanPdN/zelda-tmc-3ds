@@ -126,62 +126,62 @@ static inline u16 Port_RemapLogicalSpriteIndexForRegion(RomRegion region, u16 sp
 /* ---- Region-specific ROM symbol offsets ---- */
 typedef struct {
     /* Major data tables (absolute ROM offsets, i.e. GBA_addr - 0x08000000) */
-    u32 gfxAndPalettes;   /* gGlobalGfxAndPalettes */
-    u32 gfxGroups;        /* gGfxGroups pointer table */
-    u32 paletteGroups;    /* gPaletteGroups pointer table */
-    u32 objPalettes;      /* OBJ palette offset table */
-    u32 frameObjLists;    /* gFrameObjLists sprite frame data */
-    u32 extraFrameOffsets; /* gExtraFrameOffsets multipart-sprite positioning */
-    u32 fixedTypeGfx;     /* gFixedTypeGfxData */
-    u32 spritePtrs;       /* gSpritePtrs */
-    u32 collisionMatrix;  /* gCollisionMtx and adjacent collision settings */
+    u32 gfxAndPalettes;     /* gGlobalGfxAndPalettes */
+    u32 gfxGroups;          /* gGfxGroups pointer table */
+    u32 paletteGroups;      /* gPaletteGroups pointer table */
+    u32 objPalettes;        /* OBJ palette offset table */
+    u32 frameObjLists;      /* gFrameObjLists sprite frame data */
+    u32 extraFrameOffsets;  /* gExtraFrameOffsets multipart-sprite positioning */
+    u32 fixedTypeGfx;       /* gFixedTypeGfxData */
+    u32 spritePtrs;         /* gSpritePtrs */
+    u32 collisionMatrix;    /* gCollisionMtx and adjacent collision settings */
     u32 collisionShapePtrs; /* packed pointers to 16x16 pixel-level collision masks */
     u32 tileTypeProperties; /* gUnk_08000360: u16 traversal/layer flags by tile type */
-    u32 figurines;        /* gFigurines packed ROM table */
-    u32 fuserEnemyData;   /* GetFuserData enemy table */
-    u32 fuserNpcData;     /* GetFuserData NPC table */
-    u32 fusionTextPtrs;   /* gUnk_08001A7C: packed pointers to fusion text triples */
-    u32 fuserFusionPtrs;  /* gUnk_08001DCC: packed pointers to offered-fusion records */
-    u32 lakeHyliaEnemies; /* Lake Hylia default entity list */
-    u32 lakeHyliaCleared; /* Lake Hylia post-dungeon entity list */
-    u32 lilypadRails;     /* gLilypadRails pointer table */
-    u32 songTable;        /* gSongTable */
-    u32 translations;     /* gTranslations */
-    u32 text09230;        /* font/text pointer table 1 */
-    u32 text09244;        /* font/text raw data 1 */
-    u32 text09248;        /* font/text glyph table */
-    u32 text0926C;        /* font/text raw data 2 */
-    u32 text092AC;        /* font/text border glyphs */
-    u32 text092D4;        /* font/text raw data 3 */
-    u32 text0942E;        /* font/text raw data 4 */
-    u32 text094CE;        /* font/text raw data 5 */
-    u32 uiData;           /* UI misc data */
-    u32 fadeData;         /* brightness/fade tables */
-    u32 overlaySizeTable; /* OBJ size/clipping table */
-    u32 mapDataBase;      /* gAreaRoomMap_None — base of map/asset data section */
+    u32 figurines;          /* gFigurines packed ROM table */
+    u32 fuserEnemyData;     /* GetFuserData enemy table */
+    u32 fuserNpcData;       /* GetFuserData NPC table */
+    u32 fusionTextPtrs;     /* gUnk_08001A7C: packed pointers to fusion text triples */
+    u32 fuserFusionPtrs;    /* gUnk_08001DCC: packed pointers to offered-fusion records */
+    u32 lakeHyliaEnemies;   /* Lake Hylia default entity list */
+    u32 lakeHyliaCleared;   /* Lake Hylia post-dungeon entity list */
+    u32 lilypadRails;       /* gLilypadRails pointer table */
+    u32 songTable;          /* gSongTable */
+    u32 translations;       /* gTranslations */
+    u32 text09230;          /* font/text pointer table 1 */
+    u32 text09244;          /* font/text raw data 1 */
+    u32 text09248;          /* font/text glyph table */
+    u32 text0926C;          /* font/text raw data 2 */
+    u32 text092AC;          /* font/text border glyphs */
+    u32 text092D4;          /* font/text raw data 3 */
+    u32 text0942E;          /* font/text raw data 4 */
+    u32 text094CE;          /* font/text raw data 5 */
+    u32 uiData;             /* UI misc data */
+    u32 fadeData;           /* brightness/fade tables */
+    u32 overlaySizeTable;   /* OBJ size/clipping table */
+    u32 mapDataBase;        /* gAreaRoomMap_None — base of map/asset data section */
 
     /* Area data tables (pointer tables indexed by area ID) */
-    u32 areaRoomHeaders;   /* gAreaRoomHeaders — pointer table to RoomHeader arrays (0x90 entries) */
-    u32 areaTileSets;      /* gAreaTileSets — pointer table (ptr → ptr) (0x40 entries) */
-    u32 areaTileSetsCount; /* number of entries in gAreaTileSets (0x90 for both regions) */
-    u32 areaRoomMaps;      /* gAreaRoomMaps — pointer table (ptr → ptr) (0x90 entries) */
-    u32 areaTable;         /* gAreaTable — pointer table (ptr → ptr) (0x90 entries) */
-    u32 areaTiles;         /* gAreaTiles — pointer table (ptr) (0x90 entries) */
-    u32 exitLists;         /* gExitLists — pointer table (ptr → ptr) (0x90 entries) */
-    u32 bgAnimTable;       /* gUnk_080B755C — pointer table (ptr) */
-    u32 localFlagBanks;    /* gLocalFlagBanks — u16 array (raw data) */
+    u32 areaRoomHeaders;           /* gAreaRoomHeaders — pointer table to RoomHeader arrays (0x90 entries) */
+    u32 areaTileSets;              /* gAreaTileSets — pointer table (ptr → ptr) (0x40 entries) */
+    u32 areaTileSetsCount;         /* number of entries in gAreaTileSets (0x90 for both regions) */
+    u32 areaRoomMaps;              /* gAreaRoomMaps — pointer table (ptr → ptr) (0x90 entries) */
+    u32 areaTable;                 /* gAreaTable — pointer table (ptr → ptr) (0x90 entries) */
+    u32 areaTiles;                 /* gAreaTiles — pointer table (ptr) (0x90 entries) */
+    u32 exitLists;                 /* gExitLists — pointer table (ptr → ptr) (0x90 entries) */
+    u32 bgAnimTable;               /* gUnk_080B755C — pointer table (ptr) */
+    u32 localFlagBanks;            /* gLocalFlagBanks — u16 array (raw data) */
     u32 townspersonSpriteLoadPtrs; /* gUnk_0810B6EC — SpriteLoadData* table (21 entries) for
                                     * Hyrule-Town NPCs. Region-relocated; a USA-pinned offset
                                     * yields all-NULL ptrs on JP/EU → NULL deref crash on town entry. */
-    u32 guardPatrolData;    /* gUnk_0810F6BC — packed pointers for non-scripted guard behavior */
-    u32 innWestEntities;    /* gUnk_080D6A74 — packed room-entity-list pointers */
-    u32 innMiddleEntities;  /* gUnk_080D6B18 — packed room-entity-list pointers */
-    u32 innEastEntities;    /* gUnk_080D6BB8 — packed room-entity-list pointers */
-    u32 simonEntityLists;   /* gUnk_080F0CB8 — packed simulation entity-list pointers */
-    u32 simonEnemyPatterns; /* gUnk_080F0D58 — packed simulation pattern pointers */
-    u32 simonChestPatterns; /* gUnk_080F0E08 — packed simulation chest-pattern pointers */
-    u32 gustJarAnimTable;   /* gUnk_08132714 — packed animation-data pointers */
-    u32 gustJarHitbox;      /* gUnk_08132B28 — Hitbox */
+    u32 guardPatrolData;           /* gUnk_0810F6BC — packed pointers for non-scripted guard behavior */
+    u32 innWestEntities;           /* gUnk_080D6A74 — packed room-entity-list pointers */
+    u32 innMiddleEntities;         /* gUnk_080D6B18 — packed room-entity-list pointers */
+    u32 innEastEntities;           /* gUnk_080D6BB8 — packed room-entity-list pointers */
+    u32 simonEntityLists;          /* gUnk_080F0CB8 — packed simulation entity-list pointers */
+    u32 simonEnemyPatterns;        /* gUnk_080F0D58 — packed simulation pattern pointers */
+    u32 simonChestPatterns;        /* gUnk_080F0E08 — packed simulation chest-pattern pointers */
+    u32 gustJarAnimTable;          /* gUnk_08132714 — packed animation-data pointers */
+    u32 gustJarHitbox;             /* gUnk_08132B28 — Hitbox */
 
     /* Region-specific table counts and payload sizes. */
     u32 gfxGroupsCount;

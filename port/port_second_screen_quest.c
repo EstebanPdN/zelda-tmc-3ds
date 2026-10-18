@@ -77,8 +77,7 @@
 /* src/common.c (appended accessors — ROM-const reads only), the same faces
  * the other second-screen art modules decode through. */
 extern const u8* Port_ResolveGfxGroupVram(u32 group, u32 vramAddr, u32* outAvail);
-extern const u8* Port_GetRawPaletteGroupEntryData(u32 group, u32 entryIdx, u32* outNumColors,
-                                                  u32* outDestPaletteNum);
+extern const u8* Port_GetRawPaletteGroupEntryData(u32 group, u32 entryIdx, u32* outNumColors, u32* outDestPaletteNum);
 extern const u8* Port_GetRawPaletteGroupBankData(u32 group, u32 destPaletteNum, u32* outNumColors);
 extern u32 Port_GetKinstonePieceTiles(u32 gfxOffset, u8* out, u32 outBytes);
 
@@ -129,16 +128,14 @@ typedef struct {
     u32 tilesLen;
 } ObjSource;
 
-static const ObjSource kQuestSource = { kQuestVramGroups, (int)sizeof(kQuestVramGroups), 0u, NULL,
-                                        0u };
+static const ObjSource kQuestSource = { kQuestVramGroups, (int)sizeof(kQuestVramGroups), 0u, NULL, 0u };
 
 /* Pause screen 8 (SWORD TECHNIQUES) and 7 (KINSTONE PIECES): gUnk_08128AD8
  * rows 6 and 5 — palette groups 205 / 204 over gfx groups 126 / 125, with
  * the shared chrome groups still underneath. */
 static const u8 kTechVramGroups[] = { 126u, 86u, 23u, 16u };
 static const u8 kKinstoneVramGroups[] = { 125u, 86u, 23u, 16u };
-static const ObjSource kTechSource = { kTechVramGroups, (int)sizeof(kTechVramGroups), 205u, NULL,
-                                       0u };
+static const ObjSource kTechSource = { kTechVramGroups, (int)sizeof(kTechVramGroups), 205u, NULL, 0u };
 
 #define SPRITE_PAUSE_MISC (REGION_IS_EU ? 0x1FAu : 0x1FBu)
 
@@ -277,8 +274,7 @@ static void ApplyPaletteGroup(u32 group, uint16_t* bgPal) {
 
 /* Paints the 32x20 BG2 tilemap into the layer. Color 0 stays transparent, so
  * the caller's backdrop shows through the slab's rounded outline. */
-static void DrawBgLayer(const u8* tilemap, u32 mapLen, const u8* tiles, u32 tilesLen,
-                        const uint16_t* bgPal) {
+static void DrawBgLayer(const u8* tilemap, u32 mapLen, const u8* tiles, u32 tilesLen, const uint16_t* bgPal) {
     u32 tileCount = tilesLen / 32u;
     int32_t x, y;
     for (y = 0; y < QUEST_H; y++) {
@@ -293,8 +289,10 @@ static void DrawBgLayer(const u8* tilemap, u32 mapLen, const u8* tiles, u32 tile
             if (tileId >= tileCount) {
                 continue;
             }
-            if (entry & 0x400u) inX = 7 - inX;
-            if (entry & 0x800u) inY = 7 - inY;
+            if (entry & 0x400u)
+                inX = 7 - inX;
+            if (entry & 0x800u)
+                inY = 7 - inY;
             packed = tiles[tileId * 32u + (u32)inY * 4u + ((u32)inX >> 1)];
             colorIndex = (inX & 1) ? (u8)(packed >> 4) : (u8)(packed & 0xFu);
             if (colorIndex == 0) {
@@ -323,8 +321,8 @@ static const uint16_t* ObjBank(const ObjSource* src, u32 bank) {
 /* One DrawDirect frame, tiles resolved out of the gfx groups the screen keeps
  * loaded. Piece format and attr2 math per RenderSpritePieces (port_draw.c);
  * pieces are drawn in reverse so the first (topmost OAM) wins overlaps. */
-static void DrawObjFrameFrom(const ObjSource* src, uint32_t* layer, int32_t canvasW, int32_t canvasH,
-                             u32 sprite, u32 frame, int32_t cmdX, int32_t cmdY, u32 oamExtra) {
+static void DrawObjFrameFrom(const ObjSource* src, uint32_t* layer, int32_t canvasW, int32_t canvasH, u32 sprite,
+                             u32 frame, int32_t cmdX, int32_t cmdY, u32 oamExtra) {
     const u8* frameData = (const u8*)sub_080AD8F0(sprite, frame);
     u32 count, baseTile = oamExtra & 0x3FFu, basePal = (oamExtra >> 12) & 0xFu;
     int32_t i;
@@ -383,8 +381,10 @@ static void DrawObjFrameFrom(const ObjSource* src, uint32_t* layer, int32_t canv
                         if (idx == 0) {
                             continue;
                         }
-                        if (hflip) dx = pw - 1 - dx;
-                        if (vflip) dy = ph - 1 - dy;
+                        if (hflip)
+                            dx = pw - 1 - dx;
+                        if (vflip)
+                            dy = ph - 1 - dy;
                         dx += cmdX + (int32_t)(int8_t)p[0];
                         dy += cmdY + (int32_t)(int8_t)p[1];
                         if (dx < 0 || dy < 0 || dx >= canvasW || dy >= canvasH) {
@@ -399,11 +399,10 @@ static void DrawObjFrameFrom(const ObjSource* src, uint32_t* layer, int32_t canv
 }
 
 /* The quest screen's own load state, which is what nearly every call wants. */
-static void DrawObjFrame(uint32_t* layer, int32_t canvasW, int32_t canvasH, u32 sprite, u32 frame,
-                         int32_t cmdX, int32_t cmdY, u32 oamExtra) {
+static void DrawObjFrame(uint32_t* layer, int32_t canvasW, int32_t canvasH, u32 sprite, u32 frame, int32_t cmdX,
+                         int32_t cmdY, u32 oamExtra) {
     DrawObjFrameFrom(&kQuestSource, layer, canvasW, canvasH, sprite, frame, cmdX, cmdY, oamExtra);
 }
-
 
 /* ---------------------------------------------------------------------- *
  * Panel layout                                                            *
@@ -438,10 +437,14 @@ static CellInk CellBounds(void) {
     for (y = 0; y < CELL_SRC; y++) {
         for (x = 0; x < CELL_SRC; x++) {
             if ((sCell[(size_t)y * CELL_SRC + (size_t)x] >> 24) != 0) {
-                if (x < minX) minX = x;
-                if (y < minY) minY = y;
-                if (x > maxX) maxX = x;
-                if (y > maxY) maxY = y;
+                if (x < minX)
+                    minX = x;
+                if (y < minY)
+                    minY = y;
+                if (x > maxX)
+                    maxX = x;
+                if (y > maxY)
+                    maxY = y;
             }
         }
     }
@@ -456,8 +459,7 @@ static CellInk CellBounds(void) {
  * the technique scroll) rendered to the scratch. */
 static CellInk RenderFrameCell(u32 frame) {
     memset(sCell, 0, sizeof(sCell));
-    DrawObjFrame(sCell, CELL_SRC, CELL_SRC, SPRITE_PAUSE_MISC, frame, CELL_ORIGIN, CELL_ORIGIN,
-                 SLOT_OAM_EXTRA);
+    DrawObjFrame(sCell, CELL_SRC, CELL_SRC, SPRITE_PAUSE_MISC, frame, CELL_ORIGIN, CELL_ORIGIN, SLOT_OAM_EXTRA);
     return CellBounds();
 }
 
@@ -469,15 +471,13 @@ static CellInk RenderFrameCell(u32 frame) {
  * with the art instead of sitting under it in panel text. */
 static CellInk RenderSkillCell(u32 frame, int32_t count) {
     memset(sCell, 0, sizeof(sCell));
-    DrawObjFrame(sCell, CELL_SRC, CELL_SRC, SPRITE_PAUSE_MISC, frame, CELL_ORIGIN, CELL_ORIGIN,
-                 SLOT_OAM_EXTRA);
+    DrawObjFrame(sCell, CELL_SRC, CELL_SRC, SPRITE_PAUSE_MISC, frame, CELL_ORIGIN, CELL_ORIGIN, SLOT_OAM_EXTRA);
     if (count >= 0) {
         /* Frame 1 of sprite 0 is a single digit tile and the digit chooses
          * its own tile: base tile N draws the glyph for N, which is why the
          * game passes the value straight through as the OAM tile base. */
-        DrawObjFrame(sCell, CELL_SRC, CELL_SRC, DIGIT_SPRITE, DIGIT_FRAME,
-                     CELL_ORIGIN + SKILL_DIGIT_DX, CELL_ORIGIN + SKILL_DIGIT_DY,
-                     DIGIT_OAM_EXTRA + (u32)(count % 10));
+        DrawObjFrame(sCell, CELL_SRC, CELL_SRC, DIGIT_SPRITE, DIGIT_FRAME, CELL_ORIGIN + SKILL_DIGIT_DX,
+                     CELL_ORIGIN + SKILL_DIGIT_DY, DIGIT_OAM_EXTRA + (u32)(count % 10));
     }
     return CellBounds();
 }
@@ -486,16 +486,16 @@ static CellInk RenderSkillCell(u32 frame, int32_t count) {
  * grid uses (bank 14, the bank sub_080A57F4 commands on this screen). */
 static CellInk RenderItemCell(u32 item) {
     memset(sCell, 0, sizeof(sCell));
-    Port_SecondScreenRender_DrawItemIconBank(sCell, CELL_SRC, CELL_SRC, CELL_SRC, CELL_ORIGIN,
-                                             CELL_ORIGIN, 1, (uint8_t)item, ITEM_CMD_PAL_BANK);
+    Port_SecondScreenRender_DrawItemIconBank(sCell, CELL_SRC, CELL_SRC, CELL_SRC, CELL_ORIGIN, CELL_ORIGIN, 1,
+                                             (uint8_t)item, ITEM_CMD_PAL_BANK);
     return CellBounds();
 }
 
 /* Blits whatever is in the scratch into a well, at the largest integer scale
  * that fits with a margin, centered. Integer only: every piece of this art is
  * one-pixel detail and a fractional step eats whole rows of it. */
-static void StampCell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, CellInk ink,
-                      int32_t cx, int32_t cy, int32_t cw, int32_t ch) {
+static void StampCell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, CellInk ink, int32_t cx, int32_t cy,
+                      int32_t cw, int32_t ch) {
     int32_t scale, drawW, drawH, ox, oy, x, y;
 
     if (ink.w <= 0 || ink.h <= 0 || cw <= 0 || ch <= 0) {
@@ -633,13 +633,11 @@ static QuestCell CollectionCell(int idx, const SecondScreenSnapshot* snap) {
 static QuestCell SectionCell(int section, int idx, const SecondScreenSnapshot* snap) {
     switch (section) {
         case 0:
-            return (snap->elements & (1u << idx)) ? CellItem((u32)ITEM_EARTH_ELEMENT + (u32)idx)
-                                                  : CellNone();
+            return (snap->elements & (1u << idx)) ? CellItem((u32)ITEM_EARTH_ELEMENT + (u32)idx) : CellNone();
         case 1:
             return snap->questItems[idx] != 0 ? CellItem(snap->questItems[idx]) : CellNone();
         case 2:
-            return (snap->passives & (1u << idx)) ? CellItem((u32)ITEM_GRIP_RING + (u32)idx)
-                                                  : CellNone();
+            return (snap->passives & (1u << idx)) ? CellItem((u32)ITEM_GRIP_RING + (u32)idx) : CellNone();
         default:
             return CollectionCell(idx, snap);
     }
@@ -666,7 +664,7 @@ static void FormatCount(char* dst, size_t cap, int32_t value) {
  * gives them (the elements' diamond, the collection's 2x2, the tray's row) but
  * mapped into a panel-sized box. */
 typedef struct {
-    int section;    /* which SectionCell family the slots belong to */
+    int section;       /* which SectionCell family the slots belong to */
     const u8 slots[4]; /* quest-screen slot ids, in section-index order */
     int count;
 } QuestGroup;
@@ -726,8 +724,9 @@ static int32_t LaneRanks(const int32_t* v, int n, int32_t* outLane, int32_t* out
  * diamond does not — the game spaces those four 24px apart across and only
  * 13px down, which is what makes it a diamond rather than a plus. */
 #define QCELL 8 /* sub-cell units: one full-size well is QCELL of them */
-#define DIAMOND_WELL 6 /* a diamond's wells, in those units — the game draws the
-                        * elements smaller than the collection's plates too */
+#define DIAMOND_WELL                                              \
+    6 /* a diamond's wells, in those units — the game draws the \
+       * elements smaller than the collection's plates too */
 typedef struct {
     int32_t cols, rows; /* lanes the cluster's slots fall into */
     int32_t col[4], row[4];
@@ -763,8 +762,10 @@ static void MeasureGroup(const QuestGroup* g, GroupShape* out) {
     out->well = solid ? QCELL : DIAMOND_WELL;
     out->stepX = solid ? QCELL : (pitchX * DIAMOND_WELL + base / 2) / base;
     out->stepY = solid ? QCELL : (pitchY * DIAMOND_WELL + base / 2) / base;
-    if (out->stepX < 2) out->stepX = 2;
-    if (out->stepY < 2) out->stepY = 2;
+    if (out->stepX < 2)
+        out->stepX = 2;
+    if (out->stepY < 2)
+        out->stepY = 2;
     out->quartW = out->well + (out->cols - 1) * out->stepX;
     out->quartH = out->well + (out->rows - 1) * out->stepY;
 }
@@ -772,9 +773,8 @@ static void MeasureGroup(const QuestGroup* g, GroupShape* out) {
 /* Draws a measured cluster with its top-left footprint corner at (bx, by).
  * `cell` is the one full-size well the whole screen is built from, so the
  * clusters read as one set of plates the way the items grid does. */
-static void DrawGroup(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                      const QuestGroup* g, const GroupShape* shape,
-                      const SecondScreenSnapshot* snap, int32_t bx, int32_t by, int32_t cell,
+static void DrawGroup(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, const QuestGroup* g,
+                      const GroupShape* shape, const SecondScreenSnapshot* snap, int32_t bx, int32_t by, int32_t cell,
                       int32_t scale, SecondScreenQuestHotspots* outHot) {
     int32_t well = shape->well * cell / QCELL;
     int32_t gap = well / 14;
@@ -814,23 +814,21 @@ static void DrawGroup(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stri
         } else {
             continue; /* empty well, as the real screen shows an uncollected entry */
         }
-        StampCell(pixels, bufW, bufH, stride, ink, cx + inset, cy + inset, side - 2 * inset,
-                  artH - 2 * inset);
+        StampCell(pixels, bufW, bufH, stride, ink, cx + inset, cy + inset, side - 2 * inset, artH - 2 * inset);
         if (content.count >= 0 && !content.skill) {
             char buf[8];
             int32_t tw;
             FormatCount(buf, sizeof(buf), content.count);
             tw = Port_SecondScreenTheme_TextWidth(buf, scale);
-            Port_SecondScreenTheme_DrawText(pixels, bufW, bufH, stride, cx + (side - tw) / 2,
-                                            cy + side - 14 * scale, scale, SS_TEXT_INK, buf);
+            Port_SecondScreenTheme_DrawText(pixels, bufW, bufH, stride, cx + (side - tw) / 2, cy + side - 14 * scale,
+                                            scale, SS_TEXT_INK, buf);
         }
     }
 }
 
-int Port_SecondScreenQuest_Draw(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                int32_t dstX, int32_t dstY, int32_t dstW, int32_t dstH,
-                                const SecondScreenSnapshot* snap, uint32_t tick,
-                                SecondScreenQuestHotspots* outHot) {
+int Port_SecondScreenQuest_Draw(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t dstX,
+                                int32_t dstY, int32_t dstW, int32_t dstH, const SecondScreenSnapshot* snap,
+                                uint32_t tick, SecondScreenQuestHotspots* outHot) {
     /* The screen's four clusters, each keeping the slot ids the game groups
      * them into: what Link has GATHERED (2x2), the ELEMENTS (their diamond),
      * what he CARRIES (the tray) and what he WEARS. Laid out the way the game
@@ -876,8 +874,7 @@ int Port_SecondScreenQuest_Draw(uint32_t* pixels, int32_t bufW, int32_t bufH, in
     }
     pad = 10 * scale;
 
-    Port_SecondScreenTheme_DrawBackdrop(pixels, bufW, bufH, stride, dstX, dstY, dstX + dstW,
-                                        dstY + dstH, scale);
+    Port_SecondScreenTheme_DrawBackdrop(pixels, bufW, bufH, stride, dstX, dstY, dstX + dstW, dstY + dstH, scale);
     Port_SecondScreenTheme_DrawPlate(pixels, bufW, bufH, stride, dstX, dstY, dstW, dstH, scale);
 
     /* Inside the plate's carved border. The wells are what the player reads,
@@ -908,8 +905,10 @@ int Port_SecondScreenQuest_Draw(uint32_t* pixels, int32_t bufW, int32_t bufH, in
         int32_t pairW = shape[0].quartW + BAND_GAP + shape[1].quartW;
 
         quartW = pairW;
-        if (shape[2].quartW > quartW) quartW = shape[2].quartW;
-        if (shape[3].quartW > quartW) quartW = shape[3].quartW;
+        if (shape[2].quartW > quartW)
+            quartW = shape[2].quartW;
+        if (shape[3].quartW > quartW)
+            quartW = shape[3].quartW;
         quartH = topH + BAND_GAP + shape[2].quartH + BAND_GAP + shape[3].quartH;
 
         cell = QCELL * innerW / quartW;
@@ -966,12 +965,11 @@ int Port_SecondScreenQuest_Draw(uint32_t* pixels, int32_t bufW, int32_t bufH, in
 /* Lays out a grid of `count` wells over the plate and hands each one back
  * to the caller to fill. Columns are chosen to keep the cells as square and
  * as large as the rect allows, which on this panel means 3 or 4 across. */
-typedef void (*ListCellFn)(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t idx,
-                           int32_t cx, int32_t cy, int32_t side, int32_t scale, const void* ctx);
+typedef void (*ListCellFn)(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t idx, int32_t cx,
+                           int32_t cy, int32_t side, int32_t scale, const void* ctx);
 
-static int DrawList(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t dstX,
-                    int32_t dstY, int32_t dstW, int32_t dstH, int32_t count, ListCellFn fill,
-                    const void* ctx) {
+static int DrawList(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t dstX, int32_t dstY,
+                    int32_t dstW, int32_t dstH, int32_t count, ListCellFn fill, const void* ctx) {
     int32_t scale, pad, innerX, innerY, innerW, innerH;
     int32_t cols, rows, cell, gap, gridW, gridH, ox, oy, i;
 
@@ -983,8 +981,7 @@ static int DrawList(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride
         scale = 1;
     }
     pad = 10 * scale;
-    Port_SecondScreenTheme_DrawBackdrop(pixels, bufW, bufH, stride, dstX, dstY, dstX + dstW,
-                                        dstY + dstH, scale);
+    Port_SecondScreenTheme_DrawBackdrop(pixels, bufW, bufH, stride, dstX, dstY, dstX + dstW, dstY + dstH, scale);
     Port_SecondScreenTheme_DrawPlate(pixels, bufW, bufH, stride, dstX, dstY, dstW, dstH, scale);
     innerX = dstX + 3 * pad / 2;
     innerY = dstY + 3 * pad / 2;
@@ -1041,9 +1038,8 @@ static int32_t KinstoneRowCount(const SecondScreenSnapshot* snap) {
 #define KINSTONE_PIECE_TILE_BYTES 512u
 #define KINSTONE_WORLD_EVENT_COUNT 119u
 
-static void KinstoneListCell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                             int32_t idx, int32_t cx, int32_t cy, int32_t side, int32_t scale,
-                             const void* ctx) {
+static void KinstoneListCell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t idx, int32_t cx,
+                             int32_t cy, int32_t side, int32_t scale, const void* ctx) {
     const SecondScreenSnapshot* snap = (const SecondScreenSnapshot*)ctx;
     const KinstoneWorldEvent* events = gKinstoneWorldEvents;
     /* One row's tiles at a time, same single-render-thread contract as the
@@ -1093,8 +1089,7 @@ static void KinstoneListCell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32
     ink.y = frameRect.y;
     ink.w = frameRect.w;
     ink.h = frameRect.h;
-    StampCell(pixels, bufW, bufH, stride, ink, cx + 2 * scale, cy + 2 * scale, artW - 4 * scale,
-              side - 4 * scale);
+    StampCell(pixels, bufW, bufH, stride, ink, cx + 2 * scale, cy + 2 * scale, artW - 4 * scale, side - 4 * scale);
 
     FormatCount(buf, sizeof(buf), (int32_t)snap->kinstoneAmounts[idx]);
     tw = Port_SecondScreenTheme_TextWidth(buf, scale);
@@ -1103,21 +1098,19 @@ static void KinstoneListCell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32
 }
 
 #ifdef PORT_SECOND_SCREEN_QUEST_TEST
-void Port_SecondScreenQuest_TestDrawKinstoneListCell(
-    uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t idx, int32_t cx,
-    int32_t cy, int32_t side, int32_t scale, const SecondScreenSnapshot* snap) {
+void Port_SecondScreenQuest_TestDrawKinstoneListCell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
+                                                     int32_t idx, int32_t cx, int32_t cy, int32_t side, int32_t scale,
+                                                     const SecondScreenSnapshot* snap) {
     KinstoneListCell(pixels, bufW, bufH, stride, idx, cx, cy, side, scale, snap);
 }
 #endif
 
-int Port_SecondScreenQuest_DrawKinstones(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                         int32_t dstX, int32_t dstY, int32_t dstW, int32_t dstH,
-                                         const SecondScreenSnapshot* snap) {
+int Port_SecondScreenQuest_DrawKinstones(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t dstX,
+                                         int32_t dstY, int32_t dstW, int32_t dstH, const SecondScreenSnapshot* snap) {
     if (pixels == NULL || snap == NULL || dstW <= 0 || dstH <= 0 || !Port_SecondScreenTheme_Ready()) {
         return 0;
     }
-    return DrawList(pixels, bufW, bufH, stride, dstX, dstY, dstW, dstH, KinstoneRowCount(snap),
-                    KinstoneListCell, snap);
+    return DrawList(pixels, bufW, bufH, stride, dstX, dstY, dstW, dstH, KinstoneRowCount(snap), KinstoneListCell, snap);
 }
 
 /* --- SWORD TECHNIQUES (pause screen 8) --- */
@@ -1127,9 +1120,8 @@ int Port_SecondScreenQuest_DrawKinstones(uint32_t* pixels, int32_t bufW, int32_t
 #define TECHNIQUE_SCROLL_FRAME 10u
 #define TECHNIQUE_OAM_EXTRA 0xC00u
 
-static void TechniqueListCell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                              int32_t idx, int32_t cx, int32_t cy, int32_t side, int32_t scale,
-                              const void* ctx) {
+static void TechniqueListCell(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t idx, int32_t cx,
+                              int32_t cy, int32_t side, int32_t scale, const void* ctx) {
     const SecondScreenSnapshot* snap = (const SecondScreenSnapshot*)ctx;
     CellInk ink;
 
@@ -1141,20 +1133,16 @@ static void TechniqueListCell(uint32_t* pixels, int32_t bufW, int32_t bufH, int3
     /* sub_080A617C's own row draw: one shared scroll frame, recoloured per
      * technique by the palette bank its table entry names. */
     memset(sCell, 0, sizeof(sCell));
-    DrawObjFrameFrom(&kTechSource, sCell, CELL_SRC, CELL_SRC, TECHNIQUE_SPRITE,
-                     TECHNIQUE_SCROLL_FRAME, CELL_ORIGIN, CELL_ORIGIN,
-                     ((u32)gUnk_08128D70[idx].unk1 << 12) | TECHNIQUE_OAM_EXTRA);
+    DrawObjFrameFrom(&kTechSource, sCell, CELL_SRC, CELL_SRC, TECHNIQUE_SPRITE, TECHNIQUE_SCROLL_FRAME, CELL_ORIGIN,
+                     CELL_ORIGIN, ((u32)gUnk_08128D70[idx].unk1 << 12) | TECHNIQUE_OAM_EXTRA);
     ink = CellBounds();
-    StampCell(pixels, bufW, bufH, stride, ink, cx + 3 * scale, cy + 3 * scale, side - 6 * scale,
-              side - 6 * scale);
+    StampCell(pixels, bufW, bufH, stride, ink, cx + 3 * scale, cy + 3 * scale, side - 6 * scale, side - 6 * scale);
 }
 
-int Port_SecondScreenQuest_DrawTechniques(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                          int32_t dstX, int32_t dstY, int32_t dstW, int32_t dstH,
-                                          const SecondScreenSnapshot* snap) {
+int Port_SecondScreenQuest_DrawTechniques(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t dstX,
+                                          int32_t dstY, int32_t dstW, int32_t dstH, const SecondScreenSnapshot* snap) {
     if (pixels == NULL || snap == NULL || dstW <= 0 || dstH <= 0 || !Port_SecondScreenTheme_Ready()) {
         return 0;
     }
-    return DrawList(pixels, bufW, bufH, stride, dstX, dstY, dstW, dstH, TECHNIQUE_COUNT,
-                    TechniqueListCell, snap);
+    return DrawList(pixels, bufW, bufH, stride, dstX, dstY, dstW, dstH, TECHNIQUE_COUNT, TechniqueListCell, snap);
 }

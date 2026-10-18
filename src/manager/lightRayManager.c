@@ -49,10 +49,8 @@ void LightRayManager_Main(LightRayManager* this) {
 
     if (super->action >= LIGHT_RAY_ACTION_COUNT) {
 #ifdef PC_PORT
-        fprintf(stderr,
-                "[LIGHT] invalid action=%u type=%u area=%u room=%u prop10=%p unk21=%u\n",
-                super->action, super->type, gRoomControls.area, gRoomControls.room, GetCurrentRoomProperty(super->type),
-                this->unk_21);
+        fprintf(stderr, "[LIGHT] invalid action=%u type=%u area=%u room=%u prop10=%p unk21=%u\n", super->action,
+                super->type, gRoomControls.area, gRoomControls.room, GetCurrentRoomProperty(super->type), this->unk_21);
 #endif
         super->action = 1;
         return;
@@ -61,8 +59,7 @@ void LightRayManager_Main(LightRayManager* this) {
     LightRayManager_Actions[super->action](this);
     if (this->unk_21 >= LIGHT_RAY_STATE_COUNT || this->unk_21 >= LIGHT_RAY_GFX_GROUP_COUNT) {
 #ifdef PC_PORT
-        fprintf(stderr,
-                "[LIGHT] invalid state after action action=%u unk21=%u type=%u area=%u room=%u prop10=%p\n",
+        fprintf(stderr, "[LIGHT] invalid state after action action=%u unk21=%u type=%u area=%u room=%u prop10=%p\n",
                 super->action, this->unk_21, super->type, gRoomControls.area, gRoomControls.room,
                 GetCurrentRoomProperty(super->type));
 #endif

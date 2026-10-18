@@ -155,13 +155,15 @@ typedef enum PathState {
 
 static PathState GetPathState(const char* path) {
     struct stat info;
-    if (stat(path, &info) == 0) return PATH_STATE_EXISTS;
+    if (stat(path, &info) == 0)
+        return PATH_STATE_EXISTS;
     return errno == ENOENT ? PATH_STATE_MISSING : PATH_STATE_ERROR;
 }
 
 static int FileHasExactSize(const char* path) {
     FILE* file = fopen(path, "rb");
-    if (!file) return 0;
+    if (!file)
+        return 0;
 
     u8 scratch[256];
     size_t total = 0;
@@ -169,7 +171,8 @@ static int FileHasExactSize(const char* path) {
         const size_t wanted = EEPROM_SIZE - total < sizeof(scratch) ? EEPROM_SIZE - total : sizeof(scratch);
         const size_t got = fread(scratch, 1, wanted, file);
         total += got;
-        if (got != wanted) break;
+        if (got != wanted)
+            break;
     }
     const int trailing = total == EEPROM_SIZE ? fgetc(file) : EOF;
     const int readOk = !ferror(file);
@@ -180,14 +183,17 @@ static int FileHasExactSize(const char* path) {
 static int BufferIsAll(const u8* data, size_t size, u8 value) {
     size_t i;
     for (i = 0; i < size; ++i) {
-        if (data[i] != value) return 0;
+        if (data[i] != value)
+            return 0;
     }
     return 1;
 }
 
 static int EepromSignatureKindAt(const u8* ramImage, u32 offset) {
-    if (memcmp(ramImage + offset, EEPROM_SIGNATURE_USA, 0x20) == 0) return 1;
-    if (memcmp(ramImage + offset, EEPROM_SIGNATURE_EU_JP, 0x20) == 0) return 2;
+    if (memcmp(ramImage + offset, EEPROM_SIGNATURE_USA, 0x20) == 0)
+        return 1;
+    if (memcmp(ramImage + offset, EEPROM_SIGNATURE_EU_JP, 0x20) == 0)
+        return 2;
     return 0;
 }
 
@@ -226,7 +232,8 @@ static int EepromStatusValidForData(const u8* ramImage, u32 statusOffset, u32 da
         if (status == (u32)'MCZ3' && checksum2 == (u16)(-checksum1)) {
             u16 expected = CalculateImageChecksum(statusBytes + 4, 4);
             expected = (u16)(expected + CalculateImageChecksum(ramImage + dataOffset, dataSize));
-            if (checksum1 == expected) return 1;
+            if (checksum1 == expected)
+                return 1;
         }
     }
     return 0;
@@ -240,21 +247,20 @@ static unsigned EepromValidRecordCount(const u8* ramImage) {
         u16 data1;
         u16 data2;
     } records[] = {
-        { 0x500, 0x30, 0x1030, 0x80, 0x1080 },
-        { 0x500, 0x40, 0x1040, 0x580, 0x1580 },
-        { 0x500, 0x50, 0x1050, 0xA80, 0x1A80 },
-        { 0x10, 0x20, 0x1020, 0x70, 0x1070 },
+        { 0x500, 0x30, 0x1030, 0x80, 0x1080 },  { 0x500, 0x40, 0x1040, 0x580, 0x1580 },
+        { 0x500, 0x50, 0x1050, 0xA80, 0x1A80 }, { 0x10, 0x20, 0x1020, 0x70, 0x1070 },
         { 0x20, 0x60, 0x1060, 0xF80, 0x1F80 },
     };
     size_t i;
     unsigned validCount = 0;
 
     for (i = 0; i < sizeof(records) / sizeof(records[0]); ++i) {
-        const int primaryValid = EepromStatusValidForData(ramImage, records[i].status1, records[i].data1,
-                                                          records[i].size);
-        const int backupValid = EepromStatusValidForData(ramImage, records[i].status2, records[i].data2,
-                                                         records[i].size);
-        if (primaryValid || backupValid) ++validCount;
+        const int primaryValid =
+            EepromStatusValidForData(ramImage, records[i].status1, records[i].data1, records[i].size);
+        const int backupValid =
+            EepromStatusValidForData(ramImage, records[i].status2, records[i].data2, records[i].size);
+        if (primaryValid || backupValid)
+            ++validCount;
     }
     return validCount;
 }
@@ -271,7 +277,8 @@ static EepromImageClass ClassifyRamEepromImage(const u8* ramImage, unsigned* val
     const int signature2 = EepromSignatureKindAt(ramImage, 0x1000);
     const int activeSignature = (REGION_IS_EU || REGION_IS_JP) ? 2 : 1;
 
-    if (validRecords != NULL) *validRecords = 0;
+    if (validRecords != NULL)
+        *validRecords = 0;
 
     if (BufferIsAll(ramImage, EEPROM_SIZE, 0xFF)) {
         return EEPROM_IMAGE_BLANK;
@@ -287,7 +294,8 @@ static EepromImageClass ClassifyRamEepromImage(const u8* ramImage, unsigned* val
          * signature, but accept a partial image when any record still has a
          * valid duplicated status/checksum. */
         const unsigned count = EepromValidRecordCount(ramImage);
-        if (validRecords != NULL) *validRecords = count;
+        if (validRecords != NULL)
+            *validRecords = count;
         return count != 0 ? EEPROM_IMAGE_ACTIVE_REGION : EEPROM_IMAGE_INVALID;
     }
     if (signature1 != 0 || signature2 != 0) {
@@ -299,7 +307,7 @@ static EepromImageClass ClassifyRamEepromImage(const u8* ramImage, unsigned* val
 /* Load exactly one raw 8 KiB file and select its byte order only when a known
  * signature (or an all-FF blank image) proves the interpretation. */
 static EepromImageClass ReadAndClassifyEepromFile(const char* path, u8* ramImage, int* legacyRamOrder,
-                                                   unsigned* validRecords) {
+                                                  unsigned* validRecords) {
     FILE* file = fopen(path, "rb");
     size_t got;
     int trailing;
@@ -308,8 +316,10 @@ static EepromImageClass ReadAndClassifyEepromFile(const char* path, u8* ramImage
     EepromImageClass rawClass;
     EepromImageClass diskClass;
 
-    if (validRecords != NULL) *validRecords = 0;
-    if (file == NULL) return EEPROM_IMAGE_INVALID;
+    if (validRecords != NULL)
+        *validRecords = 0;
+    if (file == NULL)
+        return EEPROM_IMAGE_INVALID;
     got = fread(ramImage, 1, EEPROM_SIZE, file);
     trailing = got == EEPROM_SIZE ? fgetc(file) : EOF;
     readOk = !ferror(file);
@@ -320,18 +330,21 @@ static EepromImageClass ReadAndClassifyEepromFile(const char* path, u8* ramImage
 
     rawClass = ClassifyRamEepromImage(ramImage, validRecords);
     if (rawClass == EEPROM_IMAGE_ACTIVE_REGION || rawClass == EEPROM_IMAGE_OTHER_REGION) {
-        if (legacyRamOrder != NULL) *legacyRamOrder = 1;
+        if (legacyRamOrder != NULL)
+            *legacyRamOrder = 1;
         return rawClass;
     }
     if (rawClass == EEPROM_IMAGE_BLANK) {
-        if (legacyRamOrder != NULL) *legacyRamOrder = 0;
+        if (legacyRamOrder != NULL)
+            *legacyRamOrder = 0;
         return rawClass;
     }
 
     ReverseEepromBlocks(ramImage);
     diskClass = ClassifyRamEepromImage(ramImage, validRecords);
     if (diskClass != EEPROM_IMAGE_INVALID) {
-        if (legacyRamOrder != NULL) *legacyRamOrder = 0;
+        if (legacyRamOrder != NULL)
+            *legacyRamOrder = 0;
         return diskClass;
     }
 
@@ -353,21 +366,26 @@ static int FilesMatch(const char* leftPath, const char* rightPath) {
             break;
         }
         if (leftCount < sizeof(leftBytes)) {
-            if (ferror(left) || ferror(right)) ok = 0;
+            if (ferror(left) || ferror(right))
+                ok = 0;
             break;
         }
     }
-    if (left != NULL && fclose(left) != 0) ok = 0;
-    if (right != NULL && fclose(right) != 0) ok = 0;
+    if (left != NULL && fclose(left) != 0)
+        ok = 0;
+    if (right != NULL && fclose(right) != 0)
+        ok = 0;
     return ok;
 }
 
 static int BuildLegacyMarkerPath(const char* savePath, char* sidecar, size_t sidecarSize) {
     char* extension;
     int length;
-    if (savePath == NULL || sidecar == NULL || sidecarSize == 0) return 0;
+    if (savePath == NULL || sidecar == NULL || sidecarSize == 0)
+        return 0;
     length = snprintf(sidecar, sidecarSize, "%s", savePath);
-    if (length < 0 || (size_t)length >= sidecarSize) return 0;
+    if (length < 0 || (size_t)length >= sidecarSize)
+        return 0;
     extension = strrchr(sidecar, '.');
     if (extension != NULL) {
         length = snprintf(extension, sidecarSize - (size_t)(extension - sidecar), ".randomizer");
@@ -390,9 +408,10 @@ static int HasInactiveLegacyMetadata(const char* path) {
     size_t remaining = BODY_SIZE;
     FILE* file = fopen(path, "rb");
     int ok;
-    if (file == NULL) return 0;
-    ok = fread(header, 1, sizeof(header), file) == sizeof(header) &&
-         memcmp(header, "TMCRNDO1", 8) == 0 && ReadU32LE(header + 8) == 6 && ReadU32LE(header + 12) == 228;
+    if (file == NULL)
+        return 0;
+    ok = fread(header, 1, sizeof(header), file) == sizeof(header) && memcmp(header, "TMCRNDO1", 8) == 0 &&
+         ReadU32LE(header + 8) == 6 && ReadU32LE(header + 12) == 228;
     while (ok && remaining != 0) {
         size_t i;
         const size_t count = remaining < sizeof(bytes) ? remaining : sizeof(bytes);
@@ -408,8 +427,10 @@ static int HasInactiveLegacyMetadata(const char* path) {
         }
         remaining -= count;
     }
-    if (ok) ok = fgetc(file) == EOF && !ferror(file);
-    if (fclose(file) != 0) ok = 0;
+    if (ok)
+        ok = fgetc(file) == EOF && !ferror(file);
+    if (fclose(file) != 0)
+        ok = 0;
     return ok;
 }
 
@@ -417,11 +438,15 @@ static int HasInactiveLegacyMetadata(const char* path) {
 static int HasUnsupportedProfile(const char* path) {
     char marker[SAVE_AUX_PATH_MAX];
     size_t n;
-    if (path == NULL) return 1;
+    if (path == NULL)
+        return 1;
     n = strlen(path);
-    if (n >= 10 && strcmp(path + n - 10, "_rando.sav") == 0) return 1;
-    if (!BuildLegacyMarkerPath(path, marker, sizeof(marker))) return 1;
-    if (GetPathState(marker) == PATH_STATE_MISSING) return 0;
+    if (n >= 10 && strcmp(path + n - 10, "_rando.sav") == 0)
+        return 1;
+    if (!BuildLegacyMarkerPath(path, marker, sizeof(marker)))
+        return 1;
+    if (GetPathState(marker) == PATH_STATE_MISSING)
+        return 0;
     return !HasInactiveLegacyMetadata(marker);
 }
 
@@ -431,7 +456,6 @@ int Port_Save_IsStandardProfile(void) {
     return sStandardProfile;
 }
 
-
 /* Copy without ever replacing a destination. The source remains authoritative
  * throughout; an interrupted/failed copy can only leave a new partial file. */
 static int CopyFileDurableExclusive(const char* sourcePath, const char* destPath) {
@@ -440,9 +464,11 @@ static int CopyFileDurableExclusive(const char* sourcePath, const char* destPath
     u8 bytes[512];
     int ok = 1;
 
-    if (GetPathState(sourcePath) != PATH_STATE_EXISTS || GetPathState(destPath) != PATH_STATE_MISSING) return 0;
+    if (GetPathState(sourcePath) != PATH_STATE_EXISTS || GetPathState(destPath) != PATH_STATE_MISSING)
+        return 0;
     source = fopen(sourcePath, "rb");
-    if (source == NULL) return 0;
+    if (source == NULL)
+        return 0;
     dest = fopen(destPath, "wbx");
     if (dest == NULL) {
         fclose(source);
@@ -450,21 +476,29 @@ static int CopyFileDurableExclusive(const char* sourcePath, const char* destPath
     }
     while (ok) {
         const size_t count = fread(bytes, 1, sizeof(bytes), source);
-        if (count != 0 && fwrite(bytes, 1, count, dest) != count) ok = 0;
+        if (count != 0 && fwrite(bytes, 1, count, dest) != count)
+            ok = 0;
         if (count < sizeof(bytes)) {
-            if (ferror(source)) ok = 0;
+            if (ferror(source))
+                ok = 0;
             break;
         }
     }
-    if (ok && fflush(dest) != 0) ok = 0;
+    if (ok && fflush(dest) != 0)
+        ok = 0;
 #ifdef _WIN32
-    if (ok && _commit(_fileno(dest)) != 0) ok = 0;
+    if (ok && _commit(_fileno(dest)) != 0)
+        ok = 0;
 #else
-    if (ok && fsync(fileno(dest)) != 0) ok = 0;
+    if (ok && fsync(fileno(dest)) != 0)
+        ok = 0;
 #endif
-    if (fclose(source) != 0) ok = 0;
-    if (fclose(dest) != 0) ok = 0;
-    if (ok) ok = FilesMatch(sourcePath, destPath);
+    if (fclose(source) != 0)
+        ok = 0;
+    if (fclose(dest) != 0)
+        ok = 0;
+    if (ok)
+        ok = FilesMatch(sourcePath, destPath);
     if (!ok) {
         /* destPath was created exclusively by this call; source is untouched. */
         if (remove(destPath) != 0 && errno != ENOENT) {
@@ -478,31 +512,38 @@ static int BuildUniqueTransactionPath(const char* basePath, const char* tag, cha
                                       size_t transactionPathSize, int requireSaveAuxPaths) {
     unsigned sequence;
 
-    if (basePath == NULL || tag == NULL || transactionPath == NULL || transactionPathSize == 0) return 0;
+    if (basePath == NULL || tag == NULL || transactionPath == NULL || transactionPathSize == 0)
+        return 0;
     for (sequence = 0; sequence < 1000; ++sequence) {
         char temp[SAVE_AUX_PATH_MAX];
         char rollback[SAVE_AUX_PATH_MAX];
         const int length = snprintf(transactionPath, transactionPathSize, "%s.%s.%03u", basePath, tag, sequence);
         PathState transactionState;
-        if (length < 0 || (size_t)length >= transactionPathSize) return 0;
+        if (length < 0 || (size_t)length >= transactionPathSize)
+            return 0;
         transactionState = GetPathState(transactionPath);
-        if (transactionState == PATH_STATE_ERROR) return 0;
-        if (transactionState != PATH_STATE_MISSING) continue;
-        if (!requireSaveAuxPaths) return 1;
+        if (transactionState == PATH_STATE_ERROR)
+            return 0;
+        if (transactionState != PATH_STATE_MISSING)
+            continue;
+        if (!requireSaveAuxPaths)
+            return 1;
         if ((size_t)snprintf(temp, sizeof(temp), "%s.tmp", transactionPath) >= sizeof(temp) ||
             (size_t)snprintf(rollback, sizeof(rollback), "%s.rollback", transactionPath) >= sizeof(rollback)) {
             return 0;
         }
-        if (GetPathState(temp) == PATH_STATE_ERROR || GetPathState(rollback) == PATH_STATE_ERROR) return 0;
-        if (GetPathState(temp) == PATH_STATE_MISSING && GetPathState(rollback) == PATH_STATE_MISSING) return 1;
+        if (GetPathState(temp) == PATH_STATE_ERROR || GetPathState(rollback) == PATH_STATE_ERROR)
+            return 0;
+        if (GetPathState(temp) == PATH_STATE_MISSING && GetPathState(rollback) == PATH_STATE_MISSING)
+            return 1;
     }
     return 0;
 }
 
 static void RemoveCreatedFileOrLog(const char* path, const char* operation) {
     if (path != NULL && path[0] != '\0' && remove(path) != 0 && errno != ENOENT) {
-        fprintf(stderr, "[SAVE] %s rollback could not remove %s; the original profile remains intact.\n",
-                operation, path);
+        fprintf(stderr, "[SAVE] %s rollback could not remove %s; the original profile remains intact.\n", operation,
+                path);
     }
 }
 
@@ -524,19 +565,25 @@ static int PreserveFileUnique(const char* path, const char* tag) {
         return 0;
     }
 #endif
-    if (!FileHasExactSize(path)) return 0;
+    if (!FileHasExactSize(path))
+        return 0;
     for (sequence = 0; sequence < 1000; ++sequence) {
         int length = sequence == 0 ? snprintf(backup, sizeof(backup), "%s.%s.bak", path, tag)
                                    : snprintf(backup, sizeof(backup), "%s.%s.%03u.bak", path, tag, sequence);
-        if (length < 0 || (size_t)length >= sizeof(backup)) return 0;
+        if (length < 0 || (size_t)length >= sizeof(backup))
+            return 0;
         const PathState backupState = GetPathState(backup);
-        if (backupState == PATH_STATE_ERROR) return 0;
-        if (backupState == PATH_STATE_MISSING) break;
+        if (backupState == PATH_STATE_ERROR)
+            return 0;
+        if (backupState == PATH_STATE_MISSING)
+            break;
     }
-    if (sequence == 1000) return 0;
+    if (sequence == 1000)
+        return 0;
 
     source = fopen(path, "rb");
-    if (source == NULL) return 0;
+    if (source == NULL)
+        return 0;
     dest = fopen(backup, "wb");
     if (dest == NULL) {
         fclose(source);
@@ -544,21 +591,29 @@ static int PreserveFileUnique(const char* path, const char* tag) {
     }
     while (ok) {
         size_t count = fread(bytes, 1, sizeof(bytes), source);
-        if (count != 0 && fwrite(bytes, 1, count, dest) != count) ok = 0;
+        if (count != 0 && fwrite(bytes, 1, count, dest) != count)
+            ok = 0;
         if (count < sizeof(bytes)) {
-            if (ferror(source)) ok = 0;
+            if (ferror(source))
+                ok = 0;
             break;
         }
     }
-    if (ok && fflush(dest) != 0) ok = 0;
+    if (ok && fflush(dest) != 0)
+        ok = 0;
 #ifdef _WIN32
-    if (ok && _commit(_fileno(dest)) != 0) ok = 0;
+    if (ok && _commit(_fileno(dest)) != 0)
+        ok = 0;
 #else
-    if (ok && fsync(fileno(dest)) != 0) ok = 0;
+    if (ok && fsync(fileno(dest)) != 0)
+        ok = 0;
 #endif
-    if (fclose(source) != 0) ok = 0;
-    if (fclose(dest) != 0) ok = 0;
-    if (ok) ok = FilesMatch(path, backup);
+    if (fclose(source) != 0)
+        ok = 0;
+    if (fclose(dest) != 0)
+        ok = 0;
+    if (ok)
+        ok = FilesMatch(path, backup);
     if (!ok) {
         remove(backup);
         return 0;
@@ -573,18 +628,24 @@ static int MoveFileUniqueWithPath(const char* path, const char* tag, char* moved
 
     {
         const PathState sourceState = GetPathState(path);
-        if (sourceState == PATH_STATE_MISSING) return 1;
-        if (sourceState == PATH_STATE_ERROR) return 0;
+        if (sourceState == PATH_STATE_MISSING)
+            return 1;
+        if (sourceState == PATH_STATE_ERROR)
+            return 0;
     }
     for (sequence = 0; sequence < 1000; ++sequence) {
         int length = sequence == 0 ? snprintf(preserved, sizeof(preserved), "%s.%s.bak", path, tag)
                                    : snprintf(preserved, sizeof(preserved), "%s.%s.%03u.bak", path, tag, sequence);
-        if (length < 0 || (size_t)length >= sizeof(preserved)) return 0;
+        if (length < 0 || (size_t)length >= sizeof(preserved))
+            return 0;
         const PathState preservedState = GetPathState(preserved);
-        if (preservedState == PATH_STATE_ERROR) return 0;
-        if (preservedState == PATH_STATE_MISSING) break;
+        if (preservedState == PATH_STATE_ERROR)
+            return 0;
+        if (preservedState == PATH_STATE_MISSING)
+            break;
     }
-    if (sequence == 1000 || rename(path, preserved) != 0) return 0;
+    if (sequence == 1000 || rename(path, preserved) != 0)
+        return 0;
     if (movedPath != NULL && movedPathSize != 0) {
         snprintf(movedPath, movedPathSize, "%s", preserved);
     }
@@ -598,7 +659,8 @@ static int MoveFileUnique(const char* path, const char* tag) {
 
 static int FileMatchesDiskImage(const char* path) {
     FILE* file = fopen(path, "rb");
-    if (!file) return 0;
+    if (!file)
+        return 0;
 
     u8 scratch[256];
     size_t offset = 0;
@@ -611,8 +673,10 @@ static int FileMatchesDiskImage(const char* path) {
         }
         offset += wanted;
     }
-    if (ok && fgetc(file) != EOF) ok = 0;
-    if (fclose(file) != 0) ok = 0;
+    if (ok && fgetc(file) != EOF)
+        ok = 0;
+    if (fclose(file) != 0)
+        ok = 0;
     return ok;
 }
 
@@ -645,7 +709,8 @@ void Port_Save_TestFailNextProfileCommit(void) {
 }
 
 static int TestShouldFailProfileCommit(void) {
-    if (!sTestFailProfileCommit) return 0;
+    if (!sTestFailProfileCommit)
+        return 0;
     sTestFailProfileCommit = 0;
     errno = EIO;
     return 1;
@@ -675,7 +740,8 @@ static RecoveryResult RecoverInterruptedAtomicWrite(const char* path) {
     rollbackState = GetPathState(rollback);
     tempState = GetPathState(temp);
 
-    if (currentState == PATH_STATE_ERROR) return RECOVERY_BLOCKED;
+    if (currentState == PATH_STATE_ERROR)
+        return RECOVERY_BLOCKED;
     currentClass = ReadAndClassifyEepromFile(path, imageScratch, NULL, &currentQuality);
     /* A full active-region current file always wins. Stale candidates are
      * retained rather than deleted because the format has no generation. */
@@ -694,7 +760,8 @@ static RecoveryResult RecoverInterruptedAtomicWrite(const char* path) {
     const int tempValid = tempClass == EEPROM_IMAGE_ACTIVE_REGION;
     const char* candidate;
     if (currentClass == EEPROM_IMAGE_ACTIVE_REGION) {
-        if (!rollbackValid && !tempValid) return RECOVERY_OK;
+        if (!rollbackValid && !tempValid)
+            return RECOVERY_OK;
         fprintf(stderr,
                 "[SAVE] Recovery for %s has a partially valid current image and another save candidate; "
                 "preserving every file instead of guessing.\n",
@@ -727,7 +794,8 @@ static RecoveryResult RecoverInterruptedAtomicWrite(const char* path) {
         }
         /* A complete blank current file is a usable empty profile only when
          * no active recovery candidate exists. */
-        if (!rollbackValid && !tempValid && currentClass == EEPROM_IMAGE_BLANK) return RECOVERY_OK;
+        if (!rollbackValid && !tempValid && currentClass == EEPROM_IMAGE_BLANK)
+            return RECOVERY_OK;
         return (rollbackValid || tempValid) ? RECOVERY_BLOCKED : RECOVERY_NONE;
     } else {
         candidate = rollbackValid ? rollback : temp;
@@ -940,7 +1008,8 @@ static int WriteEepromAtomic(const char* path) {
         RecordSaveFailure(PORT_SAVE_STAGE_VERIFY_INSTALLED, verifyErrno);
         return 0;
     }
-    if (movedCurrent) remove(rollback);
+    if (movedCurrent)
+        remove(rollback);
 #else
     sSaveStats.lastStage = PORT_SAVE_STAGE_INSTALL_TEMP;
     if (rename(tmp, path) != 0) {
@@ -1117,88 +1186,119 @@ int Port_Save_EndTransaction(void) {
 }
 
 int Port_Save_PreserveBeforeMigration(void) {
-    if (!sEepromInited || sEepromWriteBlocked) return 0;
+    if (!sEepromInited || sEepromWriteBlocked)
+        return 0;
     return PreserveFileUnique(sActivePath, "pre-migration");
 }
 
 int Port_Save_PreserveBeforeFuserRepair(void) {
-    if (!sEepromInited || sEepromWriteBlocked) return 0;
-    if (strcmp(sFuserRepairPreservedPath, sActivePath) == 0) return 1;
+    if (!sEepromInited || sEepromWriteBlocked)
+        return 0;
+    if (strcmp(sFuserRepairPreservedPath, sActivePath) == 0)
+        return 1;
     /* A repair can be requested while EEPROM writes are still pending after
      * an I/O failure. Back up the latest in-memory raw image, never the older
      * file which merely happened to be durable before that failure. Never
      * flush through the middle of a game save transaction. */
-    if (sSaveTxnDepth != 0) return 0;
+    if (sSaveTxnDepth != 0)
+        return 0;
     if (sEepromDirty) {
         FlushEepromFile();
-        if (sEepromDirty) return 0;
+        if (sEepromDirty)
+            return 0;
     }
-    if (!PreserveFileUnique(sActivePath, "pre-fuser-repair")) return 0;
+    if (!PreserveFileUnique(sActivePath, "pre-fuser-repair"))
+        return 0;
     snprintf(sFuserRepairPreservedPath, sizeof(sFuserRepairPreservedPath), "%s", sActivePath);
     return 1;
 }
 
 int Port_Save_PreserveBeforeSmithBottleFlagRepair(void) {
-    if (!sEepromInited || sEepromWriteBlocked) return 0;
-    if (strcmp(sSmithBottleFlagRepairPreservedPath, sActivePath) == 0) return 1;
-    if (sSaveTxnDepth != 0) return 0;
+    if (!sEepromInited || sEepromWriteBlocked)
+        return 0;
+    if (strcmp(sSmithBottleFlagRepairPreservedPath, sActivePath) == 0)
+        return 1;
+    if (sSaveTxnDepth != 0)
+        return 0;
     if (sEepromDirty) {
         FlushEepromFile();
-        if (sEepromDirty) return 0;
+        if (sEepromDirty)
+            return 0;
     }
-    if (!PreserveFileUnique(sActivePath, "pre-smith-bottle-flag-repair")) return 0;
+    if (!PreserveFileUnique(sActivePath, "pre-smith-bottle-flag-repair"))
+        return 0;
     snprintf(sSmithBottleFlagRepairPreservedPath, sizeof(sSmithBottleFlagRepairPreservedPath), "%s", sActivePath);
     return 1;
 }
 
 int Port_Save_PreserveBeforeCloudTopsRepair(void) {
-    if (!sEepromInited || sEepromWriteBlocked) return 0;
-    if (strcmp(sCloudTopsRepairPreservedPath, sActivePath) == 0) return 1;
-    if (sSaveTxnDepth != 0) return 0;
+    if (!sEepromInited || sEepromWriteBlocked)
+        return 0;
+    if (strcmp(sCloudTopsRepairPreservedPath, sActivePath) == 0)
+        return 1;
+    if (sSaveTxnDepth != 0)
+        return 0;
     if (sEepromDirty) {
         FlushEepromFile();
-        if (sEepromDirty) return 0;
+        if (sEepromDirty)
+            return 0;
     }
-    if (!PreserveFileUnique(sActivePath, "pre-cloud-tops-repair")) return 0;
+    if (!PreserveFileUnique(sActivePath, "pre-cloud-tops-repair"))
+        return 0;
     snprintf(sCloudTopsRepairPreservedPath, sizeof(sCloudTopsRepairPreservedPath), "%s", sActivePath);
     return 1;
 }
 
 int Port_Save_PreserveBeforeGoronBottleRepair(void) {
-    if (!sEepromInited || sEepromWriteBlocked) return 0;
-    if (strcmp(sGoronBottleRepairPreservedPath, sActivePath) == 0) return 1;
-    if (sSaveTxnDepth != 0) return 0;
+    if (!sEepromInited || sEepromWriteBlocked)
+        return 0;
+    if (strcmp(sGoronBottleRepairPreservedPath, sActivePath) == 0)
+        return 1;
+    if (sSaveTxnDepth != 0)
+        return 0;
     if (sEepromDirty) {
         FlushEepromFile();
-        if (sEepromDirty) return 0;
+        if (sEepromDirty)
+            return 0;
     }
-    if (!PreserveFileUnique(sActivePath, "pre-goron-bottle-repair")) return 0;
+    if (!PreserveFileUnique(sActivePath, "pre-goron-bottle-repair"))
+        return 0;
     snprintf(sGoronBottleRepairPreservedPath, sizeof(sGoronBottleRepairPreservedPath), "%s", sActivePath);
     return 1;
 }
 
 int Port_Save_PreserveBeforeBombInventoryRepair(void) {
-    if (!sEepromInited || sEepromWriteBlocked) return 0;
-    if (strcmp(sBombInventoryRepairPreservedPath, sActivePath) == 0) return 1;
-    if (sSaveTxnDepth != 0) return 0;
+    if (!sEepromInited || sEepromWriteBlocked)
+        return 0;
+    if (strcmp(sBombInventoryRepairPreservedPath, sActivePath) == 0)
+        return 1;
+    if (sSaveTxnDepth != 0)
+        return 0;
     if (sEepromDirty) {
         FlushEepromFile();
-        if (sEepromDirty) return 0;
+        if (sEepromDirty)
+            return 0;
     }
-    if (!PreserveFileUnique(sActivePath, "pre-bomb-inventory-repair")) return 0;
+    if (!PreserveFileUnique(sActivePath, "pre-bomb-inventory-repair"))
+        return 0;
     snprintf(sBombInventoryRepairPreservedPath, sizeof(sBombInventoryRepairPreservedPath), "%s", sActivePath);
     return 1;
 }
 
 int Port_Save_PreserveBeforeVaatiProgressRepair(void) {
-    if (!sEepromInited || sEepromWriteBlocked) return 0;
-    if (strcmp(sVaatiProgressRepairPreservedPath, sActivePath) == 0) return 1;
-    if (sSaveTxnDepth != 0) return 0;
+    if (!sEepromInited || sEepromWriteBlocked)
+        return 0;
+    if (strcmp(sVaatiProgressRepairPreservedPath, sActivePath) == 0)
+        return 1;
+    if (sSaveTxnDepth != 0)
+        return 0;
     if (sEepromDirty) {
         FlushEepromFile();
-        if (sEepromDirty) return 0;
+        if (sEepromDirty)
+            return 0;
     }
-    if (!PreserveFileUnique(sActivePath, "pre-vaati-progress-repair")) return 0;
+    if (!PreserveFileUnique(sActivePath, "pre-vaati-progress-repair"))
+        return 0;
     snprintf(sVaatiProgressRepairPreservedPath, sizeof(sVaatiProgressRepairPreservedPath), "%s", sActivePath);
     return 1;
 }
@@ -1219,10 +1319,13 @@ static int ReadRepairBackupSlot(const char* tag, uint32_t slot, void* data, size
     const u8* source;
     int written;
 
-    if (slot >= sizeof(records) / sizeof(records[0]) || data == NULL || size != 0x500) return 0;
+    if (slot >= sizeof(records) / sizeof(records[0]) || data == NULL || size != 0x500)
+        return 0;
     written = snprintf(backupPath, sizeof(backupPath), "%s.%s.bak", sActivePath, tag);
-    if (written < 0 || (size_t)written >= sizeof(backupPath)) return 0;
-    if (ReadAndClassifyEepromFile(backupPath, image, NULL, NULL) != EEPROM_IMAGE_ACTIVE_REGION) return 0;
+    if (written < 0 || (size_t)written >= sizeof(backupPath))
+        return 0;
+    if (ReadAndClassifyEepromFile(backupPath, image, NULL, NULL) != EEPROM_IMAGE_ACTIVE_REGION)
+        return 0;
 
     if (EepromStatusValidForData(image, records[slot].status1, records[slot].data1, 0x500)) {
         source = image + records[slot].data1;
@@ -1244,7 +1347,8 @@ int Port_Save_ReadVaatiProgressBackupSlot(uint32_t slot, void* data, size_t size
 }
 
 void Port_Save_GetStats(PortSaveStats* stats) {
-    if (!stats) return;
+    if (!stats)
+        return;
     *stats = sSaveStats;
     stats->transactionDepth = sSaveTxnDepth;
     stats->initialized = sEepromInited != 0;
@@ -1254,20 +1358,34 @@ void Port_Save_GetStats(PortSaveStats* stats) {
 
 const char* Port_Save_StageName(PortSaveStage stage) {
     switch (stage) {
-        case PORT_SAVE_STAGE_IDLE: return "idle";
-        case PORT_SAVE_STAGE_RECOVER: return "recover";
-        case PORT_SAVE_STAGE_OPEN_TEMP: return "open temp";
-        case PORT_SAVE_STAGE_WRITE_TEMP: return "write temp";
-        case PORT_SAVE_STAGE_FLUSH_TEMP: return "flush temp";
-        case PORT_SAVE_STAGE_SYNC_TEMP: return "sync temp";
-        case PORT_SAVE_STAGE_CLOSE_TEMP: return "close temp";
-        case PORT_SAVE_STAGE_VERIFY_TEMP: return "verify temp";
-        case PORT_SAVE_STAGE_BACKUP_CURRENT: return "backup current";
-        case PORT_SAVE_STAGE_INSTALL_TEMP: return "install temp";
-        case PORT_SAVE_STAGE_VERIFY_INSTALLED: return "verify installed";
-        case PORT_SAVE_STAGE_RESTORE_BACKUP: return "restore backup";
-        case PORT_SAVE_STAGE_COMPLETE: return "complete";
-        default: return "unknown";
+        case PORT_SAVE_STAGE_IDLE:
+            return "idle";
+        case PORT_SAVE_STAGE_RECOVER:
+            return "recover";
+        case PORT_SAVE_STAGE_OPEN_TEMP:
+            return "open temp";
+        case PORT_SAVE_STAGE_WRITE_TEMP:
+            return "write temp";
+        case PORT_SAVE_STAGE_FLUSH_TEMP:
+            return "flush temp";
+        case PORT_SAVE_STAGE_SYNC_TEMP:
+            return "sync temp";
+        case PORT_SAVE_STAGE_CLOSE_TEMP:
+            return "close temp";
+        case PORT_SAVE_STAGE_VERIFY_TEMP:
+            return "verify temp";
+        case PORT_SAVE_STAGE_BACKUP_CURRENT:
+            return "backup current";
+        case PORT_SAVE_STAGE_INSTALL_TEMP:
+            return "install temp";
+        case PORT_SAVE_STAGE_VERIFY_INSTALLED:
+            return "verify installed";
+        case PORT_SAVE_STAGE_RESTORE_BACKUP:
+            return "restore backup";
+        case PORT_SAVE_STAGE_COMPLETE:
+            return "complete";
+        default:
+            return "unknown";
     }
 }
 
@@ -1370,8 +1488,7 @@ int Port_Save_SetActivePath(const char* path) {
     if (sEepromInited && sEepromDirty) {
         FlushEepromFile();
         if (sEepromDirty) {
-            fprintf(stderr,
-                    "[SAVE] Refusing profile switch while pending writes for %s are not durable.\n",
+            fprintf(stderr, "[SAVE] Refusing profile switch while pending writes for %s are not durable.\n",
                     sActivePath);
             return 0;
         }
@@ -1409,14 +1526,16 @@ const char* Port_Save_GetActivePath(void) {
  * captures right-now state. Returns 0 on failure. */
 int Port_Save_SaveAsProfile(const char* path) {
     char stagedSave[SAVE_AUX_PATH_MAX] = { 0 };
-    if (!IsManagedProfilePath(path) || strcmp(path, sActivePath) == 0 || sSaveTxnDepth != 0) return 0;
-    if (HasUnsupportedProfile(sActivePath) || HasUnsupportedProfile(path) ||
-        GetPathState(path) != PATH_STATE_MISSING) return 0;
+    if (!IsManagedProfilePath(path) || strcmp(path, sActivePath) == 0 || sSaveTxnDepth != 0)
+        return 0;
+    if (HasUnsupportedProfile(sActivePath) || HasUnsupportedProfile(path) || GetPathState(path) != PATH_STATE_MISSING)
+        return 0;
     if (!sEepromInited) {
         LoadEepromFile();
         sEepromInited = 1;
     }
-    if (sEepromWriteBlocked) return 0;
+    if (sEepromWriteBlocked)
+        return 0;
     if (!BuildUniqueTransactionPath(path, "save-as-stage", stagedSave, sizeof(stagedSave), 1) ||
         !WriteEepromAtomic(stagedSave)) {
         RemoveCreatedFileOrLog(stagedSave, "Save As");
@@ -1447,10 +1566,10 @@ int Port_Save_ListProfiles(char out[][SAVE_FILENAME_MAX], int max) {
         if (n >= max)
             break;
         const char* name = fd.cFileName;
-        if (HasUnsupportedProfile(name)) continue;
+        if (HasUnsupportedProfile(name))
+            continue;
         const size_t len = strlen(name);
-        if (len < SAVE_FILENAME_MAX &&
-            (strcmp(name, DEFAULT_SAVE_FILENAME) == 0 || strncmp(name, "tmc_", 4) == 0)) {
+        if (len < SAVE_FILENAME_MAX && (strcmp(name, DEFAULT_SAVE_FILENAME) == 0 || strncmp(name, "tmc_", 4) == 0)) {
             strncpy(out[n], name, SAVE_FILENAME_MAX - 1);
             out[n][SAVE_FILENAME_MAX - 1] = '\0';
             n++;
@@ -1466,7 +1585,8 @@ int Port_Save_ListProfiles(char out[][SAVE_FILENAME_MAX], int max) {
         if (n >= max)
             break;
         const char* name = ent->d_name;
-        if (HasUnsupportedProfile(name)) continue;
+        if (HasUnsupportedProfile(name))
+            continue;
         const size_t len = strlen(name);
         if (len < 4 || len >= SAVE_FILENAME_MAX)
             continue;
@@ -1519,9 +1639,11 @@ static int IsManagedProfilePath(const char* path) {
  * of ours. Returns 1 on success. */
 int Port_Save_DeleteProfile(const char* path) {
     char movedSave[SAVE_AUX_PATH_MAX] = { 0 };
-    if (!IsManagedProfilePath(path) || strcmp(path, sActivePath) == 0 || HasUnsupportedProfile(path)) return 0;
+    if (!IsManagedProfilePath(path) || strcmp(path, sActivePath) == 0 || HasUnsupportedProfile(path))
+        return 0;
     if (GetPathState(path) != PATH_STATE_EXISTS || TestShouldFailProfileCommit() ||
-        !MoveFileUniqueWithPath(path, "deleted-profile", movedSave, sizeof(movedSave))) return 0;
+        !MoveFileUniqueWithPath(path, "deleted-profile", movedSave, sizeof(movedSave)))
+        return 0;
     RemoveCreatedFileOrLog(movedSave, "Delete cleanup");
     return 1;
 }
@@ -1531,11 +1653,16 @@ int Port_Save_DeleteProfile(const char* path) {
  * for fresh installs). If renaming the active profile, also updates
  * sActivePath so subsequent reads/writes hit the new name. */
 int Port_Save_RenameProfile(const char* oldPath, const char* newPath) {
-    if (!IsManagedProfilePath(oldPath) || !IsManagedProfilePath(newPath) ||
-        HasUnsupportedProfile(oldPath) || HasUnsupportedProfile(newPath)) return 0;
-    if (strcmp(oldPath, DEFAULT_SAVE_FILENAME) == 0) return 0;
-    if (strcmp(oldPath, newPath) == 0) return 1;
-    if (strcmp(oldPath, sActivePath) == 0) return 0;
-    if (GetPathState(oldPath) != PATH_STATE_EXISTS || GetPathState(newPath) != PATH_STATE_MISSING) return 0;
+    if (!IsManagedProfilePath(oldPath) || !IsManagedProfilePath(newPath) || HasUnsupportedProfile(oldPath) ||
+        HasUnsupportedProfile(newPath))
+        return 0;
+    if (strcmp(oldPath, DEFAULT_SAVE_FILENAME) == 0)
+        return 0;
+    if (strcmp(oldPath, newPath) == 0)
+        return 1;
+    if (strcmp(oldPath, sActivePath) == 0)
+        return 0;
+    if (GetPathState(oldPath) != PATH_STATE_EXISTS || GetPathState(newPath) != PATH_STATE_MISSING)
+        return 0;
     return !TestShouldFailProfileCommit() && rename(oldPath, newPath) == 0;
 }

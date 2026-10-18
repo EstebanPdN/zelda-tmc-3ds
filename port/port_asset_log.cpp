@@ -23,32 +23,28 @@
 namespace PortAssetLog {
 namespace {
 
-constexpr std::chrono::milliseconds kRedrawInterval{60};
+constexpr std::chrono::milliseconds kRedrawInterval{ 60 };
 
 } // namespace
 
-Reporter& Reporter::Instance()
-{
+Reporter& Reporter::Instance() {
     static Reporter instance;
     return instance;
 }
 
 Reporter::Reporter() = default;
 
-void Reporter::SetVerbose(bool verbose)
-{
+void Reporter::SetVerbose(bool verbose) {
     verbose_.store(verbose, std::memory_order_relaxed);
 }
 
-void Reporter::SetProgressCallback(ProgressCallback cb)
-{
+void Reporter::SetProgressCallback(ProgressCallback cb) {
     std::lock_guard<std::mutex> lk(mutex_);
     progress_cb_ = std::move(cb);
     has_progress_cb_.store(static_cast<bool>(progress_cb_), std::memory_order_release);
 }
 
-void Reporter::FireProgressLocked()
-{
+void Reporter::FireProgressLocked() {
     if (!progress_cb_) {
         return;
     }
@@ -60,8 +56,7 @@ void Reporter::FireProgressLocked()
     progress_cb_(std::string_view(phase_), done, total_);
 }
 
-void Reporter::BeginPhase(std::string_view name, std::size_t total)
-{
+void Reporter::BeginPhase(std::string_view name, std::size_t total) {
     std::lock_guard<std::mutex> lk(mutex_);
     phase_ = std::string(name);
     total_ = total;
@@ -73,8 +68,7 @@ void Reporter::BeginPhase(std::string_view name, std::size_t total)
     FireProgressLocked();
 }
 
-void Reporter::Tick(std::size_t delta)
-{
+void Reporter::Tick(std::size_t delta) {
     if (delta == 0) {
         return;
     }
@@ -100,8 +94,7 @@ void Reporter::Tick(std::size_t delta)
     FireProgressLocked();
 }
 
-void Reporter::EndPhase()
-{
+void Reporter::EndPhase() {
     std::lock_guard<std::mutex> lk(mutex_);
     if (!phase_active_) {
         return;
@@ -118,29 +111,25 @@ void Reporter::EndPhase()
     phase_active_ = false;
 }
 
-void Reporter::Note(std::string_view msg)
-{
+void Reporter::Note(std::string_view msg) {
     std::lock_guard<std::mutex> lk(mutex_);
     std::fprintf(stdout, "  ..  %.*s\n", static_cast<int>(msg.size()), msg.data());
     std::fflush(stdout);
 }
 
-void Reporter::Warn(std::string_view msg)
-{
+void Reporter::Warn(std::string_view msg) {
     std::lock_guard<std::mutex> lk(mutex_);
     std::fprintf(stdout, " warn  %.*s\n", static_cast<int>(msg.size()), msg.data());
     std::fflush(stdout);
 }
 
-void Reporter::Error(std::string_view msg)
-{
+void Reporter::Error(std::string_view msg) {
     std::lock_guard<std::mutex> lk(mutex_);
     std::fprintf(stderr, " fail  %.*s\n", static_cast<int>(msg.size()), msg.data());
     std::fflush(stderr);
 }
 
-void Reporter::Finish(std::string_view msg)
-{
+void Reporter::Finish(std::string_view msg) {
     std::lock_guard<std::mutex> lk(mutex_);
     phase_active_ = false;
     if (!msg.empty()) {
@@ -154,8 +143,7 @@ std::mutex g_ensure_dir_mu;
 std::unordered_set<std::string> g_ensured_dirs;
 } // namespace
 
-void EnsureDir(const std::filesystem::path& dir)
-{
+void EnsureDir(const std::filesystem::path& dir) {
     if (dir.empty()) {
         return;
     }
@@ -174,57 +162,49 @@ void EnsureDir(const std::filesystem::path& dir)
     std::filesystem::create_directories(dir, ec);
 }
 
-void ResetEnsureDirCache()
-{
+void ResetEnsureDirCache() {
     std::lock_guard<std::mutex> lk(g_ensure_dir_mu);
     g_ensured_dirs.clear();
 }
 
-BackgroundWriter& BackgroundWriter::Instance()
-{
+BackgroundWriter& BackgroundWriter::Instance() {
     static BackgroundWriter instance;
     return instance;
 }
 
-BackgroundWriter::~BackgroundWriter()
-{
+BackgroundWriter::~BackgroundWriter() {
     Shutdown();
 }
 
-void BackgroundWriter::Submit(std::filesystem::path output_path, nlohmann::json json, int indent)
-{
+void BackgroundWriter::Submit(std::filesystem::path output_path, nlohmann::json json, int indent) {
     /* Each dump runs on its own std::async task so the caller can start
      * the next phase immediately. The future is retained (so the task
      * isn't blocked-on at Submit time); Wait() drains them all. */
-    auto fut = std::async(std::launch::async,
-        [path = std::move(output_path), json = std::move(json), indent]() {
-            EnsureDir(path.parent_path());
-            std::string serialized = indent > 0 ? json.dump(indent) : json.dump();
-            /* Fat buffer to coalesce multi-MB JSON into a handful of
-             * write() syscalls. */
-            static constexpr std::streamsize kBuf = 256 * 1024;
-            std::vector<char> file_buf(static_cast<std::size_t>(kBuf));
-            std::ofstream f;
-            f.rdbuf()->pubsetbuf(file_buf.data(), kBuf);
-            f.open(path, std::ios::binary);
-            if (!f) {
-                throw std::runtime_error(
-                    fmt::format("BackgroundWriter: failed to open {} for writing", path.string()));
-            }
-            f.write(serialized.data(), static_cast<std::streamsize>(serialized.size()));
-            f.flush();
-            if (!f) {
-                throw std::runtime_error(
-                    fmt::format("BackgroundWriter: failed to write {}", path.string()));
-            }
-        });
+    auto fut = std::async(std::launch::async, [path = std::move(output_path), json = std::move(json), indent]() {
+        EnsureDir(path.parent_path());
+        std::string serialized = indent > 0 ? json.dump(indent) : json.dump();
+        /* Fat buffer to coalesce multi-MB JSON into a handful of
+         * write() syscalls. */
+        static constexpr std::streamsize kBuf = 256 * 1024;
+        std::vector<char> file_buf(static_cast<std::size_t>(kBuf));
+        std::ofstream f;
+        f.rdbuf()->pubsetbuf(file_buf.data(), kBuf);
+        f.open(path, std::ios::binary);
+        if (!f) {
+            throw std::runtime_error(fmt::format("BackgroundWriter: failed to open {} for writing", path.string()));
+        }
+        f.write(serialized.data(), static_cast<std::streamsize>(serialized.size()));
+        f.flush();
+        if (!f) {
+            throw std::runtime_error(fmt::format("BackgroundWriter: failed to write {}", path.string()));
+        }
+    });
 
     std::lock_guard<std::mutex> lk(mutex_);
     futures_.push_back(std::move(fut));
 }
 
-void BackgroundWriter::Wait()
-{
+void BackgroundWriter::Wait() {
     std::vector<std::future<void>> pending;
     {
         std::lock_guard<std::mutex> lk(mutex_);
@@ -250,8 +230,7 @@ void BackgroundWriter::Wait()
     }
 }
 
-void BackgroundWriter::Shutdown()
-{
+void BackgroundWriter::Shutdown() {
     /* Drain any in-flight writes at process teardown; errors here are
      * swallowed since Wait() is where callers surface them. */
     std::vector<std::future<void>> pending;
@@ -271,8 +250,7 @@ void BackgroundWriter::Shutdown()
     }
 }
 
-std::size_t WorkerCount()
-{
+std::size_t WorkerCount() {
     static const std::size_t cached = []() {
         unsigned hw = std::thread::hardware_concurrency();
         if (hw == 0) {

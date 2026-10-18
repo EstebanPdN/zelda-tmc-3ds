@@ -115,13 +115,13 @@ void DiggingCaveEntranceManager_EnterEntrance(DiggingCaveEntranceManager* this, 
         gPlayerEntity.base.y.HALF.HI - gRoomControls.origin_y - ((entr->sourceTilePos & TILE_POS_Y_COMPONENT) >> 2);
 
     if (!REGION_IS_EU) {
-    isDiggingCave = gDiggingCaveEntranceTransition.isDiggingCave;
-    if (!isDiggingCave) {
-        if ((entr->targetRoom | 0x80) != gDiggingCaveEntranceTransition.targetRoom) {
-            gUnk_02034480.unk_00 = gDiggingCaveEntranceTransition.isDiggingCave;
+        isDiggingCave = gDiggingCaveEntranceTransition.isDiggingCave;
+        if (!isDiggingCave) {
+            if ((entr->targetRoom | 0x80) != gDiggingCaveEntranceTransition.targetRoom) {
+                gUnk_02034480.unk_00 = gDiggingCaveEntranceTransition.isDiggingCave;
+            }
+            gDiggingCaveEntranceTransition.targetRoom = entr->targetRoom | 0x80;
         }
-        gDiggingCaveEntranceTransition.targetRoom = entr->targetRoom | 0x80;
-    }
     }
 
     sub_08080930(entr->type);

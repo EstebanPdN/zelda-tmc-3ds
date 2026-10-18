@@ -214,7 +214,6 @@ static void Port_UpdateInput(void) {
     /* Post-warp safe-spawn nudge (issue #94). No-op except in the few
      * frames after a debug-menu warp completes. */
     { Port_DebugAction_WarpTick(); }
-
 }
 
 static void Port_PumpEvents(void) {
@@ -511,7 +510,7 @@ static u64 sProfMaxPresentNs = 0; /* worst single-frame present in the window */
 static u32 sProfFrames = 0;
 static u32 sProfPresents = 0;     /* decoupled pacing: presents != ticks */
 static u64 sProfWindowExitNs = 0; /* decoupled pacing: game-time stamp */
-u64 gPortProfileRenderNs = 0; /* updated from port_ppu.cpp */
+u64 gPortProfileRenderNs = 0;     /* updated from port_ppu.cpp */
 
 /* --- Decoupled tick/render pacing state ---
  * Game-logic ticks run on a fixed deadline grid (Port_Config_TickTimeNs:
@@ -525,7 +524,7 @@ static u64 sPresentCostEmaNs = 2000000; /* rolling present cost, seeds 2 ms */
 /* Tick windows left in conservative (EMA fit-check) presenting after a tick
  * closed late under eager-VSync presenting; 0 = eager. See decoupled loop. */
 static u32 sVsyncOverloadHold = 0;
-static u32 sPresentsThisSec = 0;        /* presents in the 1 s FPS-title window */
+static u32 sPresentsThisSec = 0; /* presents in the 1 s FPS-title window */
 
 /* Live rates for the on-screen FPS counter (port_imgui_menu.cpp externs
  * these). Refreshed once per second alongside the window title. */
@@ -558,9 +557,9 @@ static void Port_TestInputTick(u32 tick) {
                 const char* name;
                 PortInput input;
             } kMap[] = {
-                { "a", PORT_INPUT_A },         { "b", PORT_INPUT_B },       { "select", PORT_INPUT_SELECT },
+                { "a", PORT_INPUT_A },         { "b", PORT_INPUT_B },         { "select", PORT_INPUT_SELECT },
                 { "start", PORT_INPUT_START }, { "right", PORT_INPUT_RIGHT }, { "left", PORT_INPUT_LEFT },
-                { "up", PORT_INPUT_UP },       { "down", PORT_INPUT_DOWN }, { "r", PORT_INPUT_R },
+                { "up", PORT_INPUT_UP },       { "down", PORT_INPUT_DOWN },   { "r", PORT_INPUT_R },
                 { "l", PORT_INPUT_L },
             };
             char buf[512];
@@ -939,8 +938,7 @@ void VBlankIntrWait(void) {
                      * grid absorbs (lastFrameNs advances by deadline, not by
                      * when we break out). VSync itself paces us — EXCEPT
                      * while the overload hold (set above) is draining. */
-                    if ((Port_PPU_VSyncEnabled() && sVsyncOverloadHold == 0) ||
-                        now + sPresentCostEmaNs <= deadline ||
+                    if ((Port_PPU_VSyncEnabled() && sVsyncOverloadHold == 0) || now + sPresentCostEmaNs <= deadline ||
                         now - sLastPresentEndNs > 100000000ULL) {
                         Port_PresentOnce(firstOfTick);
                         firstOfTick = false;

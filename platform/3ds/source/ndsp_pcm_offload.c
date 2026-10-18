@@ -28,7 +28,7 @@ bool Platform3DS_CleanDataCache(const void* addr, size_t size);
  * and the console played static. A voice cannot be handed back mid-note without
  * restarting it, so the check happens once at claim time and the voice stays in
  * software if it fails. */
-#define PCM_MAX_RATE 32728.0f  /* NDSP output rate; see the PSG noise fault */
+#define PCM_MAX_RATE 32728.0f /* NDSP output rate; see the PSG noise fault */
 
 #define PCM_CACHE_ENTRIES 24
 #define PCM_CACHE_BUDGET (512u * 1024u)
@@ -72,14 +72,25 @@ static unsigned long long sVoicesDeclined;
  * 'no channel free' from 'not implemented'. */
 static unsigned long long sVoicesUnsupported;
 
-bool NdspPcm_Available(void) { return sReady; }
-unsigned long long NdspPcm_VoicesOffloaded(void) { return sVoicesOffloaded; }
-unsigned long long NdspPcm_VoicesDeclined(void) { return sVoicesDeclined; }
-unsigned long long NdspPcm_VoicesUnsupported(void) { return sVoicesUnsupported; }
-void NdspPcm_NoteUnsupported(void) { ++sVoicesUnsupported; }
+bool NdspPcm_Available(void) {
+    return sReady;
+}
+unsigned long long NdspPcm_VoicesOffloaded(void) {
+    return sVoicesOffloaded;
+}
+unsigned long long NdspPcm_VoicesDeclined(void) {
+    return sVoicesDeclined;
+}
+unsigned long long NdspPcm_VoicesUnsupported(void) {
+    return sVoicesUnsupported;
+}
+void NdspPcm_NoteUnsupported(void) {
+    ++sVoicesUnsupported;
+}
 
 void NdspPcm_Init(void) {
-    if (sReady || !Port_Config_AudioDspPcm()) return;
+    if (sReady || !Port_Config_AudioDspPcm())
+        return;
     memset(sCache, 0, sizeof(sCache));
     memset(sSlots, 0, sizeof(sSlots));
     sCacheBytes = 0;
@@ -88,11 +99,13 @@ void NdspPcm_Init(void) {
 }
 
 static void ReleaseEntry(PcmCacheEntry* entry) {
-    if (entry && entry->refs) --entry->refs;
+    if (entry && entry->refs)
+        --entry->refs;
 }
 
 static void FreeEntry(PcmCacheEntry* entry) {
-    if (!entry->linear) return;
+    if (!entry->linear)
+        return;
     linearFree(entry->linear);
     sCacheBytes -= entry->bytes;
     memset(entry, 0, sizeof(*entry));
@@ -106,7 +119,8 @@ void NdspPcm_Shutdown(void) {
         }
         memset(&sSlots[i], 0, sizeof(sSlots[i]));
     }
-    for (int i = 0; i < PCM_CACHE_ENTRIES; ++i) FreeEntry(&sCache[i]);
+    for (int i = 0; i < PCM_CACHE_ENTRIES; ++i)
+        FreeEntry(&sCache[i]);
     sReady = false;
 }
 
@@ -115,43 +129,57 @@ void NdspPcm_SetMasterLevel(float level) {
 }
 
 void NdspPcm_SetPaused(bool paused) {
-    if (!sReady) return;
+    if (!sReady)
+        return;
     for (int i = 0; i < PCM_CHANNEL_COUNT; ++i) {
-        if (sSlots[i].busy) ndspChnSetPaused(PCM_FIRST_CHANNEL + i, paused);
+        if (sSlots[i].busy)
+            ndspChnSetPaused(PCM_FIRST_CHANNEL + i, paused);
     }
 }
 
 static PcmCacheEntry* AcquireSample(const int8_t* source, uint32_t bytes) {
-    if (!source || bytes == 0) return NULL;
+    if (!source || bytes == 0)
+        return NULL;
     for (int i = 0; i < PCM_CACHE_ENTRIES; ++i) {
-        if (sCache[i].linear && sCache[i].source == source &&
-            sCache[i].bytes == bytes) {
+        if (sCache[i].linear && sCache[i].source == source && sCache[i].bytes == bytes) {
             ++sCache[i].refs;
             sCache[i].lastUse = ++sUseClock;
             return &sCache[i];
         }
     }
-    if (bytes > PCM_CACHE_BUDGET) return NULL;
+    if (bytes > PCM_CACHE_BUDGET)
+        return NULL;
 
     PcmCacheEntry* slot = NULL;
     for (int i = 0; i < PCM_CACHE_ENTRIES; ++i) {
-        if (!sCache[i].linear) { slot = &sCache[i]; break; }
+        if (!sCache[i].linear) {
+            slot = &sCache[i];
+            break;
+        }
     }
     /* Evict least-recently-used unreferenced entries until it fits. */
     while ((!slot || sCacheBytes + bytes > PCM_CACHE_BUDGET)) {
         PcmCacheEntry* victim = NULL;
         for (int i = 0; i < PCM_CACHE_ENTRIES; ++i) {
-            if (!sCache[i].linear || sCache[i].refs) continue;
-            if (!victim || sCache[i].lastUse < victim->lastUse) victim = &sCache[i];
+            if (!sCache[i].linear || sCache[i].refs)
+                continue;
+            if (!victim || sCache[i].lastUse < victim->lastUse)
+                victim = &sCache[i];
         }
-        if (!victim) return NULL;
+        if (!victim)
+            return NULL;
         FreeEntry(victim);
-        if (!slot) slot = victim;
+        if (!slot)
+            slot = victim;
     }
-    if (!slot) return NULL;
+    if (!slot)
+        return NULL;
 
     slot->linear = (int8_t*)linearAlloc(bytes);
-    if (!slot->linear) { memset(slot, 0, sizeof(*slot)); return NULL; }
+    if (!slot->linear) {
+        memset(slot, 0, sizeof(*slot));
+        return NULL;
+    }
     memcpy(slot->linear, source, bytes);
     /* Direct SVC rather than DSP_FlushDataCache's sysmodule round trip; this
      * runs on every newly claimed sample, i.e. constantly during music. */
@@ -169,35 +197,53 @@ static void ApplyMix(int chn, float leftVol, float rightVol) {
     memset(mix, 0, sizeof(mix));
     leftVol *= sMasterLevel;
     rightVol *= sMasterLevel;
-    if (leftVol < 0.0f) leftVol = 0.0f;
-    if (rightVol < 0.0f) rightVol = 0.0f;
-    if (leftVol > 1.0f) leftVol = 1.0f;
-    if (rightVol > 1.0f) rightVol = 1.0f;
+    if (leftVol < 0.0f)
+        leftVol = 0.0f;
+    if (rightVol < 0.0f)
+        rightVol = 0.0f;
+    if (leftVol > 1.0f)
+        leftVol = 1.0f;
+    if (rightVol > 1.0f)
+        rightVol = 1.0f;
     mix[0] = leftVol;
     mix[1] = rightVol;
     ndspChnSetMix(chn, mix);
 }
 
-bool NdspPcm_Play(int* slot, const int8_t* samplePtr, uint32_t endPos,
-                  uint32_t loopPos, bool loopEnabled, uint32_t startPos,
-                  float rate, float leftVol, float rightVol, bool* finished) {
-    if (finished) *finished = false;
-    if (!slot || !NdspPcm_Available()) return false;
-    if (!samplePtr || endPos == 0 || rate <= 0.0f) return false;
+bool NdspPcm_Play(int* slot, const int8_t* samplePtr, uint32_t endPos, uint32_t loopPos, bool loopEnabled,
+                  uint32_t startPos, float rate, float leftVol, float rightVol, bool* finished) {
+    if (finished)
+        *finished = false;
+    if (!slot || !NdspPcm_Available())
+        return false;
+    if (!samplePtr || endPos == 0 || rate <= 0.0f)
+        return false;
 
     if (*slot < 0) {
-        if (startPos >= endPos) return false;
-        if (rate > PCM_MAX_RATE) return false;
-        if (loopEnabled && loopPos >= endPos) return false;
+        if (startPos >= endPos)
+            return false;
+        if (rate > PCM_MAX_RATE)
+            return false;
+        if (loopEnabled && loopPos >= endPos)
+            return false;
 
         int free = -1;
         for (int i = 0; i < PCM_CHANNEL_COUNT; ++i) {
-            if (!sSlots[i].busy) { free = i; break; }
+            if (!sSlots[i].busy) {
+                free = i;
+                break;
+            }
         }
-        if (free < 0) { ++sVoicesDeclined; return false; }
+        if (free < 0) {
+            ++sVoicesDeclined;
+            return false;
+        }
 
         PcmCacheEntry* entry = AcquireSample(samplePtr, endPos);
-        if (!entry) { ++sVoicesDeclined; return false; }
+        if (!entry) {
+            ++sVoicesDeclined;
+            return false;
+        }
 
         PcmSlot* s = &sSlots[free];
         const int chn = PCM_FIRST_CHANNEL + free;
@@ -207,8 +253,7 @@ bool NdspPcm_Play(int* slot, const int8_t* samplePtr, uint32_t endPos,
          * with NDSP_INTERP_LINEAR. NDSP_INTERP_NONE is closer to MP2K's NEAREST
          * pitching taken alone, but it made offloaded voices brighter than the
          * software voices sharing the same mix. */
-        ndspChnSetInterp(chn, Port_Config_AudioDspInterpLinear() ? NDSP_INTERP_LINEAR
-                                                                : NDSP_INTERP_NONE);
+        ndspChnSetInterp(chn, Port_Config_AudioDspInterpLinear() ? NDSP_INTERP_LINEAR : NDSP_INTERP_NONE);
         ndspChnSetFormat(chn, NDSP_FORMAT_MONO_PCM8);
         /* ndspChnReset above cleared the channel's IIR config. */
         SpeakerEq3DS_ApplyToChannel(chn);
@@ -238,9 +283,11 @@ bool NdspPcm_Play(int* slot, const int8_t* samplePtr, uint32_t endPos,
         return true;
     }
 
-    if (*slot < 0 || *slot >= PCM_CHANNEL_COUNT) return false;
+    if (*slot < 0 || *slot >= PCM_CHANNEL_COUNT)
+        return false;
     PcmSlot* s = &sSlots[*slot];
-    if (!s->busy) return false;
+    if (!s->busy)
+        return false;
     const int chn = PCM_FIRST_CHANNEL + *slot;
     /* A non-looping sample that has run out is finished; let the caller's
      * envelope carry on but stop claiming the channel. */
@@ -250,16 +297,17 @@ bool NdspPcm_Play(int* slot, const int8_t* samplePtr, uint32_t endPos,
          * mixer here would restart the sample, because MP2K's samplePos has
          * not advanced while the DSP owned the voice. */
         NdspPcm_Stop(slot);
-        if (finished) *finished = true;
+        if (finished)
+            *finished = true;
         return false;
     }
-    if (rate > PCM_MAX_RATE) rate = PCM_MAX_RATE;
+    if (rate > PCM_MAX_RATE)
+        rate = PCM_MAX_RATE;
     if (rate != s->rate) {
         ndspChnSetRate(chn, rate);
         s->rate = rate;
     }
-    if (leftVol != s->leftVol || rightVol != s->rightVol ||
-        sMasterLevel != s->masterLevel) {
+    if (leftVol != s->leftVol || rightVol != s->rightVol || sMasterLevel != s->masterLevel) {
         ApplyMix(chn, leftVol, rightVol);
         s->leftVol = leftVol;
         s->rightVol = rightVol;
@@ -269,7 +317,11 @@ bool NdspPcm_Play(int* slot, const int8_t* samplePtr, uint32_t endPos,
 }
 
 void NdspPcm_Stop(int* slot) {
-    if (!slot || *slot < 0 || *slot >= PCM_CHANNEL_COUNT) { if (slot) *slot = -1; return; }
+    if (!slot || *slot < 0 || *slot >= PCM_CHANNEL_COUNT) {
+        if (slot)
+            *slot = -1;
+        return;
+    }
     PcmSlot* s = &sSlots[*slot];
     if (s->busy) {
         ndspChnWaveBufClear(PCM_FIRST_CHANNEL + *slot);

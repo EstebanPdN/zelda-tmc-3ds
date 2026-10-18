@@ -28,12 +28,9 @@ typedef struct {
 } PressurePlateEntity;
 
 PORT_STATIC_ASSERT_SIZE(PressurePlateEntity, 0x88, 0xB0, "PressurePlateEntity size incorrect");
-PORT_STATIC_ASSERT_OFFSET(PressurePlateEntity, canToggle, 0x70, 0x98,
-                        "PressurePlateEntity canToggle offset incorrect");
-PORT_STATIC_ASSERT_OFFSET(PressurePlateEntity, dir, 0x72, 0x9A,
-                        "PressurePlateEntity dir offset incorrect");
-PORT_STATIC_ASSERT_OFFSET(PressurePlateEntity, flag, 0x86, 0xAE,
-                        "PressurePlateEntity flag offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(PressurePlateEntity, canToggle, 0x70, 0x98, "PressurePlateEntity canToggle offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(PressurePlateEntity, dir, 0x72, 0x9A, "PressurePlateEntity dir offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(PressurePlateEntity, flag, 0x86, 0xAE, "PressurePlateEntity flag offset incorrect");
 
 #ifdef PC_PORT
 #define PLATE_CAN_TOGGLE(this) (GE_FIELD(&((this)->base), field_0x70)->HALF_U.LO)

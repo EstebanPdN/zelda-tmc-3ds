@@ -23,8 +23,7 @@ typedef struct {
     /*0x7a*/ u16 unk_7a;
 } RopeEntity;
 
-PORT_STATIC_ASSERT_OFFSET(RopeEntity, unk_78, 0x78, 0xA4,
-                          "RopeEntity unk_78 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(RopeEntity, unk_78, 0x78, 0xA4, "RopeEntity unk_78 offset incorrect");
 
 void Rope_OnTick(RopeEntity* this);
 void Rope_OnCollision(RopeEntity* this);

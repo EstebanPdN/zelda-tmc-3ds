@@ -37,8 +37,10 @@ static int32_t RefPulse(uint32_t tick) {
 }
 
 static int SameDrawnPicture(uint32_t a, uint32_t b, int isDungeon) {
-    if (RefBlink(a) != RefBlink(b)) return 0;
-    if (isDungeon) return RefPalette(a) == RefPalette(b);
+    if (RefBlink(a) != RefBlink(b))
+        return 0;
+    if (isDungeon)
+        return RefPalette(a) == RefPalette(b);
     return RefPulse(a) == RefPulse(b);
 }
 
@@ -49,8 +51,8 @@ static int SameDrawnPicture(uint32_t a, uint32_t b, int isDungeon) {
 static void TestSignatureMatchesDrawnPicture(int isDungeon) {
     for (uint32_t a = 0; a < 256u; ++a) {
         for (uint32_t b = 0; b < 256u; ++b) {
-            const int sameSig = BottomMapAnim_Signature(a, isDungeon, W, H) ==
-                                BottomMapAnim_Signature(b, isDungeon, W, H);
+            const int sameSig =
+                BottomMapAnim_Signature(a, isDungeon, W, H) == BottomMapAnim_Signature(b, isDungeon, W, H);
             assert(sameSig == SameDrawnPicture(a, b, isDungeon));
         }
     }
@@ -84,7 +86,8 @@ static unsigned RunSkipLoop(int isDungeon, unsigned ticks, unsigned* maxGapOut) 
     for (uint32_t tick = 1; tick <= ticks; ++tick) {
         if (BottomMapAnim_NeedsPaint(tick, paintedTick, isDungeon, W, H)) {
             const unsigned gap = (unsigned)(tick - lastPaint);
-            if (gap > maxGap) maxGap = gap;
+            if (gap > maxGap)
+                maxGap = gap;
             lastPaint = tick;
             paintedTick = tick;
             ++paints;

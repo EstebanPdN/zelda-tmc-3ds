@@ -20,4 +20,4 @@ namespace PortSoundsEmbed {
 extern const unsigned char kData[];
 extern const std::size_t kSize;
 
-}  // namespace PortSoundsEmbed
+} // namespace PortSoundsEmbed

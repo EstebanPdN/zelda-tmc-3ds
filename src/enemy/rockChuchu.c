@@ -50,7 +50,7 @@ void RockChuchu_OnCollision(Entity* this) {
                 if (entity != NULL) {
                     entity->type2 = 1;
                     if (!REGION_IS_EU) {
-                    entity->iframes = -8;
+                        entity->iframes = -8;
                     }
                     EnemyCopyParams(this, entity);
                     this->action = 2;
@@ -106,8 +106,8 @@ void sub_080223E4(Entity* this) {
         entity->contactFlags = (CONTACT_NOW | 0x14);
         entity->iframes = 0x10;
         if (!REGION_IS_EU) {
-        entity->knockbackDuration = 0xc;
-        entity->knockbackDirection = this->direction;
+            entity->knockbackDuration = 0xc;
+            entity->knockbackDirection = this->direction;
         }
     }
 

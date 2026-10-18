@@ -296,7 +296,6 @@ extern "C" void Port_ImGui_Shutdown(void) {
     sImGuiInited = false;
 }
 
-
 extern "C" bool Port_ImGui_CanPresent(void) {
     if (!sImGuiInited)
         return false;
@@ -335,8 +334,7 @@ extern "C" void Port_ImGui_HandleEvent(const SDL_Event* event) {
      * sliders are horizontal drags; injecting dx would fight them and
      * almost nothing scrolls horizontally. Text-input focus (drag =
      * text selection) suppresses injection entirely. */
-    if (event->type == SDL_EVENT_FINGER_MOTION && !ImGui::GetIO().WantTextInput &&
-        Port_DebugMenu_IsOpen()) {
+    if (event->type == SDL_EVENT_FINGER_MOTION && !ImGui::GetIO().WantTextInput && Port_DebugMenu_IsOpen()) {
         ImGuiIO& io = ImGui::GetIO();
         const float dyPx = event->tfinger.dy * io.DisplaySize.y;
         /* One wheel notch scrolls ~67px in ImGui; convert px so content
@@ -1662,8 +1660,8 @@ static void DrawRibbonAudioTab(void) {
             Port_Config_SetMasterVolume(v);
         }
         HelpTooltip("Scales the final mixed game audio. 100% = unchanged. Persists "
-                            "across launches. Leave at 100% for a faithful level match when "
-                            "A/B-testing against hardware in GBA-accurate mode.");
+                    "across launches. Leave at 100% for a faithful level match when "
+                    "A/B-testing against hardware in GBA-accurate mode.");
         ImGui::Separator();
     }
 
@@ -1672,11 +1670,11 @@ static void DrawRibbonAudioTab(void) {
         Port_Audio_SetGbaAccurate(gbaAccurate);
     }
     HelpTooltip("On: NEAREST resampling (the hardware's no-interpolation "
-                        "sample-and-hold 'crunch') and the output is handed straight to "
-                        "the device with no post-process DSP - for A/B comparison against "
-                        "real hardware / mGBA.\n\n"
-                        "Off (default): SINC resampling plus the DC-blocker / low-pass / "
-                        "stereo-widen / soft-clip chain tuned for modern speakers.");
+                "sample-and-hold 'crunch') and the output is handed straight to "
+                "the device with no post-process DSP - for A/B comparison against "
+                "real hardware / mGBA.\n\n"
+                "Off (default): SINC resampling plus the DC-blocker / low-pass / "
+                "stereo-widen / soft-clip chain tuned for modern speakers.");
 
     ImGui::Separator();
 
@@ -1699,9 +1697,9 @@ static void DrawRibbonAudioTab(void) {
             Port_Audio_SetWidth(width);
         }
         HelpTooltip("Mid/side stereo widening. 1.00 = mono image (reference), "
-                            "1.20 = default. The mid is never altered, so mono playback always "
-                            "collapses cleanly to the original mix. Lower values (~1.12) reduce "
-                            "hard-panned peak overshoot. No effect in GBA-accurate mode.");
+                    "1.20 = default. The mid is never altered, so mono playback always "
+                    "collapses cleanly to the original mix. Lower values (~1.12) reduce "
+                    "hard-panned peak overshoot. No effect in GBA-accurate mode.");
 
         // Reverb
         ImGui::TableNextRow();
@@ -1714,10 +1712,10 @@ static void DrawRibbonAudioTab(void) {
             Port_Audio_SetReverbLevel(reverb);
         }
         HelpTooltip("Adds a short room tail to sampled (PCM) voices - drums, bass, "
-                            "some leads - while the chiptune PSG/CGB voices stay dry by the "
-                            "synth's mix order, so it adds space without muddying the melody. "
-                            "0 = off (default). ~12 is a gentle, musical amount. Applies live "
-                            "(does not restart the music). No effect in GBA-accurate mode.");
+                    "some leads - while the chiptune PSG/CGB voices stay dry by the "
+                    "synth's mix order, so it adds space without muddying the melody. "
+                    "0 = off (default). ~12 is a gentle, musical amount. Applies live "
+                    "(does not restart the music). No effect in GBA-accurate mode.");
 
         ImGui::EndTable();
     }
@@ -2691,7 +2689,6 @@ extern "C" bool Port_ImGui_Render(void) {
     if (!sRenderer)
         return false;
 #endif
-
 
     static bool sPrevMenuOpen = false;
     const bool menuOpen = Port_DebugMenu_IsOpen();

@@ -19,7 +19,6 @@
 #include "port_scripts.h"
 #include "subtask.h"
 
-
 #if !defined(EU) || defined(PC_PORT)
 static const Rect gUnk_0810FDA0 = { 0, 8, 10, 16 };
 #endif

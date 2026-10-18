@@ -17,7 +17,9 @@
 #include "region.h"
 
 #if defined(MULTI_REGION) || defined(EU) || defined(JP)
-typedef struct { u32 usa, eu, jp; } ScriptAddrEntry;
+typedef struct {
+    u32 usa, eu, jp;
+} ScriptAddrEntry;
 /* Sorted by usa address for binary search. */
 static const ScriptAddrEntry sScriptAddrs[] = {
     { 0x08008B5C, 0x08008BF4, 0x08008B5C }, /* script_LibrarianRight */

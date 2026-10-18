@@ -75,12 +75,15 @@ void Port_SecondScreenState_Publish(void) {
     /* A subtask clears/reuses gRoomControls and gArea for its auxiliary
      * scene. Preserve the last gameplay map, not that temporary room. Item
      * quantities and equipment below still come from the current save. */
-    keepMapContext = gMain.task == TASK_GAME && gMain.substate == GAMEMAIN_SUBTASK &&
-                     gUI.nextToLoad != 0 && sSnapshot.inGame;
+    keepMapContext =
+        gMain.task == TASK_GAME && gMain.substate == GAMEMAIN_SUBTASK && gUI.nextToLoad != 0 && sSnapshot.inGame;
     if (keepMapContext) {
-        next.area = sSnapshot.area; next.room = sSnapshot.room;
-        next.playerX = sSnapshot.playerX; next.playerY = sSnapshot.playerY;
-        next.areaFlags = sSnapshot.areaFlags; next.dungeonIdx = sSnapshot.dungeonIdx;
+        next.area = sSnapshot.area;
+        next.room = sSnapshot.room;
+        next.playerX = sSnapshot.playerX;
+        next.playerY = sSnapshot.playerY;
+        next.areaFlags = sSnapshot.areaFlags;
+        next.dungeonIdx = sSnapshot.dungeonIdx;
         next.visitedMask = sSnapshot.visitedMask;
         memcpy(next.rooms, sSnapshot.rooms, sizeof(next.rooms));
     }
@@ -90,9 +93,9 @@ void Port_SecondScreenState_Publish(void) {
     if (next.inGame) {
         /* Auxiliary cutscene 1 selects the opening Picori legend (dispatch 0).
          * Include queued entry and restoration fades, not other story scenes. */
-        next.introCinema = gMain.substate == GAMEMAIN_SUBTASK &&
-            ((gUI.lastState == SUBTASK_AUXCUTSCENE && gUI.field_0x3 == 1) ||
-             (gUI.state == SUBTASK_AUXCUTSCENE && gUI.field_0x5 == 1));
+        next.introCinema =
+            gMain.substate == GAMEMAIN_SUBTASK && ((gUI.lastState == SUBTASK_AUXCUTSCENE && gUI.field_0x3 == 1) ||
+                                                   (gUI.state == SUBTASK_AUXCUTSCENE && gUI.field_0x5 == 1));
         next.hasWorldMap = GetInventoryValue(ITEM_MAP) != 0;
         /* Tap-to-equip goes through the engine's own path (swap handling,
          * HUD refresh) and only for items actually in the inventory — a
@@ -184,8 +187,7 @@ void Port_SecondScreenState_Publish(void) {
         {
             u32 tray = 0;
             for (u32 item = ITEM_QST_SWORD; item <= ITEM_FLIPPERS; item++) {
-                if (gItemMetaData[item].menuSlot != QUEST_CARRIED_ITEM_SLOT ||
-                    GetInventoryValue(item) != 1) {
+                if (gItemMetaData[item].menuSlot != QUEST_CARRIED_ITEM_SLOT || GetInventoryValue(item) != 1) {
                     continue;
                 }
                 next.questItems[tray] = (uint8_t)item;
@@ -304,7 +306,8 @@ void Port_SecondScreenState_RequestEquip(uint8_t itemId, uint8_t slot) {
 
 #else /* Platforms without a live second-screen state consumer. */
 
-void Port_SecondScreenState_Publish(void) {}
+void Port_SecondScreenState_Publish(void) {
+}
 
 void Port_SecondScreenState_Read(SecondScreenSnapshot* out) {
     memset(out, 0, sizeof(*out));

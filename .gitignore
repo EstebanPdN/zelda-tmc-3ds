@@ -187,3 +187,8 @@ keystore.properties
 !platform/3ds/tools/build_update_deps.py
 !platform/3ds/tools/gen_triforce.py
 !platform/3ds/tests/run-update-tests.py
+
+# Maintained repository quality tooling.
+!scripts/dev/format.py
+!scripts/dev/check.py
+!scripts/dev/run-tests.py

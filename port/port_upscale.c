@@ -74,28 +74,27 @@ static inline uint32_t blend2(uint32_t a, uint32_t b) {
     return ((a >> 1) & 0x7F7F7F7Fu) + ((b >> 1) & 0x7F7F7F7Fu);
 }
 
-void Port_Upscale_xBRZ_2x_Pitch(const uint32_t* src, int srcW, int srcH,
-                                int srcPitchPixels, uint32_t* dst) {
+void Port_Upscale_xBRZ_2x_Pitch(const uint32_t* src, int srcW, int srcH, int srcPitchPixels, uint32_t* dst) {
     int x;
     int y;
     int dstW = srcW * 2;
     for (y = 0; y < srcH; y++) {
         for (x = 0; x < srcW; x++) {
-            uint32_t M;     /* center */
-            uint32_t Lt;    /* left  */
-            uint32_t R;     /* right */
-            uint32_t U;     /* up    */
-            uint32_t Dn;    /* down  */
-            uint32_t TL;    /* output 2x2 sub-pixels */
+            uint32_t M;  /* center */
+            uint32_t Lt; /* left  */
+            uint32_t R;  /* right */
+            uint32_t U;  /* up    */
+            uint32_t Dn; /* down  */
+            uint32_t TL; /* output 2x2 sub-pixels */
             uint32_t TR;
             uint32_t BL;
             uint32_t BR;
 
-            M  = src[(size_t)y * (size_t)srcPitchPixels + x];
-            Lt = (x > 0)        ? src[(size_t)y * (size_t)srcPitchPixels + (x - 1)]   : M;
-            R  = (x < srcW - 1) ? src[(size_t)y * (size_t)srcPitchPixels + (x + 1)]   : M;
-            U  = (y > 0)        ? src[(size_t)(y - 1) * (size_t)srcPitchPixels + x]   : M;
-            Dn = (y < srcH - 1) ? src[(size_t)(y + 1) * (size_t)srcPitchPixels + x]   : M;
+            M = src[(size_t)y * (size_t)srcPitchPixels + x];
+            Lt = (x > 0) ? src[(size_t)y * (size_t)srcPitchPixels + (x - 1)] : M;
+            R = (x < srcW - 1) ? src[(size_t)y * (size_t)srcPitchPixels + (x + 1)] : M;
+            U = (y > 0) ? src[(size_t)(y - 1) * (size_t)srcPitchPixels + x] : M;
+            Dn = (y < srcH - 1) ? src[(size_t)(y + 1) * (size_t)srcPitchPixels + x] : M;
 
             TL = TR = BL = BR = M;
 
@@ -108,27 +107,26 @@ void Port_Upscale_xBRZ_2x_Pitch(const uint32_t* src, int srcW, int srcH,
             if (sim(U, Lt) && !sim(U, M) && !sim(Lt, R) && !sim(U, Dn)) {
                 TL = blend2(U, Lt);
             }
-            if (sim(U, R)  && !sim(U, M) && !sim(R, Lt) && !sim(U, Dn)) {
+            if (sim(U, R) && !sim(U, M) && !sim(R, Lt) && !sim(U, Dn)) {
                 TR = blend2(U, R);
             }
             if (sim(Dn, Lt) && !sim(Dn, M) && !sim(Lt, R) && !sim(Dn, U)) {
                 BL = blend2(Dn, Lt);
             }
-            if (sim(Dn, R)  && !sim(Dn, M) && !sim(R, Lt) && !sim(Dn, U)) {
+            if (sim(Dn, R) && !sim(Dn, M) && !sim(R, Lt) && !sim(Dn, U)) {
                 BR = blend2(Dn, R);
             }
 
-            dst[(2 * y)     * dstW + (2 * x)]     = TL;
-            dst[(2 * y)     * dstW + (2 * x + 1)] = TR;
-            dst[(2 * y + 1) * dstW + (2 * x)]     = BL;
+            dst[(2 * y) * dstW + (2 * x)] = TL;
+            dst[(2 * y) * dstW + (2 * x + 1)] = TR;
+            dst[(2 * y + 1) * dstW + (2 * x)] = BL;
             dst[(2 * y + 1) * dstW + (2 * x + 1)] = BR;
         }
     }
 }
 
-void Port_Upscale_xBRZ_4x_Pitch(const uint32_t* src, int srcW, int srcH,
-                                int srcPitchPixels,
-                                uint32_t* scratch2x, uint32_t* dst) {
+void Port_Upscale_xBRZ_4x_Pitch(const uint32_t* src, int srcW, int srcH, int srcPitchPixels, uint32_t* scratch2x,
+                                uint32_t* dst) {
     Port_Upscale_xBRZ_2x_Pitch(src, srcW, srcH, srcPitchPixels, scratch2x);
     Port_Upscale_xBRZ_2x_Pitch(scratch2x, srcW * 2, srcH * 2, srcW * 2, dst);
 }
@@ -137,7 +135,6 @@ void Port_Upscale_xBRZ_2x(const uint32_t* src, int srcW, int srcH, uint32_t* dst
     Port_Upscale_xBRZ_2x_Pitch(src, srcW, srcH, srcW, dst);
 }
 
-void Port_Upscale_xBRZ_4x(const uint32_t* src, int srcW, int srcH,
-                          uint32_t* scratch2x, uint32_t* dst) {
+void Port_Upscale_xBRZ_4x(const uint32_t* src, int srcW, int srcH, uint32_t* scratch2x, uint32_t* dst) {
     Port_Upscale_xBRZ_4x_Pitch(src, srcW, srcH, srcW, scratch2x, dst);
 }

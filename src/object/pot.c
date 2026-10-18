@@ -36,12 +36,9 @@ typedef struct {
 } PotEntity;
 
 PORT_STATIC_ASSERT_SIZE(PotEntity, 0x88, 0xB0, "PotEntity size incorrect");
-PORT_STATIC_ASSERT_OFFSET(PotEntity, unk_70, 0x70, 0x98,
-                        "PotEntity unk_70 offset incorrect");
-PORT_STATIC_ASSERT_OFFSET(PotEntity, unk_7d, 0x7d, 0xA5,
-                        "PotEntity unk_7d offset incorrect");
-PORT_STATIC_ASSERT_OFFSET(PotEntity, flag, 0x86, 0xAE,
-                        "PotEntity flag offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(PotEntity, unk_70, 0x70, 0x98, "PotEntity unk_70 offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(PotEntity, unk_7d, 0x7d, 0xA5, "PotEntity unk_7d offset incorrect");
+PORT_STATIC_ASSERT_OFFSET(PotEntity, flag, 0x86, 0xAE, "PotEntity flag offset incorrect");
 
 #ifdef PC_PORT
 #define POT_TILE_INDEX(this) (GE_FIELD(&((this)->base), field_0x70)->HALF_U.LO)
@@ -159,17 +156,16 @@ void Pot_Action1(PotEntity* this) {
     }
 #ifdef PC_PORT
     if (super->contactFlags != 0) {
-        fprintf(stderr,
-                "[POT] contact=0x%02X type=%u type2=%u tile=0x%X act=0x%X base=0x%X pos=0x%03X layer=%u\n",
+        fprintf(stderr, "[POT] contact=0x%02X type=%u type2=%u tile=0x%X act=0x%X base=0x%X pos=0x%03X layer=%u\n",
                 super->contactFlags, super->type, super->type2, GetTileTypeAtEntity(super), GetActTileAtEntity(super),
                 this->unk_70, COORD_TO_TILE(super), super->collisionLayer);
     }
 #endif
     switch (var0) {
         case 0x13:
-                super->action = 3;
-                super->subAction = 0;
-                break;
+            super->action = 3;
+            super->subAction = 0;
+            break;
         case 0x1D:
             SetTile(POT_TILE_INDEX(this), COORD_TO_TILE(super), super->collisionLayer);
             super->action = 5;

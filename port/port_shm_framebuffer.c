@@ -38,27 +38,27 @@
 #include <string.h>
 
 #if defined(__linux__) && !defined(__ANDROID__)
-#  include <errno.h>
-#  include <fcntl.h>
-#  include <sys/mman.h>
-#  include <sys/stat.h>
-#  include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #endif
 
-#define TMC_SHM_MAGIC   0x46434D54u  /* "TMCF" little-endian */
-#define TMC_SHM_VERSION 4u           /* v4 adds OAM-only sprite plane (plane index 2) */
-#define TMC_SHM_HEADER  24
-#define TMC_SHM_OAM_BYTES 1024u       /* 128 OAM entries × 8 bytes */
-#define TMC_SHM_BG_PLANES 3u          /* BG1 + BG2 + Sprite (OAM-only, alpha=0 outside silhouettes) */
-#define TMC_SHM_PATH    "/tmc_framebuffer"
+#define TMC_SHM_MAGIC 0x46434D54u /* "TMCF" little-endian */
+#define TMC_SHM_VERSION 4u        /* v4 adds OAM-only sprite plane (plane index 2) */
+#define TMC_SHM_HEADER 24
+#define TMC_SHM_OAM_BYTES 1024u /* 128 OAM entries × 8 bytes */
+#define TMC_SHM_BG_PLANES 3u    /* BG1 + BG2 + Sprite (OAM-only, alpha=0 outside silhouettes) */
+#define TMC_SHM_PATH "/tmc_framebuffer"
 
 #if defined(__linux__) && !defined(__ANDROID__)
 
-static int      sShmFd     = -1;
-static uint8_t* sShmBase   = NULL;
-static size_t   sShmBytes  = 0;
-static int      sEnabled   = -1;   /* -1 = not yet checked, 0 = off, 1 = on */
-static uint32_t sFrameSeq  = 0;
+static int sShmFd = -1;
+static uint8_t* sShmBase = NULL;
+static size_t sShmBytes = 0;
+static int sEnabled = -1; /* -1 = not yet checked, 0 = off, 1 = on */
+static uint32_t sFrameSeq = 0;
 
 /* Public probe — port_ppu.cpp checks this to decide whether to spend
  * cycles on the per-BG re-render. Mirrors shmEnabled() but as a real
@@ -89,13 +89,13 @@ int shmEnabled(void) {
  * 0 on success, -1 on failure (publishing silently no-ops for the
  * rest of the run). */
 static int shmInit(int width, int height) {
-    if (sShmBase) return 0;  /* already up */
+    if (sShmBase)
+        return 0; /* already up */
 
     const size_t planeBytes = (size_t)width * (size_t)height * 4u;
-    const size_t bytes = (size_t)TMC_SHM_HEADER
-                       + planeBytes                       /* composite framebuffer */
-                       + (size_t)TMC_SHM_OAM_BYTES        /* OAM table */
-                       + planeBytes * (size_t)TMC_SHM_BG_PLANES; /* BG1, BG2 planes */
+    const size_t bytes = (size_t)TMC_SHM_HEADER + planeBytes       /* composite framebuffer */
+                         + (size_t)TMC_SHM_OAM_BYTES               /* OAM table */
+                         + planeBytes * (size_t)TMC_SHM_BG_PLANES; /* BG1, BG2 planes */
     sShmFd = shm_open(TMC_SHM_PATH, O_CREAT | O_RDWR, 0600);
     if (sShmFd < 0) {
         fprintf(stderr, "[shm-fb] shm_open failed: %s\n", strerror(errno));
@@ -109,8 +109,7 @@ static int shmInit(int width, int height) {
         sEnabled = 0;
         return -1;
     }
-    sShmBase = (uint8_t*)mmap(NULL, bytes, PROT_READ | PROT_WRITE,
-                              MAP_SHARED, sShmFd, 0);
+    sShmBase = (uint8_t*)mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_SHARED, sShmFd, 0);
     if (sShmBase == MAP_FAILED) {
         fprintf(stderr, "[shm-fb] mmap failed: %s\n", strerror(errno));
         close(sShmFd);
@@ -128,20 +127,22 @@ static int shmInit(int width, int height) {
     h[1] = TMC_SHM_VERSION;
     h[2] = (uint32_t)width;
     h[3] = (uint32_t)height;
-    h[4] = 0;       /* frameCount */
-    h[5] = 128u;    /* oamCount (fixed for GBA) */
+    h[4] = 0;    /* frameCount */
+    h[5] = 128u; /* oamCount (fixed for GBA) */
 
-    fprintf(stderr, "[shm-fb] mapped %zu bytes at %s (%dx%d RGBA8)\n",
-            bytes, TMC_SHM_PATH, width, height);
+    fprintf(stderr, "[shm-fb] mapped %zu bytes at %s (%dx%d RGBA8)\n", bytes, TMC_SHM_PATH, width, height);
     return 0;
 }
 
 void Port_Shm_PublishFramebuffer(const uint32_t* pixels, int width, int height) {
-    if (!shmEnabled()) return;
-    if (!pixels || width <= 0 || height <= 0) return;
+    if (!shmEnabled())
+        return;
+    if (!pixels || width <= 0 || height <= 0)
+        return;
 
     if (!sShmBase) {
-        if (shmInit(width, height) != 0) return;
+        if (shmInit(width, height) != 0)
+            return;
     }
     uint32_t* h = (uint32_t*)sShmBase;
     if ((int)h[2] != width || (int)h[3] != height) {
@@ -150,7 +151,8 @@ void Port_Shm_PublishFramebuffer(const uint32_t* pixels, int width, int height) 
     }
 
     const size_t payload = (size_t)width * (size_t)height * 4u;
-    if (TMC_SHM_HEADER + payload + TMC_SHM_OAM_BYTES > sShmBytes) return;
+    if (TMC_SHM_HEADER + payload + TMC_SHM_OAM_BYTES > sShmBytes)
+        return;
 
     /* Pixel block (variable-size by w*h). */
     memcpy(sShmBase + TMC_SHM_HEADER, pixels, payload);
@@ -178,16 +180,18 @@ void Port_Shm_PublishFramebuffer(const uint32_t* pixels, int width, int height) 
  *
  * Layout: planes go AFTER the composite + OAM blocks. The header's
  * width/height applies to all planes uniformly. */
-void Port_Shm_PublishBgPlanes(const uint32_t* bg1, const uint32_t* bg2,
-                              int width, int height) {
-    if (!shmEnabled() || !sShmBase) return;
-    if (!bg1 || !bg2 || width <= 0 || height <= 0) return;
+void Port_Shm_PublishBgPlanes(const uint32_t* bg1, const uint32_t* bg2, int width, int height) {
+    if (!shmEnabled() || !sShmBase)
+        return;
+    if (!bg1 || !bg2 || width <= 0 || height <= 0)
+        return;
 
     const size_t planeBytes = (size_t)width * (size_t)height * 4u;
     const size_t off0 = (size_t)TMC_SHM_HEADER + planeBytes + (size_t)TMC_SHM_OAM_BYTES;
     const size_t off1 = off0 + planeBytes;
 
-    if (off1 + planeBytes > sShmBytes) return;
+    if (off1 + planeBytes > sShmBytes)
+        return;
 
     memcpy(sShmBase + off0, bg1, planeBytes);
     memcpy(sShmBase + off1, bg2, planeBytes);
@@ -207,16 +211,18 @@ void Port_Shm_PublishBgPlanes(const uint32_t* bg1, const uint32_t* bg2,
  * Layout: appended after the 2 BG planes (index 2 in the plane
  * array). Caller still drives cadence — call BEFORE PublishFramebuffer
  * so the sprite plane is coherent with the composite + OAM table. */
-void Port_Shm_PublishSpritePlane(const uint32_t* sprites,
-                                 int width, int height) {
-    if (!shmEnabled() || !sShmBase) return;
-    if (!sprites || width <= 0 || height <= 0) return;
+void Port_Shm_PublishSpritePlane(const uint32_t* sprites, int width, int height) {
+    if (!shmEnabled() || !sShmBase)
+        return;
+    if (!sprites || width <= 0 || height <= 0)
+        return;
 
     const size_t planeBytes = (size_t)width * (size_t)height * 4u;
-    const size_t off2 = (size_t)TMC_SHM_HEADER + planeBytes + (size_t)TMC_SHM_OAM_BYTES
-                       + planeBytes * 2u;  /* skip BG1, BG2 */
+    const size_t off2 =
+        (size_t)TMC_SHM_HEADER + planeBytes + (size_t)TMC_SHM_OAM_BYTES + planeBytes * 2u; /* skip BG1, BG2 */
 
-    if (off2 + planeBytes > sShmBytes) return;
+    if (off2 + planeBytes > sShmBytes)
+        return;
 
     memcpy(sShmBase + off2, sprites, planeBytes);
 }
@@ -234,19 +240,31 @@ void Port_Shm_Shutdown(void) {
     sShmBytes = 0;
 }
 
-#else  /* non-Linux */
+#else /* non-Linux */
 
-int Port_Shm_IsActive(void) { return 0; }
-int shmEnabled(void) { return 0; }
+int Port_Shm_IsActive(void) {
+    return 0;
+}
+int shmEnabled(void) {
+    return 0;
+}
 void Port_Shm_PublishFramebuffer(const uint32_t* p, int w, int h) {
-    (void)p; (void)w; (void)h;
+    (void)p;
+    (void)w;
+    (void)h;
 }
 void Port_Shm_PublishBgPlanes(const uint32_t* a, const uint32_t* b, int w, int h) {
-    (void)a; (void)b; (void)w; (void)h;
+    (void)a;
+    (void)b;
+    (void)w;
+    (void)h;
 }
 void Port_Shm_PublishSpritePlane(const uint32_t* s, int w, int h) {
-    (void)s; (void)w; (void)h;
+    (void)s;
+    (void)w;
+    (void)h;
 }
-void Port_Shm_Shutdown(void) { }
+void Port_Shm_Shutdown(void) {
+}
 
 #endif

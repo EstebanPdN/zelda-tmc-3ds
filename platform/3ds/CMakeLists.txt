@@ -59,8 +59,7 @@ set(TMC_PORT_SOURCES
     port/port_vaati_progress.c
     port/port_stubs.c port/stubs_autogen.c port/data_stubs_autogen.c
     port/data_const_stubs.c port/flag_remap_generated.c port/port_rom_tables.c
-    port/port_linked_stubs.c port/port_figurines.c port/port_draw.c
-    port/port_3ds_full_view_policy.c
+    port/port_linked_stubs.c port/port_widescreen.c port/port_figurines.c port/port_draw.c
     port/port_gba_mem.c port/port_hdma.c port/port_save.c port/port_softslots.c
     port/port_dump_state.c
     port/port_second_screen_state.c

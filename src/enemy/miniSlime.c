@@ -13,7 +13,7 @@
 typedef struct {
     /*0x00*/ Entity base;
 #if defined(PC_PORT) && (__SIZEOF_POINTER__ == 8)
-    u8 unused1[4 + 4];  /* #98/#99 pattern: +4 for Enemy::child PC growth */
+    u8 unused1[4 + 4]; /* #98/#99 pattern: +4 for Enemy::child PC growth */
 #else
     /*0x68*/ u8 unused1[4];
 #endif
@@ -21,8 +21,7 @@ typedef struct {
     /*0x6d*/ u8 unk_6d;
 } MiniSlimeEntity;
 
-PORT_STATIC_ASSERT_OFFSET(MiniSlimeEntity, unk_6c, 0x6c, 0x98,
-                          "MiniSlimeEntity unk_6c offset (Enemy::child +4 pad)");
+PORT_STATIC_ASSERT_OFFSET(MiniSlimeEntity, unk_6c, 0x6c, 0x98, "MiniSlimeEntity unk_6c offset (Enemy::child +4 pad)");
 
 void sub_08045374(MiniSlimeEntity* this);
 void MiniSlime_OnTick(MiniSlimeEntity* this);

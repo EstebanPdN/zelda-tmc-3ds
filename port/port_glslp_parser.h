@@ -140,46 +140,46 @@
 namespace PortGlslp {
 
 enum class ScaleType { Source, Viewport, Absolute };
-enum class WrapMode  { ClampBorder, ClampEdge, Repeat, MirroredRepeat };
+enum class WrapMode { ClampBorder, ClampEdge, Repeat, MirroredRepeat };
 
 struct ShaderPass {
-    std::string path;                    /* resolved abs path to .glsl */
-    bool        filter_linear   = false;
-    WrapMode    wrap            = WrapMode::ClampBorder;
-    bool        mipmap_input    = false;
-    bool        srgb_framebuffer = false;
-    bool        float_framebuffer = false;
-    ScaleType   scale_type_x    = ScaleType::Source;
-    ScaleType   scale_type_y    = ScaleType::Source;
-    float       scale_x         = 1.0f;
-    float       scale_y         = 1.0f;
-    std::optional<std::string> alias;     /* for `aliasN = "Foo"` references */
+    std::string path; /* resolved abs path to .glsl */
+    bool filter_linear = false;
+    WrapMode wrap = WrapMode::ClampBorder;
+    bool mipmap_input = false;
+    bool srgb_framebuffer = false;
+    bool float_framebuffer = false;
+    ScaleType scale_type_x = ScaleType::Source;
+    ScaleType scale_type_y = ScaleType::Source;
+    float scale_x = 1.0f;
+    float scale_y = 1.0f;
+    std::optional<std::string> alias; /* for `aliasN = "Foo"` references */
 };
 
 struct LutTexture {
-    std::string name;                    /* e.g. "LUT1" — the uniform name shaders use */
-    std::string path;                    /* resolved abs path to .png/.tga */
-    bool        linear  = true;
-    WrapMode    wrap    = WrapMode::ClampBorder;
-    bool        mipmap  = false;
+    std::string name; /* e.g. "LUT1" — the uniform name shaders use */
+    std::string path; /* resolved abs path to .png/.tga */
+    bool linear = true;
+    WrapMode wrap = WrapMode::ClampBorder;
+    bool mipmap = false;
 };
 
 struct ShaderParam {
-    std::string id;                       /* matches #pragma parameter ID */
-    std::string label;                    /* user-visible (for F8 menu) */
-    float       default_value = 0.0f;
-    float       min_value     = 0.0f;
-    float       max_value     = 1.0f;
-    float       step_value    = 0.01f;
-    float       current_value = 0.0f;     /* runtime mutable */
+    std::string id;    /* matches #pragma parameter ID */
+    std::string label; /* user-visible (for F8 menu) */
+    float default_value = 0.0f;
+    float min_value = 0.0f;
+    float max_value = 1.0f;
+    float step_value = 0.01f;
+    float current_value = 0.0f; /* runtime mutable */
 };
 
 struct Preset {
-    std::vector<ShaderPass>  passes;
-    std::vector<LutTexture>  luts;
+    std::vector<ShaderPass> passes;
+    std::vector<LutTexture> luts;
     std::vector<ShaderParam> parameters;
-    std::optional<int>       feedback_pass;
-    std::string              source_path; /* for relative-path resolution */
+    std::optional<int> feedback_pass;
+    std::string source_path; /* for relative-path resolution */
 };
 
 /* Step 2: returns the parsed preset, or nullopt on a fatal parse
@@ -193,8 +193,8 @@ std::optional<Preset> LoadPresetFile(const char* glslp_path);
  * by `#pragma stage vertex` / `#pragma stage fragment` blocks, but
  * the SDL_GPU pipeline expects them as distinct SPIR-V modules. */
 struct PreprocessedShader {
-    std::string              vertex_glsl;
-    std::string              fragment_glsl;
+    std::string vertex_glsl;
+    std::string fragment_glsl;
     /* Parameters discovered via `#pragma parameter` directives in
      * the source. The .glslp file's `parameters = ...` line lists
      * which subset to expose at runtime, and supplies optional
@@ -227,18 +227,16 @@ std::optional<PreprocessedShader> PreprocessLibretroGlsl(const std::string& sour
  * (forces a fresh compile every call — useful for shader devs). */
 enum class ShaderStage { Vertex, Fragment };
 
-std::optional<std::vector<uint8_t>>
-CompileGlslToSpirv(const std::string& glsl_source,
-                   ShaderStage        stage,
-                   const std::string& cache_dir);
+std::optional<std::vector<uint8_t>> CompileGlslToSpirv(const std::string& glsl_source, ShaderStage stage,
+                                                       const std::string& cache_dir);
 
 /* Step 6: decoded LUT image data. ABGR8888 little-endian (byte 0 = R,
  * etc) to match SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM. Origin is
  * top-left (we flip TGA's bottom-left origin during decode). */
 struct DecodedImage {
-    int                  width  = 0;
-    int                  height = 0;
-    std::vector<uint8_t> rgba;  /* width * height * 4 bytes */
+    int width = 0;
+    int height = 0;
+    std::vector<uint8_t> rgba; /* width * height * 4 bytes */
 };
 
 /* Load a LUT image from disk. Supports PNG (via libpng) and the
@@ -247,9 +245,9 @@ struct DecodedImage {
  * diagnostic. */
 std::optional<DecodedImage> LoadLutImage(const std::string& path);
 
-}  // namespace PortGlslp
+} // namespace PortGlslp
 
-#endif  /* __cplusplus */
+#endif /* __cplusplus */
 
 /* C-callable API the runtime will use once the parser exists. None
  * are implemented yet. */
@@ -261,7 +259,7 @@ extern "C" {
  * Returns 1 on success, 0 on error. On success the next
  * Port_GPU_PresentFrame calls render through the new preset.
  * Replaces any currently-active preset. */
-int  Port_GlslpRuntime_Load(const char* glslp_path);
+int Port_GlslpRuntime_Load(const char* glslp_path);
 
 /* Tear down the active preset (if any). Falls back to the
  * stock PortGpuFilter pipeline-switcher (Stages 3–5 lcd_grid /
@@ -269,7 +267,7 @@ int  Port_GlslpRuntime_Load(const char* glslp_path);
 void Port_GlslpRuntime_Unload(void);
 
 /* Whether a .glslp preset is currently driving presentation. */
-int  Port_GlslpRuntime_IsActive(void);
+int Port_GlslpRuntime_IsActive(void);
 
 #ifdef __cplusplus
 }

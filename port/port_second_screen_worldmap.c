@@ -251,8 +251,7 @@ static int FetchGfxGroupEntryRobust(u32 group, u32 wantDest, int ewramOrdinal, G
         return 1;
     }
     if (ewramOrdinal >= 0) {
-        return FetchGfxGroupEntry(group, 0, ewramOrdinal, 0, out) ||
-               FetchGfxGroupEntry(group, 0, ewramOrdinal, 1, out);
+        return FetchGfxGroupEntry(group, 0, ewramOrdinal, 0, out) || FetchGfxGroupEntry(group, 0, ewramOrdinal, 1, out);
     }
     return 0;
 }
@@ -358,8 +357,7 @@ static void DrawBgLayerSized(uint32_t* dst, int32_t dstW, int32_t dstH, const u8
 
 static void DrawBgLayer(uint32_t* dst, const u8* tilemap, u32 tilemapLen, const u8* tiles, u32 tilesLen,
                         const uint16_t* bgPal, int32_t yShift) {
-    DrawBgLayerSized(dst, WORLDMAP_IMAGE_W, WORLDMAP_IMAGE_H, tilemap, tilemapLen, tiles, tilesLen, bgPal,
-                     yShift);
+    DrawBgLayerSized(dst, WORLDMAP_IMAGE_W, WORLDMAP_IMAGE_H, tilemap, tilemapLen, tiles, tilesLen, bgPal, yShift);
 }
 
 static int BuildWorldMapImage(void) {
@@ -400,15 +398,13 @@ static int BuildWorldMapImage(void) {
         }
 
         DrawBgLayer(sImagePixels, bg3Map.data, bg3Map.len, chromeTiles.data, chromeTiles.len, bgPal, 0);
-        DrawBgLayer(sImagePixels, bg2Map.data, bg2Map.len, chromeTiles.data, chromeTiles.len, bgPal,
-                    MAP_LAYER_YSHIFT);
+        DrawBgLayer(sImagePixels, bg2Map.data, bg2Map.len, chromeTiles.data, chromeTiles.len, bgPal, MAP_LAYER_YSHIFT);
 #ifdef TMC_3DS
         /* Preserve only the game's backdrop and stone chrome, before terrain
          * is composited. No map pixels or discovery masks belong here. */
         memcpy(sFramePixels, sImagePixels, sizeof(sFramePixels));
 #endif
-        DrawBgLayer(sImagePixels, bg1Map.data, bg1Map.len, mapTiles.data, mapTiles.len, bgPal,
-                    MAP_LAYER_YSHIFT);
+        DrawBgLayer(sImagePixels, bg1Map.data, bg1Map.len, mapTiles.data, mapTiles.len, bgPal, MAP_LAYER_YSHIFT);
 
         sPublishedImage = sImagePixels; /* publish only the finished image */
         ok = 1;
@@ -540,8 +536,7 @@ static u32 SaveBit(const uint8_t* arr, u32 bit) {
  * still select. */
 #define MAP_HINT_ROW_MAX 16
 
-int32_t Port_SecondScreenWorldMap_GetMapHints(uint32_t hintMask, SecondScreenMapMarker* out,
-                                              int32_t maxMarkers) {
+int32_t Port_SecondScreenWorldMap_GetMapHints(uint32_t hintMask, SecondScreenMapMarker* out, int32_t maxMarkers) {
     /* The world map's own marker pass, ported: sub_080A6438 (src/menu/
      * pauseMenu.c) walks gUnk_08128F58 and stamps row i when bit i of
      * `gSave.map_hints & gGenericMenu.unk10.h[0]` is set — that second word
@@ -572,8 +567,7 @@ int32_t Port_SecondScreenWorldMap_GetMapHints(uint32_t hintMask, SecondScreenMap
     if (gRomData == NULL || gRomSize == 0) {
         return 0; /* markers annotate the ROM-decoded map; report not-ready with it */
     }
-    for (row = gUnk_08128F58, i = 0;
-         i < MAP_HINT_ROW_MAX && row->frameIndex != 0 && count < maxMarkers; i++, row++) {
+    for (row = gUnk_08128F58, i = 0; i < MAP_HINT_ROW_MAX && row->frameIndex != 0 && count < maxMarkers; i++, row++) {
         if (((hintMask >> i) & 1u) == 0) {
             continue;
         }
@@ -656,7 +650,7 @@ int Port_SecondScreenWorldMap_GetWindcrestPin(int32_t windcrestId, int32_t* outM
 #define REGION_PALETTE_GROUP_BASE 186u /* sub_080A67C4: LoadPaletteGroup(region + 0xBA) */
 #define REGION_SCALE_NUM 100           /* sub_080A69E0's world -> enlarged-map scale */
 #define REGION_SCALE_DEN 0x23A
-#define REGION_CANVAS_W 256             /* the 32x32 text-BG tilemap group 95+ fills */
+#define REGION_CANVAS_W 256 /* the 32x32 text-BG tilemap group 95+ fills */
 #define REGION_CANVAS_H 256
 #define DEST_REGION_TILEMAP 0x020344B0u /* gBG2Buffer — the group's 2nd EWRAM entry */
 
@@ -801,8 +795,8 @@ static int BuildRegionImage(int32_t region) {
             }
             ApplyPaletteGroup(REGION_PALETTE_GROUP_BASE + (u32)region, bgPal);
 
-            DrawBgLayerSized(canvas, REGION_CANVAS_W, REGION_CANVAS_H, tilemap.data, tilemap.len, tiles.data,
-                             tiles.len, bgPal, 0);
+            DrawBgLayerSized(canvas, REGION_CANVAS_W, REGION_CANVAS_H, tilemap.data, tilemap.len, tiles.data, tiles.len,
+                             bgPal, 0);
 
             art = (uint32_t*)calloc((size_t)g.artW * g.artH, sizeof(uint32_t));
             if (art != NULL) {
@@ -855,14 +849,15 @@ int Port_SecondScreenWorldMap_GetRegionSize(int32_t region, int32_t* outW, int32
     if (RegionImage(region, &srcW, &srcH) == NULL || srcW <= 0 || srcH <= 0) {
         return 0;
     }
-    if (outW != NULL) *outW = srcW;
-    if (outH != NULL) *outH = srcH;
+    if (outW != NULL)
+        *outW = srcW;
+    if (outH != NULL)
+        *outH = srcH;
     return 1;
 }
 
-int Port_SecondScreenWorldMap_DrawRegion(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                         int32_t dstX, int32_t dstY, int32_t dstW, int32_t dstH,
-                                         int32_t region) {
+int Port_SecondScreenWorldMap_DrawRegion(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t dstX,
+                                         int32_t dstY, int32_t dstW, int32_t dstH, int32_t region) {
     int32_t srcW = 0, srcH = 0, x, y;
     const uint32_t* art;
 
@@ -907,8 +902,8 @@ int Port_SecondScreenWorldMap_DrawRegion(uint32_t* pixels, int32_t bufW, int32_t
  * origin fixups live in GetRegionGeometry, so marker positions and the drawn
  * artwork can never drift apart. Returns 0 when the point belongs elsewhere
  * or the geometry isn't readable yet. */
-static int LocalizeInRegion(int32_t region, int32_t worldX, int32_t worldY, int32_t dstW, int32_t dstH,
-                            int32_t* outX, int32_t* outY) {
+static int LocalizeInRegion(int32_t region, int32_t worldX, int32_t worldY, int32_t dstW, int32_t dstH, int32_t* outX,
+                            int32_t* outY) {
     const OverworldLocation* here;
     RegionGeometry g;
     int32_t lx, ly;
@@ -932,8 +927,8 @@ static int LocalizeInRegion(int32_t region, int32_t worldX, int32_t worldY, int3
     return 1;
 }
 
-int Port_SecondScreenWorldMap_LocateInRegion(int32_t region, uint8_t area, int32_t areaX, int32_t areaY,
-                                             int32_t dstW, int32_t dstH, int32_t* outX, int32_t* outY) {
+int Port_SecondScreenWorldMap_LocateInRegion(int32_t region, uint8_t area, int32_t areaX, int32_t areaY, int32_t dstW,
+                                             int32_t dstH, int32_t* outX, int32_t* outY) {
     /* The player marker is just another point pushed through sub_080A69E0,
      * with the overworld test LocatePlayer makes in front of it. */
     if (outX == NULL || outY == NULL || dstW <= 0 || dstH <= 0) {
@@ -945,12 +940,9 @@ int Port_SecondScreenWorldMap_LocateInRegion(int32_t region, uint8_t area, int32
     return LocalizeInRegion(region, areaX, areaY, dstW, dstH, outX, outY);
 }
 
-
-int32_t Port_SecondScreenWorldMap_GetRegionMarkers(int32_t region, uint32_t hintMask,
-                                                   const uint8_t* fusedKinstones,
-                                                   const uint8_t* fusionUnmarked, int32_t dstW,
-                                                   int32_t dstH, SecondScreenMapMarker* out,
-                                                   int32_t maxMarkers) {
+int32_t Port_SecondScreenWorldMap_GetRegionMarkers(int32_t region, uint32_t hintMask, const uint8_t* fusedKinstones,
+                                                   const uint8_t* fusionUnmarked, int32_t dstW, int32_t dstH,
+                                                   SecondScreenMapMarker* out, int32_t maxMarkers) {
     /* sub_080A68D4's marker pass, in its own order: the map hints again — in
      * their REGION frames (unk3, 0x6D..0x73), from their world coordinates
      * (unk4, unk6) rather than the world map's baked screen ones — then one
@@ -986,8 +978,7 @@ int32_t Port_SecondScreenWorldMap_GetRegionMarkers(int32_t region, uint32_t hint
         return 0;
     }
 
-    for (row = gUnk_08128F58, i = 0;
-         i < MAP_HINT_ROW_MAX && row->frameIndex != 0 && count < maxMarkers; i++, row++) {
+    for (row = gUnk_08128F58, i = 0; i < MAP_HINT_ROW_MAX && row->frameIndex != 0 && count < maxMarkers; i++, row++) {
         int32_t lx, ly;
         if (((hintMask >> i) & 1u) == 0) {
             continue;
@@ -1079,8 +1070,7 @@ static const uint16_t* MarkerObjPalette(u32 row) {
     int i;
     for (i = (int)sizeof(sWorldMapPaletteGroups) - 1; i >= 0; i--) {
         u32 numColors = 0;
-        const u8* p =
-            Port_GetRawPaletteGroupBankData(sWorldMapPaletteGroups[i], 16u + (row & 15u), &numColors);
+        const u8* p = Port_GetRawPaletteGroupBankData(sWorldMapPaletteGroups[i], 16u + (row & 15u), &numColors);
         if (p != NULL && numColors >= 16) {
             return (const uint16_t*)p;
         }
@@ -1109,10 +1099,9 @@ static int32_t FloorPixel(float value) {
  * screen coordinates. Unlike the 16x16 marker cache below, the discovery
  * covers span several OAM pieces and differ in size, so drawing their pieces
  * directly avoids a large permanent 17-frame cache. */
-static int DrawWorldMapFrameTransformed(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                        u32 frame, int32_t anchorX, int32_t anchorY, float ox, float oy,
-                                        float scale, int32_t clipX0, int32_t clipY0, int32_t clipX1,
-                                        int32_t clipY1) {
+static int DrawWorldMapFrameTransformed(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, u32 frame,
+                                        int32_t anchorX, int32_t anchorY, float ox, float oy, float scale,
+                                        int32_t clipX0, int32_t clipY0, int32_t clipX1, int32_t clipY1) {
     const u8* sizeTab = Port_GetSpriteSizeTable();
     u32 maxPieces = 0;
     const u8* fd = Port_GetDirectSpriteFrame(DIRECT_SPRITE_INDEX, frame, &maxPieces);
@@ -1122,13 +1111,18 @@ static int DrawWorldMapFrameTransformed(uint32_t* pixels, int32_t bufW, int32_t 
     if (pixels == NULL || sizeTab == NULL || fd == NULL || scale <= 0.0f) {
         return 0;
     }
-    if (clipX0 < 0) clipX0 = 0;
-    if (clipY0 < 0) clipY0 = 0;
-    if (clipX1 > bufW) clipX1 = bufW;
-    if (clipY1 > bufH) clipY1 = bufH;
+    if (clipX0 < 0)
+        clipX0 = 0;
+    if (clipY0 < 0)
+        clipY0 = 0;
+    if (clipX1 > bufW)
+        clipX1 = bufW;
+    if (clipY1 > bufH)
+        clipY1 = bufH;
     count = fd[0];
     fd++;
-    if (count > maxPieces) count = maxPieces;
+    if (count > maxPieces)
+        count = maxPieces;
 
     for (i = 0; i < count; i++, fd += 5) {
         int32_t xoff = (int8_t)fd[0];
@@ -1147,19 +1141,21 @@ static int DrawWorldMapFrameTransformed(uint32_t* pixels, int32_t bufW, int32_t 
         const uint16_t* pal = MarkerObjPalette(palRow);
         int32_t tx, ty, sx, sy;
 
-        if (pal == NULL) return 0;
+        if (pal == NULL)
+            return 0;
         for (ty = 0; ty < hpx / 8; ty++) {
             for (tx = 0; tx < wpx / 8; tx++) {
-                const u8* tile = MarkerTile(SECOND_SCREEN_WORLDMAP_NO_REGION,
-                                            tileNo + (u32)(ty * (wpx / 8) + tx));
-                if (tile == NULL) return 0;
+                const u8* tile = MarkerTile(SECOND_SCREEN_WORLDMAP_NO_REGION, tileNo + (u32)(ty * (wpx / 8) + tx));
+                if (tile == NULL)
+                    return 0;
                 for (sy = 0; sy < 8; sy++) {
                     for (sx = 0; sx < 8; sx++) {
                         u8 packed = tile[sy * 4 + sx / 2];
                         u8 colorIndex = (sx & 1) ? (u8)(packed >> 4) : (u8)(packed & 0xFu);
                         int32_t localX, localY, srcX, srcY, dx0, dy0, dx1, dy1, dx, dy;
                         uint32_t color;
-                        if (colorIndex == 0) continue;
+                        if (colorIndex == 0)
+                            continue;
                         localX = tx * 8 + sx;
                         localY = ty * 8 + sy;
                         srcX = pieceX + (hflip ? wpx - 1 - localX : localX);
@@ -1168,12 +1164,18 @@ static int DrawWorldMapFrameTransformed(uint32_t* pixels, int32_t bufW, int32_t 
                         dy0 = FloorPixel(oy + srcY * scale);
                         dx1 = FloorPixel(ox + (srcX + 1) * scale);
                         dy1 = FloorPixel(oy + (srcY + 1) * scale);
-                        if (dx1 <= dx0) dx1 = dx0 + 1;
-                        if (dy1 <= dy0) dy1 = dy0 + 1;
-                        if (dx0 < clipX0) dx0 = clipX0;
-                        if (dy0 < clipY0) dy0 = clipY0;
-                        if (dx1 > clipX1) dx1 = clipX1;
-                        if (dy1 > clipY1) dy1 = clipY1;
+                        if (dx1 <= dx0)
+                            dx1 = dx0 + 1;
+                        if (dy1 <= dy0)
+                            dy1 = dy0 + 1;
+                        if (dx0 < clipX0)
+                            dx0 = clipX0;
+                        if (dy0 < clipY0)
+                            dy0 = clipY0;
+                        if (dx1 > clipX1)
+                            dx1 = clipX1;
+                        if (dy1 > clipY1)
+                            dy1 = clipY1;
                         color = Rgb555ToRgba8888(pal[colorIndex]);
                         for (dy = dy0; dy < dy1; dy++) {
                             for (dx = dx0; dx < dx1; dx++) {
@@ -1189,18 +1191,19 @@ static int DrawWorldMapFrameTransformed(uint32_t* pixels, int32_t bufW, int32_t 
     return drewAny;
 }
 
-int Port_SecondScreenWorldMap_DrawUnrevealedRegions(
-    uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, uint32_t windcrests, float ox,
-    float oy, float scale, int32_t clipX0, int32_t clipY0, int32_t clipX1, int32_t clipY1) {
+int Port_SecondScreenWorldMap_DrawUnrevealedRegions(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
+                                                    uint32_t windcrests, float ox, float oy, float scale,
+                                                    int32_t clipX0, int32_t clipY0, int32_t clipX1, int32_t clipY1) {
     int32_t region;
     int32_t count = 0;
 
     for (region = 0; region < WORLDMAP_REGION_COUNT; region++) {
         const u8* row;
-        if (Port_SecondScreenWorldMap_IsRegionRevealed(windcrests, region)) continue;
+        if (Port_SecondScreenWorldMap_IsRegionRevealed(windcrests, region))
+            continue;
         row = gUnk_08128DE8 + region * 8;
-        if (DrawWorldMapFrameTransformed(pixels, bufW, bufH, stride, (u32)(0x28 + 3 * region), row[6],
-                                         row[7], ox, oy, scale, clipX0, clipY0, clipX1, clipY1)) {
+        if (DrawWorldMapFrameTransformed(pixels, bufW, bufH, stride, (u32)(0x28 + 3 * region), row[6], row[7], ox, oy,
+                                         scale, clipX0, clipY0, clipX1, clipY1)) {
             count++;
         }
     }
@@ -1307,8 +1310,8 @@ static const uint32_t* MarkerGlyphArt(u32 frame, int32_t region) {
  * of the art's own — which is how the outline pass below draws the glyph's
  * silhouette. Transparent source pixels (0) are skipped either way, so 0 is
  * free to mean "use the art's colours". */
-static void StampMarkerArt(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                           const uint32_t* art, int32_t x, int32_t y, int32_t scale, uint32_t flat) {
+static void StampMarkerArt(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, const uint32_t* art, int32_t x,
+                           int32_t y, int32_t scale, uint32_t flat) {
     int32_t sx, sy, dx, dy;
 
     for (sy = 0; sy < MARKER_PX; sy++) {
@@ -1337,9 +1340,8 @@ static void StampMarkerArt(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t
     }
 }
 
-int Port_SecondScreenWorldMap_DrawMarker(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride,
-                                         int32_t x, int32_t y, int32_t scale, uint32_t frame,
-                                         int32_t region, uint32_t outline) {
+int Port_SecondScreenWorldMap_DrawMarker(uint32_t* pixels, int32_t bufW, int32_t bufH, int32_t stride, int32_t x,
+                                         int32_t y, int32_t scale, uint32_t frame, int32_t region, uint32_t outline) {
     const uint32_t* art;
 
     if (pixels == NULL || bufW <= 0 || bufH <= 0 || stride <= 0) {
@@ -1366,8 +1368,7 @@ int Port_SecondScreenWorldMap_DrawMarker(uint32_t* pixels, int32_t bufW, int32_t
                 if (ox == 0 && oy == 0) {
                     continue;
                 }
-                StampMarkerArt(pixels, bufW, bufH, stride, art, x + ox * scale, y + oy * scale, scale,
-                               outline);
+                StampMarkerArt(pixels, bufW, bufH, stride, art, x + ox * scale, y + oy * scale, scale, outline);
             }
         }
     }

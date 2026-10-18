@@ -37,11 +37,13 @@ using namespace tmc_vkrt;
  * should check). Used by the real-tile atlas builder below. */
 static std::vector<uint8_t> readFile(const char* path) {
     std::ifstream f(path, std::ios::binary | std::ios::ate);
-    if (!f) return {};
+    if (!f)
+        return {};
     auto end = f.tellg();
     f.seekg(0);
     std::vector<uint8_t> data((size_t)end);
-    if (!f.read((char*)data.data(), data.size())) data.clear();
+    if (!f.read((char*)data.data(), data.size()))
+        data.clear();
     return data;
 }
 
@@ -58,15 +60,14 @@ static std::vector<uint8_t> readFile(const char* path) {
  * Output buffer is (tileCols*8) × (tileRows*8) × 4 bytes.
  *
  * Returns the decoded RGBA bytes. */
-static std::vector<uint8_t> decode4bppTilesheet(const std::vector<uint8_t>& tileBytes,
-                                                int tileCols, int tileRows,
+static std::vector<uint8_t> decode4bppTilesheet(const std::vector<uint8_t>& tileBytes, int tileCols, int tileRows,
                                                 const uint32_t palette[16]) {
     const int W = tileCols * 8;
     const int H = tileRows * 8;
     std::vector<uint8_t> rgba((size_t)W * H * 4, 0);
     const size_t bytesPerTile = 32;
     if (tileBytes.size() < bytesPerTile * (size_t)tileCols * tileRows) {
-        return rgba;  /* zero-filled — caller sees empty/black on missing data */
+        return rgba; /* zero-filled — caller sees empty/black on missing data */
     }
     for (int ty = 0; ty < tileRows; ++ty) {
         for (int tx = 0; tx < tileCols; ++tx) {
@@ -77,15 +78,16 @@ static std::vector<uint8_t> decode4bppTilesheet(const std::vector<uint8_t>& tile
                     uint8_t lo = b & 0x0F;
                     uint8_t hi = (b >> 4) & 0x0F;
                     auto put = [&](int dx, int dy, uint8_t idx) {
-                        if (idx == 0) return;  /* transparent */
+                        if (idx == 0)
+                            return; /* transparent */
                         uint32_t col = palette[idx];
                         uint8_t* dst = &rgba[((dy * W) + dx) * 4];
-                        dst[0] = (col >>  0) & 0xFF;  /* R */
-                        dst[1] = (col >>  8) & 0xFF;  /* G */
-                        dst[2] = (col >> 16) & 0xFF;  /* B */
-                        dst[3] = (col >> 24) & 0xFF;  /* A */
+                        dst[0] = (col >> 0) & 0xFF;  /* R */
+                        dst[1] = (col >> 8) & 0xFF;  /* G */
+                        dst[2] = (col >> 16) & 0xFF; /* B */
+                        dst[3] = (col >> 24) & 0xFF; /* A */
                     };
-                    put(tx * 8 + px,     ty * 8 + py, lo);
+                    put(tx * 8 + px, ty * 8 + py, lo);
                     put(tx * 8 + px + 1, ty * 8 + py, hi);
                 }
             }
@@ -102,22 +104,15 @@ static std::vector<uint8_t> decode4bppTilesheet(const std::vector<uint8_t>& tile
  * stay magenta as a "this was never used by this sheet" sentinel so any
  * tile data sampling those indices visibly stands out as broken. */
 static constexpr uint32_t kTestPalette[16] = {
-    0x00000000u,  /* 0: transparent (GBA convention) */
-    0xFF000000u,  /* 1: black (outline) */
-    0xFF686050u,  /* 2: dark grey-blue */
-    0xFF908870u,  /* 3: mid-dark */
-    0xFFC0B0A0u,  /* 4: mid */
-    0xFFE8D8D0u,  /* 5: light */
-    0xFFF8F8F8u,  /* 6: near-white */
-    0xFFFF00FFu,  /* 7..15: sentinel magenta */
-    0xFFFF00FFu,
-    0xFFFF00FFu,
-    0xFFFF00FFu,
-    0xFFFF00FFu,
-    0xFFFF00FFu,
-    0xFFFF00FFu,
-    0xFFFF00FFu,
-    0xFFFF00FFu,
+    0x00000000u, /* 0: transparent (GBA convention) */
+    0xFF000000u, /* 1: black (outline) */
+    0xFF686050u, /* 2: dark grey-blue */
+    0xFF908870u, /* 3: mid-dark */
+    0xFFC0B0A0u, /* 4: mid */
+    0xFFE8D8D0u, /* 5: light */
+    0xFFF8F8F8u, /* 6: near-white */
+    0xFFFF00FFu, /* 7..15: sentinel magenta */
+    0xFFFF00FFu, 0xFFFF00FFu, 0xFFFF00FFu, 0xFFFF00FFu, 0xFFFF00FFu, 0xFFFF00FFu, 0xFFFF00FFu, 0xFFFF00FFu,
 };
 
 /* Atlas layout (256×256):
@@ -150,25 +145,29 @@ static constexpr uint32_t kTestPalette[16] = {
 [[maybe_unused]] static std::vector<uint8_t> buildAtlas(uint32_t& outW, uint32_t& outH) {
     const uint32_t W = 256;
     const uint32_t H = 256;
-    outW = W; outH = H;
+    outW = W;
+    outH = H;
     std::vector<uint8_t> px(W * H * 4u, 0);
 
     /* Block-fill a solid colour into a rect of the atlas. */
-    auto fillRect = [&](uint32_t x0, uint32_t y0, uint32_t x1, uint32_t y1,
-                        uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+    auto fillRect = [&](uint32_t x0, uint32_t y0, uint32_t x1, uint32_t y1, uint8_t r, uint8_t g, uint8_t b,
+                        uint8_t a) {
         for (uint32_t y = y0; y < y1; ++y) {
             for (uint32_t x = x0; x < x1; ++x) {
                 uint8_t* p = &px[(y * W + x) * 4u];
-                p[0] = r; p[1] = g; p[2] = b; p[3] = a;
+                p[0] = r;
+                p[1] = g;
+                p[2] = b;
+                p[3] = a;
             }
         }
     };
 
     /* Sprite cell (red), BG0 (yellow), BG2 (blue), BG1 (green), UI (white). */
-    fillRect( 64, 0, 128,  64, 230,  60,  50, 255);  /* Sprite */
-    fillRect(128, 0, 192,  64, 235, 200,  60, 255);  /* BG0 */
-    fillRect(192, 0, 256, 256,  60, 110, 200, 255);  /* BG2 (full-height) */
-    fillRect( 64, 64, 128, 128,  80, 180,  90, 255); /* BG1 */
+    fillRect(64, 0, 128, 64, 230, 60, 50, 255);      /* Sprite */
+    fillRect(128, 0, 192, 64, 235, 200, 60, 255);    /* BG0 */
+    fillRect(192, 0, 256, 256, 60, 110, 200, 255);   /* BG2 (full-height) */
+    fillRect(64, 64, 128, 128, 80, 180, 90, 255);    /* BG1 */
     fillRect(128, 64, 192, 128, 240, 240, 240, 255); /* UI box outer */
     /* UI box: hollow interior. */
     fillRect(134, 70, 186, 122, 0, 0, 0, 0);
@@ -178,9 +177,9 @@ static constexpr uint32_t kTestPalette[16] = {
      * atlas, recorded in the order their UVs are looked up below. */
     struct SheetSpec {
         const char* path;
-        int         tileCols;
-        int         tileRows;
-        uint32_t    atlasX, atlasY;  /* top-left in the 256×256 atlas */
+        int tileCols;
+        int tileRows;
+        uint32_t atlasX, atlasY; /* top-left in the 256×256 atlas */
         const char* label;
     };
     /* Tilesheet 1: face buttons (8 tiles × 7 tiles = 64×56). Lands
@@ -188,10 +187,8 @@ static constexpr uint32_t kTestPalette[16] = {
      * Tilesheet 2: shoulder buttons (7 × 2 tiles = 56×16). Lands at
      *   atlas (0, 56) just below the first. */
     const SheetSpec sheets[] = {
-        { "../../mods/buttons-gba/gfx/gfx_35cb00_64x56_4bpp_uncompressed.bin",
-          8, 7, 0, 0,  "face" },
-        { "../../mods/buttons-gba/gfx/gfx_215e0_32x32_4bpp_uncompressed.bin",
-          7, 2, 0, 56, "shoulder" },
+        { "../../mods/buttons-gba/gfx/gfx_35cb00_64x56_4bpp_uncompressed.bin", 8, 7, 0, 0, "face" },
+        { "../../mods/buttons-gba/gfx/gfx_215e0_32x32_4bpp_uncompressed.bin", 7, 2, 0, 56, "shoulder" },
     };
 
     for (const SheetSpec& s : sheets) {
@@ -204,13 +201,10 @@ static constexpr uint32_t kTestPalette[16] = {
         const int sheetH = s.tileRows * 8;
         auto rgba = decode4bppTilesheet(bytes, s.tileCols, s.tileRows, kTestPalette);
         for (int y = 0; y < sheetH; ++y) {
-            std::memcpy(&px[((s.atlasY + y) * W + s.atlasX) * 4u],
-                        &rgba[(y * sheetW) * 4u],
-                        (size_t)sheetW * 4u);
+            std::memcpy(&px[((s.atlasY + y) * W + s.atlasX) * 4u], &rgba[(y * sheetW) * 4u], (size_t)sheetW * 4u);
         }
-        std::fprintf(stderr,
-            "[atlas] decoded %s tilesheet (%zu bytes → %dx%d, placed at atlas %u,%u)\n",
-            s.label, bytes.size(), sheetW, sheetH, s.atlasX, s.atlasY);
+        std::fprintf(stderr, "[atlas] decoded %s tilesheet (%zu bytes → %dx%d, placed at atlas %u,%u)\n", s.label,
+                     bytes.size(), sheetW, sheetH, s.atlasX, s.atlasY);
     }
 
     return px;
@@ -228,16 +222,16 @@ static constexpr uint32_t kTestPalette[16] = {
  *        - barrier atlas: TRANSFER_DST → SHADER_READ_ONLY
  *   3. Then issue rebuildAS + dispatchRays, which samples atlas. */
 struct AtlasGpu {
-    VkImage        image = VK_NULL_HANDLE;
-    VkImageView    view  = VK_NULL_HANDLE;
+    VkImage image = VK_NULL_HANDLE;
+    VkImageView view = VK_NULL_HANDLE;
     VkDeviceMemory memory = VK_NULL_HANDLE;
-    VkSampler      sampler = VK_NULL_HANDLE;
+    VkSampler sampler = VK_NULL_HANDLE;
 
     /* Persistent staging — mapped at create time, kept mapped. */
-    VkBuffer       stagingBuf  = VK_NULL_HANDLE;
-    VkDeviceMemory stagingMem  = VK_NULL_HANDLE;
-    void*          stagingMap  = nullptr;
-    uint32_t       w = 0, h = 0;
+    VkBuffer stagingBuf = VK_NULL_HANDLE;
+    VkDeviceMemory stagingMem = VK_NULL_HANDLE;
+    void* stagingMap = nullptr;
+    uint32_t w = 0, h = 0;
 };
 
 /* Create an empty (UNDEFINED → SHADER_READ_ONLY) atlas of the given
@@ -251,26 +245,25 @@ static AtlasGpu createAtlas(Engine& eng, uint32_t w, uint32_t h) {
 
     /* Image */
     VkImageCreateInfo ici{};
-    ici.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    ici.imageType     = VK_IMAGE_TYPE_2D;
-    ici.format        = VK_FORMAT_R8G8B8A8_UNORM;
-    ici.extent        = { w, h, 1 };
-    ici.mipLevels     = 1;
-    ici.arrayLayers   = 1;
-    ici.samples       = VK_SAMPLE_COUNT_1_BIT;
-    ici.tiling        = VK_IMAGE_TILING_OPTIMAL;
-    ici.usage         = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    ici.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+    ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    ici.imageType = VK_IMAGE_TYPE_2D;
+    ici.format = VK_FORMAT_R8G8B8A8_UNORM;
+    ici.extent = { w, h, 1 };
+    ici.mipLevels = 1;
+    ici.arrayLayers = 1;
+    ici.samples = VK_SAMPLE_COUNT_1_BIT;
+    ici.tiling = VK_IMAGE_TILING_OPTIMAL;
+    ici.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    ici.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     check(vkCreateImage(eng.device(), &ici, nullptr, &out.image), "atlas vkCreateImage");
 
     VkMemoryRequirements mr{};
     vkGetImageMemoryRequirements(eng.device(), out.image, &mr);
     VkMemoryAllocateInfo mai{};
-    mai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    mai.allocationSize  = mr.size;
-    mai.memoryTypeIndex = eng.findMemoryType(mr.memoryTypeBits,
-                                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    mai.allocationSize = mr.size;
+    mai.memoryTypeIndex = eng.findMemoryType(mr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     check(vkAllocateMemory(eng.device(), &mai, nullptr, &out.memory), "atlas vkAllocateMemory");
     check(vkBindImageMemory(eng.device(), out.image, out.memory, 0), "atlas vkBindImageMemory");
 
@@ -278,11 +271,9 @@ static AtlasGpu createAtlas(Engine& eng, uint32_t w, uint32_t h) {
      * frame's memcpy doesn't pay the Map/Unmap cost. */
     const VkDeviceSize bytes = (VkDeviceSize)w * h * 4;
     eng.allocateBuffer(bytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                       VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                       &out.stagingBuf, &out.stagingMem);
-    check(vkMapMemory(eng.device(), out.stagingMem, 0, bytes, 0, &out.stagingMap),
-          "atlas staging vkMapMemory");
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &out.stagingBuf,
+                       &out.stagingMem);
+    check(vkMapMemory(eng.device(), out.stagingMem, 0, bytes, 0, &out.stagingMap), "atlas staging vkMapMemory");
 
     /* Transition UNDEFINED → SHADER_READ_ONLY so the first frame's
      * descriptor binding is valid even before refreshAtlas runs.
@@ -290,41 +281,39 @@ static AtlasGpu createAtlas(Engine& eng, uint32_t w, uint32_t h) {
      * rgen+rchit only sample after the first frame's upload.) */
     eng.oneShot([&](VkCommandBuffer cmd) {
         VkImageMemoryBarrier b{};
-        b.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        b.oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
-        b.newLayout           = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        b.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        b.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        b.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         b.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        b.image               = out.image;
-        b.subresourceRange    = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-        b.srcAccessMask       = 0;
-        b.dstAccessMask       = VK_ACCESS_SHADER_READ_BIT;
-        vkCmdPipelineBarrier(cmd,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-            0, 0, nullptr, 0, nullptr, 1, &b);
+        b.image = out.image;
+        b.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        b.srcAccessMask = 0;
+        b.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0, 0,
+                             nullptr, 0, nullptr, 1, &b);
     });
 
     /* View */
     VkImageViewCreateInfo vci{};
-    vci.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    vci.image            = out.image;
-    vci.viewType         = VK_IMAGE_VIEW_TYPE_2D;
-    vci.format           = VK_FORMAT_R8G8B8A8_UNORM;
-    vci.components       = {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
-                            VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY};
-    vci.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    vci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    vci.image = out.image;
+    vci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    vci.format = VK_FORMAT_R8G8B8A8_UNORM;
+    vci.components = { VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
+                       VK_COMPONENT_SWIZZLE_IDENTITY };
+    vci.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
     check(vkCreateImageView(eng.device(), &vci, nullptr, &out.view), "atlas vkCreateImageView");
 
     /* Linear sampler with clamp-to-edge. */
     VkSamplerCreateInfo sci{};
-    sci.sType        = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    sci.magFilter    = VK_FILTER_NEAREST;  /* pixel-art: nearest stays crisp */
-    sci.minFilter    = VK_FILTER_NEAREST;
+    sci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    sci.magFilter = VK_FILTER_NEAREST; /* pixel-art: nearest stays crisp */
+    sci.minFilter = VK_FILTER_NEAREST;
     sci.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sci.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sci.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    sci.mipmapMode   = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    sci.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
     check(vkCreateSampler(eng.device(), &sci, nullptr, &out.sampler), "atlas vkCreateSampler");
     return out;
 }
@@ -334,16 +323,13 @@ static AtlasGpu createAtlas(Engine& eng, uint32_t w, uint32_t h) {
  * Each plane is `srcW × srcH` RGBA8; the atlas's height must be at
  * least `numPlanes * srcH`. Pass nullptr for missing planes to leave
  * them unchanged from the previous frame. */
-static void refreshAtlas(Engine& eng, VkCommandBuffer cmd,
-                         AtlasGpu& atlas,
-                         const uint8_t* composite,
-                         const uint8_t* bg1,
-                         const uint8_t* bg2,
-                         const uint8_t* sprite,
-                         uint32_t srcW, uint32_t srcH) {
+static void refreshAtlas(Engine& eng, VkCommandBuffer cmd, AtlasGpu& atlas, const uint8_t* composite,
+                         const uint8_t* bg1, const uint8_t* bg2, const uint8_t* sprite, uint32_t srcW, uint32_t srcH) {
     (void)eng;
-    if (!composite && !bg1 && !bg2 && !sprite) return;
-    if (srcW == 0 || srcH == 0) return;
+    if (!composite && !bg1 && !bg2 && !sprite)
+        return;
+    if (srcW == 0 || srcH == 0)
+        return;
 
     /* Stage the up-to-four planes in the persistent staging buffer.
      * Layout matches the atlas image: composite/BG1/BG2/sprite top-to-
@@ -351,26 +337,28 @@ static void refreshAtlas(Engine& eng, VkCommandBuffer cmd,
      * (harmless — only the regions we copy below get pushed). */
     const size_t planeBytes = (size_t)srcW * srcH * 4;
     uint8_t* dst = (uint8_t*)atlas.stagingMap;
-    if (composite) std::memcpy(dst + 0 * planeBytes, composite, planeBytes);
-    if (bg1)       std::memcpy(dst + 1 * planeBytes, bg1,       planeBytes);
-    if (bg2)       std::memcpy(dst + 2 * planeBytes, bg2,       planeBytes);
-    if (sprite)    std::memcpy(dst + 3 * planeBytes, sprite,    planeBytes);
+    if (composite)
+        std::memcpy(dst + 0 * planeBytes, composite, planeBytes);
+    if (bg1)
+        std::memcpy(dst + 1 * planeBytes, bg1, planeBytes);
+    if (bg2)
+        std::memcpy(dst + 2 * planeBytes, bg2, planeBytes);
+    if (sprite)
+        std::memcpy(dst + 3 * planeBytes, sprite, planeBytes);
 
     /* SHADER_READ_ONLY → TRANSFER_DST */
     VkImageMemoryBarrier toDst{};
-    toDst.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    toDst.oldLayout           = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    toDst.newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    toDst.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    toDst.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    toDst.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     toDst.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     toDst.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    toDst.image               = atlas.image;
-    toDst.subresourceRange    = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    toDst.srcAccessMask       = VK_ACCESS_SHADER_READ_BIT;
-    toDst.dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT;
-    vkCmdPipelineBarrier(cmd,
-        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        0, 0, nullptr, 0, nullptr, 1, &toDst);
+    toDst.image = atlas.image;
+    toDst.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    toDst.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    toDst.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0,
+                         nullptr, 0, nullptr, 1, &toDst);
 
     /* One vkCmdCopyBufferToImage per plane present. Each copy
      * specifies its destination y-offset to land in the right
@@ -379,65 +367,64 @@ static void refreshAtlas(Engine& eng, VkCommandBuffer cmd,
     uint32_t regionCount = 0;
     auto addRegion = [&](uint32_t planeIdx) {
         VkBufferImageCopy& r = regions[regionCount++];
-        r.bufferOffset      = planeIdx * planeBytes;
-        r.bufferRowLength   = 0;
+        r.bufferOffset = planeIdx * planeBytes;
+        r.bufferRowLength = 0;
         r.bufferImageHeight = 0;
-        r.imageSubresource  = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-        r.imageOffset       = {0, (int32_t)(planeIdx * srcH), 0};
-        r.imageExtent       = {srcW, srcH, 1};
+        r.imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+        r.imageOffset = { 0, (int32_t)(planeIdx * srcH), 0 };
+        r.imageExtent = { srcW, srcH, 1 };
     };
-    if (composite) addRegion(0);
-    if (bg1)       addRegion(1);
-    if (bg2)       addRegion(2);
-    if (sprite)    addRegion(3);
+    if (composite)
+        addRegion(0);
+    if (bg1)
+        addRegion(1);
+    if (bg2)
+        addRegion(2);
+    if (sprite)
+        addRegion(3);
     if (regionCount > 0) {
-        vkCmdCopyBufferToImage(cmd, atlas.stagingBuf, atlas.image,
-                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                               regionCount, regions);
+        vkCmdCopyBufferToImage(cmd, atlas.stagingBuf, atlas.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, regionCount,
+                               regions);
     }
 
     /* TRANSFER_DST → SHADER_READ_ONLY (sync with subsequent trace) */
     VkImageMemoryBarrier toRead = toDst;
-    toRead.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    toRead.newLayout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    toRead.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    toRead.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     toRead.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     toRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    vkCmdPipelineBarrier(cmd,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-        0, 0, nullptr, 0, nullptr, 1, &toRead);
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0, 0,
+                         nullptr, 0, nullptr, 1, &toRead);
 }
 
 /* Legacy one-shot uploader retained for reference / future use; not
  * called by main() anymore now that the atlas is refreshed per
  * frame from the FrameSource. Kept compilable so the file builds
  * even if no caller uses it; the linker drops it when unused. */
-[[maybe_unused]] static AtlasGpu uploadAtlas(Engine& eng, const std::vector<uint8_t>& px,
-                                             uint32_t w, uint32_t h) {
+[[maybe_unused]] static AtlasGpu uploadAtlas(Engine& eng, const std::vector<uint8_t>& px, uint32_t w, uint32_t h) {
     AtlasGpu out;
 
     /* Image */
     VkImageCreateInfo ici{};
-    ici.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    ici.imageType     = VK_IMAGE_TYPE_2D;
-    ici.format        = VK_FORMAT_R8G8B8A8_UNORM;
-    ici.extent        = { w, h, 1 };
-    ici.mipLevels     = 1;
-    ici.arrayLayers   = 1;
-    ici.samples       = VK_SAMPLE_COUNT_1_BIT;
-    ici.tiling        = VK_IMAGE_TILING_OPTIMAL;
-    ici.usage         = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    ici.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+    ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    ici.imageType = VK_IMAGE_TYPE_2D;
+    ici.format = VK_FORMAT_R8G8B8A8_UNORM;
+    ici.extent = { w, h, 1 };
+    ici.mipLevels = 1;
+    ici.arrayLayers = 1;
+    ici.samples = VK_SAMPLE_COUNT_1_BIT;
+    ici.tiling = VK_IMAGE_TILING_OPTIMAL;
+    ici.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    ici.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     check(vkCreateImage(eng.device(), &ici, nullptr, &out.image), "atlas vkCreateImage");
 
     VkMemoryRequirements mr{};
     vkGetImageMemoryRequirements(eng.device(), out.image, &mr);
     VkMemoryAllocateInfo mai{};
-    mai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    mai.allocationSize  = mr.size;
-    mai.memoryTypeIndex = eng.findMemoryType(mr.memoryTypeBits,
-                                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    mai.allocationSize = mr.size;
+    mai.memoryTypeIndex = eng.findMemoryType(mr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     check(vkAllocateMemory(eng.device(), &mai, nullptr, &out.memory), "atlas vkAllocateMemory");
     check(vkBindImageMemory(eng.device(), out.image, out.memory, 0), "atlas vkBindImageMemory");
 
@@ -445,50 +432,44 @@ static void refreshAtlas(Engine& eng, VkCommandBuffer cmd,
     VkBuffer stagingBuf = VK_NULL_HANDLE;
     VkDeviceMemory stagingMem = VK_NULL_HANDLE;
     eng.allocateBuffer(px.size(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                       VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                       &stagingBuf, &stagingMem);
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuf,
+                       &stagingMem);
     void* p = nullptr;
-    check(vkMapMemory(eng.device(), stagingMem, 0, px.size(), 0, &p),
-          "atlas staging vkMapMemory");
+    check(vkMapMemory(eng.device(), stagingMem, 0, px.size(), 0, &p), "atlas staging vkMapMemory");
     std::memcpy(p, px.data(), px.size());
     vkUnmapMemory(eng.device(), stagingMem);
 
     /* Transition → copy → transition to SHADER_READ_ONLY_OPTIMAL */
     eng.oneShot([&](VkCommandBuffer cmd) {
         VkImageMemoryBarrier b1{};
-        b1.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        b1.oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
-        b1.newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        b1.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        b1.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        b1.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         b1.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         b1.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        b1.image               = out.image;
-        b1.subresourceRange    = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-        b1.srcAccessMask       = 0;
-        b1.dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT;
-        vkCmdPipelineBarrier(cmd,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-            0, 0, nullptr, 0, nullptr, 1, &b1);
+        b1.image = out.image;
+        b1.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        b1.srcAccessMask = 0;
+        b1.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                             nullptr, 1, &b1);
 
         VkBufferImageCopy region{};
-        region.bufferOffset      = 0;
-        region.bufferRowLength   = 0;
+        region.bufferOffset = 0;
+        region.bufferRowLength = 0;
         region.bufferImageHeight = 0;
-        region.imageSubresource  = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-        region.imageOffset       = {0, 0, 0};
-        region.imageExtent       = {w, h, 1};
-        vkCmdCopyBufferToImage(cmd, stagingBuf, out.image,
-                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                               1, &region);
+        region.imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+        region.imageOffset = { 0, 0, 0 };
+        region.imageExtent = { w, h, 1 };
+        vkCmdCopyBufferToImage(cmd, stagingBuf, out.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
         VkImageMemoryBarrier b2 = b1;
-        b2.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        b2.newLayout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        b2.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        b2.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         b2.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         b2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        vkCmdPipelineBarrier(cmd,
-            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-            0, 0, nullptr, 0, nullptr, 1, &b2);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0, 0,
+                             nullptr, 0, nullptr, 1, &b2);
     });
 
     vkDestroyBuffer(eng.device(), stagingBuf, nullptr);
@@ -496,39 +477,41 @@ static void refreshAtlas(Engine& eng, VkCommandBuffer cmd,
 
     /* View */
     VkImageViewCreateInfo vci{};
-    vci.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    vci.image            = out.image;
-    vci.viewType         = VK_IMAGE_VIEW_TYPE_2D;
-    vci.format           = VK_FORMAT_R8G8B8A8_UNORM;
-    vci.components       = {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
-                            VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY};
-    vci.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    vci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    vci.image = out.image;
+    vci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    vci.format = VK_FORMAT_R8G8B8A8_UNORM;
+    vci.components = { VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
+                       VK_COMPONENT_SWIZZLE_IDENTITY };
+    vci.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
     check(vkCreateImageView(eng.device(), &vci, nullptr, &out.view), "atlas vkCreateImageView");
 
     /* Linear sampler with clamp-to-edge (matches the rchit's
      * normalised-UV expectation). */
     VkSamplerCreateInfo sci{};
-    sci.sType         = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    sci.magFilter     = VK_FILTER_LINEAR;
-    sci.minFilter     = VK_FILTER_LINEAR;
-    sci.addressModeU  = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    sci.addressModeV  = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    sci.addressModeW  = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    sci.mipmapMode    = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    sci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    sci.magFilter = VK_FILTER_LINEAR;
+    sci.minFilter = VK_FILTER_LINEAR;
+    sci.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sci.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sci.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sci.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     check(vkCreateSampler(eng.device(), &sci, nullptr, &out.sampler), "atlas vkCreateSampler");
 
     return out;
 }
 
 /* Cell UV ranges into the atlas built by buildAtlas above. */
-struct CellUV { float u0, v0, u1, v1; };
-static constexpr CellUV kCellFace   = {0.000f, 0.000f, 64.0f/256, 56.0f/256}; /* face buttons */
-static constexpr CellUV kCellShould = {0.000f, 56.0f/256, 56.0f/256, 72.0f/256}; /* shoulder buttons */
-static constexpr CellUV kCellSprite = {0.250f, 0.000f, 0.500f,    0.250f};   /* red */
-static constexpr CellUV kCellBG0    = {0.500f, 0.000f, 0.750f,    0.250f};   /* yellow */
-static constexpr CellUV kCellBG2    = {0.750f, 0.000f, 1.000f,    1.000f};   /* blue */
-static constexpr CellUV kCellBG1    = {0.250f, 0.250f, 0.500f,    0.500f};   /* green */
-static constexpr CellUV kCellUI     = {0.500f, 0.250f, 0.750f,    0.500f};   /* white */
+struct CellUV {
+    float u0, v0, u1, v1;
+};
+static constexpr CellUV kCellFace = { 0.000f, 0.000f, 64.0f / 256, 56.0f / 256 };        /* face buttons */
+static constexpr CellUV kCellShould = { 0.000f, 56.0f / 256, 56.0f / 256, 72.0f / 256 }; /* shoulder buttons */
+static constexpr CellUV kCellSprite = { 0.250f, 0.000f, 0.500f, 0.250f };                /* red */
+static constexpr CellUV kCellBG0 = { 0.500f, 0.000f, 0.750f, 0.250f };                   /* yellow */
+static constexpr CellUV kCellBG2 = { 0.750f, 0.000f, 1.000f, 1.000f };                   /* blue */
+static constexpr CellUV kCellBG1 = { 0.250f, 0.250f, 0.500f, 0.500f };                   /* green */
+static constexpr CellUV kCellUI = { 0.500f, 0.250f, 0.750f, 0.500f };                    /* white */
 
 int main() {
     Engine engine;
@@ -536,12 +519,11 @@ int main() {
         std::fprintf(stderr, "[main] Engine.init failed\n");
         return 1;
     }
-    std::fprintf(stderr, "[main] engine up; swapchain %ux%u\n",
-                 engine.swapchainWidth(), engine.swapchainHeight());
+    std::fprintf(stderr, "[main] engine up; swapchain %ux%u\n", engine.swapchainWidth(), engine.swapchainHeight());
 
     RenderLayerManager layers(engine);
     RayTracingPipeline rt(engine, layers);
-    DenoisePipeline    denoise(engine);
+    DenoisePipeline denoise(engine);
 
     /* Compiled-shader directory: ./shaders relative to the binary's
      * cwd. The build script writes *.spv there. */
@@ -560,9 +542,7 @@ int main() {
      * pass rays through transparent sprite-quad pixels and lets the
      * rchit luma-test only emissive-tag real silhouette texels. */
     std::fprintf(stderr, "[main] step: createAtlas\n");
-    AtlasGpu atlas = createAtlas(engine,
-                                 FrameSource::kFrameW,
-                                 FrameSource::kFrameH * 4u);
+    AtlasGpu atlas = createAtlas(engine, FrameSource::kFrameW, FrameSource::kFrameH * 4u);
     rt.setAtlas(atlas.view, atlas.sampler);
     std::fprintf(stderr, "[main] step: atlas ok (%ux%u)\n", atlas.w, atlas.h);
 
@@ -576,35 +556,41 @@ int main() {
      *      fallback when no live producer is available. Useful for
      *      iterating on the RT side without running the full game. */
     ShmFrameSource liveSrc;
-    FrameSource    pngSrc;
+    FrameSource pngSrc;
     bool useLive = liveSrc.open();
     if (!useLive) {
         std::fprintf(stderr, "[main] no live shm producer — falling back to PNG screenshots\n");
         const std::vector<std::string> candidateDirs = {
-            ".", "../..", "../../..",
+            ".",
+            "../..",
+            "../../..",
         };
         for (const auto& d : candidateDirs) {
-            if (pngSrc.loadDirectory(d)) break;
+            if (pngSrc.loadDirectory(d))
+                break;
         }
         if (pngSrc.frameCount() == 0) {
-            std::fprintf(stderr,
-                "[main] no tmc-*.png frames either — atlas stays at its\n"
-                "        initial contents. Start tmc_pc with\n"
-                "        TMC_PUBLISH_FRAMEBUFFER=1 ./tmc_pc, or drop a few\n"
-                "        240x160 PNGs into the binary's cwd.\n");
+            std::fprintf(stderr, "[main] no tmc-*.png frames either — atlas stays at its\n"
+                                 "        initial contents. Start tmc_pc with\n"
+                                 "        TMC_PUBLISH_FRAMEBUFFER=1 ./tmc_pc, or drop a few\n"
+                                 "        240x160 PNGs into the binary's cwd.\n");
         }
     }
 
-    (void)kCellFace;   (void)kCellShould; (void)kCellSprite;
-    (void)kCellBG0;    (void)kCellBG1;    (void)kCellBG2;    (void)kCellUI;
+    (void)kCellFace;
+    (void)kCellShould;
+    (void)kCellSprite;
+    (void)kCellBG0;
+    (void)kCellBG1;
+    (void)kCellBG2;
+    (void)kCellUI;
 
     /* Frame loop */
     bool firstFrame = true;
     uint32_t frameIdx = 0;
     const auto t0 = std::chrono::steady_clock::now();
     while (engine.pumpEvents()) {
-        const float time =
-            std::chrono::duration<float>(std::chrono::steady_clock::now() - t0).count();
+        const float time = std::chrono::duration<float>(std::chrono::steady_clock::now() - t0).count();
 
         /* Geometry for the trace. World composite back layer + per-OAM
          * sprite quads, sampling the same 240×640 atlas at different
@@ -624,10 +610,10 @@ int main() {
          * only opaque bright pixels as emissive. This kills the
          * bright-box-around-Link artefact from the previous slice. */
         const float kPlaneU0 = 0.0f, kPlaneU1 = 1.0f;
-        const float kCompV1  = 1.0f / 4.0f;
-        const float kBg1V0   = 1.0f / 4.0f, kBg1V1 = 2.0f / 4.0f;
-        const float kBg2V0   = 2.0f / 4.0f, kBg2V1 = 3.0f / 4.0f;
-        const float kSprV0   = 3.0f / 4.0f, kSprV1 = 1.0f;
+        const float kCompV1 = 1.0f / 4.0f;
+        const float kBg1V0 = 1.0f / 4.0f, kBg1V1 = 2.0f / 4.0f;
+        const float kBg2V0 = 2.0f / 4.0f, kBg2V1 = 3.0f / 4.0f;
+        const float kSprV0 = 3.0f / 4.0f, kSprV1 = 1.0f;
 
         layers.beginFrame();
         /* Single back layer: the full composite (every BG layer the
@@ -640,8 +626,7 @@ int main() {
          * single back layer is sufficient. Sprites at z=0.2 still
          * cast RT shadows onto this back composite, which is the
          * primary RTX effect for this scene. */
-        layers.drawSprite(Layer::BG2, 0.0f, 0.0f, 240.0f, 160.0f,
-                          kPlaneU0, 0.0f, kPlaneU1, kCompV1);
+        layers.drawSprite(Layer::BG2, 0.0f, 0.0f, 240.0f, 160.0f, kPlaneU0, 0.0f, kPlaneU1, kCompV1);
 
         ParsedOam parsed;
         const uint8_t* spritePlane = nullptr;
@@ -656,9 +641,7 @@ int main() {
          * flipping between frames as the sprite animation cycles
          * (which would flash Link's head emissive on/off as he
          * walked).  The shader sees a stable per-texel signal. */
-        auto isSpriteEmissive = [&](const OamSprite& /*s*/) -> bool {
-            return true;
-        };
+        auto isSpriteEmissive = [&](const OamSprite& /*s*/) -> bool { return true; };
         (void)spritePlane;
         for (const OamSprite& s : parsed.visibleSprites()) {
             /* Sprite quad now samples the SPRITE plane (OAM-only
@@ -670,44 +653,41 @@ int main() {
              * silhouette, not the full bounding-box rectangle. */
             const float u0 = (float)s.x / 240.0f;
             const float u1 = (float)(s.x + s.w) / 240.0f;
-            const float vy0 = (float)s.y         / 160.0f;
+            const float vy0 = (float)s.y / 160.0f;
             const float vy1 = (float)(s.y + s.h) / 160.0f;
             const float v0 = kSprV0 + vy0 * (kSprV1 - kSprV0);
             const float v1 = kSprV0 + vy1 * (kSprV1 - kSprV0);
             const bool emit = isSpriteEmissive(s);
-            layers.drawSprite(Layer::Sprite,
-                              (float)s.x, (float)s.y,
-                              (float)s.w, (float)s.h,
-                              u0, v0, u1, v1,
-                              emit);
+            layers.drawSprite(Layer::Sprite, (float)s.x, (float)s.y, (float)s.w, (float)s.h, u0, v0, u1, v1, emit);
         }
         layers.flushToBuffers();
 
         VkCommandBuffer cmd = engine.beginFrame();
-        if (cmd == VK_NULL_HANDLE) continue;  /* swapchain out of date */
+        if (cmd == VK_NULL_HANDLE)
+            continue; /* swapchain out of date */
 
         /* Pull all four planes from the live shm (or the PNG ring's
          * single composite for the offline fallback). The refresh
          * function uploads each present plane into its region of the
          * atlas; the BG / sprite planes only show up when the
          * producer is v3+ / v4+ respectively. */
-        const uint8_t* composite     = nullptr;
-        const uint8_t* bg1Plane      = nullptr;
-        const uint8_t* bg2Plane      = nullptr;
+        const uint8_t* composite = nullptr;
+        const uint8_t* bg1Plane = nullptr;
+        const uint8_t* bg2Plane = nullptr;
         const uint8_t* spritePlaneFB = nullptr;
         if (useLive) {
-            composite     = liveSrc.currentFrame();
-            bg1Plane      = liveSrc.currentBgPlane(0);
-            bg2Plane      = liveSrc.currentBgPlane(1);
+            composite = liveSrc.currentFrame();
+            bg1Plane = liveSrc.currentBgPlane(0);
+            bg2Plane = liveSrc.currentBgPlane(1);
             spritePlaneFB = liveSrc.currentSpritePlane();
         } else {
             composite = pngSrc.advance(10);
         }
         if (composite || bg1Plane || bg2Plane || spritePlaneFB) {
-            refreshAtlas(engine, cmd, atlas,
-                         composite, bg1Plane, bg2Plane, spritePlaneFB,
-                         FrameSource::kFrameW, FrameSource::kFrameH);
-            if (firstFrame) std::fprintf(stderr, "[main] first frame uploaded, tracing\n");
+            refreshAtlas(engine, cmd, atlas, composite, bg1Plane, bg2Plane, spritePlaneFB, FrameSource::kFrameW,
+                         FrameSource::kFrameH);
+            if (firstFrame)
+                std::fprintf(stderr, "[main] first frame uploaded, tracing\n");
         }
 
         /* --- Slice 6: extract point lights from the OAM-only sprite
@@ -718,18 +698,21 @@ int main() {
         RayTracingPipeline::Light lights[RayTracingPipeline::kMaxLights];
         uint32_t lightCount = 0;
         if (spritePlaneFB) {
-            const int kStride = 4;  /* sub-sample to keep CPU cost down */
+            const int kStride = 4; /* sub-sample to keep CPU cost down */
             for (int py = 0; py < 160; py += kStride) {
                 for (int px = 0; px < 240; px += kStride) {
                     const uint8_t* p = &spritePlaneFB[(py * 240 + px) * 4];
-                    if (p[3] < 128) continue;  /* outside silhouette */
+                    if (p[3] < 128)
+                        continue; /* outside silhouette */
                     float r = p[0] / 255.0f, g = p[1] / 255.0f, b = p[2] / 255.0f;
                     float luma = 0.2126f * r + 0.7152f * g + 0.0722f * b;
-                    if (luma < 0.6f) continue;
-                    float maxC = std::max({r, g, b});
-                    float minC = std::min({r, g, b});
-                    float sat  = (maxC > 0.0001f) ? (maxC - minC) / maxC : 0.0f;
-                    if (sat < 0.4f) continue;
+                    if (luma < 0.6f)
+                        continue;
+                    float maxC = std::max({ r, g, b });
+                    float minC = std::min({ r, g, b });
+                    float sat = (maxC > 0.0001f) ? (maxC - minC) / maxC : 0.0f;
+                    if (sat < 0.4f)
+                        continue;
 
                     /* Cluster: merge into an existing light within
                      * mergeRadius pixels.  Otherwise emit a new one. */
@@ -738,27 +721,27 @@ int main() {
                     for (uint32_t i = 0; i < lightCount; ++i) {
                         float dx = lights[i].posX - float(px);
                         float dy = lights[i].posY - float(py);
-                        if (dx*dx + dy*dy < mergeRadius*mergeRadius) {
+                        if (dx * dx + dy * dy < mergeRadius * mergeRadius) {
                             /* Accumulate position + radiance (averaged on flush). */
                             lights[i].posX = (lights[i].posX + float(px)) * 0.5f;
                             lights[i].posY = (lights[i].posY + float(py)) * 0.5f;
-                            lights[i].r    = std::max(lights[i].r, r);
-                            lights[i].g    = std::max(lights[i].g, g);
-                            lights[i].b    = std::max(lights[i].b, b);
+                            lights[i].r = std::max(lights[i].r, r);
+                            lights[i].g = std::max(lights[i].g, g);
+                            lights[i].b = std::max(lights[i].b, b);
                             merged = true;
                             break;
                         }
                     }
                     if (!merged && lightCount < RayTracingPipeline::kMaxLights) {
                         RayTracingPipeline::Light& L = lights[lightCount++];
-                        L.posX      = float(px);
-                        L.posY      = float(py);
-                        L.posZ      = 0.15f;       /* slightly in front of sprite z=0.2 */
-                        L.radius    = 24.0f;       /* falloff radius in world units */
-                        L.r         = r;
-                        L.g         = g;
-                        L.b         = b;
-                        L.intensity = 3.0f;        /* HDR scale; tonemap brings down */
+                        L.posX = float(px);
+                        L.posY = float(py);
+                        L.posZ = 0.15f;   /* slightly in front of sprite z=0.2 */
+                        L.radius = 24.0f; /* falloff radius in world units */
+                        L.r = r;
+                        L.g = g;
+                        L.b = b;
+                        L.intensity = 3.0f; /* HDR scale; tonemap brings down */
                     }
                 }
             }
@@ -767,22 +750,18 @@ int main() {
 
         if (layers.quadCount() > 0) {
             rt.rebuildAS(cmd);
-            rt.dispatchRays(cmd,
-                            engine.swapchainWidth(), engine.swapchainHeight(),
-                            frameIdx, time);
+            rt.dispatchRays(cmd, engine.swapchainWidth(), engine.swapchainHeight(), frameIdx, time);
 
             /* Barrier: rgen-writes to accumImage + gNormal + gHitPos
              * must complete before the denoise compute shader reads
              * them.  storageImage is the eventual write target — both
              * shader types touch it via storage access. */
             VkMemoryBarrier toCompute{};
-            toCompute.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+            toCompute.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
             toCompute.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
             toCompute.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-            vkCmdPipelineBarrier(cmd,
-                VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                0, 1, &toCompute, 0, nullptr, 0, nullptr);
+            vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &toCompute, 0, nullptr, 0, nullptr);
 
             denoise.dispatch(cmd, engine.swapchainWidth(), engine.swapchainHeight());
         }
@@ -795,12 +774,18 @@ int main() {
     /* Tidy up GPU resources we created here. The Engine + RT + layer
      * destructors free everything they own. */
     vkDeviceWaitIdle(engine.device());
-    if (atlas.sampler)    vkDestroySampler(engine.device(), atlas.sampler, nullptr);
-    if (atlas.view)       vkDestroyImageView(engine.device(), atlas.view, nullptr);
-    if (atlas.image)      vkDestroyImage(engine.device(), atlas.image, nullptr);
-    if (atlas.memory)     vkFreeMemory(engine.device(), atlas.memory, nullptr);
-    if (atlas.stagingBuf) vkDestroyBuffer(engine.device(), atlas.stagingBuf, nullptr);
-    if (atlas.stagingMem) vkFreeMemory(engine.device(), atlas.stagingMem, nullptr);
+    if (atlas.sampler)
+        vkDestroySampler(engine.device(), atlas.sampler, nullptr);
+    if (atlas.view)
+        vkDestroyImageView(engine.device(), atlas.view, nullptr);
+    if (atlas.image)
+        vkDestroyImage(engine.device(), atlas.image, nullptr);
+    if (atlas.memory)
+        vkFreeMemory(engine.device(), atlas.memory, nullptr);
+    if (atlas.stagingBuf)
+        vkDestroyBuffer(engine.device(), atlas.stagingBuf, nullptr);
+    if (atlas.stagingMem)
+        vkFreeMemory(engine.device(), atlas.stagingMem, nullptr);
 
     return 0;
 }

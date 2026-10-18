@@ -66,13 +66,12 @@ bool PakBuilder::Write(const std::filesystem::path& outputPath, std::string* err
      * written second by the sweep; we mirror that here so pak and
      * loose modes agree. Stable sort makes ties (same path AND same
      * size) deterministic regardless of thread scheduling. */
-    std::stable_sort(entries.begin(), entries.end(),
-                     [](const StagedEntry& a, const StagedEntry& b) {
-                         if (a.path != b.path) {
-                             return a.path < b.path;
-                         }
-                         return a.data.size() > b.data.size();
-                     });
+    std::stable_sort(entries.begin(), entries.end(), [](const StagedEntry& a, const StagedEntry& b) {
+        if (a.path != b.path) {
+            return a.path < b.path;
+        }
+        return a.data.size() > b.data.size();
+    });
 
     auto last = std::unique(entries.begin(), entries.end(),
                             [](const StagedEntry& a, const StagedEntry& b) { return a.path == b.path; });
@@ -91,8 +90,7 @@ bool PakBuilder::Write(const std::filesystem::path& outputPath, std::string* err
      * portion lands on a fresh page (helps debuggers + makes it
      * possible to mprotect the blob read-only without affecting
      * the metadata pages). */
-    const uint64_t data_offset =
-        AlignUp(static_cast<uint64_t>(name_table_offset) + name_table_size, kDataAlignment);
+    const uint64_t data_offset = AlignUp(static_cast<uint64_t>(name_table_offset) + name_table_size, kDataAlignment);
 
     /* Compute per-entry data offsets (4-byte aligned within the blob). */
     std::vector<uint64_t> entry_offsets(entries.size());
