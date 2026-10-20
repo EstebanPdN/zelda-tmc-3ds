@@ -4,6 +4,7 @@
     ".gitattributes",
     ".github",
     ".gitignore",
+    "AI_DEVELOPMENT.md",
     "LICENSE",
     "README.md",
     "docs",
@@ -14,11 +15,13 @@
   ],
   "current_documents": [
     "README.md",
+    "AI_DEVELOPMENT.md",
     "docs/REPOSITORY.md",
     "docs/CONTRIBUTING.md"
   ],
   "required_paths": [
     "README.md",
+    "AI_DEVELOPMENT.md",
     "docs/REPOSITORY.md",
     "tools/scripts/check-repository.py",
     "xmake.lua",

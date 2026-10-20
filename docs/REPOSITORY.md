@@ -9,6 +9,7 @@ notices. Implementation, resources and supporting documents are grouped below.
 
 | Location | Responsibility |
 | --- | --- |
+| `AI_DEVELOPMENT.md` | The owner’s explanation of Codex use, development decisions, tests and community discussions. |
 | `src/engine/src, src/engine/include` | Shared C gameplay engine and declarations used by the native port. |
 | `src/engine/assets` | Symbolic metadata and generator inputs; no extracted game assets. |
 | `src/port` | Native engine bridges, ROM access, saves, software PPU and audio. |
