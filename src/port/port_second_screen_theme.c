@@ -1,5 +1,7 @@
 #include "port_second_screen_theme.h"
 
+#include "port_cyrillic_big.h"
+
 #include "port_rom.h"
 #include "region.h"
 #include "structures.h"
@@ -301,6 +303,9 @@ static uint32_t sMsgPal[16];
  * palette (sBigPal below). */
 static const u8* sBigFontGlyphs = NULL;
 static int sBigFontOk = 0;
+/* Cyrillic capitals the ROM face lacks, built in its format once bank 8 is
+ * known (see port_cyrillic_big.h); twins of Latin capitals use the ROM. */
+static u8 sCyrBigGlyphs[PORT_CYR_LETTER_COUNT][PORT_CYR_BIG_CELL_BYTES];
 static uint32_t sBigPal[SS_TEXT_STYLE_COUNT][16]; /* value -> RGBA, 0 = skip */
 
 /* Menu button: the composed SAVE plate, the sub-rect of it the plate itself
@@ -1087,6 +1092,13 @@ static void BuildMenuTheme(void) {
         sColors[SSC_BANNER_NAVY] = bank1[1];
         sBigFontGlyphs = (const u8*)gUnk_08109248[8];
         sBigFontOk = sBigFontGlyphs != NULL && !REGION_IS_JP;
+        if (sBigFontOk) {
+            PortCyrBigStyle cyrStyle;
+            PortCyr_MeasureStyle(sBigFontGlyphs + (size_t)'H' * 128u, &cyrStyle);
+            for (i = 0; i < PORT_CYR_LETTER_COUNT; i++) {
+                PortCyr_BuildBigGlyph(&cyrStyle, i, sCyrBigGlyphs[i]);
+            }
+        }
     }
 }
 
@@ -2039,6 +2051,23 @@ static const u8* BigGlyphData(char c) {
     return sBigFontGlyphs + (size_t)code * 128u;
 }
 
+/* UTF-8 code point -> stylized glyph: ASCII from the ROM bank, Russian
+ * capitals (either case) from the ROM's Latin twin or the generated cells,
+ * anything else as '?'. */
+static const u8* BigGlyphForCodepoint(uint32_t cp) {
+    int letter;
+    char twin;
+    if (cp < 0x80u) {
+        return BigGlyphData((char)cp);
+    }
+    letter = PortCyr_LetterIndex(cp);
+    if (letter == PORT_CYR_NONE) {
+        return BigGlyphData('?');
+    }
+    twin = PortCyr_LatinTwin(letter);
+    return twin ? BigGlyphData(twin) : sCyrBigGlyphs[letter];
+}
+
 #define BIG_SPACE_ADVANCE 8 /* the tokenizer's fixed word gap (case 0xc) */
 #define BIG_GLYPH_ROWS 16   /* stylized cell height; ink spans rows 1..15 */
 #define BIG_INK_ROWS 13     /* rows the body/shade roles actually cover */
@@ -2051,13 +2080,13 @@ int32_t Port_SecondScreenTheme_BigTextWidth(const char* str, int32_t scale) {
     if (scale < 1) {
         scale = 1;
     }
-    for (; *str; str++) {
-        if (*str == ' ') {
+    for (uint32_t cp = PortUtf8_Next(&str); cp != 0; cp = PortUtf8_Next(&str)) {
+        if (cp == ' ') {
             w += BIG_SPACE_ADVANCE;
             continue;
         }
         {
-            const u8* g = BigGlyphData(*str);
+            const u8* g = BigGlyphForCodepoint(cp);
             GlyphMetrics(g, &gs, &gw);
             adv = gw;
             GlyphMetrics(g + 64, &gs, &gw);
@@ -2084,14 +2113,14 @@ static int32_t DrawBigTextPal(uint32_t* pixels, int32_t bufW, int32_t bufH, int3
         scale = 1;
     }
 
-    for (; *str; str++) {
+    for (uint32_t cp = PortUtf8_Next(&str); cp != 0; cp = PortUtf8_Next(&str)) {
         const u8* glyph;
         int32_t cell, adv = 0;
-        if (*str == ' ') {
+        if (cp == ' ') {
             x += BIG_SPACE_ADVANCE * scale;
             continue;
         }
-        glyph = BigGlyphData(*str);
+        glyph = BigGlyphForCodepoint(cp);
         /* Two 8x16 cells drawn back to back at their own metric spans —
          * the exact double sub_0805F820 call of sub_0805F7DC. Zero-value
          * pixels are skipped (sub_080026F2's transparent merge), which is

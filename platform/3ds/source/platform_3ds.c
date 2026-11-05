@@ -5,6 +5,7 @@
 #include "port_audio_3ds.h"
 #include "port_second_screen_3ds.h"
 #include "port_second_screen_sync_3ds.h"
+#include "port_cyrillic.h"
 
 #include <3ds.h>
 #include <stdbool.h>
@@ -865,15 +866,42 @@ void Platform3DS_WaitForVBlank(void) {
         sPostWaitMaxTicks = postTicks;
 }
 
+#include "fatal_font_3ds.inc"
+
+/* UTF-8 -> the fatal console's 8-bit layout (see fatal_font_3ds.inc). */
+static void FatalConsoleText(const char* in, char* out, size_t outSize) {
+    size_t n = 0;
+    uint32_t cp;
+    if (outSize == 0)
+        return;
+    while (in && (cp = PortUtf8_Next(&in)) != 0 && n + 1 < outSize) {
+        if (cp < 0x80u) {
+            out[n++] = (char)cp;
+        } else {
+            int letter = PortCyr_LetterIndex(cp);
+            int small = (cp >= 0x0430u && cp <= 0x044Fu) || cp == 0x0451u;
+            out[n++] = letter == PORT_CYR_NONE ? '?' : (char)((small ? 0xA0 : 0x80) + letter);
+        }
+    }
+    out[n] = 0;
+}
+
 void Platform3DS_ShowFatal(const char* title, const char* message) {
     /* consoleInit(NULL) reuses libctru's current console.  Gameplay replaces
      * that current console with a framebuffer-less log sink, so explicitly
      * select the real bottom console returned by consoleInit before printing. */
+    static char fatalTitle[128], fatalMessage[1024];
+    ConsoleFont font = { (u8*)kFatalConsoleFont, 0, 256 };
     PrintConsole* fatalConsole = consoleInit(GFX_BOTTOM, NULL);
+    consoleSetFont(fatalConsole, &font);
     consoleSelect(fatalConsole);
     consoleDebugInit(debugDevice_CONSOLE);
     consoleClear();
-    printf("%s\n\n%s\n\nPress START to exit.\n", title ? title : "Error", message ? message : "");
+    FatalConsoleText(title ? title : "Ошибка", fatalTitle, sizeof(fatalTitle));
+    FatalConsoleText(message ? message : "", fatalMessage, sizeof(fatalMessage));
+    printf("%s\n\n%s\n\n", fatalTitle, fatalMessage);
+    FatalConsoleText("Нажмите START для выхода.", fatalTitle, sizeof(fatalTitle));
+    printf("%s\n", fatalTitle);
     while (aptMainLoop()) {
         hidScanInput();
         if (hidKeysDown() & KEY_START)

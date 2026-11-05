@@ -15,7 +15,7 @@
 int main(void) {
     static const char* const aspectNames[] = { "wide", "original", "stretch" };
     static const char* const displayNames[] = { "blur", "bilinear", "pixel-perfect" };
-    static const char* const displayLabels[] = { "BLUR", "BILINEAR", "PIXEL PERFECT" };
+    static const char* const displayLabels[] = { "РАЗМЫТЫЙ", "БИЛИНЕЙНЫЙ", "ПИКСЕЛЬНЫЙ" };
 
     CHECK(CONFIG_3DS_DEFAULT_ASPECT == PORT_3DS_ASPECT_STRETCH);
     CHECK(CONFIG_3DS_DEFAULT_DISPLAY == PORT_3DS_DISPLAY_BILINEAR);

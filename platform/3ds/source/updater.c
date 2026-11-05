@@ -121,7 +121,7 @@ static bool close_download(Transfer* t, bool fetched) {
     t->data = NULL;
     t->capacity = 0;
     if (t->io_error)
-        publish(UPDATE_ERROR, "SD CARD WRITE FAILED");
+        publish(UPDATE_ERROR, "ОШИБКА ЗАПИСИ НА SD");
     if (ok)
         progress(100);
     return ok;
@@ -329,7 +329,7 @@ static void run_job(void* arg) {
     ac_ready = true;
     u32 wifi = 0;
     if (R_FAILED(ACU_GetWifiStatus(&wifi)) || !wifi) {
-        publish(UPDATE_ERROR, "NO WI-FI CONNECTION");
+        publish(UPDATE_ERROR, "НЕТ ПОДКЛЮЧЕНИЯ WI-FI");
         goto done;
     }
     soc_buffer = memalign(4096, 1024 * 1024);
@@ -338,7 +338,7 @@ static void run_job(void* arg) {
     soc_ready = true;
     // The linked mbedTLS entropy callback needs the SSL service on both models.
     if (R_FAILED(sslcInit(0))) {
-        publish(UPDATE_ERROR, "TLS SERVICE FAILED");
+        publish(UPDATE_ERROR, "ОШИБКА СЛУЖБЫ TLS");
         goto done;
     }
     ssl_ready = true;
@@ -353,11 +353,11 @@ static void run_job(void* arg) {
         UpdateRelease candidate;
         int result = Update_ParseRelease(t.data, t.size, s.prerelease, homebrew, &candidate);
         if (result < 0) {
-            publish(UPDATE_ERROR, "INVALID RELEASE DATA");
+            publish(UPDATE_ERROR, "НЕВЕРНЫЕ ДАННЫЕ ВЕРСИИ");
             goto done;
         }
         if (!result) {
-            publish(UPDATE_EMPTY, "NO PRE-RELEASE AVAILABLE");
+            publish(UPDATE_EMPTY, "ПРЕДРЕЛИЗОВ НЕТ");
             ok = true;
             goto done;
         }
@@ -366,28 +366,28 @@ static void run_job(void* arg) {
         strcpy(status.version, release.version);
         LightLock_Unlock(&lock);
         bool newer = Update_IsNewer(release.version, TMC_PORT_VERSION);
-        publish(newer ? UPDATE_AVAILABLE : UPDATE_CURRENT, newer ? "UPDATE AVAILABLE" : "YOU ARE UP TO DATE");
+        publish(newer ? UPDATE_AVAILABLE : UPDATE_CURRENT, newer ? "ЕСТЬ ОБНОВЛЕНИЕ" : "УСТАНОВЛЕНА ПОСЛЕДНЯЯ ВЕРСИЯ");
         ok = true;
     } else {
         if (!Update_AllowedDownloadUrl(release.url) || !enough_space(release.size * 2ull + 16 * 1024 * 1024)) {
-            publish(UPDATE_ERROR, "NOT ENOUGH SD SPACE");
+            publish(UPDATE_ERROR, "МАЛО МЕСТА НА SD");
             goto done;
         }
         if (homebrew && !launch_file[0]) {
-            publish(UPDATE_ERROR, "3DSX LAUNCH PATH UNKNOWN");
+            publish(UPDATE_ERROR, "НЕИЗВЕСТЕН ПУТЬ К 3DSX");
             goto done;
         }
         t.expected = release.size;
         if (!open_download(&t)) {
-            publish(UPDATE_ERROR, "CANNOT WRITE TO SD CARD");
+            publish(UPDATE_ERROR, "НЕТ ЗАПИСИ НА SD-КАРТУ");
             goto done;
         }
         bool fetched = fetch(release.url, &t);
         if (!close_download(&t, fetched))
             goto done;
-        publish(UPDATE_VERIFYING, "VERIFYING DOWNLOAD");
+        publish(UPDATE_VERIFYING, "ПРОВЕРКА ФАЙЛА");
         if (!verify_file()) {
-            publish(UPDATE_ERROR, "DOWNLOAD CHECK FAILED");
+            publish(UPDATE_ERROR, "ФАЙЛ НЕ ПРОШЕЛ ПРОВЕРКУ");
             goto done;
         }
         if (cancelled() || !aptIsActive())
@@ -395,11 +395,11 @@ static void run_job(void* arg) {
         bool home_allowed = aptIsHomeAllowed(), sleep_allowed = aptIsSleepAllowed();
         aptSetHomeAllowed(false);
         aptSetSleepAllowed(false);
-        publish(UPDATE_INSTALLING, "INSTALLING UPDATE");
+        publish(UPDATE_INSTALLING, "УСТАНОВКА");
         ok = homebrew ? install_3dsx() : install_cia();
         aptSetSleepAllowed(sleep_allowed);
         aptSetHomeAllowed(home_allowed);
-        publish(ok ? UPDATE_DONE : UPDATE_ERROR, ok ? "UPDATE INSTALLED" : "INSTALLATION FAILED");
+        publish(ok ? UPDATE_DONE : UPDATE_ERROR, ok ? "ОБНОВЛЕНИЕ УСТАНОВЛЕНО" : "ОШИБКА УСТАНОВКИ");
     }
 done:
     if (t.file)
@@ -418,7 +418,7 @@ done:
         acExit();
     Updater_GetStatus(&s);
     if (!ok && s.state != UPDATE_ERROR)
-        publish(UPDATE_ERROR, cancelled() ? "UPDATE CANCELLED" : "CONNECTION FAILED - RETRY");
+        publish(UPDATE_ERROR, cancelled() ? "ОБНОВЛЕНИЕ ОТМЕНЕНО" : "ОШИБКА СВЯЗИ - ПОВТОРИТЕ");
     __atomic_store_n(&busy, false, __ATOMIC_RELEASE);
 }
 static void start(bool downloading) {
@@ -444,7 +444,7 @@ static void start(bool downloading) {
     __atomic_store_n(&cancel, false, __ATOMIC_RELEASE);
     __atomic_store_n(&busy, true, __ATOMIC_RELEASE);
     publish(downloading ? UPDATE_DOWNLOADING : UPDATE_CHECKING,
-            downloading ? "DOWNLOADING UPDATE" : "CHECKING FOR UPDATES");
+            downloading ? "ЗАГРУЗКА ОБНОВЛЕНИЯ" : "ПОИСК ОБНОВЛЕНИЙ");
     // Let the I/O worker run when data arrives even if rendering stays runnable.
     // Socket and SD waits yield to the menu; no HTTP work runs on its thread.
     s32 caller_priority = 0x30;
@@ -453,7 +453,7 @@ static void start(bool downloading) {
     worker = threadCreate(run_job, NULL, 96 * 1024, network_priority, 0, false);
     if (!worker) {
         __atomic_store_n(&busy, false, __ATOMIC_RELEASE);
-        publish(UPDATE_ERROR, "CANNOT START UPDATE");
+        publish(UPDATE_ERROR, "НЕ УДАЛОСЬ НАЧАТЬ");
     }
 }
 void Updater_Check(void) {
@@ -486,7 +486,7 @@ void Updater_SetChannel(bool pre) {
     }
     if (!saved) {
         remove(temp);
-        publish(UPDATE_ERROR, "CANNOT SAVE UPDATE CHANNEL");
+        publish(UPDATE_ERROR, "НЕ УДАЛОСЬ СОХРАНИТЬ КАНАЛ");
         return;
     }
     remove(backup);

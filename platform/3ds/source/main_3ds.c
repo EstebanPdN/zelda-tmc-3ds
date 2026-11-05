@@ -91,7 +91,7 @@ int main(int argc, char** argv) {
     printf("Extra New 3DS core: %s\n\n", Platform3DS_IsNew3DS() ? "enabled" : "unavailable");
     printf("Preparing storage...\n");
     if (!PrepareStorage()) {
-        Platform3DS_ShowFatal("Storage error", "Could not open " APP_DIR ".");
+        Platform3DS_ShowFatal("Ошибка карты памяти", "Не удалось открыть " APP_DIR ".");
         Platform3DS_Shutdown();
         return 1;
     }
@@ -102,26 +102,28 @@ int main(int argc, char** argv) {
         char message[512];
         if (romResult < 0) {
             snprintf(message, sizeof(message),
-                     "None of the .gba files in:\n%s\n"
-                     "is a supported USA (BZME) or Europe (BZMP) ROM.\n\n"
-                     "Expected SHA-1:\nUSA: b4bd50e4131b027c334547b4524e2dbbd4227130\n"
+                     "Ни один .gba файл в папке:\n%s\n"
+                     "не является поддерживаемым ROM\n"
+                     "USA (BZME) или Europe (BZMP).\n\n"
+                     "Ожидаемый SHA-1:\nUSA: b4bd50e4131b027c334547b4524e2dbbd4227130\n"
                      "Europe: cff199b36ff173fb6faf152653d1bccf87c26fb7",
                      APP_DIR);
         } else {
             snprintf(message, sizeof(message),
-                     "Copy your clean USA or Europe ROM to:\n%s\n\nAny .gba filename is accepted.\n\n"
-                     "Expected SHA-1:\nUSA: b4bd50e4131b027c334547b4524e2dbbd4227130\n"
+                     "Скопируйте чистый ROM (USA или Europe)\nв папку:\n%s\n\n"
+                     "Имя файла любое, расширение .gba.\n\n"
+                     "Ожидаемый SHA-1:\nUSA: b4bd50e4131b027c334547b4524e2dbbd4227130\n"
                      "Europe: cff199b36ff173fb6faf152653d1bccf87c26fb7",
                      APP_DIR);
         }
-        Platform3DS_ShowFatal(romResult < 0 ? "Unsupported ROM" : "ROM not found", message);
+        Platform3DS_ShowFatal(romResult < 0 ? "Неподдерживаемый ROM" : "ROM не найден", message);
         Platform3DS_Shutdown();
         return 1;
     }
 
     FILE* rom = fopen(romPath, "rb");
     if (!rom) {
-        Platform3DS_ShowFatal("ROM error", "Could not open the selected .gba file.");
+        Platform3DS_ShowFatal("Ошибка ROM", "Не удалось открыть выбранный .gba файл.");
         Platform3DS_Shutdown();
         return 1;
     }

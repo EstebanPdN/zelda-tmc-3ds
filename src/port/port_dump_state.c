@@ -333,19 +333,19 @@ PortDumpStateResult Port_DumpState_ReadLatest(const char* dumpsDirectory, int ac
 const char* Port_DumpState_ResultLabel(PortDumpStateResult result) {
     switch (result) {
         case PORT_DUMP_STATE_OK:
-            return "LOADED";
+            return "ЗАГРУЖЕН";
         case PORT_DUMP_STATE_OK_LEGACY:
-            return "LEGACY";
+            return "СТАРЫЙ";
         case PORT_DUMP_STATE_NO_DUMP:
-            return "NO DUMP";
+            return "НЕТ ДАМПА";
         case PORT_DUMP_STATE_NO_STATE:
-            return "NO STATE";
+            return "НЕТ ДАННЫХ";
         case PORT_DUMP_STATE_INVALID:
-            return "INVALID";
+            return "ПОВРЕЖДЕН";
         case PORT_DUMP_STATE_WRONG_REGION:
-            return "WRONG ROM";
+            return "ДРУГОЙ ROM";
         case PORT_DUMP_STATE_IO_ERROR:
-            return "I O ERROR";
+            return "ОШИБКА ВВОДА";
     }
-    return "ERROR";
+    return "ОШИБКА";
 }
