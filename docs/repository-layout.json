@@ -11,7 +11,8 @@
     "platform",
     "src",
     "tools",
-    "xmake.lua"
+    "xmake.lua",
+    "assets"
   ],
   "current_documents": [
     "README.md",

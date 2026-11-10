@@ -1,0 +1,11 @@
+{
+  "format": "FVID1",
+  "videos": [
+    {
+      "id": "minish/minish-woods",
+      "file": "minish-minish-woods.fvid",
+      "bytes": 7336244,
+      "sha256": "2e84479001100e2568e24903d0b2bf3d3da9a4dba15d7fa5a3364c858cd839ad"
+    }
+  ]
+}
