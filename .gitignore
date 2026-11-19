@@ -195,3 +195,10 @@ keystore.properties
 
 # Maintained repository organization check.
 !tools/scripts/check-repository.py
+
+# Local environment and private signing containers
+.env
+.env.*
+!.env.example
+*.p12
+*.pfx
